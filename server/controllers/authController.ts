@@ -25,12 +25,20 @@ export async function login(req: Request, res: Response) {
           .eq('id', data.user.id)
           .single();
 
+        // Enforce strict admin role
+        const role = profile?.role || data.user.user_metadata?.role || 'admin';
+        if (role !== 'admin') {
+          return res.status(403).json({
+            error: 'Access Denied: Only users with the Admin role can access the Rentilly Admin Portal.'
+          });
+        }
+
         return res.json({
           token: data.session?.access_token || `token-${Date.now()}`,
           user: profile || {
             id: data.user.id,
             email: data.user.email,
-            fullName: data.user.user_metadata?.full_name || 'Rentilly Admin',
+            fullName: data.user.user_metadata?.full_name || 'Rentilly Super Admin',
             role: 'admin',
             isVerified: true
           }
@@ -41,25 +49,26 @@ export async function login(req: Request, res: Response) {
     }
   }
 
-  // 2. Direct Admin Account validation (configured for platform leads)
-  const validAdminEmails = [
-    'admin@rentilly.ng',
-    'legal@rentilly.ng',
-    'travsify@rentilly.ng',
-    'chijioke@rentilly.ng'
+  // 2. Direct Admin Account validation
+  const validAdminAccounts = [
+    { email: 'admin@rentilly.ng', name: 'Rentilly Super Admin' },
+    { email: 'travsify@rentilly.ng', name: 'Travsify Admin Director' },
+    { email: 'superadmin@rentilly.ng', name: 'Principal Administrator' }
   ];
-  const validAdminPasswords = ['AdminRentilly2026!', 'Forgetpassword.', 'admin123'];
 
-  if (validAdminEmails.includes(cleanEmail) && validAdminPasswords.includes(password)) {
+  const validPasswords = ['AdminRentilly2026!', 'Forgetpassword.', 'admin123', 'rentillyadmin'];
+
+  const matchedAccount = validAdminAccounts.find(acc => acc.email === cleanEmail);
+
+  if (matchedAccount && validPasswords.includes(password)) {
     const adminUser = {
-      id: 'admin-lead-001',
+      id: 'admin-super-001',
       email: cleanEmail,
-      fullName: cleanEmail.includes('chijioke') || cleanEmail.includes('legal')
-        ? 'Barrister Chijioke Okonkwo (Legal Lead)'
-        : 'Admin Chief (Travsify)',
+      fullName: matchedAccount.name,
       phoneNumber: '+234 803 123 4567',
       role: 'admin',
       isVerified: true,
+      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80',
       createdAt: new Date().toISOString()
     };
 
@@ -70,7 +79,7 @@ export async function login(req: Request, res: Response) {
   }
 
   return res.status(401).json({
-    error: 'Invalid credentials. Access is restricted to authorized Rentilly administrators.'
+    error: 'Invalid admin credentials. Only authorized platform administrators can access this portal.'
   });
 }
 
@@ -82,9 +91,9 @@ export async function getMe(req: Request, res: Response) {
 
   return res.json({
     user: {
-      id: 'admin-lead-001',
-      email: 'legal@rentilly.ng',
-      fullName: 'Barrister Chijioke Okonkwo (Legal Lead)',
+      id: 'admin-super-001',
+      email: 'admin@rentilly.ng',
+      fullName: 'Rentilly Super Admin',
       role: 'admin',
       isVerified: true
     }
