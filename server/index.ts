@@ -462,20 +462,24 @@ app.post('/api/legal/generate-agreement', (req: Request, res: Response) => {
 });
 
 // ==========================================
-// 8. SERVE FRONTEND STATIC FILES & SPA FALLBACK
+// 8. SERVE FRONTEND STATIC FILES & SPA FALLBACK (EXPRESS 5 COMPLIANT)
 // ==========================================
 const distPath = path.join(process.cwd(), 'dist');
 if (fs.existsSync(distPath)) {
   app.use(express.static(distPath));
-  app.get('*', (req: Request, res: Response) => {
-    // If it's an API route that didn't match, return 404 JSON
+  // In Express 5, catch-all is routed without bare wildcard
+  app.use((req: Request, res: Response, next) => {
     if (req.path.startsWith('/api')) {
       return res.status(404).json({ error: `API route ${req.path} not found` });
     }
-    res.sendFile(path.join(distPath, 'index.html'));
+    const indexPath = path.join(distPath, 'index.html');
+    if (fs.existsSync(indexPath)) {
+      return res.sendFile(indexPath);
+    }
+    next();
   });
 } else {
-  // If dist is not yet built, serve a informative landing page
+  // If dist is not yet built, serve an informative landing page
   app.get('/', (_req: Request, res: Response) => {
     res.send(`
       <div style="font-family: system-ui, sans-serif; max-width: 600px; margin: 80px auto; padding: 32px; background: #0f172a; color: #f8fafc; border-radius: 16px; border: 1px solid #1e293b; text-align: center;">
