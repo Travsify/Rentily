@@ -11,10 +11,12 @@ import { EscrowTab } from './components/EscrowTab';
 import { LegalAgreementsTab } from './components/LegalAgreementsTab';
 import { SupabaseConfigTab } from './components/SupabaseConfigTab';
 import { FlutterApiDocsTab } from './components/FlutterApiDocsTab';
+import { AdminLoginPage } from './components/AdminLoginPage';
 import { RentillyApiService, checkServerHealth } from './services/api';
-import type { AdminTab, Property, KYPRecord, Inspection, Transaction, LegalAgreement } from './types';
+import type { AdminTab, Property, KYPRecord, Inspection, Transaction, LegalAgreement, UserProfile } from './types';
 
 export default function App() {
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [currentTab, setCurrentTab] = useState<AdminTab>('overview');
   
   // Data State
@@ -31,6 +33,15 @@ export default function App() {
   // Server & Supabase connection status
   const [serverStatus, setServerStatus] = useState({ connected: false, supabase: false });
   const [loading, setLoading] = useState(true);
+
+  // Check existing login session & server status on mount
+  useEffect(() => {
+    const existingUser = RentillyApiService.getCurrentUser();
+    if (existingUser) {
+      setCurrentUser(existingUser);
+    }
+    loadData();
+  }, []);
 
   // Load all initial data
   const loadData = async () => {
@@ -49,7 +60,7 @@ export default function App() {
       setTransactions(txns);
       setLegalAgreements(legals);
 
-      // Check health
+      // Check health against live Render / local API
       const health = await checkServerHealth();
       if (health) {
         setServerStatus({ connected: true, supabase: health.supabaseConnected });
@@ -61,11 +72,18 @@ export default function App() {
     }
   };
 
-  useEffect(() => {
+  // Auth Handlers
+  const handleLoginSuccess = (user: UserProfile) => {
+    setCurrentUser(user);
     loadData();
-  }, []);
+  };
 
-  // Handlers
+  const handleLogout = () => {
+    RentillyApiService.logout();
+    setCurrentUser(null);
+  };
+
+  // Property & Verification Handlers
   const handleSaveProperty = async (propertyData: any) => {
     await RentillyApiService.createProperty(propertyData);
     await loadData();
@@ -107,9 +125,14 @@ export default function App() {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-400 space-y-3">
         <div className="w-10 h-10 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin"></div>
-        <p className="text-sm font-medium">Initializing Rentilly Nigerian Real Estate Operations Desk...</p>
+        <p className="text-sm font-medium">Connecting to Rentilly Operations Hub...</p>
       </div>
     );
+  }
+
+  // If not logged in, render the Admin Login Page
+  if (!currentUser) {
+    return <AdminLoginPage onLoginSuccess={handleLoginSuccess} />;
   }
 
   return (
@@ -120,8 +143,10 @@ export default function App() {
         setCurrentTab={setCurrentTab}
         pendingKypCount={pendingKypCount}
         serverStatus={serverStatus}
+        currentUser={currentUser}
         onOpenAddProperty={() => setIsAddPropertyModalOpen(true)}
         onRefreshData={loadData}
+        onLogout={handleLogout}
       />
 
       {/* Main Layout */}

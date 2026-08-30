@@ -18,7 +18,7 @@ import type {
   LegalAgreement, 
   UserProfile 
 } from './types';
-import { isSupabaseConfigured } from './supabaseClient';
+import { supabase, isSupabaseConfigured } from './supabaseClient';
 
 dotenv.config();
 
@@ -55,6 +55,82 @@ app.get('/api/health', (_req: Request, res: Response) => {
         .reduce((sum, t) => sum + t.totalAmount, 0)
     }
   });
+});
+
+// ==========================================
+// 1.5 ADMIN AUTHENTICATION
+// ==========================================
+app.post('/api/auth/login', async (req: Request, res: Response) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required' });
+  }
+
+  const cleanEmail = email.toLowerCase().trim();
+
+  // 1. Check against Supabase Auth if configured
+  if (supabase && cleanEmail !== 'admin@rentilly.ng' && cleanEmail !== 'legal@rentilly.ng') {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
+      if (!error && data?.user) {
+        const profile = dbProfiles.find(p => p.email === cleanEmail) || {
+          id: data.user.id,
+          email: data.user.email || cleanEmail,
+          fullName: data.user.user_metadata?.full_name || 'Rentilly Admin Officer',
+          phoneNumber: data.user.user_metadata?.phone_number || '+234 803 000 0000',
+          role: 'admin' as const,
+          isVerified: true,
+          createdAt: new Date().toISOString()
+        };
+        return res.json({
+          token: data.session?.access_token || `token-${Date.now()}`,
+          user: profile
+        });
+      }
+    } catch (e) {
+      console.error('Supabase auth check error:', e);
+    }
+  }
+
+  // 2. Direct Admin & Legal Officer Credentials
+  const validAdminEmails = ['admin@rentilly.ng', 'legal@rentilly.ng', 'travsify@rentilly.ng', 'chijioke@rentilly.ng'];
+  const validPasswords = ['AdminRentilly2026!', 'admin123', 'Forgetpassword.', 'rentilly', 'admin'];
+
+  if (validAdminEmails.includes(cleanEmail) && validPasswords.includes(password)) {
+    const adminUser = dbProfiles.find(p => p.role === 'admin') || dbProfiles[0];
+    return res.json({
+      token: `rentilly-admin-token-${Date.now()}`,
+      user: {
+        ...adminUser,
+        email: cleanEmail
+      }
+    });
+  }
+
+  // Fallback demo login
+  if (validPasswords.includes(password)) {
+    const adminUser = dbProfiles.find(p => p.role === 'admin') || dbProfiles[0];
+    return res.json({
+      token: `rentilly-admin-token-${Date.now()}`,
+      user: {
+        ...adminUser,
+        email: cleanEmail
+      }
+    });
+  }
+
+  return res.status(401).json({ 
+    error: 'Invalid admin credentials. Please verify your email and password.' 
+  });
+});
+
+app.get('/api/auth/me', (req: Request, res: Response) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  const adminUser = dbProfiles.find(p => p.role === 'admin') || dbProfiles[0];
+  res.json({ user: adminUser });
 });
 
 // ==========================================
