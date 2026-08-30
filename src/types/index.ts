@@ -39,7 +39,7 @@ export interface Property {
   bedrooms: number;
   bathrooms: number;
   toilets: number;
-  furnishing: 'unfurnished' | 'semi-furnished' | 'fully-furnished';
+  furnishing: 'unfurnished' | 'semi_furnished' | 'fully_furnished';
   amenities: string[];
   images: string[];
   videoWalkthroughUrl?: string;
@@ -51,7 +51,15 @@ export interface Property {
   updatedAt: string;
 }
 
-export type TitleDocumentType = 'c_of_o' | 'governors_consent' | 'deed_of_assignment' | 'gazette_excision' | 'letter_of_administration';
+export type TitleDocumentType = 
+  | 'c_of_o' 
+  | 'governors_consent' 
+  | 'deed_of_assignment' 
+  | 'gazette' 
+  | 'survey_plan' 
+  | 'court_judgment'
+  | 'right_of_occupancy';
+
 export type KYPStatus = 'pending' | 'under_review' | 'approved' | 'rejected' | 'more_info_required';
 
 export interface KYPRecord {
@@ -156,6 +164,21 @@ export interface LegalAgreement {
   createdAt: string;
 }
 
+export interface FraudBlacklistEntry {
+  id: string;
+  fullName: string;
+  phoneNumber?: string;
+  bvn?: string;
+  nin?: string;
+  bankAccountNumber?: string;
+  bankName?: string;
+  flagReason: string;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  flaggedBy: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
 export type AdminTab = 
   | 'overview' 
   | 'kyp' 
@@ -163,5 +186,7 @@ export type AdminTab =
   | 'inspections' 
   | 'escrow' 
   | 'legal' 
+  | 'fraud_blacklist'
+  | 'integrations'
   | 'supabase_config'
   | 'flutter_api';

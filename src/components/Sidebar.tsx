@@ -8,7 +8,9 @@ import {
   FileText, 
   Database, 
   Smartphone,
-  TrendingDown
+  TrendingDown,
+  Key,
+  UserX
 } from 'lucide-react';
 import type { AdminTab } from '../types';
 
@@ -66,6 +68,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'Nigerian Legal Engine',
       icon: FileText,
       badge: '10% / 5%'
+    },
+    {
+      id: 'fraud_blacklist' as AdminTab,
+      label: 'Fraud & Rogue Blacklist',
+      icon: UserX,
+      badge: 'Anti-Scam'
+    },
+    {
+      id: 'integrations' as AdminTab,
+      label: 'Identitypass & Flutterwave',
+      icon: Key,
+      badge: 'Live APIs'
     },
     {
       id: 'supabase_config' as AdminTab,

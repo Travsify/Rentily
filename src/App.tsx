@@ -9,6 +9,8 @@ import { PropertyModal } from './components/PropertyModal';
 import { InspectionsTab } from './components/InspectionsTab';
 import { EscrowTab } from './components/EscrowTab';
 import { LegalAgreementsTab } from './components/LegalAgreementsTab';
+import { FraudBlacklistTab } from './components/FraudBlacklistTab';
+import { IntegrationsTab } from './components/IntegrationsTab';
 import { SupabaseConfigTab } from './components/SupabaseConfigTab';
 import { FlutterApiDocsTab } from './components/FlutterApiDocsTab';
 import { AdminLoginPage } from './components/AdminLoginPage';
@@ -161,7 +163,7 @@ export default function App() {
         />
 
         {/* Dynamic Content Viewport */}
-        <main className="flex-1 p-6 lg:p-8 overflow-y-auto max-h-[calc(100vh-65px)] bg-slate-950">
+        <main className="flex-1 p-5 lg:p-6 overflow-y-auto max-h-[calc(100vh-57px)] bg-slate-950">
           {currentTab === 'overview' && (
             <OverviewTab
               properties={properties}
@@ -208,6 +210,14 @@ export default function App() {
             <LegalAgreementsTab
               agreements={legalAgreements}
             />
+          )}
+
+          {currentTab === 'fraud_blacklist' && (
+            <FraudBlacklistTab />
+          )}
+
+          {currentTab === 'integrations' && (
+            <IntegrationsTab />
           )}
 
           {currentTab === 'supabase_config' && (
