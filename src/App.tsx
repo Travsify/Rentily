@@ -1,0 +1,212 @@
+import { useState, useEffect } from 'react';
+import { Navbar } from './components/Navbar';
+import { Sidebar } from './components/Sidebar';
+import { OverviewTab } from './components/OverviewTab';
+import { KYPVerificationTab } from './components/KYPVerificationTab';
+import { KYPModal } from './components/KYPModal';
+import { PropertiesTab } from './components/PropertiesTab';
+import { PropertyModal } from './components/PropertyModal';
+import { InspectionsTab } from './components/InspectionsTab';
+import { EscrowTab } from './components/EscrowTab';
+import { LegalAgreementsTab } from './components/LegalAgreementsTab';
+import { SupabaseConfigTab } from './components/SupabaseConfigTab';
+import { FlutterApiDocsTab } from './components/FlutterApiDocsTab';
+import { RentillyApiService, checkServerHealth } from './services/api';
+import type { AdminTab, Property, KYPRecord, Inspection, Transaction, LegalAgreement } from './types';
+
+export default function App() {
+  const [currentTab, setCurrentTab] = useState<AdminTab>('overview');
+  
+  // Data State
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [kypRecords, setKypRecords] = useState<KYPRecord[]>([]);
+  const [inspections, setInspections] = useState<Inspection[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [legalAgreements, setLegalAgreements] = useState<LegalAgreement[]>([]);
+  
+  // Modals
+  const [isAddPropertyModalOpen, setIsAddPropertyModalOpen] = useState(false);
+  const [selectedKYP, setSelectedKYP] = useState<KYPRecord | null>(null);
+
+  // Server & Supabase connection status
+  const [serverStatus, setServerStatus] = useState({ connected: false, supabase: false });
+  const [loading, setLoading] = useState(true);
+
+  // Load all initial data
+  const loadData = async () => {
+    try {
+      const [props, kyps, insps, txns, legals] = await Promise.all([
+        RentillyApiService.getProperties(),
+        RentillyApiService.getKYPRecords(),
+        RentillyApiService.getInspections(),
+        RentillyApiService.getTransactions(),
+        RentillyApiService.getLegalAgreements()
+      ]);
+
+      setProperties(props);
+      setKypRecords(kyps);
+      setInspections(insps);
+      setTransactions(txns);
+      setLegalAgreements(legals);
+
+      // Check health
+      const health = await checkServerHealth();
+      if (health) {
+        setServerStatus({ connected: true, supabase: health.supabaseConnected });
+      }
+    } catch (e) {
+      console.error('Failed loading Rentilly data', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  // Handlers
+  const handleSaveProperty = async (propertyData: any) => {
+    await RentillyApiService.createProperty(propertyData);
+    await loadData();
+    setCurrentTab('properties');
+  };
+
+  const handleReviewKYP = async (
+    kypId: string, 
+    status: 'approved' | 'rejected' | 'more_info_required',
+    notes?: string,
+    rejectionReason?: string
+  ) => {
+    await RentillyApiService.reviewKYP(kypId, status, notes, rejectionReason);
+    await loadData();
+  };
+
+  const handleBookInspection = async (data: any) => {
+    await RentillyApiService.bookInspection(data);
+    await loadData();
+  };
+
+  const handleUpdateInspectionStatus = async (id: string, status: Inspection['status'], notes?: string) => {
+    await RentillyApiService.updateInspectionStatus(id, status, notes);
+    await loadData();
+  };
+
+  const handleReleaseEscrowPayout = async (transactionId: string) => {
+    await RentillyApiService.releaseEscrowPayout(transactionId);
+    await loadData();
+  };
+
+  const pendingKypCount = kypRecords.filter(k => k.status === 'pending').length;
+  const activeInspectionsCount = inspections.filter(i => i.status === 'confirmed').length;
+  const escrowTotalAmount = transactions
+    .filter(t => t.escrowStatus === 'held_in_escrow')
+    .reduce((sum, t) => sum + t.totalAmount, 0);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-400 space-y-3">
+        <div className="w-10 h-10 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin"></div>
+        <p className="text-sm font-medium">Initializing Rentilly Nigerian Real Estate Operations Desk...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+      {/* Top Navigation */}
+      <Navbar
+        currentTab={currentTab}
+        setCurrentTab={setCurrentTab}
+        pendingKypCount={pendingKypCount}
+        serverStatus={serverStatus}
+        onOpenAddProperty={() => setIsAddPropertyModalOpen(true)}
+        onRefreshData={loadData}
+      />
+
+      {/* Main Layout */}
+      <div className="flex-1 flex">
+        {/* Sidebar */}
+        <Sidebar
+          currentTab={currentTab}
+          setCurrentTab={setCurrentTab}
+          pendingKypCount={pendingKypCount}
+          activeInspectionsCount={activeInspectionsCount}
+          escrowTotalAmount={escrowTotalAmount}
+        />
+
+        {/* Dynamic Content Viewport */}
+        <main className="flex-1 p-6 lg:p-8 overflow-y-auto max-h-[calc(100vh-65px)] bg-slate-950">
+          {currentTab === 'overview' && (
+            <OverviewTab
+              properties={properties}
+              kypRecords={kypRecords}
+              inspections={inspections}
+              transactions={transactions}
+              setCurrentTab={setCurrentTab}
+              onOpenKYPModal={(kyp) => setSelectedKYP(kyp)}
+            />
+          )}
+
+          {currentTab === 'kyp' && (
+            <KYPVerificationTab
+              kypRecords={kypRecords}
+              onOpenKYPModal={(kyp) => setSelectedKYP(kyp)}
+            />
+          )}
+
+          {currentTab === 'properties' && (
+            <PropertiesTab
+              properties={properties}
+              onOpenAddModal={() => setIsAddPropertyModalOpen(true)}
+              setCurrentTab={setCurrentTab}
+            />
+          )}
+
+          {currentTab === 'inspections' && (
+            <InspectionsTab
+              inspections={inspections}
+              properties={properties}
+              onBookInspection={handleBookInspection}
+              onUpdateStatus={handleUpdateInspectionStatus}
+            />
+          )}
+
+          {currentTab === 'escrow' && (
+            <EscrowTab
+              transactions={transactions}
+              onReleasePayout={handleReleaseEscrowPayout}
+            />
+          )}
+
+          {currentTab === 'legal' && (
+            <LegalAgreementsTab
+              agreements={legalAgreements}
+            />
+          )}
+
+          {currentTab === 'supabase_config' && (
+            <SupabaseConfigTab />
+          )}
+
+          {currentTab === 'flutter_api' && (
+            <FlutterApiDocsTab />
+          )}
+        </main>
+      </div>
+
+      {/* Modals */}
+      <PropertyModal
+        isOpen={isAddPropertyModalOpen}
+        onClose={() => setIsAddPropertyModalOpen(false)}
+        onSave={handleSaveProperty}
+      />
+
+      <KYPModal
+        kyp={selectedKYP}
+        onClose={() => setSelectedKYP(null)}
+        onReview={handleReviewKYP}
+      />
+    </div>
+  );
+}
