@@ -29,8 +29,15 @@ class VerificationService {
     final currentUser = await AuthService.getCurrentUser();
     final userId = currentUser?.id ?? 'usr_${DateTime.now().millisecondsSinceEpoch}';
     final email = currentUser?.email ?? 'user@rentilly.ng';
-    final fullName = currentUser?.fullName ?? 'Patrick Atua';
     final phone = currentUser?.phoneNumber ?? '08120000000';
+
+    // Resolve real name: NEVER use email prefix as name
+    String fullName = currentUser?.fullName ?? '';
+    if (fullName.isEmpty || fullName.contains('@') || fullName == fullName.toUpperCase() && fullName.length < 15) {
+      // Name is missing, is an email, or looks like an email prefix (all caps short string like "INFO")
+      // Try to get it from email domain context - but ultimately require real name
+      fullName = 'Rentilly User';
+    }
 
     // Step A: Attempt via Core Backend (if available)
     try {

@@ -102,7 +102,12 @@ export class FlutterwaveService {
     } catch (err: any) {
       return {
         status: false,
-  // 1b. Generate Dedicated Permanent Virtual Bank Account for Verified User (Patrick Atua, etc.)
+        message: `Flutterwave connection error: ${err.message}`
+      };
+    }
+  }
+
+  // 1b. Generate Dedicated Permanent Virtual Bank Account for Verified User
   static async createPermanentUserVirtualAccount(params: {
     userId: string;
     email: string;

@@ -170,7 +170,7 @@ class AuthService {
           final token = 'rentilly_sb_${DateTime.now().millisecondsSinceEpoch}';
           final userMap = {
             'id': user['id']?.toString() ?? 'usr_${DateTime.now().millisecondsSinceEpoch}',
-            'fullName': user['full_name'] ?? 'Patrick Atua',
+            'fullName': user['full_name'] ?? '',
             'email': user['email'] ?? cleanEmail,
             'phoneNumber': user['phone_number'] ?? '',
             'role': user['role'] ?? 'renter',

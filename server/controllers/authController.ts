@@ -159,20 +159,8 @@ export async function login(req: Request, res: Response) {
       });
     }
 
-    // 3. User login validation fallback (for initial mobile users before first sign up)
-    if (!isAdminLogin && (password.length >= 6 || password === 'Forgetpassword.')) {
-      const isOwner = cleanEmail.includes('owner') || cleanEmail.includes('landlord');
-      return res.json({
-        token: `user-token-${Date.now()}`,
-        user: {
-          id: `usr-${Date.now()}`,
-          email: cleanEmail,
-          fullName: cleanEmail.split('@')[0].toUpperCase(),
-          role: isOwner ? 'owner' : 'renter',
-          isVerified: false
-        }
-      });
-    }
+    // 3. No user found in Supabase - reject login and require registration
+    return res.status(401).json({ error: 'Account not found. Please sign up first to create your Rentilly account.' });
 
     return res.status(401).json({ error: 'Invalid email or password' });
   } catch (err: any) {
@@ -187,11 +175,41 @@ export async function getMe(req: Request, res: Response) {
     return res.status(401).json({ error: 'Unauthorized: Session token missing' });
   }
 
-  res.json({
-    id: 'usr-current',
-    email: 'user@rentilly.ng',
-    fullName: 'Verified Rentilly User',
-    role: 'renter',
-    isVerified: true
-  });
+  // Extract user ID from token format: rentilly_jwt_{userId}_{timestamp}
+  const token = authHeader.replace('Bearer ', '');
+  const parts = token.split('_');
+  // Try to find user ID in token (format: rentilly_jwt_UUID_timestamp or admin-token-timestamp)
+  let userId = '';
+  if (parts.length >= 3 && parts[0] === 'rentilly') {
+    // rentilly_jwt_UUID_timestamp or rentilly_sb_timestamp
+    userId = parts.slice(2, -1).join('_'); // Get UUID part
+  }
+
+  if (supabase && userId) {
+    try {
+      const { data: user } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (user) {
+        return res.json({
+          id: user.id,
+          email: user.email,
+          fullName: user.full_name,
+          phoneNumber: user.phone_number,
+          role: user.role,
+          isVerified: user.is_verified,
+          ninNumber: user.nin_number,
+          bvnVerified: user.bvn_verified,
+          accountNumber: user.account_number,
+          bankName: user.bank_name,
+          state: user.state,
+        });
+      }
+    } catch (_) {}
+  }
+
+  return res.status(404).json({ error: 'User session not found. Please log in again.' });
 }

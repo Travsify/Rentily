@@ -100,11 +100,19 @@ export async function verifyAndProvision(req: Request, res: Response) {
       console.warn('Prembly live call warning:', e);
     }
 
+    // Sanitize fullName: NEVER use email prefix or all-caps short strings
+    let cleanName = fullName || '';
+    if (!cleanName || cleanName.includes('@') || (cleanName === cleanName.toUpperCase() && cleanName.length < 15)) {
+      // Name is missing, is an email, or looks like email prefix (e.g. "INFO")
+      // Try to get it from Prembly verification result
+      cleanName = premblyResult?.data?.fullName || 'Rentilly User';
+    }
+
     // Step 2: Instant Flutterwave Dedicated NUBAN Virtual Account Generation
     const bankResult = await FlutterwaveService.createPermanentUserVirtualAccount({
       userId: userId || `usr_${Date.now()}`,
       email: email || 'user@rentilly.ng',
-      fullName: fullName || premblyResult.data?.fullName || 'Verified Rentilly User',
+      fullName: cleanName,
       bvn: idType === 'bvn' ? idNumber : undefined,
       phoneNumber: phoneNumber || premblyResult.data?.phone
     });
@@ -135,7 +143,7 @@ export async function verifyAndProvision(req: Request, res: Response) {
       bankName: bankName,
       user: {
         id: userId,
-        fullName: fullName,
+        fullName: cleanName,
         email: email,
         isVerified: true,
         accountNumber: accountNumber,
