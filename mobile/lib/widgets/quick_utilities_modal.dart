@@ -147,7 +147,7 @@ class QuickUtilitiesModal extends StatelessWidget {
                   onTap: () {
                     Navigator.of(context).pop();
                     Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const BillsScreen()),
+                      MaterialPageRoute(builder: (_) => BillsScreen(initialCategory: item['category'] as String)),
                     );
                   },
                   borderRadius: BorderRadius.circular(14),

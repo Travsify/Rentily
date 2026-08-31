@@ -1038,7 +1038,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _openBills(String category) {
     Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const BillsScreen()),
+      MaterialPageRoute(builder: (_) => BillsScreen(initialCategory: category)),
     );
   }
 
