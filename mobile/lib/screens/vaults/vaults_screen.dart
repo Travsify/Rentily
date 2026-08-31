@@ -36,19 +36,19 @@ class _VaultsScreenState extends State<VaultsScreen> {
       } catch (_) {}
     }
 
-    // Default target savings templates for new users
+    // Default target savings templates for new users with FGN T-Bill backed yields
     final defaultTemplates = [
       {
         'title': 'Annual Rent Stash 2027',
         'target': 4500000.0,
         'saved': 0.0,
-        'yieldRate': '11.5% p.a.',
+        'yieldRate': '15.5% p.a.',
       },
       {
-        'title': 'Service Charge & Utility Fund',
+        'title': 'Caution Deposit & Service Fund',
         'target': 600000.0,
         'saved': 0.0,
-        'yieldRate': '10.0% p.a.',
+        'yieldRate': '16.0% p.a.',
       }
     ];
 

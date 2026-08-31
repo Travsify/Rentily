@@ -9,6 +9,7 @@ import '../../constants/app_constants.dart';
 import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
 import '../../services/statement_pdf_service.dart';
+import '../vaults/vaults_screen.dart';
 import '../../widgets/rentilly_bottom_bar.dart';
 import '../../widgets/verification_modal.dart';
 import '../../widgets/withdrawal_modal.dart';
@@ -383,7 +384,11 @@ class _WalletScreenState extends State<WalletScreen> {
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: _buildActionButton(Icons.savings_rounded, 'Vault', () {}),
+                    child: _buildActionButton(Icons.savings_rounded, 'Vault', () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const VaultsScreen()),
+                      );
+                    }),
                   ),
                 ],
               ),
