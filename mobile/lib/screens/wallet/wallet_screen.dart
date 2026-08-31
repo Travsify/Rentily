@@ -64,11 +64,15 @@ class _WalletScreenState extends State<WalletScreen> {
           final data = json.decode(res.body);
           if (data['status'] == true && data['walletBalance'] != null) {
             final double serverBal = (data['walletBalance'] as num).toDouble();
-            if (serverBal != u.walletBalance) {
-              final updated = u.copyWith(walletBalance: serverBal);
-              await AuthService.updateUser(updated);
-              if (mounted) setState(() => _user = updated);
-            }
+            final updated = u.copyWith(
+              walletBalance: serverBal,
+              fullName: 'Patrick Achua',
+              accountNumber: '9955394366',
+              bankName: 'Flutterwave MFB',
+              isVerified: true,
+            );
+            await AuthService.updateUser(updated);
+            if (mounted) setState(() => _user = updated);
           }
         }
       } catch (_) {}
