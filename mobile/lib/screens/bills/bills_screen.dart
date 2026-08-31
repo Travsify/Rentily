@@ -71,9 +71,52 @@ class _BillsScreenState extends State<BillsScreen> {
     'Premium - ₦29,500',
   ];
 
-  // Broadband
+  // Broadband & Fiber
   String _selectedBroadband = 'Spectranet 4G LTE';
   final List<String> _broadbands = ['Spectranet 4G LTE', 'Smile 4G', 'Swift Networks', 'FiberOne Unlimited'];
+  String _selectedBroadbandPlan = 'Unlimited 30 Days (₦20,000)';
+  final List<String> _broadbandPlans = [
+    '25GB Night & Day (₦8,500)',
+    '50GB Monthly Mega (₦14,000)',
+    'Unlimited 30 Days (₦20,000)',
+    '100GB Ultra High-Speed (₦32,000)',
+  ];
+
+  // Water
+  String _selectedWaterProvider = 'Lagos Water Corporation (LWC)';
+  final List<String> _waterProviders = [
+    'Lagos Water Corporation (LWC)',
+    'FCT Water Board (Abuja)',
+    'Ogun State Water Corp',
+    'Rivers State Water Board',
+  ];
+
+  // Tolls
+  String _selectedTollProvider = 'LCC Lekki Toll Gate (e-Tag)';
+  final List<String> _tollProviders = [
+    'LCC Lekki Toll Gate (e-Tag)',
+    'Lekki-Ikoyi Link Bridge',
+    'Cowry Transit Card (Lagos Metro / BRT)',
+  ];
+
+  // Waste Management
+  String _selectedWasteProvider = 'LAWMA Residential Refuse';
+  final List<String> _wasteProviders = [
+    'LAWMA Residential Refuse',
+    'LAWMA Commercial Sanitation',
+    'Abuja Environmental Protection Board (AEPB)',
+  ];
+
+  final List<Map<String, dynamic>> _allServices = const [
+    {'key': 'electricity', 'label': 'Electricity', 'icon': Icons.bolt_rounded, 'color': AppColors.accentOrange},
+    {'key': 'data', 'label': 'Data Bundle', 'icon': Icons.wifi_rounded, 'color': Color(0xFF0284C7)},
+    {'key': 'airtime', 'label': 'Airtime VTU', 'icon': Icons.phone_android_rounded, 'color': AppColors.primary},
+    {'key': 'cable', 'label': 'Cable TV', 'icon': Icons.tv_rounded, 'color': Color(0xFF7C3AED)},
+    {'key': 'water', 'label': 'Water Bill', 'icon': Icons.water_drop_rounded, 'color': Color(0xFF0D9488)},
+    {'key': 'internet', 'label': 'Broadband', 'icon': Icons.router_rounded, 'color': Color(0xFFD97706)},
+    {'key': 'toll', 'label': 'Tolls/Transit', 'icon': Icons.directions_car_rounded, 'color': Color(0xFF4F46E5)},
+    {'key': 'waste', 'label': 'Waste Mgmt', 'icon': Icons.delete_outline_rounded, 'color': AppColors.primaryLight},
+  ];
 
   @override
   void initState() {
@@ -87,6 +130,29 @@ class _BillsScreenState extends State<BillsScreen> {
     _phoneController.dispose();
     _amountController.dispose();
     super.dispose();
+  }
+
+  String get _appBarTitle {
+    switch (_selectedCategory) {
+      case 'cable':
+        return 'Cable TV Subscription';
+      case 'electricity':
+        return 'Electricity Bill Payment';
+      case 'data':
+        return 'Mobile Data Bundles';
+      case 'airtime':
+        return 'Airtime VTU Recharge';
+      case 'water':
+        return 'Water Utilities Payment';
+      case 'internet':
+        return 'Broadband & Fiber Internet';
+      case 'toll':
+        return 'Tolls & Transit Card Top-up';
+      case 'waste':
+        return 'Waste Management Fees';
+      default:
+        return 'Bill & Utility Payment';
+    }
   }
 
   void _handlePayment() async {
@@ -136,7 +202,7 @@ class _BillsScreenState extends State<BillsScreen> {
           'category': _selectedCategory,
           'disco': _selectedDisco.split(' ')[0],
           'telco': _selectedTelco,
-          'plan': _selectedDataPlan,
+          'plan': _selectedCategory == 'data' ? _selectedDataPlan : _selectedBroadbandPlan,
           'meterNumber': customer.isNotEmpty ? customer : phone,
           'amount': double.tryParse(amount) ?? 2000,
         }),
@@ -153,7 +219,7 @@ class _BillsScreenState extends State<BillsScreen> {
         });
       } else {
         setState(() {
-          _successMessage = 'Transaction completed! Service activated on account.';
+          _successMessage = 'Transaction completed! Service successfully activated on account.';
         });
       }
     } catch (_) {
@@ -163,7 +229,7 @@ class _BillsScreenState extends State<BillsScreen> {
           _tokenOutput = _generateStandardToken();
           _successMessage = 'Electricity token generated successfully!';
         } else {
-          _successMessage = 'Transaction completed! Service activated on account.';
+          _successMessage = 'Transaction completed! Service successfully activated on account.';
         }
       });
     }
@@ -186,29 +252,6 @@ class _BillsScreenState extends State<BillsScreen> {
         behavior: SnackBarBehavior.floating,
       ),
     );
-  }
-
-  String get _appBarTitle {
-    switch (_selectedCategory) {
-      case 'cable':
-        return 'Cable TV Subscription';
-      case 'electricity':
-        return 'Electricity Bill Payment';
-      case 'data':
-        return 'Mobile Data Bundles';
-      case 'airtime':
-        return 'Airtime VTU Recharge';
-      case 'water':
-        return 'Water Utilities Payment';
-      case 'internet':
-        return 'Broadband & Fiber Internet';
-      case 'toll':
-        return 'Tolls & Transit Card Top-up';
-      case 'waste':
-        return 'Waste Management Fees';
-      default:
-        return 'Bill & Utility Payment';
-    }
   }
 
   @override
@@ -234,36 +277,105 @@ class _BillsScreenState extends State<BillsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Category Switcher
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _buildCategoryChip('electricity', 'Electricity', Icons.bolt_rounded),
-                    const SizedBox(width: 8),
-                    _buildCategoryChip('data', 'Data Bundles', Icons.wifi_rounded),
-                    const SizedBox(width: 8),
-                    _buildCategoryChip('airtime', 'Airtime VTU', Icons.phone_android_rounded),
-                    const SizedBox(width: 8),
-                    _buildCategoryChip('cable', 'Cable TV', Icons.tv_rounded),
-                    const SizedBox(width: 8),
-                    _buildCategoryChip('water', 'Water Utilities', Icons.water_drop_rounded),
-                    const SizedBox(width: 8),
-                    _buildCategoryChip('internet', 'Broadband Fiber', Icons.router_rounded),
-                    const SizedBox(width: 8),
-                    _buildCategoryChip('toll', 'Tolls & Transit', Icons.directions_car_rounded),
-                    const SizedBox(width: 8),
-                    _buildCategoryChip('waste', 'Waste Mgmt', Icons.delete_outline_rounded),
-                  ],
-                ),
+              // 1. Grid of All Utilities (Visible Across Every Screen!)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'ALL UTILITY SERVICES',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.1,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  Text(
+                    'Tap to switch',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 10),
 
-              // Banner
+              // 4x2 Responsive Grid
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 4,
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 8,
+                  childAspectRatio: 0.82,
+                ),
+                itemCount: _allServices.length,
+                itemBuilder: (context, idx) {
+                  final s = _allServices[idx];
+                  final isSelected = _selectedCategory == s['key'];
+                  final Color c = s['color'] as Color;
+
+                  return InkWell(
+                    onTap: () {
+                      setState(() {
+                        _selectedCategory = s['key'] as String;
+                        _tokenOutput = null;
+                        _successMessage = null;
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: isSelected ? c.withValues(alpha: 0.1) : Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: isSelected ? c : AppColors.borderDark,
+                          width: isSelected ? 1.8 : 1.0,
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(7),
+                            decoration: BoxDecoration(
+                              color: isSelected ? c : c.withValues(alpha: 0.12),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              s['icon'] as IconData,
+                              size: 18,
+                              color: isSelected ? Colors.white : c,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            s['label'] as String,
+                            textAlign: TextAlign.center,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 9.5,
+                              fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                              color: isSelected ? c : AppColors.textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 18),
+
+              // 2. Active Service Banner
               _buildServiceBanner(),
               const SizedBox(height: 16),
 
-              // Dynamic Form Card
+              // 3. Dynamic Form Card for Selected Utility
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
@@ -283,7 +395,7 @@ class _BillsScreenState extends State<BillsScreen> {
                     _buildDynamicFields(),
                     const SizedBox(height: 20),
 
-                    // Submit Action Button
+                    // Action Button
                     SizedBox(
                       width: double.infinity,
                       height: 48,
@@ -315,7 +427,7 @@ class _BillsScreenState extends State<BillsScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Success Result / Token Display
+              // 4. Token & Receipt Result
               if (_tokenOutput != null) ...[
                 Container(
                   padding: const EdgeInsets.all(18),
@@ -434,43 +546,6 @@ class _BillsScreenState extends State<BillsScreen> {
     );
   }
 
-  Widget _buildCategoryChip(String key, String label, IconData icon) {
-    final isSelected = _selectedCategory == key;
-    return InkWell(
-      onTap: () {
-        setState(() {
-          _selectedCategory = key;
-          _tokenOutput = null;
-          _successMessage = null;
-        });
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: isSelected ? AppColors.primary : AppColors.borderDark),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 15, color: isSelected ? Colors.white : AppColors.textSecondary),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                color: isSelected ? Colors.white : AppColors.textPrimary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildServiceBanner() {
     String title = 'Instant Delivery & Zero Convenience Fee';
     String sub = 'Automated fulfillment directly to your meter or device.';
@@ -492,6 +567,22 @@ class _BillsScreenState extends State<BillsScreen> {
       title = 'Cable TV Bouquet Renewal';
       sub = 'Instant reconnection for DSTV, GOTV, and Startimes decoders.';
       icon = Icons.tv_rounded;
+    } else if (_selectedCategory == 'internet') {
+      title = 'Broadband & Fiber Top-up';
+      sub = 'Instant high-speed internet renewal for Spectranet, Smile, FiberOne.';
+      icon = Icons.router_rounded;
+    } else if (_selectedCategory == 'water') {
+      title = 'Municipal Water Board Clearance';
+      sub = 'Direct water utility settlement for residential & commercial connections.';
+      icon = Icons.water_drop_rounded;
+    } else if (_selectedCategory == 'toll') {
+      title = 'Tolls & Expressway Transit';
+      sub = 'Instant balance reload for LCC Lekki Toll Gate and Cowry transit card.';
+      icon = Icons.directions_car_rounded;
+    } else if (_selectedCategory == 'waste') {
+      title = 'LAWMA Sanitation Fee Clearance';
+      sub = 'Official residential & commercial waste management settlement.';
+      icon = Icons.delete_outline_rounded;
     }
 
     return Container(
@@ -678,11 +769,11 @@ class _BillsScreenState extends State<BillsScreen> {
           ],
         );
 
-      default:
+      case 'internet':
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildLabel('SERVICE PROVIDER'),
+            _buildLabel('BROADBAND PROVIDER'),
             const SizedBox(height: 6),
             DropdownButtonFormField<String>(
               value: _selectedBroadband,
@@ -693,7 +784,134 @@ class _BillsScreenState extends State<BillsScreen> {
               onChanged: (v) => setState(() => _selectedBroadband = v!),
             ),
             const SizedBox(height: 14),
-            _buildLabel('CUSTOMER / ACCOUNT ID'),
+            _buildLabel('DATA SUBSCRIPTION PLAN'),
+            const SizedBox(height: 6),
+            DropdownButtonFormField<String>(
+              value: _selectedBroadbandPlan,
+              dropdownColor: Colors.white,
+              style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+              decoration: _buildInputDeco(),
+              items: _broadbandPlans.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+              onChanged: (v) => setState(() => _selectedBroadbandPlan = v!),
+            ),
+            const SizedBox(height: 14),
+            _buildLabel('CUSTOMER / MODEM ACCOUNT ID'),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _customerController,
+              style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+              decoration: _buildInputDeco(hint: 'e.g. SPEC-928192'),
+            ),
+          ],
+        );
+
+      case 'water':
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildLabel('WATER BOARD / CORPORATION'),
+            const SizedBox(height: 6),
+            DropdownButtonFormField<String>(
+              value: _selectedWaterProvider,
+              dropdownColor: Colors.white,
+              style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+              decoration: _buildInputDeco(),
+              items: _waterProviders.map((w) => DropdownMenuItem(value: w, child: Text(w))).toList(),
+              onChanged: (v) => setState(() => _selectedWaterProvider = v!),
+            ),
+            const SizedBox(height: 14),
+            _buildLabel('CONSUMER / PROPERTY ID'),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _customerController,
+              style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+              decoration: _buildInputDeco(hint: 'e.g. LWC-049281'),
+            ),
+            const SizedBox(height: 14),
+            _buildLabel('PAYMENT AMOUNT (₦)'),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _amountController,
+              keyboardType: TextInputType.number,
+              style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+              decoration: _buildInputDeco(hint: 'e.g. 10,000'),
+            ),
+          ],
+        );
+
+      case 'toll':
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildLabel('TOLL / TRANSIT OPERATOR'),
+            const SizedBox(height: 6),
+            DropdownButtonFormField<String>(
+              value: _selectedTollProvider,
+              dropdownColor: Colors.white,
+              style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+              decoration: _buildInputDeco(),
+              items: _tollProviders.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+              onChanged: (v) => setState(() => _selectedTollProvider = v!),
+            ),
+            const SizedBox(height: 14),
+            _buildLabel('e-TAG / COWRY CARD NUMBER'),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _customerController,
+              style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+              decoration: _buildInputDeco(hint: 'e.g. TAG-0829182'),
+            ),
+            const SizedBox(height: 14),
+            _buildLabel('TOP-UP AMOUNT (₦)'),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _amountController,
+              keyboardType: TextInputType.number,
+              style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+              decoration: _buildInputDeco(hint: 'e.g. 5,000'),
+            ),
+          ],
+        );
+
+      case 'waste':
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildLabel('WASTE MANAGEMENT AUTHORITY'),
+            const SizedBox(height: 6),
+            DropdownButtonFormField<String>(
+              value: _selectedWasteProvider,
+              dropdownColor: Colors.white,
+              style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+              decoration: _buildInputDeco(),
+              items: _wasteProviders.map((w) => DropdownMenuItem(value: w, child: Text(w))).toList(),
+              onChanged: (v) => setState(() => _selectedWasteProvider = v!),
+            ),
+            const SizedBox(height: 14),
+            _buildLabel('BUILDING / SANITATION ACCOUNT ID'),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _customerController,
+              style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+              decoration: _buildInputDeco(hint: 'e.g. LAW-829102'),
+            ),
+            const SizedBox(height: 14),
+            _buildLabel('FEE AMOUNT (₦)'),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _amountController,
+              keyboardType: TextInputType.number,
+              style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+              decoration: _buildInputDeco(hint: 'e.g. 4,500'),
+            ),
+          ],
+        );
+
+      default:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildLabel('ACCOUNT / CUSTOMER ID'),
             const SizedBox(height: 6),
             TextField(
               controller: _customerController,
@@ -724,6 +942,14 @@ class _BillsScreenState extends State<BillsScreen> {
         return 'Recharge Airtime Now';
       case 'cable':
         return 'Renew Cable TV Bouquet';
+      case 'internet':
+        return 'Renew Broadband Subscription';
+      case 'water':
+        return 'Pay Water Utility Bill';
+      case 'toll':
+        return 'Top-up Transit Card';
+      case 'waste':
+        return 'Pay Sanitation Fee';
       default:
         return 'Pay Utility Bill';
     }
