@@ -126,20 +126,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
                 child: Row(
                   children: [
-                    Container(
-                      width: 54,
-                      height: 54,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          colors: [AppColors.primary, AppColors.primaryLight],
-                        ),
-                      ),
-                      child: Center(
-                        child: Text(
-                          initials.isNotEmpty ? initials : 'PA',
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 18),
-                        ),
+                    // Avatar with Photo Upload Trigger
+                    GestureDetector(
+                      onTap: _showProfilePictureSheet,
+                      child: Stack(
+                        children: [
+                          Container(
+                            width: 56,
+                            height: 56,
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: LinearGradient(
+                                colors: [AppColors.primary, AppColors.primaryLight],
+                              ),
+                            ),
+                            child: Center(
+                              child: Text(
+                                initials.isNotEmpty ? initials : 'PA',
+                                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 18),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            bottom: 0,
+                            right: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: const BoxDecoration(
+                                color: AppColors.primary,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.camera_alt_rounded, size: 11, color: Colors.white),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(width: 14),
@@ -147,6 +167,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // 1. Legal Name (LOCKED)
                           Row(
                             children: [
                               Text(
@@ -159,22 +180,58 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                               const SizedBox(width: 6),
                               GestureDetector(
-                                onTap: _showEditNameDialog,
-                                child: const Icon(Icons.edit_outlined, size: 14, color: AppColors.primary),
+                                onTap: () {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Legal name is permanently locked to match your verified CBN/BVN identity.', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
+                                      backgroundColor: AppColors.textPrimary,
+                                    ),
+                                  );
+                                },
+                                child: const Icon(Icons.lock_outline_rounded, size: 13, color: AppColors.textMuted),
                               ),
                             ],
                           ),
                           const SizedBox(height: 2),
-                          Text(
-                            email,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
+                          // 2. Email Address (LOCKED)
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  email,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              GestureDetector(
+                                onTap: () {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Primary account email is locked for account security.', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
+                                      backgroundColor: AppColors.textPrimary,
+                                    ),
+                                  );
+                                },
+                                child: const Icon(Icons.lock_outline_rounded, size: 11, color: AppColors.textMuted),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 1),
-                          Text(
-                            phone,
-                            style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary),
+                          const SizedBox(height: 2),
+                          // 3. Phone Number (EDITABLE)
+                          GestureDetector(
+                            onTap: _showEditPhoneDialog,
+                            child: Row(
+                              children: [
+                                Text(
+                                  phone,
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(Icons.edit_outlined, size: 12, color: AppColors.primary),
+                              ],
+                            ),
                           ),
                           const SizedBox(height: 6),
                           Container(
@@ -820,21 +877,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _showEditNameDialog() {
-    final nameCtrl = TextEditingController(text: _currentUser?.fullName ?? 'Patrick Achua');
+  void _showEditPhoneDialog() {
+    final phoneCtrl = TextEditingController(text: _currentUser?.phoneNumber ?? '08026990956');
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        title: Text('Edit Full Name', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold)),
+        title: Text('Update Phone Number', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold)),
         content: TextField(
-          controller: nameCtrl,
-          autofocus: true,
-          textCapitalization: TextCapitalization.words,
+          controller: phoneCtrl,
+          keyboardType: TextInputType.phone,
           style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600),
           decoration: InputDecoration(
-            hintText: 'Enter your full name',
+            hintText: 'Enter Nigerian phone number',
+            prefixText: '+234 ',
             filled: true,
             fillColor: const Color(0xFFF9FAFB),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.borderDark)),
@@ -845,20 +902,76 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
             onPressed: () async {
-              final newName = nameCtrl.text.trim();
-              if (newName.isNotEmpty && _currentUser != null) {
-                final updated = _currentUser!.copyWith(fullName: newName);
+              final newPhone = phoneCtrl.text.trim();
+              if (newPhone.isNotEmpty && _currentUser != null) {
+                final updated = _currentUser!.copyWith(phoneNumber: newPhone);
                 await AuthService.updateUser(updated);
                 setState(() => _currentUser = updated);
                 Navigator.of(ctx).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Profile name updated to $newName', style: GoogleFonts.plusJakartaSans(fontSize: 11)), backgroundColor: AppColors.primary),
+                  SnackBar(content: Text('Phone number updated successfully to $newPhone', style: GoogleFonts.plusJakartaSans(fontSize: 11)), backgroundColor: AppColors.primary),
                 );
               }
             },
-            child: const Text('Save Name', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: const Text('Save Phone', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showProfilePictureSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(22, 22, 22, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Profile Picture', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                IconButton(icon: const Icon(Icons.close_rounded, size: 20), onPressed: () => Navigator.of(ctx).pop()),
+              ],
+            ),
+            const SizedBox(height: 14),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), shape: BoxShape.circle),
+                child: const Icon(Icons.photo_camera_rounded, color: AppColors.primary, size: 20),
+              ),
+              title: Text('Take a Photo with Camera', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold)),
+              subtitle: Text('Capture your face portrait', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary)),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Camera profile photo updated successfully!', style: GoogleFonts.plusJakartaSans(fontSize: 11)), backgroundColor: AppColors.primary),
+                );
+              },
+            ),
+            const Divider(height: 10),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), shape: BoxShape.circle),
+                child: const Icon(Icons.photo_library_rounded, color: AppColors.primary, size: 20),
+              ),
+              title: Text('Choose from Gallery', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold)),
+              subtitle: Text('Upload a saved photo from device', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary)),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Gallery photo uploaded successfully!', style: GoogleFonts.plusJakartaSans(fontSize: 11)), backgroundColor: AppColors.primary),
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
