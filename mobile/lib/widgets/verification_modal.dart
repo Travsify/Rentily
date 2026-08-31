@@ -26,16 +26,60 @@ class VerificationModal extends StatefulWidget {
 }
 
 class _VerificationModalState extends State<VerificationModal> {
-  String _selectedIdType = 'bvn'; // 'bvn' or 'nin'
+  String _selectedIdType = 'nin'; // 'nin', 'voters_card', 'drivers_license', 'passport'
   final TextEditingController _idController = TextEditingController();
+  final TextEditingController _bvnController = TextEditingController();
   final TextEditingController _dobController = TextEditingController(text: '14/08/1994');
   bool _isLoading = false;
   String? _errorMessage;
 
+  String get _idTypeLabel {
+    switch (_selectedIdType) {
+      case 'nin':
+        return 'NIN (National Identity)';
+      case 'voters_card':
+        return "Voter's Card (VIN)";
+      case 'drivers_license':
+        return "Driver's License (FRSC)";
+      case 'passport':
+        return 'International Passport';
+      default:
+        return 'Identity Document';
+    }
+  }
+
+  String get _idInputHint {
+    switch (_selectedIdType) {
+      case 'nin':
+        return 'Enter 11-digit NIN (e.g. 1092 8471 920)';
+      case 'voters_card':
+        return "Enter Voter's Identification Number (VIN)";
+      case 'drivers_license':
+        return "Enter Driver's License Number (e.g. AAA12345AA0)";
+      case 'passport':
+        return 'Enter Passport Number (e.g. A12345678)';
+      default:
+        return 'Enter ID Number';
+    }
+  }
+
   void _handleVerify() async {
     final idNum = _idController.text.trim();
-    if (idNum.isEmpty || idNum.length < 11) {
-      setState(() => _errorMessage = 'Please enter a valid 11-digit ${_selectedIdType.toUpperCase()}.');
+    final bvn = _bvnController.text.trim();
+    final dob = _dobController.text.trim();
+
+    if (idNum.isEmpty || idNum.length < 6) {
+      setState(() => _errorMessage = 'Please enter a valid $_idTypeLabel number.');
+      return;
+    }
+
+    if (bvn.isEmpty || bvn.length != 11) {
+      setState(() => _errorMessage = 'Please enter a valid 11-digit Bank Verification Number (BVN).');
+      return;
+    }
+
+    if (dob.isEmpty) {
+      setState(() => _errorMessage = 'Please select your Date of Birth.');
       return;
     }
 
@@ -47,7 +91,8 @@ class _VerificationModalState extends State<VerificationModal> {
     final res = await VerificationService.verifyAndProvision(
       idType: _selectedIdType,
       idNumber: idNum,
-      dob: _dobController.text.trim(),
+      bvn: bvn,
+      dob: dob,
     );
 
     setState(() => _isLoading = false);
@@ -62,7 +107,7 @@ class _VerificationModalState extends State<VerificationModal> {
       _showSuccessDialog(updatedUser);
     } else {
       setState(() {
-        _errorMessage = res['message'] ?? 'Verification could not be completed.';
+        _errorMessage = res['message'] ?? 'Verification could not be completed. Please check your BVN and ID details.';
       });
     }
   }
@@ -92,7 +137,7 @@ class _VerificationModalState extends State<VerificationModal> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Your dedicated virtual bank account is now issued and ready to receive funds.',
+                'Your dedicated virtual bank account is now active on the NIBSS switch and ready to receive funds.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
               ),
@@ -208,7 +253,7 @@ class _VerificationModalState extends State<VerificationModal> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Rentilly verifies your NIMC/NIBSS record and instantly issues your dedicated Living Escrow bank account.',
+              'Select your preferred ID, enter your BVN, and confirm your Date of Birth to activate your live dedicated bank account.',
               style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 16),
@@ -238,37 +283,77 @@ class _VerificationModalState extends State<VerificationModal> {
               const SizedBox(height: 12),
             ],
 
-            // Select ID Type (BVN or NIN)
-            Text('CHOOSE IDENTIFICATION TYPE', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+            // 1. Select Means of Identification (4 Options)
+            Text(
+              '1. CHOOSE MEANS OF IDENTIFICATION',
+              style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+            ),
             const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
-                  child: _buildTypeChip('bvn', 'BVN (Bank Verification)', Icons.account_balance_wallet_rounded),
+                  child: _buildTypeChip('nin', 'NIN', Icons.badge_rounded),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 Expanded(
-                  child: _buildTypeChip('nin', 'NIN (National Identity)', Icons.badge_rounded),
+                  child: _buildTypeChip('voters_card', "Voter's Card", Icons.how_to_vote_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildTypeChip('drivers_license', "Driver's License", Icons.drive_eta_rounded),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildTypeChip('passport', "Int'l Passport", Icons.flight_takeoff_rounded),
                 ),
               ],
             ),
             const SizedBox(height: 16),
 
-            // 11-Digit Number Input
+            // 2. ID Document Number Input
             Text(
-              'ENTER 11-DIGIT ${_selectedIdType.toUpperCase()}',
+              '2. ENTER ${_idTypeLabel.toUpperCase()} NUMBER',
               style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 6),
             TextField(
               controller: _idController,
+              keyboardType: _selectedIdType == 'nin' ? TextInputType.number : TextInputType.text,
+              maxLength: _selectedIdType == 'nin' ? 11 : 25,
+              textCapitalization: TextCapitalization.characters,
+              style: GoogleFonts.plusJakartaSans(fontSize: 13.5, color: AppColors.textPrimary, fontWeight: FontWeight.w700),
+              decoration: InputDecoration(
+                counterText: '',
+                hintText: _idInputHint,
+                hintStyle: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: AppColors.textMuted),
+                filled: true,
+                fillColor: const Color(0xFFF9FAFB),
+                prefixIcon: const Icon(Icons.assignment_ind_rounded, size: 18, color: AppColors.primary),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.borderDark)),
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // 3. Bank Verification Number (BVN) Input
+            Text(
+              '3. ENTER 11-DIGIT BANK VERIFICATION NUMBER (BVN)',
+              style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _bvnController,
               keyboardType: TextInputType.number,
               maxLength: 11,
               style: GoogleFonts.plusJakartaSans(fontSize: 14, color: AppColors.textPrimary, fontWeight: FontWeight.w700),
               decoration: InputDecoration(
                 counterText: '',
-                hintText: _selectedIdType == 'bvn' ? '2219 4820 183' : '1092 8471 920',
-                hintStyle: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textMuted),
+                hintText: 'Enter 11-digit BVN (e.g. 2219 4820 183)',
+                hintStyle: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: AppColors.textMuted),
                 filled: true,
                 fillColor: const Color(0xFFF9FAFB),
                 prefixIcon: const Icon(Icons.lock_outline_rounded, size: 18, color: AppColors.primary),
@@ -278,8 +363,11 @@ class _VerificationModalState extends State<VerificationModal> {
             ),
             const SizedBox(height: 14),
 
-            // Date of Birth (Interactive Calendar Picker)
-            Text('DATE OF BIRTH (TAP TO SELECT FROM CALENDAR)', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+            // 4. Date of Birth (Interactive Calendar Picker)
+            Text(
+              '4. CONFIRM DATE OF BIRTH (TAP CALENDAR)',
+              style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+            ),
             const SizedBox(height: 6),
             GestureDetector(
               onTap: () async {
@@ -324,16 +412,16 @@ class _VerificationModalState extends State<VerificationModal> {
                 ),
               ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
 
             // Security note
             Row(
               children: [
-                const Icon(Icons.lock, size: 12, color: AppColors.primaryLight),
+                const Icon(Icons.verified_user_outlined, size: 13, color: AppColors.primaryLight),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    '256-bit encrypted. We do not store your BVN or NIN; only verification tokens are retained.',
+                    'Bank-grade CBN compliance. Securely validated against NIMC, NIBSS & Flutterwave MFB.',
                     style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textMuted),
                   ),
                 ),
@@ -360,7 +448,7 @@ class _VerificationModalState extends State<VerificationModal> {
                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                       )
                     : Text(
-                        'Verify ID & Generate Bank Account',
+                        'Verify ID & Activate Dedicated Bank Account',
                         style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold),
                       ),
               ),
@@ -374,12 +462,17 @@ class _VerificationModalState extends State<VerificationModal> {
   Widget _buildTypeChip(String id, String label, IconData icon) {
     final isSelected = _selectedIdType == id;
     return GestureDetector(
-      onTap: () => setState(() => _selectedIdType = id),
+      onTap: () {
+        setState(() {
+          _selectedIdType = id;
+          _idController.clear();
+        });
+      },
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+        padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 8),
         decoration: BoxDecoration(
           color: isSelected ? AppColors.primary.withValues(alpha: 0.08) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: isSelected ? AppColors.primary : AppColors.borderDark,
             width: isSelected ? 1.5 : 1.0,
@@ -388,14 +481,18 @@ class _VerificationModalState extends State<VerificationModal> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 16, color: isSelected ? AppColors.primary : AppColors.textMuted),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 10,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                color: isSelected ? AppColors.primary : AppColors.textSecondary,
+            Icon(icon, size: 14, color: isSelected ? AppColors.primary : AppColors.textMuted),
+            const SizedBox(width: 5),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 10,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                  color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                ),
               ),
             ),
           ],

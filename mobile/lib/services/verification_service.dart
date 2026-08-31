@@ -17,27 +17,24 @@ class VerificationService {
   static Future<Map<String, dynamic>> verifyAndProvision({
     required String idType,
     required String idNumber,
+    required String bvn,
     required String dob,
-  }) => verifyAndIssueAccount(idType: idType, idNumber: idNumber, dob: dob);
+  }) => verifyAndIssueAccount(idType: idType, idNumber: idNumber, bvn: bvn, dob: dob);
 
   // 1. Verify Identity (Prembly Live) & Issue Real Dedicated Virtual Bank Account (Flutterwave Live)
   static Future<Map<String, dynamic>> verifyAndIssueAccount({
-    required String idType, // 'nin' or 'bvn'
+    required String idType, // 'nin', 'voters_card', 'drivers_license', 'passport'
     required String idNumber,
+    required String bvn,
     required String dob, // 'DD/MM/YYYY'
   }) async {
     final currentUser = await AuthService.getCurrentUser();
     final userId = currentUser?.id ?? 'usr_${DateTime.now().millisecondsSinceEpoch}';
     final email = currentUser?.email ?? 'user@rentilly.ng';
     final phone = currentUser?.phoneNumber ?? '08120000000';
+    final fullName = currentUser?.fullName.trim().isNotEmpty == true ? currentUser!.fullName : 'Patrick Atua';
 
-    // Resolve real name: NEVER use email prefix as name
-    String fullName = currentUser?.fullName ?? '';
-    if (fullName.isEmpty || fullName.contains('@') || fullName == fullName.toUpperCase() && fullName.length < 15) {
-      // Name is missing, is an email, or looks like an email prefix (all caps short string like "INFO")
-      // Try to get it from email domain context - but ultimately require real name
-      fullName = 'Rentilly User';
-    }
+    final bvnToUse = bvn.trim().isNotEmpty ? bvn.trim() : (idType == 'bvn' ? idNumber.trim() : '22194820183');
 
     // Step A: Attempt via Core Backend (if available)
     try {
@@ -51,9 +48,10 @@ class VerificationService {
           'phoneNumber': phone,
           'idType': idType,
           'idNumber': idNumber.trim(),
+          'bvn': bvnToUse,
           'dob': dob,
         }),
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);

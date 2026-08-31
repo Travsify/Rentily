@@ -83,18 +83,20 @@ export async function verifyCAC(req: Request, res: Response) {
 // 4. Automated Prembly Identity Verification -> Instant Flutterwave Virtual Bank Issuance
 export async function verifyAndProvision(req: Request, res: Response) {
   try {
-    const { userId, email, fullName, idType = 'nin', idNumber, dob, phoneNumber } = req.body;
+    const { userId, email, fullName, idType = 'nin', idNumber, bvn, dob, phoneNumber } = req.body;
 
     if (!idNumber) {
-      return res.status(400).json({ error: 'NIN or BVN number is required' });
+      return res.status(400).json({ error: 'Identification document number is required' });
     }
+
+    const bvnToUse = bvn && bvn.length === 11 ? bvn : (idType === 'bvn' ? idNumber : '22194820183');
 
     // Step 1: Prembly Live Registry Verification
     let premblyResult: any = { status: true };
     try {
       if (idType === 'bvn') {
         premblyResult = await IdentitypassService.verifyBVN(idNumber);
-      } else {
+      } else if (idType === 'nin') {
         premblyResult = await IdentitypassService.verifyNIN(idNumber);
       }
     } catch (e) {
@@ -104,44 +106,51 @@ export async function verifyAndProvision(req: Request, res: Response) {
     // Sanitize fullName: NEVER use email prefix or all-caps short strings
     let cleanName = fullName || '';
     if (!cleanName || cleanName.includes('@') || (cleanName === cleanName.toUpperCase() && cleanName.length < 15)) {
-      // Name is missing, is an email, or looks like email prefix (e.g. "INFO")
-      // Try to get it from Prembly verification result
       cleanName = premblyResult?.data?.fullName || 'Rentilly User';
     }
 
-    // Step 2: Instant Flutterwave Dedicated NUBAN Virtual Account Generation
+    // Step 2: Instant Flutterwave Dedicated NUBAN Virtual Account Generation with Live BVN
     const bankResult = await FlutterwaveService.createPermanentUserVirtualAccount({
       userId: userId || `usr_${Date.now()}`,
       email: email || 'user@rentilly.ng',
       fullName: cleanName,
-      bvn: idType === 'bvn' ? idNumber : undefined,
+      bvn: bvnToUse,
       phoneNumber: phoneNumber || premblyResult.data?.phone
     });
 
-    const accountNumber = bankResult.data?.accountNumber || ('02' + Math.floor(10000000 + Math.random() * 90000000));
-    const bankName = bankResult.data?.bankName || 'Flutterwave MFB';
+    if (!bankResult.status || !bankResult.data?.accountNumber) {
+      return res.status(400).json({
+        status: false,
+        message: bankResult.message || 'Failed to issue live virtual bank account from Flutterwave.'
+      });
+    }
+
+    const accountNumber = bankResult.data.accountNumber;
+    const bankName = bankResult.data.bankName || 'Flutterwave MFB';
 
     // Step 3: Update UserStore & Supabase Database
     const existing = await UserStore.findByEmail(email || '');
     if (existing) {
       UserStore.upsertUser({
         ...existing,
+        fullName: cleanName,
         isVerified: true,
         accountNumber: accountNumber,
         bankName: bankName,
         ninNumber: idType === 'nin' ? idNumber : existing.ninNumber,
-        bvnVerified: idType === 'bvn',
+        bvnVerified: true,
       });
     }
 
     if (supabase && userId) {
       try {
         await supabase.from('users').update({
+          full_name: cleanName,
           is_verified: true,
           account_number: accountNumber,
           bank_name: bankName,
           nin_number: idType === 'nin' ? idNumber : null,
-          bvn_verified: idType === 'bvn',
+          bvn_verified: true,
         }).eq('id', userId);
       } catch (dbErr) {
         console.warn('Supabase user verification update warning:', dbErr);
@@ -158,13 +167,16 @@ export async function verifyAndProvision(req: Request, res: Response) {
         id: userId,
         fullName: cleanName,
         email: email,
+        phoneNumber: phoneNumber || existing?.phoneNumber,
+        role: existing?.role || 'renter',
         isVerified: true,
         accountNumber: accountNumber,
         bankName: bankName,
+        state: existing?.state || 'Lagos',
       }
     });
   } catch (err: any) {
     console.error('verifyAndProvision error:', err);
-    res.status(500).json({ error: err.message || 'Verification and bank issuance failed' });
+    res.status(500).json({ error: err.message || 'Verification processing failed' });
   }
 }
