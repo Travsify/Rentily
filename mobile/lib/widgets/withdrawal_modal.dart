@@ -69,26 +69,25 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
 
     try {
       final url = Uri.parse('${AppConstants.apiBaseUrl}/payments/resolve-account?accountNumber=$accNum&bankCode=$_selectedBankCode');
-      final res = await http.get(url).timeout(const Duration(seconds: 12));
+      final res = await http.get(url).timeout(const Duration(seconds: 15));
       final data = json.decode(res.body);
 
       if (res.statusCode == 200 && data['status'] == true && data['data'] != null) {
-        setState(() {
-          _resolvedAccountName = data['data']['accountName'] ?? widget.user.fullName;
-          _isResolving = false;
-        });
-      } else {
-        setState(() {
-          _resolvedAccountName = widget.user.fullName; // Graceful fallback
-          _isResolving = false;
-        });
+        final resolved = data['data']['accountName'] ?? data['data']['account_name'];
+        if (resolved != null && resolved.toString().isNotEmpty) {
+          setState(() {
+            _resolvedAccountName = resolved.toString();
+            _isResolving = false;
+          });
+          return;
+        }
       }
-    } catch (_) {
-      setState(() {
-        _resolvedAccountName = widget.user.fullName; // Graceful fallback
-        _isResolving = false;
-      });
-    }
+    } catch (_) {}
+
+    setState(() {
+      _resolvedAccountName = widget.user.fullName;
+      _isResolving = false;
+    });
   }
 
   void _executeWithdrawal() async {
