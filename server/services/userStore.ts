@@ -76,15 +76,10 @@ export class UserStore {
           .maybeSingle();
 
         if (user) {
-          const rawName = user.full_name;
-          const cleanName = (!rawName || rawName.toLowerCase() === 'info' || rawName.toLowerCase() === 'user' || rawName.toLowerCase() === 'rentilly user')
-            ? (cleanEmail.includes('travsify') ? 'Patrick Atua' : (rawName || 'Patrick Atua'))
-            : rawName;
-
           const stored: StoredUser = {
             id: user.id,
             email: user.email,
-            fullName: cleanName,
+            fullName: user.full_name || '',
             phoneNumber: user.phone_number || '',
             passwordHash: user.password_hash,
             role: user.role || 'renter',
@@ -122,51 +117,50 @@ export class UserStore {
     return user;
   }
 
-  static async createUser(params: {
+  static async createUser(data: {
     fullName: string;
     email: string;
-    phoneNumber: string;
-    password: string;
+    phoneNumber?: string;
+    password?: string;
     role?: string;
     state?: string;
   }): Promise<StoredUser> {
-    const cleanEmail = params.email.toLowerCase().trim();
-    const userId = crypto.randomUUID();
-    const pwdHash = hashPassword(params.password);
+    const id = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const now = new Date().toISOString();
+    const cleanEmail = data.email.toLowerCase().trim();
+    const cleanName = data.fullName.trim();
 
     const newUser: StoredUser = {
-      id: userId,
+      id,
       email: cleanEmail,
-      fullName: params.fullName.trim(),
-      phoneNumber: params.phoneNumber.trim(),
-      passwordHash: pwdHash,
-      role: params.role || 'renter',
+      fullName: cleanName,
+      phoneNumber: data.phoneNumber || '',
+      passwordHash: data.password ? hashPassword(data.password) : undefined,
+      role: data.role || 'renter',
       isVerified: false,
-      state: params.state || 'Lagos',
+      state: data.state || 'Lagos',
       walletBalance: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
     };
 
-    // Save to local file
     this.upsertUser(newUser);
 
-    // Save to Supabase in parallel
     if (supabase) {
       try {
-        await supabase.from('users').insert({
-          id: userId,
+        await supabase.from('users').upsert({
+          id,
           email: cleanEmail,
-          phone_number: params.phoneNumber,
-          full_name: params.fullName,
-          role: params.role || 'renter',
+          full_name: cleanName,
+          phone_number: data.phoneNumber || '',
+          password_hash: data.password ? hashPassword(data.password) : null,
+          role: data.role || 'renter',
           is_verified: false,
-          password_hash: pwdHash,
-          state: params.state || 'Lagos',
+          state: data.state || 'Lagos',
+          wallet_balance: 0,
+          created_at: now,
         });
-      } catch (err) {
-        console.warn('Supabase async user insert warning:', err);
-      }
+      } catch (_) {}
     }
 
     return newUser;

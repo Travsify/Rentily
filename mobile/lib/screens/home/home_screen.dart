@@ -229,18 +229,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             // Verification Badge Pill
                             GestureDetector(
                               onTap: () {
-                                if (_user?.isVerified != true) {
-                                  VerificationModal.show(context, onSuccess: (updated) {
-                                    setState(() => _user = updated);
-                                  });
-                                } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('Identity & Living Escrow Account fully verified.', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
-                                      backgroundColor: AppColors.primary,
-                                    ),
-                                  );
-                                }
+                                VerificationModal.show(context, onSuccess: (updated) {
+                                  setState(() => _user = updated);
+                                });
                               },
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
