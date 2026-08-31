@@ -57,39 +57,42 @@ class VerificationService {
         final data = json.decode(response.body);
         if (data['status'] == true && data['accountNumber'] != null) {
           final accNum = data['accountNumber']?.toString() ?? '';
-          String rawBank = data['bankName']?.toString() ?? 'Flutterwave MFB';
-          if (rawBank.toLowerCase().contains('wema') || rawBank.toLowerCase().contains('providus')) {
-            rawBank = 'Flutterwave MFB';
+          // Only accept if it's a real NUBAN, not the old 02 fallback
+          if (accNum.isNotEmpty && !accNum.startsWith('02')) {
+            String rawBank = data['bankName']?.toString() ?? 'Flutterwave MFB';
+            if (rawBank.toLowerCase().contains('wema') || rawBank.toLowerCase().contains('providus')) {
+              rawBank = 'Flutterwave MFB';
+            }
+            final cleanBank = rawBank.contains('(') ? rawBank.split('(')[0].trim() : rawBank;
+
+            final updatedUser = (currentUser ?? UserProfile(
+              id: userId,
+              email: email,
+              fullName: fullName,
+              phoneNumber: phone,
+              role: 'renter',
+            )).copyWith(
+              isVerified: true,
+              bvnVerified: true,
+              ninNumber: idType == 'nin' ? idNumber : currentUser?.ninNumber,
+              accountNumber: accNum,
+              bankName: cleanBank,
+            );
+
+            await AuthService.updateUser(updatedUser);
+
+            return {
+              'success': true,
+              'accountNumber': accNum,
+              'bankName': cleanBank,
+              'user': updatedUser,
+              'message': 'Identity verified and dedicated account issued!',
+            };
           }
-          final cleanBank = rawBank.contains('(') ? rawBank.split('(')[0].trim() : rawBank;
-
-          final updatedUser = (currentUser ?? UserProfile(
-            id: userId,
-            email: email,
-            fullName: fullName,
-            phoneNumber: phone,
-            role: 'renter',
-          )).copyWith(
-            isVerified: true,
-            bvnVerified: idType == 'bvn',
-            ninNumber: idType == 'nin' ? idNumber : currentUser?.ninNumber,
-            accountNumber: accNum,
-            bankName: cleanBank,
-          );
-
-          await AuthService.updateUser(updatedUser);
-
-          return {
-            'success': true,
-            'accountNumber': accNum,
-            'bankName': cleanBank,
-            'user': updatedUser,
-            'message': 'Identity verified and dedicated account issued!',
-          };
         }
       }
     } catch (_) {
-      // Backend 404 or sleeping - seamlessly proceed to Direct Live APIs
+      // Backend sleeping - proceed to direct Flutterwave Live API
     }
 
     // Step B: Direct Live Call to Prembly (Identitypass Live Registry)
@@ -112,14 +115,13 @@ class VerificationService {
           'bvn': idNumber.trim(),
           'dob': dob,
         }),
-      ).timeout(const Duration(seconds: 20));
+      ).timeout(const Duration(seconds: 15));
 
       final premblyJson = json.decode(premblyRes.body);
 
       // Check if Prembly reported an explicit verification error
       if (premblyJson['status'] == false || premblyJson['verification_status'] == 'failed') {
         final msg = premblyJson['message'] ?? premblyJson['detail'] ?? 'Record not found with NIMC/NIBSS. Please check your number.';
-        // If testing with mock/unregistered test ID, only show if explicit error
         if (msg.toString().toLowerCase().contains('not found') || msg.toString().toLowerCase().contains('invalid')) {
           return {
             'success': false,
@@ -127,11 +129,9 @@ class VerificationService {
           };
         }
       }
-    } catch (_) {
-      // If Prembly network error, proceed directly to account issuance for authorized user
-    }
+    } catch (_) {}
 
-    // Step C: Direct Live Call to Flutterwave (Issue Dedicated Virtual Account)
+    // Step C: Direct Live Call to Flutterwave (Issue Real Dedicated Virtual NUBAN)
     try {
       final nameParts = fullName.trim().split(' ');
       final firstName = nameParts.first;
@@ -146,7 +146,7 @@ class VerificationService {
         body: json.encode({
           'email': email,
           'is_permanent': true,
-          'bvn': idType == 'bvn' ? idNumber.trim() : '22194820183',
+          'bvn': bvnToUse,
           'tx_ref': 'RENTILLY_ACC_${userId}_${DateTime.now().millisecondsSinceEpoch}',
           'phonenumber': phone,
           'firstname': firstName,
@@ -166,7 +166,6 @@ class VerificationService {
         final cleanBank = rawBank.contains('(') ? rawBank.split('(')[0].trim() : rawBank;
 
         if (realAccount != null && realAccount.isNotEmpty) {
-          // Update Supabase in background
           _syncSupabaseVerifiedAccount(userId, realAccount, cleanBank);
 
           final updatedUser = (currentUser ?? UserProfile(
@@ -193,39 +192,23 @@ class VerificationService {
             'message': 'Identity verified! Your Rentilly Living Escrow dedicated account has been provisioned.',
           };
         }
+      } else {
+        final errMsg = flwJson['message'] ?? 'Could not provision Flutterwave virtual account. Please check your BVN details.';
+        return {
+          'success': false,
+          'message': errMsg,
+        };
       }
-    } catch (_) {
-      // Flutterwave timeout
+    } catch (err) {
+      return {
+        'success': false,
+        'message': 'Network connection issue with Flutterwave. Please check your internet connection.',
+      };
     }
 
-    // Step D: Instant Virtual Bank Account Provisioning
-    final generatedNuban = '9399${(100000 + (DateTime.now().millisecondsSinceEpoch % 899999))}';
-    const assignedBank = 'Flutterwave MFB';
-
-    _syncSupabaseVerifiedAccount(userId, generatedNuban, assignedBank);
-
-    final updatedUser = (currentUser ?? UserProfile(
-      id: userId,
-      email: email,
-      fullName: fullName,
-      phoneNumber: phone,
-      role: 'renter',
-    )).copyWith(
-      isVerified: true,
-      bvnVerified: true,
-      ninNumber: idNumber,
-      accountNumber: generatedNuban,
-      bankName: assignedBank,
-    );
-
-    await AuthService.updateUser(updatedUser);
-
     return {
-      'success': true,
-      'accountNumber': generatedNuban,
-      'bankName': assignedBank,
-      'user': updatedUser,
-      'message': 'Identity verified! Dedicated Rentilly Escrow account is active.',
+      'success': false,
+      'message': 'Unable to provision virtual account at this time. Please try again.',
     };
   }
 
