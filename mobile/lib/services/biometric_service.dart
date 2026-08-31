@@ -15,14 +15,17 @@ class BiometricService {
     }
   }
 
+  // Alias
+  static Future<bool> isBiometricsAvailable() => isBiometricAvailable();
+
   // Authenticate user via fingerprint or face
-  static Future<bool> authenticate() async {
+  static Future<bool> authenticate({String? reason}) async {
     try {
       final available = await isBiometricAvailable();
       if (!available) return false;
 
       return await _auth.authenticate(
-        localizedReason: 'Scan your fingerprint or face to authenticate into Rentilly',
+        localizedReason: reason ?? 'Scan your fingerprint or face to authenticate into Rentilly',
         options: const AuthenticationOptions(
           stickyAuth: true,
           biometricOnly: true,

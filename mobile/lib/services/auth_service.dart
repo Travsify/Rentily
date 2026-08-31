@@ -16,6 +16,7 @@ class AuthService {
     required String phoneNumber,
     required String password,
     String role = 'renter',
+    String state = 'Lagos',
   }) async {
     final cleanEmail = email.trim().toLowerCase();
     final cleanPhone = phoneNumber.trim();
@@ -31,6 +32,7 @@ class AuthService {
           'phoneNumber': cleanPhone,
           'password': password,
           'role': role,
+          'state': state,
         }),
       ).timeout(const Duration(seconds: 15));
 
@@ -81,6 +83,7 @@ class AuthService {
           'phoneNumber': cleanPhone,
           'role': role,
           'isVerified': false,
+          'state': state,
         };
 
         await _saveSession(token, userMap);
@@ -104,6 +107,7 @@ class AuthService {
       'phoneNumber': cleanPhone,
       'role': role,
       'isVerified': false,
+      'state': state,
       'createdAt': DateTime.now().toIso8601String(),
     };
 

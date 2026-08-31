@@ -7,6 +7,7 @@ import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/rentilly_bottom_bar.dart';
 import '../../widgets/verification_modal.dart';
+import '../../widgets/withdrawal_modal.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
@@ -207,8 +208,10 @@ class _WalletScreenState extends State<WalletScreen> {
                                 ),
                                 Text(
                                   '$accNum • $bank',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                   style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 12,
+                                    fontSize: 11.5,
                                     fontWeight: FontWeight.w700,
                                     color: Colors.white,
                                   ),
@@ -308,12 +311,19 @@ class _WalletScreenState extends State<WalletScreen> {
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: _buildActionButton(Icons.north_east_rounded, 'Send Money', () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Transfers activate after account funding.', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
-                          backgroundColor: AppColors.primary,
-                        ),
+                    child: _buildActionButton(Icons.north_east_rounded, 'Withdraw', () {
+                      if (_user == null || !_user!.isVerified) {
+                        VerificationModal.show(context, onSuccess: (updated) {
+                          setState(() => _user = updated);
+                        });
+                        return;
+                      }
+                      WithdrawalModal.show(
+                        context,
+                        user: _user!,
+                        onWithdrawalSuccess: (newBal) {
+                          setState(() => _user = _user!.copyWith(walletBalance: newBal));
+                        },
                       );
                     }),
                   ),

@@ -135,7 +135,6 @@ class _VaultsScreenState extends State<VaultsScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
-      bottomNavigationBar: const RentillyBottomBar(currentIndex: 3),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),

@@ -11,6 +11,7 @@ class UserProfile {
   final double walletBalance;
   final String? accountNumber;
   final String? bankName;
+  final String? state;
 
   UserProfile({
     required this.id,
@@ -25,6 +26,7 @@ class UserProfile {
     this.walletBalance = 0.00,
     this.accountNumber,
     this.bankName,
+    this.state = 'Lagos',
   });
 
   // Extract real first name (e.g. "Patrick Atua" -> "Patrick")
@@ -49,6 +51,7 @@ class UserProfile {
       walletBalance: (json['walletBalance'] as num?)?.toDouble() ?? 0.00,
       accountNumber: json['accountNumber']?.toString(),
       bankName: json['bankName']?.toString(),
+      state: json['state']?.toString() ?? 'Lagos',
     );
   }
 
@@ -66,6 +69,39 @@ class UserProfile {
       'walletBalance': walletBalance,
       'accountNumber': accountNumber,
       'bankName': bankName,
+      'state': state,
     };
+  }
+
+  UserProfile copyWith({
+    String? id,
+    String? email,
+    String? fullName,
+    String? phoneNumber,
+    String? role,
+    bool? isVerified,
+    String? ninNumber,
+    bool? bvnVerified,
+    String? avatarUrl,
+    double? walletBalance,
+    String? accountNumber,
+    String? bankName,
+    String? state,
+  }) {
+    return UserProfile(
+      id: id ?? this.id,
+      email: email ?? this.email,
+      fullName: fullName ?? this.fullName,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
+      role: role ?? this.role,
+      isVerified: isVerified ?? this.isVerified,
+      ninNumber: ninNumber ?? this.ninNumber,
+      bvnVerified: bvnVerified ?? this.bvnVerified,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      walletBalance: walletBalance ?? this.walletBalance,
+      accountNumber: accountNumber ?? this.accountNumber,
+      bankName: bankName ?? this.bankName,
+      state: state ?? this.state,
+    );
   }
 }

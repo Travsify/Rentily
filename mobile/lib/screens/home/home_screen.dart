@@ -11,6 +11,9 @@ import '../bills/bills_screen.dart';
 import '../messages/messages_screen.dart';
 import '../main_navigation_screen.dart';
 import '../../widgets/verification_modal.dart';
+import '../../widgets/biometric_prompt_modal.dart';
+import '../../widgets/withdrawal_modal.dart';
+import '../../widgets/daily_quotes_card.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -72,13 +75,34 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadUser();
   }
 
+  String get _timeGreeting {
+    final hour = DateTime.now().hour;
+    if (hour >= 5 && hour < 12) {
+      return 'Good morning';
+    } else if (hour >= 12 && hour < 17) {
+      return 'Good afternoon';
+    } else if (hour >= 17 && hour < 21) {
+      return 'Good evening';
+    } else {
+      return 'Good night';
+    }
+  }
+
   void _loadUser() async {
     final u = await AuthService.getCurrentUser();
     if (mounted) {
       setState(() {
         _user = u;
         _isLoadingUser = false;
+        if (u?.state != null && u!.state!.isNotEmpty) {
+          _userLocation = '${u.state}, Nigeria';
+        }
       });
+      if (u?.isVerified == true) {
+        Future.delayed(const Duration(milliseconds: 600), () {
+          if (mounted) BiometricPromptModal.checkAndPrompt(context);
+        });
+      }
     }
   }
 
@@ -131,7 +155,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       Row(
                         children: [
                           Text(
-                            'Good day, $firstName',
+                            '$_timeGreeting, $firstName',
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 18,
                               fontWeight: FontWeight.w800,
@@ -152,7 +176,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               } else {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text('Identity & Bank Account fully verified via Prembly (NIMC/NIBSS).', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
+                                    content: Text('Identity & Living Escrow Account fully verified.', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
                                     backgroundColor: AppColors.primary,
                                   ),
                                 );
@@ -366,30 +390,50 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: 14),
 
-                      // Virtual Account Number (Real Data Only)
+                      // Virtual Account Number (Real Data Only - Never Spills)
                       if (accNum != null)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           decoration: BoxDecoration(
                             color: Colors.black.withValues(alpha: 0.25),
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
                           ),
                           child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                'NUBAN: $accNum • $bank',
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 10.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.white,
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      'DEDICATED NUBAN',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 7.5,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 0.8,
+                                        color: Colors.white.withValues(alpha: 0.7),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '$accNum • $bank',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
+                              const SizedBox(width: 8),
                               GestureDetector(
                                 onTap: _copyAccount,
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                                   decoration: BoxDecoration(
                                     color: AppColors.accentOrange,
                                     borderRadius: BorderRadius.circular(6),
@@ -415,25 +459,45 @@ class _HomeScreenState extends State<HomeScreen> {
                             });
                           },
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                             decoration: BoxDecoration(
                               color: Colors.black.withValues(alpha: 0.25),
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(12),
                               border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
                             ),
                             child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  'Account: Activate via BVN / NIN',
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 10.5,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white,
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        'VIRTUAL ACCOUNT',
+                                        style: GoogleFonts.plusJakartaSans(
+                                          fontSize: 7.5,
+                                          fontWeight: FontWeight.w800,
+                                          letterSpacing: 0.8,
+                                          color: Colors.white.withValues(alpha: 0.7),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Pending Verification',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.plusJakartaSans(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
+                                const SizedBox(width: 8),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                                   decoration: BoxDecoration(
                                     color: AppColors.accentOrange,
                                     borderRadius: BorderRadius.circular(6),
@@ -459,7 +523,19 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           _buildCardQuickAction(Icons.add_rounded, 'Add Money', _copyAccount),
                           _buildCardQuickAction(Icons.north_east_rounded, 'Transfer', () {
-                            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WalletScreen()));
+                            if (_user == null || !_user!.isVerified) {
+                              VerificationModal.show(context, onSuccess: (updated) {
+                                setState(() => _user = updated);
+                              });
+                              return;
+                            }
+                            WithdrawalModal.show(
+                              context,
+                              user: _user!,
+                              onWithdrawalSuccess: (newBal) {
+                                setState(() => _user = _user!.copyWith(walletBalance: newBal));
+                              },
+                            );
                           }),
                           _buildCardQuickAction(Icons.savings_rounded, 'Living Vault', () {
                             MainNavigationScreen.of(context)?.switchTab(3);
@@ -559,6 +635,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ],
               ),
+              const SizedBox(height: 18),
+
+              // Daily Motivational Quotes Carousel (Life, Habits, Marriage, Finance - 15s Auto-refresh)
+              const DailyQuotesCard(),
               const SizedBox(height: 22),
 
               // 4. Slidable Hero Banner Carousel
@@ -698,7 +778,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              _user?.isVerified == true ? 'Prembly Identity Verified' : 'Tier 1 Account (Unverified)',
+                              _user?.isVerified == true ? 'Rentilly Verified Account' : 'Tier 1 Account (Unverified)',
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,

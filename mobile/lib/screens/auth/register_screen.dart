@@ -20,6 +20,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true;
   bool _agreedToTerms = true;
   String _selectedRole = 'renter';
+  String _selectedState = 'Lagos';
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -55,6 +56,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       phoneNumber: phone.startsWith('0') ? '+234${phone.substring(1)}' : phone,
       password: password,
       role: _selectedRole,
+      state: _selectedState,
     );
 
     setState(() => _isLoading = false);
@@ -210,6 +212,38 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       keyboardType: TextInputType.phone,
                       style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
                       decoration: _buildInputDecoration('0812 345 6789', Icons.phone_android_rounded),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Primary State of Residence
+                    Text(
+                      'PRIMARY STATE OF RESIDENCE',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.9,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<String>(
+                      value: _selectedState,
+                      dropdownColor: Colors.white,
+                      style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: const Color(0xFFF9FAFB),
+                        prefixIcon: const Icon(Icons.location_city_rounded, size: 18, color: AppColors.primary),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.borderDark)),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.borderDark)),
+                      ),
+                      items: const [
+                        'Lagos', 'Abuja FCT', 'Rivers', 'Oyo', 'Ogun', 'Enugu', 'Kano', 'Delta', 'Edo', 'Anambra', 'Kaduna', 'Akwa Ibom', 'Kwara', 'Ondo', 'Plateau', 'Imo', 'Abia'
+                      ].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                      onChanged: (val) {
+                        if (val != null) setState(() => _selectedState = val);
+                      },
                     ),
                     const SizedBox(height: 14),
 

@@ -52,11 +52,16 @@ apiRouter.post('/verify/nin', verificationController.verifyNIN);
 apiRouter.post('/verify/bvn', verificationController.verifyBVN);
 apiRouter.post('/verify/cac', verificationController.verifyCAC);
 
-// 7. Flutterwave Virtual Bank Accounts & Escrow Transfers
+// 7. Flutterwave Virtual Bank Accounts & Utility Bills
 apiRouter.post('/payments/create-virtual-account', paymentController.createVirtualAccount);
-apiRouter.post('/payments/transfer-landlord', paymentController.transferToLandlord);
-apiRouter.get('/payments/banks', paymentController.getBanks);
+apiRouter.post('/bills/validate-meter', paymentController.validateDiscoMeter);
+apiRouter.post('/bills/purchase-electricity', paymentController.purchaseElectricityToken);
 apiRouter.post('/webhooks/flutterwave', paymentController.flutterwaveWebhook);
+
+// 8. Paystack Bank Settlements & Instant Withdrawals
+apiRouter.get('/payments/paystack-banks', paymentController.getPaystackBanks);
+apiRouter.get('/payments/resolve-account', paymentController.resolvePaystackAccount);
+apiRouter.post('/payments/withdraw-paystack', paymentController.withdrawWithPaystack);
 
 // 8. Fraud Blacklist & Rogue Agent Registry
 apiRouter.get('/fraud/blacklist', fraudController.getBlacklist);

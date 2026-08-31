@@ -70,7 +70,6 @@ class _PropertiesScreenState extends State<PropertiesScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
-      bottomNavigationBar: const RentillyBottomBar(currentIndex: 1),
       body: SafeArea(
         child: Column(
           children: [

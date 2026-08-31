@@ -183,7 +183,7 @@ class _VerificationModalState extends State<VerificationModal> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Identitypass verifies your NIMC/NIBSS record and instantly issues your dedicated Flutterwave bank account.',
+              'Rentilly verifies your NIMC/NIBSS record and instantly issues your dedicated Living Escrow bank account.',
               style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 16),
@@ -253,20 +253,50 @@ class _VerificationModalState extends State<VerificationModal> {
             ),
             const SizedBox(height: 14),
 
-            // Date of Birth
-            Text('DATE OF BIRTH', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+            // Date of Birth (Interactive Calendar Picker)
+            Text('DATE OF BIRTH (TAP TO SELECT FROM CALENDAR)', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
             const SizedBox(height: 6),
-            TextField(
-              controller: _dobController,
-              style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-              decoration: InputDecoration(
-                hintText: 'DD/MM/YYYY',
-                hintStyle: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textMuted),
-                filled: true,
-                fillColor: const Color(0xFFF9FAFB),
-                prefixIcon: const Icon(Icons.calendar_month_outlined, size: 18, color: AppColors.primary),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.borderDark)),
+            GestureDetector(
+              onTap: () async {
+                final DateTime? picked = await showDatePicker(
+                  context: context,
+                  initialDate: DateTime(1996, 1, 1),
+                  firstDate: DateTime(1940),
+                  lastDate: DateTime.now().subtract(const Duration(days: 365 * 16)),
+                  builder: (context, child) {
+                    return Theme(
+                      data: Theme.of(context).copyWith(
+                        colorScheme: const ColorScheme.light(
+                          primary: AppColors.primary,
+                          onPrimary: Colors.white,
+                          onSurface: AppColors.textPrimary,
+                        ),
+                      ),
+                      child: child!,
+                    );
+                  },
+                );
+                if (picked != null) {
+                  final formatted = '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
+                  setState(() => _dobController.text = formatted);
+                }
+              },
+              child: AbsorbPointer(
+                child: TextField(
+                  controller: _dobController,
+                  readOnly: true,
+                  style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+                  decoration: InputDecoration(
+                    hintText: 'DD/MM/YYYY (Tap to select date)',
+                    hintStyle: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textMuted),
+                    filled: true,
+                    fillColor: const Color(0xFFF9FAFB),
+                    prefixIcon: const Icon(Icons.calendar_month_rounded, size: 18, color: AppColors.primary),
+                    suffixIcon: const Icon(Icons.calendar_today_rounded, size: 16, color: AppColors.primary),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.borderDark)),
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 18),
