@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../constants/app_colors.dart';
 import 'home/home_screen.dart';
-import 'search/search_screen.dart';
+import 'properties/properties_screen.dart';
 import 'inspections/inspections_screen.dart';
-import 'messages/messages_screen.dart';
+import 'vaults/vaults_screen.dart';
 import 'profile/profile_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
@@ -19,9 +19,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   final List<Widget> _screens = const [
     HomeScreen(),
-    SearchScreen(),
+    PropertiesScreen(initialPurpose: 'rent'),
     InspectionsScreen(),
-    MessagesScreen(),
+    VaultsScreen(),
     ProfileScreen(),
   ];
 
@@ -38,7 +38,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           color: AppColors.surfaceDark,
           border: Border(
             top: BorderSide(
-              color: AppColors.borderDark.withOpacity(0.5),
+              color: AppColors.borderDark.withValues(alpha: 0.5),
               width: 1,
             ),
           ),
@@ -68,12 +68,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 BottomNavigationBarItem(
                   icon: Icon(Icons.home_outlined, size: 22),
                   activeIcon: Icon(Icons.home_rounded, size: 22),
-                  label: 'Explore',
+                  label: 'Home',
                 ),
                 BottomNavigationBarItem(
-                  icon: Icon(Icons.search_rounded, size: 22),
-                  activeIcon: Icon(Icons.search_rounded, size: 24),
-                  label: 'Search',
+                  icon: Icon(Icons.apartment_outlined, size: 22),
+                  activeIcon: Icon(Icons.apartment_rounded, size: 22),
+                  label: 'Properties',
                 ),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.calendar_today_outlined, size: 20),
@@ -81,9 +81,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                   label: 'Inspections',
                 ),
                 BottomNavigationBarItem(
-                  icon: Icon(Icons.chat_bubble_outline_rounded, size: 20),
-                  activeIcon: Icon(Icons.chat_bubble_rounded, size: 20),
-                  label: 'Messages',
+                  icon: Icon(Icons.savings_outlined, size: 22),
+                  activeIcon: Icon(Icons.savings_rounded, size: 22),
+                  label: 'Vaults',
                 ),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.person_outline_rounded, size: 22),

@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../constants/app_colors.dart';
-import '../../models/property.dart';
-import '../../services/api_service.dart';
-import 'property_detail_screen.dart';
+import '../wallet/wallet_screen.dart';
+import '../properties/properties_screen.dart';
+import '../my_spaces/my_spaces_screen.dart';
+import '../bills/bills_screen.dart';
+import '../vaults/vaults_screen.dart';
+import '../messages/messages_screen.dart';
+import '../inspections/inspections_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -14,12 +19,13 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  String _selectedPurpose = 'all'; // 'all', 'rent', 'sale'
-  String _selectedLocation = 'Lekki Phase 1, Lagos';
-  List<Property> _properties = [];
-  bool _isLoading = true;
-  final NumberFormat _currencyFormat = NumberFormat('#,###', 'en_US');
+  final NumberFormat _currencyFormat = NumberFormat('#,###.00', 'en_US');
+  bool _hideBalance = false;
+  final double _balance = 2450000.00;
+  final String _accountNumber = '9948291038';
+  final String _bankName = 'Wema Bank';
 
+  String _userLocation = 'Lekki Phase 1, Lagos';
   final List<String> _locations = [
     'Lekki Phase 1, Lagos',
     'Old Ikoyi, Lagos',
@@ -27,55 +33,54 @@ class _HomeScreenState extends State<HomeScreen> {
     'Ikeja GRA, Lagos',
     'Maitama, Abuja (FCT)',
     'Wuse 2, Abuja (FCT)',
-    'Jabi, Abuja (FCT)',
+    'Port Harcourt, Rivers',
+    'Ibadan, Oyo',
+    'Enugu State',
+    'Asaba, Delta',
+    'Benin City, Edo',
+    'Kano State',
   ];
 
-  final List<Map<String, dynamic>> _directLandlords = [
+  final PageController _bannerController = PageController();
+  int _currentBanner = 0;
+
+  final List<Map<String, dynamic>> _heroBanners = [
     {
-      'name': 'Chief Falana',
-      'location': 'Ikoyi / Lekki',
-      'verified': true,
-      'deals': '12 Leased',
-      'image': 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80',
+      'tag': 'ANTI-AGENT DISRUPTION',
+      'title': 'Zero 20% Agent Fees Guaranteed',
+      'description': 'Connect directly with verified property owners. Save an average of ₦850,000 on your next home.',
+      'icon': Icons.shield_rounded,
+      'color': Color(0xFF10B981),
     },
     {
-      'name': 'Dr. Somto Eze',
-      'location': 'Maitama, Abuja',
-      'verified': true,
-      'deals': '5 Sold',
-      'image': 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
+      'tag': 'LIVING VAULTS',
+      'title': 'Earn 11.5% Yield on Your Rent Savings',
+      'description': 'Set aside 10% on every payment towards your next annual rent renewal with inflation protection.',
+      'icon': Icons.trending_up_rounded,
+      'color': Color(0xFFF59E0B),
     },
     {
-      'name': 'Mrs. Folashade',
-      'location': 'Victoria Island',
-      'verified': true,
-      'deals': '8 Leased',
-      'image': 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-    },
-    {
-      'name': 'Barr. Alabi',
-      'location': 'Ikeja GRA',
-      'verified': true,
-      'deals': '4 Leased',
-      'image': 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=200&q=80',
+      'tag': 'DISCO AUTOPILOT',
+      'title': 'Never Sit in Darkness Again',
+      'description': 'Automated electricity token top-ups for EKEDC, IKEDC, AEDC, IBEDC, and PHED meters.',
+      'icon': Icons.bolt_rounded,
+      'color': Color(0xFF3B82F6),
     },
   ];
 
-  @override
-  void initState() {
-    super.initState();
-    _loadProperties();
-  }
-
-  void _loadProperties() async {
-    setState(() => _isLoading = true);
-    final props = await ApiService.asyncFetchProperties(
-      purpose: _selectedPurpose == 'all' ? null : _selectedPurpose,
+  void _copyAccount() {
+    Clipboard.setData(ClipboardData(text: _accountNumber));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Account Number Copied! Send funds from any Nigerian banking app.',
+          style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w600),
+        ),
+        backgroundColor: AppColors.primaryLight,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ),
     );
-    setState(() {
-      _properties = props;
-      _isLoading = false;
-    });
   }
 
   @override
@@ -83,306 +88,522 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
       body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: () async => _loadProperties(),
-          color: AppColors.primaryLight,
-          backgroundColor: AppColors.surfaceDark,
-          child: CustomScrollView(
-            physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
-            slivers: [
-              // 1. Top App Bar with Location Selector
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 12, 18, 12),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 1. Top Bar: Greeting & Action Icons (Clean & Uncluttered)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Greeting & Location
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Location Dropdown
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.location_on_rounded, size: 14, color: AppColors.primaryLight),
-                              const SizedBox(width: 4),
-                              Text(
-                                'CURRENT REGION',
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.1,
-                                  color: AppColors.textMuted,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: _selectedLocation,
-                              dropdownColor: AppColors.surfaceDark,
-                              icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: Colors.white),
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
-                              ),
-                              items: _locations.map((loc) {
-                                return DropdownMenuItem(value: loc, child: Text(loc));
-                              }).toList(),
-                              onChanged: (val) {
-                                if (val != null) {
-                                  setState(() => _selectedLocation = val);
-                                }
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      // Notification Bell with Badge
-                      Container(
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceDark,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: AppColors.borderDark.withOpacity(0.6)),
-                        ),
-                        child: IconButton(
-                          icon: const Icon(Icons.notifications_none_rounded, size: 20, color: Colors.white),
-                          onPressed: () {},
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // 2. Anti-Agent Live Savings Ticker Banner
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          AppColors.primaryLight.withOpacity(0.18),
-                          AppColors.surfaceDark,
-                        ],
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                      ),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppColors.primaryLight.withOpacity(0.3)),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryLight.withOpacity(0.2),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(Icons.shield_outlined, size: 16, color: AppColors.primaryLight),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '₦48,500,000+ SAVED FROM AGENT COMMISSIONS',
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w800,
-                                  color: AppColors.primaryLight,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                              Text(
-                                'Direct landlords receive 100% rent. Flat 10% legal fee for tenants.',
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 10,
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
-              // 3. Rent vs Buy Purpose Toggle Switcher
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 8),
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceDark,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: AppColors.borderDark.withOpacity(0.5)),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: _buildPurposeButton('all', 'All Listings'),
-                        ),
-                        Expanded(
-                          child: _buildPurposeButton('rent', 'For Rent (10% Legal)'),
-                        ),
-                        Expanded(
-                          child: _buildPurposeButton('sale', 'For Sale (5% Escrow)'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
-              // 4. "Direct Verified Landlords" Stories Horizontal Carousel
-              SliverToBoxAdapter(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(18, 16, 18, 10),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      Row(
                         children: [
                           Text(
-                            'Verified Direct Owners',
+                            'Good day, Femi',
                             style: GoogleFonts.plusJakartaSans(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
                               color: Colors.white,
                             ),
                           ),
-                          Text(
-                            'Zero Middlemen',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primaryLight,
+                          const SizedBox(width: 4),
+                          const Text('👋', style: TextStyle(fontSize: 16)),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      GestureDetector(
+                        onTap: _showLocationPicker,
+                        child: Row(
+                          children: [
+                            const Icon(Icons.location_on_rounded, size: 12, color: AppColors.primaryLight),
+                            const SizedBox(width: 3),
+                            Text(
+                              _userLocation,
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                            const Icon(Icons.keyboard_arrow_down_rounded, size: 14, color: AppColors.textMuted),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  // Action Icons (Messages & Notification Bell)
+                  Row(
+                    children: [
+                      // Chat Icon with unread badge
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const MessagesScreen()),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceDark,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.borderDark.withValues(alpha: 0.5)),
+                          ),
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              const Icon(Icons.chat_bubble_outline_rounded, size: 18, color: Colors.white),
+                              Positioned(
+                                top: -2,
+                                right: -2,
+                                child: Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.primaryLight,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+
+                      // Notification Bell
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceDark,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AppColors.borderDark.withValues(alpha: 0.5)),
+                        ),
+                        child: const Icon(Icons.notifications_none_rounded, size: 18, color: Colors.white),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 18),
+
+              // 2. The Living Wallet Card (Before the Grid)
+              GestureDetector(
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const WalletScreen()),
+                  );
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [
+                        Color(0xFF0F382A),
+                        Color(0xFF061E16),
+                        Color(0xFF090E17),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(color: AppColors.primaryLight.withValues(alpha: 0.35)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.35),
+                        blurRadius: 18,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Top Row: Brand & Wema Bank Tag
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.shield_rounded, size: 16, color: AppColors.primaryLight),
+                              const SizedBox(width: 5),
+                              Text(
+                                'RENTILLY ESCROW WALLET',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 8.5,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 1.1,
+                                  color: AppColors.primaryLight,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              _bankName.toUpperCase(),
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 8,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                         ],
                       ),
-                    ),
-                    SizedBox(
-                      height: 84,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
-                        itemCount: _directLandlords.length,
-                        itemBuilder: (context, index) {
-                          final l = _directLandlords[index];
-                          return Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 5),
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceDark,
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: AppColors.borderDark.withOpacity(0.4)),
-                            ),
-                            child: Row(
-                              children: [
-                                Stack(
-                                  children: [
-                                    CircleAvatar(
-                                      radius: 20,
-                                      backgroundImage: NetworkImage(l['image']),
-                                    ),
-                                    const Positioned(
-                                      bottom: 0,
-                                      right: 0,
-                                      child: Icon(Icons.check_circle, size: 14, color: AppColors.primaryLight),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(width: 8),
-                                Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      l['name'],
-                                      style: GoogleFonts.plusJakartaSans(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                    Text(
-                                      l['deals'],
-                                      style: GoogleFonts.plusJakartaSans(
-                                        fontSize: 9,
-                                        color: AppColors.primaryLight,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+                      const SizedBox(height: 14),
 
-              // 5. Featured Property Inventory Header
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(18, 20, 18, 10),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
+                      // Balance Section
                       Text(
-                        'Verified Direct Properties',
+                        'AVAILABLE BALANCE',
                         style: GoogleFonts.plusJakartaSans(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
-                      ),
-                      Text(
-                        '${_properties.length} Available',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 11,
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.9,
                           color: AppColors.textMuted,
                         ),
+                      ),
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          Text(
+                            _hideBalance ? '₦ • • • • • •' : '₦${_currencyFormat.format(_balance)}',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          GestureDetector(
+                            onTap: () => setState(() => _hideBalance = !_hideBalance),
+                            child: Icon(
+                              _hideBalance ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                              size: 16,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Virtual Account Number Pill with 1-Tap Copy
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withValues(alpha: 0.4),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'NUBAN: $_accountNumber • $_bankName',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: _copyAccount,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primaryLight.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  'Copy',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.primaryLight,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+
+                      // 3 Quick Action Buttons on the Card
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _buildCardQuickAction(Icons.add_rounded, 'Add Money', _copyAccount),
+                          _buildCardQuickAction(Icons.north_east_rounded, 'Transfer', () {
+                            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WalletScreen()));
+                          }),
+                          _buildCardQuickAction(Icons.savings_rounded, 'Living Vault', () {
+                            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const VaultsScreen()));
+                          }),
+                        ],
                       ),
                     ],
                   ),
                 ),
               ),
+              const SizedBox(height: 22),
 
-              // 6. Properties List
-              _isLoading
-                  ? const SliverFillRemaining(
-                      child: Center(
-                        child: CircularProgressIndicator(color: AppColors.primaryLight),
+              // 3. Circular Grid-Based Quick Hub (The Core 4 Action Pods)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'CORE SERVICES',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.1,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                  Text(
+                    'Direct & Scam-Free',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primaryLight,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // 2x2 Grid with Circular Pods
+              GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 1.25,
+                children: [
+                  // Pod 1: Properties
+                  _buildCircularGridPod(
+                    title: 'Properties',
+                    subtitle: 'Rent & Buy Direct',
+                    icon: Icons.apartment_rounded,
+                    color: const Color(0xFF10B981),
+                    badge: 'Zero 20% Fee',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const PropertiesScreen(initialPurpose: 'rent')),
+                      );
+                    },
+                  ),
+
+                  // Pod 2: My Spaces
+                  _buildCircularGridPod(
+                    title: 'My Spaces',
+                    subtitle: 'Active Lease & Deeds',
+                    icon: Icons.vpn_key_rounded,
+                    color: const Color(0xFFF59E0B),
+                    badge: '1 Leased',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const MySpacesScreen()),
+                      );
+                    },
+                  ),
+
+                  // Pod 3: Bill Payments
+                  _buildCircularGridPod(
+                    title: 'Bill Payments',
+                    subtitle: 'Disco, Data, Airtime',
+                    icon: Icons.electric_meter_rounded,
+                    color: const Color(0xFF3B82F6),
+                    badge: 'Instant Token',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const BillsScreen()),
+                      );
+                    },
+                  ),
+
+                  // Pod 4: Rent Savings
+                  _buildCircularGridPod(
+                    title: 'Living Vaults',
+                    subtitle: 'Save for Rent & Power',
+                    icon: Icons.savings_rounded,
+                    color: const Color(0xFF8B5CF6),
+                    badge: '11.5% Yield',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const VaultsScreen()),
+                      );
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 22),
+
+              // 4. Slidable Hero Banner Carousel
+              SizedBox(
+                height: 120,
+                child: PageView.builder(
+                  controller: _bannerController,
+                  onPageChanged: (idx) => setState(() => _currentBanner = idx),
+                  itemCount: _heroBanners.length,
+                  itemBuilder: (context, index) {
+                    final b = _heroBanners[index];
+                    final Color color = b['color'] as Color;
+
+                    return Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 2),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            color.withValues(alpha: 0.16),
+                            AppColors.surfaceDark,
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: color.withValues(alpha: 0.35)),
                       ),
-                    )
-                  : SliverPadding(
-                      padding: const EdgeInsets.symmetric(horizontal: 18),
-                      sliver: SliverList(
-                        delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                            final prop = _properties[index];
-                            return _buildPropertyCard(context, prop);
-                          },
-                          childCount: _properties.length,
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: color.withValues(alpha: 0.2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(b['icon'] as IconData, size: 20, color: color),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  b['tag'],
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 1.1,
+                                    color: color,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  b['title'],
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  b['description'],
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 9.5,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              // Banner Indicator Dots
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  _heroBanners.length,
+                  (i) => Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                    width: _currentBanner == i ? 14 : 5,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: _currentBanner == i ? AppColors.primaryLight : AppColors.borderDark,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // 5. Active Inspection Gate Pass Quick Access
+              GestureDetector(
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const InspectionsScreen()),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceDark,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.borderDark.withValues(alpha: 0.5)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryLight.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.security_rounded, size: 16, color: AppColors.primaryLight),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Physical Inspection Gate Pass Ready',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                            Text(
+                              'Plot 18, Lekki Phase 1 • Gate Pass: 749201',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 9.5,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-              const SliverToBoxAdapter(child: SizedBox(height: 30)),
+                      const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.textMuted),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
             ],
           ),
         ),
@@ -390,336 +611,26 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildPurposeButton(String purpose, String label) {
-    final isSelected = _selectedPurpose == purpose;
+  Widget _buildCardQuickAction(IconData icon, String label, VoidCallback onTap) {
     return GestureDetector(
-      onTap: () {
-        setState(() => _selectedPurpose = purpose);
-        _loadProperties();
-      },
+      onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primaryLight : Colors.transparent,
+          color: Colors.white.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
         ),
-        child: Center(
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 10,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-              color: isSelected ? Colors.white : AppColors.textSecondary,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPropertyCard(BuildContext context, Property prop) {
-    final isRent = prop.purpose == 'rent';
-
-    return GestureDetector(
-      onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => PropertyDetailScreen(property: prop),
-          ),
-        );
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 18),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceDark,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppColors.borderDark.withOpacity(0.5)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.3),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            // Image with Badges
-            Stack(
-              children: [
-                Container(
-                  height: 180,
-                  width: double.infinity,
-                  color: AppColors.cardDark,
-                  child: Image.network(
-                    prop.images.isNotEmpty ? prop.images[0] : '',
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      color: AppColors.cardDark,
-                      child: const Center(child: Icon(Icons.home_work_rounded, size: 40, color: Colors.grey)),
-                    ),
-                  ),
-                ),
-
-                // Top Tag Badges
-                Positioned(
-                  top: 12,
-                  left: 12,
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: isRent ? AppColors.primaryLight : const Color(0xFF0D9488),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          isRent ? 'FOR RENT' : 'FOR SALE',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                            letterSpacing: 0.8,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.65),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          prop.propertyType.replaceAll('_', ' ').toUpperCase(),
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 8,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // KYP Verified Badge
-                Positioned(
-                  top: 12,
-                  right: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0F382A).withOpacity(0.9),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppColors.primaryLight.withOpacity(0.4)),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.verified_rounded, size: 12, color: AppColors.primaryLight),
-                        const SizedBox(width: 4),
-                        Text(
-                          'KYP AUDITED',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 8,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primaryLight,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // Bottom Gradient Overlay for Title
-                Positioned(
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  child: Container(
-                    height: 50,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Colors.transparent, Colors.black.withOpacity(0.8)],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            // Card Body Content
-            Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Title & Location
-                  Text(
-                    prop.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(Icons.pin_drop_rounded, size: 12, color: AppColors.primaryLight),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          '${prop.neighborhood}, ${prop.state}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 10,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 10),
-
-                  // Specs (Bed, Bath, Toilets, Disco)
-                  Row(
-                    children: [
-                      _buildSpecItem(Icons.bed_rounded, '${prop.bedrooms} Beds'),
-                      const SizedBox(width: 14),
-                      _buildSpecItem(Icons.bathtub_rounded, '${prop.bathrooms} Baths'),
-                      const SizedBox(width: 14),
-                      _buildSpecItem(Icons.electric_meter_rounded, 'Disco Verified'),
-                    ],
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // Anti-Agent Savings Comparison Banner
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: AppColors.backgroundDark,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.borderDark.withOpacity(0.4)),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Direct Owner Price',
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 9,
-                                color: AppColors.textMuted,
-                              ),
-                            ),
-                            Text(
-                              '₦${_currencyFormat.format(prop.basePrice)}${isRent ? ' /yr' : ''}',
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        // Green Savings Pill
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryLight.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: AppColors.primaryLight.withOpacity(0.3)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                'YOU SAVE',
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 7,
-                                  fontWeight: FontWeight.w800,
-                                  color: AppColors.primaryLight,
-                                ),
-                              ),
-                              Text(
-                                '₦${_currencyFormat.format(prop.totalNairaSavedOnRentilly)}',
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w800,
-                                  color: AppColors.primaryLight,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // Card Actions (Book Inspection & Direct Call/Chat)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => PropertyDetailScreen(property: prop),
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.calendar_today_rounded, size: 13, color: AppColors.primaryLight),
-                          label: Text(
-                            'Book Inspection',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w700,
-                              color: Colors.white,
-                            ),
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            side: BorderSide(color: AppColors.primaryLight.withOpacity(0.5)),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: AppColors.primaryLight,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: IconButton(
-                          icon: const Icon(Icons.chat_bubble_outline_rounded, size: 16, color: Colors.white),
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => PropertyDetailScreen(property: prop),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+            Icon(icon, size: 13, color: AppColors.primaryLight),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 9.5,
+                fontWeight: FontWeight.w600,
+                color: Colors.white,
               ),
             ),
           ],
@@ -728,19 +639,152 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildSpecItem(IconData icon, String label) {
-    return Row(
-      children: [
-        Icon(icon, size: 12, color: AppColors.textSecondary),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 10,
-            color: AppColors.textSecondary,
-          ),
+  Widget _buildCircularGridPod({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required String badge,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceDark,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.borderDark.withValues(alpha: 0.5)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.2),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-      ],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            // Top Row: Circular Orb Icon & Micro-Badge
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: color.withValues(alpha: 0.16),
+                    border: Border.all(color: color.withValues(alpha: 0.4), width: 1.5),
+                  ),
+                  child: Center(
+                    child: Icon(icon, size: 20, color: color),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    badge,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold,
+                      color: color,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            // Bottom Text
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 9,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showLocationPicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surfaceDark,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Select Your State / Region',
+                style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _locations.length,
+                  itemBuilder: (context, index) {
+                    final loc = _locations[index];
+                    final isSelected = loc == _userLocation;
+                    return ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(
+                        Icons.location_on_rounded,
+                        size: 16,
+                        color: isSelected ? AppColors.primaryLight : AppColors.textMuted,
+                      ),
+                      title: Text(
+                        loc,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                          color: isSelected ? AppColors.primaryLight : Colors.white,
+                        ),
+                      ),
+                      trailing: isSelected ? const Icon(Icons.check, size: 16, color: AppColors.primaryLight) : null,
+                      onTap: () {
+                        setState(() => _userLocation = loc);
+                        Navigator.of(context).pop();
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
