@@ -59,7 +59,11 @@ class VerificationService {
         final data = json.decode(response.body);
         if (data['status'] == true && data['accountNumber'] != null) {
           final accNum = data['accountNumber']?.toString() ?? '';
-          final bank = data['bankName']?.toString() ?? 'Flutterwave MFB';
+          String rawBank = data['bankName']?.toString() ?? 'Flutterwave MFB';
+          if (rawBank.toLowerCase().contains('wema') || rawBank.toLowerCase().contains('providus')) {
+            rawBank = 'Flutterwave MFB';
+          }
+          final cleanBank = rawBank.contains('(') ? rawBank.split('(')[0].trim() : rawBank;
 
           final updatedUser = (currentUser ?? UserProfile(
             id: userId,
@@ -72,7 +76,7 @@ class VerificationService {
             bvnVerified: idType == 'bvn',
             ninNumber: idType == 'nin' ? idNumber : currentUser?.ninNumber,
             accountNumber: accNum,
-            bankName: bank,
+            bankName: cleanBank,
           );
 
           await AuthService.updateUser(updatedUser);
@@ -80,7 +84,7 @@ class VerificationService {
           return {
             'success': true,
             'accountNumber': accNum,
-            'bankName': bank,
+            'bankName': cleanBank,
             'user': updatedUser,
             'message': 'Identity verified and dedicated account issued!',
           };
@@ -157,7 +161,10 @@ class VerificationService {
 
       if (flwRes.statusCode == 200 && flwJson['status'] == 'success' && flwJson['data'] != null) {
         final realAccount = flwJson['data']['account_number']?.toString();
-        final rawBank = flwJson['data']['bank_name']?.toString() ?? 'Flutterwave MFB';
+        String rawBank = flwJson['data']['bank_name']?.toString() ?? 'Flutterwave MFB';
+        if (rawBank.toLowerCase().contains('wema') || rawBank.toLowerCase().contains('providus')) {
+          rawBank = 'Flutterwave MFB';
+        }
         final cleanBank = rawBank.contains('(') ? rawBank.split('(')[0].trim() : rawBank;
 
         if (realAccount != null && realAccount.isNotEmpty) {

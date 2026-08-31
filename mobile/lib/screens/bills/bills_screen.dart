@@ -48,39 +48,108 @@ class _BillsScreenState extends State<BillsScreen> {
   String _selectedTelco = 'MTN';
   final List<String> _telcos = ['MTN', 'Airtel', 'Glo', '9mobile'];
 
+  static const Map<String, List<String>> _telcoDataMap = {
+    'MTN': [
+      '1.0GB (30 Days) - ₦500',
+      '2.5GB (30 Days) - ₦1,000',
+      '5.0GB (30 Days) - ₦2,000',
+      '10.0GB (30 Days) - ₦3,500',
+      '20.0GB (30 Days) - ₦6,000',
+      '40.0GB (30 Days) - ₦11,000',
+    ],
+    'Airtel': [
+      '1.5GB (30 Days) - ₦1,200',
+      '3.0GB (30 Days) - ₦1,500',
+      '6.0GB (30 Days) - ₦2,500',
+      '10.0GB (30 Days) - ₦3,000',
+      '20.0GB (30 Days) - ₦5,000',
+      '40.0GB (30 Days) - ₦10,000',
+    ],
+    'Glo': [
+      '2.0GB (30 Days) - ₦1,000',
+      '4.5GB (30 Days) - ₦2,000',
+      '8.0GB (30 Days) - ₦3,000',
+      '14.0GB (30 Days) - ₦4,000',
+      '24.0GB (30 Days) - ₦5,000',
+      '50.0GB (30 Days) - ₦10,000',
+    ],
+    '9mobile': [
+      '1.5GB (30 Days) - ₦1,200',
+      '3.0GB (30 Days) - ₦1,500',
+      '7.0GB (30 Days) - ₦2,500',
+      '11.0GB (30 Days) - ₦3,500',
+      '15.0GB (30 Days) - ₦4,500',
+      '40.0GB (30 Days) - ₦10,000',
+    ],
+  };
   String _selectedDataPlan = '2.5GB (30 Days) - ₦1,000';
-  final List<String> _dataPlans = [
-    '1.0GB (30 Days) - ₦500',
-    '2.5GB (30 Days) - ₦1,000',
-    '5.0GB (30 Days) - ₦2,000',
-    '10.0GB (30 Days) - ₦3,500',
-    '20.0GB (30 Days) - ₦6,000',
-    '40.0GB (30 Days) - ₦11,000',
-  ];
 
   // Cable TV
   String _selectedCable = 'DSTV';
   final List<String> _cables = ['DSTV', 'GOTV', 'Startimes', 'Showmax'];
-  String _selectedBouquet = 'Compact Plus - ₦19,800';
-  final List<String> _bouquets = [
-    'Padi / Smallie - ₦3,600',
-    'Yanga / Jinja - ₦5,100',
-    'Confam / Jolli - ₦9,300',
-    'Compact / Max - ₦15,700',
-    'Compact Plus - ₦19,800',
-    'Premium - ₦29,500',
-  ];
+
+  static const Map<String, List<String>> _cableBouquetsMap = {
+    'DSTV': [
+      'DStv Padi - ₦3,600',
+      'DStv Yanga - ₦5,100',
+      'DStv Confam - ₦9,300',
+      'DStv Compact - ₦15,700',
+      'DStv Compact Plus - ₦19,800',
+      'DStv Premium - ₦29,500',
+    ],
+    'GOTV': [
+      'GOtv Smallie - ₦1,575',
+      'GOtv Jinja - ₦3,300',
+      'GOtv Jolli - ₦4,850',
+      'GOtv Max - ₦7,200',
+      'GOtv Supa - ₦9,600',
+      'GOtv Supa+ - ₦15,700',
+    ],
+    'Startimes': [
+      'Nova Bouquet - ₦1,700',
+      'Basic Bouquet - ₦3,300',
+      'Smart Bouquet - ₦4,200',
+      'Classic Bouquet - ₦5,000',
+      'Super Bouquet - ₦8,200',
+    ],
+    'Showmax': [
+      'Entertainment Mobile - ₦1,200',
+      'Premier League Mobile - ₦2,900',
+      'Entertainment + Premier League - ₦4,000',
+      'All Devices Pro - ₦5,500',
+    ],
+  };
+  String _selectedBouquet = 'DStv Compact Plus - ₦19,800';
 
   // Broadband & Fiber
   String _selectedBroadband = 'Spectranet 4G LTE';
   final List<String> _broadbands = ['Spectranet 4G LTE', 'Smile 4G', 'Swift Networks', 'FiberOne Unlimited'];
+
+  static const Map<String, List<String>> _broadbandPlansMap = {
+    'Spectranet 4G LTE': [
+      '25GB Night & Day (₦8,500)',
+      '50GB Monthly Mega (₦14,000)',
+      'Unlimited 30 Days (₦20,000)',
+      '100GB Ultra High-Speed (₦32,000)',
+    ],
+    'Smile 4G': [
+      '15GB Bigga (₦6,000)',
+      '30GB Bigga (₦10,000)',
+      '60GB Monthly (₦16,000)',
+      'Unlimited Premium (₦24,000)',
+    ],
+    'Swift Networks': [
+      '30GB Swift Essential (₦8,000)',
+      '60GB Swift Family (₦14,500)',
+      'Unlimited Swift Club (₦22,000)',
+    ],
+    'FiberOne Unlimited': [
+      'Smart Home 20Mbps (₦13,500)',
+      'Turbo Home 40Mbps (₦18,500)',
+      'Business Pro 100Mbps (₦34,000)',
+    ],
+  };
   String _selectedBroadbandPlan = 'Unlimited 30 Days (₦20,000)';
-  final List<String> _broadbandPlans = [
-    '25GB Night & Day (₦8,500)',
-    '50GB Monthly Mega (₦14,000)',
-    'Unlimited 30 Days (₦20,000)',
-    '100GB Ultra High-Speed (₦32,000)',
-  ];
 
   // Water
   String _selectedWaterProvider = 'Lagos Water Corporation (LWC)';
@@ -661,6 +730,7 @@ class _BillsScreenState extends State<BillsScreen> {
         );
 
       case 'data':
+        final currentDataPlans = _telcoDataMap[_selectedTelco] ?? _telcoDataMap['MTN']!;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -672,17 +742,24 @@ class _BillsScreenState extends State<BillsScreen> {
               style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
               decoration: _buildInputDeco(),
               items: _telcos.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
-              onChanged: (v) => setState(() => _selectedTelco = v!),
+              onChanged: (v) {
+                if (v != null) {
+                  setState(() {
+                    _selectedTelco = v;
+                    _selectedDataPlan = (_telcoDataMap[v] ?? _telcoDataMap['MTN']!).first;
+                  });
+                }
+              },
             ),
             const SizedBox(height: 14),
             _buildLabel('SELECT DATA BUNDLE'),
             const SizedBox(height: 6),
             DropdownButtonFormField<String>(
-              value: _selectedDataPlan,
+              value: currentDataPlans.contains(_selectedDataPlan) ? _selectedDataPlan : currentDataPlans.first,
               dropdownColor: Colors.white,
               style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
               decoration: _buildInputDeco(),
-              items: _dataPlans.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+              items: currentDataPlans.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
               onChanged: (v) => setState(() => _selectedDataPlan = v!),
             ),
             const SizedBox(height: 14),
@@ -733,6 +810,7 @@ class _BillsScreenState extends State<BillsScreen> {
         );
 
       case 'cable':
+        final currentBouquets = _cableBouquetsMap[_selectedCable] ?? _cableBouquetsMap['DSTV']!;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -744,17 +822,24 @@ class _BillsScreenState extends State<BillsScreen> {
               style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
               decoration: _buildInputDeco(),
               items: _cables.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-              onChanged: (v) => setState(() => _selectedCable = v!),
+              onChanged: (v) {
+                if (v != null) {
+                  setState(() {
+                    _selectedCable = v;
+                    _selectedBouquet = (_cableBouquetsMap[v] ?? _cableBouquetsMap['DSTV']!).first;
+                  });
+                }
+              },
             ),
             const SizedBox(height: 14),
             _buildLabel('BOUQUET PACKAGE'),
             const SizedBox(height: 6),
             DropdownButtonFormField<String>(
-              value: _selectedBouquet,
+              value: currentBouquets.contains(_selectedBouquet) ? _selectedBouquet : currentBouquets.first,
               dropdownColor: Colors.white,
               style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
               decoration: _buildInputDeco(),
-              items: _bouquets.map((b) => DropdownMenuItem(value: b, child: Text(b))).toList(),
+              items: currentBouquets.map((b) => DropdownMenuItem(value: b, child: Text(b))).toList(),
               onChanged: (v) => setState(() => _selectedBouquet = v!),
             ),
             const SizedBox(height: 14),
@@ -770,6 +855,7 @@ class _BillsScreenState extends State<BillsScreen> {
         );
 
       case 'internet':
+        final currentBroadbandPlans = _broadbandPlansMap[_selectedBroadband] ?? _broadbandPlansMap['Spectranet 4G LTE']!;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -781,17 +867,24 @@ class _BillsScreenState extends State<BillsScreen> {
               style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
               decoration: _buildInputDeco(),
               items: _broadbands.map((b) => DropdownMenuItem(value: b, child: Text(b))).toList(),
-              onChanged: (v) => setState(() => _selectedBroadband = v!),
+              onChanged: (v) {
+                if (v != null) {
+                  setState(() {
+                    _selectedBroadband = v;
+                    _selectedBroadbandPlan = (_broadbandPlansMap[v] ?? _broadbandPlansMap['Spectranet 4G LTE']!).first;
+                  });
+                }
+              },
             ),
             const SizedBox(height: 14),
             _buildLabel('DATA SUBSCRIPTION PLAN'),
             const SizedBox(height: 6),
             DropdownButtonFormField<String>(
-              value: _selectedBroadbandPlan,
+              value: currentBroadbandPlans.contains(_selectedBroadbandPlan) ? _selectedBroadbandPlan : currentBroadbandPlans.first,
               dropdownColor: Colors.white,
               style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
               decoration: _buildInputDeco(),
-              items: _broadbandPlans.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+              items: currentBroadbandPlans.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
               onChanged: (v) => setState(() => _selectedBroadbandPlan = v!),
             ),
             const SizedBox(height: 14),

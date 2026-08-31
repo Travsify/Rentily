@@ -50,12 +50,12 @@ export class FlutterwaveService {
         status: true,
         data: {
           accountNumber: randomAcc,
-          bankName: 'Wema Bank / Providus Bank',
+          bankName: 'Flutterwave MFB',
           orderRef: `FLW-${Date.now()}`,
           accountReference: txRef,
           amount: params.expectedAmount
         },
-        message: 'Flutterwave demo mode (Live secret key pending in Settings)'
+        message: 'Flutterwave demo mode'
       };
     }
 
@@ -86,7 +86,7 @@ export class FlutterwaveService {
           status: true,
           data: {
             accountNumber: d.account_number,
-            bankName: d.bank_name || 'Wema Bank',
+            bankName: d.bank_name || 'Flutterwave MFB',
             orderRef: d.order_ref,
             accountReference: d.flw_ref || txRef,
             amount: params.expectedAmount,
