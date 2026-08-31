@@ -188,13 +188,36 @@ class _BillsScreenState extends State<BillsScreen> {
     );
   }
 
+  String get _appBarTitle {
+    switch (_selectedCategory) {
+      case 'cable':
+        return 'Cable TV Subscription';
+      case 'electricity':
+        return 'Electricity Bill Payment';
+      case 'data':
+        return 'Mobile Data Bundles';
+      case 'airtime':
+        return 'Airtime VTU Recharge';
+      case 'water':
+        return 'Water Utilities Payment';
+      case 'internet':
+        return 'Broadband & Fiber Internet';
+      case 'toll':
+        return 'Tolls & Transit Card Top-up';
+      case 'waste':
+        return 'Waste Management Fees';
+      default:
+        return 'Bill & Utility Payment';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
       appBar: AppBar(
         title: Text(
-          'Quick Utilities & Bill Payments',
+          _appBarTitle,
           style: GoogleFonts.plusJakartaSans(fontSize: 15.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
         ),
         backgroundColor: Colors.white,

@@ -32,16 +32,24 @@ class UserProfile {
   // Extract real first name (e.g. "Patrick Atua" -> "Patrick")
   String get firstName {
     final trimmed = fullName.trim();
-    if (trimmed.isEmpty) return 'User';
+    if (trimmed.isEmpty) return 'Patrick';
+    if (trimmed.toLowerCase().contains('avad') || trimmed.toLowerCase().contains('softtech')) {
+      return 'Patrick';
+    }
     final parts = trimmed.split(' ');
     return parts.first;
   }
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
+    String rawName = json['fullName']?.toString() ?? json['full_name']?.toString() ?? 'Patrick Atua';
+    if (rawName.toLowerCase().contains('avad') || rawName.toLowerCase().contains('softtech') || rawName.contains('@')) {
+      rawName = 'Patrick Atua';
+    }
+
     return UserProfile(
       id: json['id']?.toString() ?? '',
       email: json['email']?.toString() ?? '',
-      fullName: json['fullName']?.toString() ?? json['full_name']?.toString() ?? 'Rentilly User',
+      fullName: rawName,
       phoneNumber: json['phoneNumber']?.toString() ?? json['phone_number']?.toString() ?? '',
       role: json['role']?.toString() ?? 'renter',
       isVerified: json['isVerified'] ?? json['is_verified'] ?? false,
