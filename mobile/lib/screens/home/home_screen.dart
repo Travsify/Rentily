@@ -229,9 +229,18 @@ class _HomeScreenState extends State<HomeScreen> {
                             // Verification Badge Pill
                             GestureDetector(
                               onTap: () {
-                                VerificationModal.show(context, onSuccess: (updated) {
-                                  setState(() => _user = updated);
-                                });
+                                if (_user?.isVerified == true && _user?.accountNumber != null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Your dedicated Living Escrow bank account is active and verified.', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
+                                      backgroundColor: AppColors.primary,
+                                    ),
+                                  );
+                                } else {
+                                  VerificationModal.show(context, onSuccess: (updated) {
+                                    setState(() => _user = updated);
+                                  });
+                                }
                               },
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),

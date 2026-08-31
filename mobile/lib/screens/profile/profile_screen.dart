@@ -153,9 +153,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             children: [
                               GestureDetector(
                                 onTap: () {
-                                  VerificationModal.show(context, onSuccess: (updated) {
-                                    setState(() => _currentUser = updated);
-                                  });
+                                  if (_currentUser?.isVerified == true && _currentUser?.accountNumber != null) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Identity & Dedicated Living Escrow Account are active and verified.', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
+                                        backgroundColor: AppColors.primary,
+                                      ),
+                                    );
+                                  } else {
+                                    VerificationModal.show(context, onSuccess: (updated) {
+                                      setState(() => _currentUser = updated);
+                                    });
+                                  }
                                 },
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
@@ -683,37 +692,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             const SizedBox(height: 18),
+            if (_currentUser == null || !_currentUser!.isVerified)
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    VerificationModal.show(context, onSuccess: (updated) => setState(() => _currentUser = updated));
+                  },
+                  icon: const Icon(Icons.shield_outlined, size: 16),
+                  label: Text('Verify Identity & Activate Account', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+            if (_currentUser == null || !_currentUser!.isVerified) const SizedBox(height: 10),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.of(ctx).pop();
-                  VerificationModal.show(context, onSuccess: (updated) => setState(() => _currentUser = updated));
-                },
-                icon: const Icon(Icons.refresh_rounded, size: 16),
-                label: Text('Re-issue / Refresh Dedicated Bank Account', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 13),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
                 onPressed: () {
                   Navigator.of(ctx).pop();
                   if (_currentUser != null) {
                     WithdrawalModal.show(context, user: _currentUser!, onWithdrawalSuccess: (newBal) => setState(() => _currentUser = _currentUser?.copyWith(walletBalance: newBal)));
                   }
                 },
-                icon: const Icon(Icons.account_balance_outlined, size: 16, color: AppColors.textPrimary),
-                label: Text('Manage Withdrawal Bank Accounts', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: AppColors.borderDark),
+                icon: const Icon(Icons.account_balance_outlined, size: 16, color: Colors.white),
+                label: Text('Manage Withdrawal Bank Accounts', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
                   padding: const EdgeInsets.symmetric(vertical: 13),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),

@@ -40,22 +40,185 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
   String? _resolvedAccountName;
   bool _isResolving = false;
   bool _isProcessing = false;
+  bool _isLoadingBanks = false;
   String? _errorMessage;
 
-  final List<Map<String, String>> _popularBanks = [
-    {'name': 'Guaranty Trust Bank', 'code': '058'},
+  List<Map<String, String>> _banks = [
+    {'name': 'Guaranty Trust Bank (GTBank)', 'code': '058'},
     {'name': 'Zenith Bank', 'code': '057'},
     {'name': 'Access Bank', 'code': '044'},
     {'name': 'First Bank of Nigeria', 'code': '011'},
     {'name': 'United Bank for Africa (UBA)', 'code': '033'},
-    {'name': 'Kuda Bank', 'code': '50211'},
-    {'name': 'OPay (PayCom)', 'code': '999992'},
-    {'name': 'Palmpay', 'code': '999991'},
+    {'name': 'Kuda Microfinance Bank', 'code': '50211'},
+    {'name': 'OPay Digital Services (OPay)', 'code': '999992'},
+    {'name': 'PalmPay', 'code': '999991'},
     {'name': 'Wema Bank', 'code': '035'},
     {'name': 'Providus Bank', 'code': '101'},
     {'name': 'Fidelity Bank', 'code': '070'},
     {'name': 'Stanbic IBTC Bank', 'code': '221'},
+    {'name': 'Moniepoint Microfinance Bank', 'code': '50515'},
+    {'name': 'Sterling Bank', 'code': '232'},
+    {'name': 'Union Bank of Nigeria', 'code': '032'},
+    {'name': 'Ecobank Nigeria', 'code': '050'},
+    {'name': 'FCMB (First City Monument Bank)', 'code': '214'},
+    {'name': 'Polaris Bank', 'code': '076'},
+    {'name': 'VFD Microfinance Bank', 'code': '566'},
+    {'name': 'Jaiz Bank', 'code': '301'},
+    {'name': 'TAJ Bank', 'code': '302'},
+    {'name': 'Standard Chartered Bank', 'code': '068'},
+    {'name': 'Citibank Nigeria', 'code': '023'},
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchPaystackBanks();
+  }
+
+  void _fetchPaystackBanks() async {
+    setState(() => _isLoadingBanks = true);
+    try {
+      final url = Uri.parse('${AppConstants.apiBaseUrl}/payments/paystack-banks');
+      final res = await http.get(url).timeout(const Duration(seconds: 15));
+      final data = json.decode(res.body);
+
+      if (res.statusCode == 200 && data['status'] == true && data['data'] is List) {
+        final List rawList = data['data'];
+        final List<Map<String, String>> formatted = [];
+        for (var b in rawList) {
+          if (b['name'] != null && b['code'] != null) {
+            formatted.add({
+              'name': b['name'].toString(),
+              'code': b['code'].toString(),
+            });
+          }
+        }
+        if (formatted.isNotEmpty) {
+          setState(() {
+            _banks = formatted;
+            _isLoadingBanks = false;
+          });
+          return;
+        }
+      }
+    } catch (_) {}
+
+    setState(() => _isLoadingBanks = false);
+  }
+
+  void _openBankSearchSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) {
+        String searchQuery = '';
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final filteredBanks = _banks.where((b) {
+              final q = searchQuery.toLowerCase();
+              return b['name']!.toLowerCase().contains(q) || b['code']!.contains(q);
+            }).toList();
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.75,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Select Destination Bank (${_banks.length} Banks)',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 20),
+                        onPressed: () => Navigator.of(sheetCtx).pop(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    autofocus: true,
+                    style: GoogleFonts.plusJakartaSans(fontSize: 13),
+                    decoration: InputDecoration(
+                      hintText: 'Search Nigerian bank (e.g. GTBank, Kuda, PalmPay, Zenith)...',
+                      hintStyle: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textMuted),
+                      prefixIcon: const Icon(Icons.search, size: 18, color: AppColors.primary),
+                      filled: true,
+                      fillColor: const Color(0xFFF9FAFB),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.borderDark)),
+                    ),
+                    onChanged: (val) {
+                      setSheetState(() => searchQuery = val);
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: filteredBanks.isEmpty
+                        ? Center(
+                            child: Text(
+                              'No banks matching "$searchQuery"',
+                              style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textMuted),
+                            ),
+                          )
+                        : ListView.separated(
+                            itemCount: filteredBanks.length,
+                            separatorBuilder: (_, __) => const Divider(height: 1, color: AppColors.borderDark),
+                            itemBuilder: (context, idx) {
+                              final bank = filteredBanks[idx];
+                              final isSelected = bank['code'] == _selectedBankCode;
+                              return ListTile(
+                                dense: true,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                leading: Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: isSelected ? AppColors.primary.withValues(alpha: 0.1) : const Color(0xFFF3F4F6),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(Icons.account_balance_rounded, size: 16, color: isSelected ? AppColors.primary : AppColors.textSecondary),
+                                ),
+                                title: Text(
+                                  bank['name']!,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 12.5,
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                    color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  'CBN Code: ${bank['code']}',
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textMuted),
+                                ),
+                                trailing: isSelected ? const Icon(Icons.check_circle_rounded, size: 18, color: AppColors.primary) : null,
+                                onTap: () {
+                                  setState(() {
+                                    _selectedBankCode = bank['code']!;
+                                    _selectedBankName = bank['name']!;
+                                  });
+                                  Navigator.of(sheetCtx).pop();
+                                  if (_accountController.text.trim().length == 10) {
+                                    _resolveAccount();
+                                  }
+                                },
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 
   void _resolveAccount() async {
     final accNum = _accountController.text.trim();
@@ -110,11 +273,11 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
       return;
     }
 
-    // Biometric authorization if device supports it
+    // Biometric authorization
     final canBio = await BiometricService.isBiometricsAvailable();
     if (canBio) {
       final bioPassed = await BiometricService.authenticate(
-        reason: 'Authorize withdrawal of ₦${NumberFormat('#,###.00').format(amount)}',
+        reason: 'Authorize withdrawal of ₦${NumberFormat('#,###.00').format(amount)} to $accNum ($_selectedBankName)',
       );
       if (!bioPassed) {
         setState(() => _errorMessage = 'Biometric authorization required to withdraw.');
@@ -140,7 +303,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
           'amount': amount,
           'reason': 'Rentilly Living Escrow Payout'
         }),
-      ).timeout(const Duration(seconds: 25));
+      ).timeout(const Duration(seconds: 30));
 
       final data = json.decode(res.body);
 
@@ -148,6 +311,8 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
 
       if (res.statusCode == 200 && data['status'] == true) {
         final newBal = (widget.user.walletBalance - amount).clamp(0.0, double.infinity);
+        final updatedUser = widget.user.copyWith(walletBalance: newBal);
+        await AuthService.updateUser(updatedUser);
         widget.onWithdrawalSuccess(newBal);
 
         if (!mounted) return;
@@ -156,7 +321,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '₦${NumberFormat('#,###.00').format(amount)} transferred to $_selectedBankName!',
+              'Withdrawal of ₦${NumberFormat('#,###.00').format(amount)} initiated successfully via Paystack!',
               style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold),
             ),
             backgroundColor: AppColors.primary,
@@ -164,25 +329,14 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
         );
       } else {
         setState(() {
-          _errorMessage = data['error'] ?? 'Withdrawal could not be processed.';
+          _errorMessage = data['error'] ?? data['message'] ?? 'Withdrawal could not be processed. Please check your bank details.';
         });
       }
     } catch (e) {
-      // Local demo fallback
-      setState(() => _isProcessing = false);
-      final newBal = (widget.user.walletBalance - amount).clamp(0.0, double.infinity);
-      widget.onWithdrawalSuccess(newBal);
-      if (!mounted) return;
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '₦${NumberFormat('#,###.00').format(amount)} queued for instant settlement!',
-            style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold),
-          ),
-          backgroundColor: AppColors.primary,
-        ),
-      );
+      setState(() {
+        _isProcessing = false;
+        _errorMessage = 'Network connection timeout. Please check your connection and try again.';
+      });
     }
   }
 
@@ -221,7 +375,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Instant bank settlement to any Nigerian commercial or microfinance bank.',
+              'Instant Paystack settlement to any of Nigeria\'s 180+ commercial & microfinance banks.',
               style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 16),
@@ -239,55 +393,68 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
               const SizedBox(height: 12),
             ],
 
-            // Select Bank
-            Text('DESTINATION BANK', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+            // 1. Select Bank (Searchable 180+ Nigerian Banks)
+            Text(
+              '1. SELECT DESTINATION BANK (${_banks.length} AVAILABLE)',
+              style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+            ),
             const SizedBox(height: 6),
-            DropdownButtonFormField<String>(
-              value: _selectedBankCode,
-              dropdownColor: Colors.white,
-              style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: const Color(0xFFF9FAFB),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.borderDark)),
+            GestureDetector(
+              onTap: _openBankSearchSheet,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF9FAFB),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.borderDark),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.account_balance_rounded, size: 18, color: AppColors.primary),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        _selectedBankName,
+                        style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                      ),
+                    ),
+                    if (_isLoadingBanks)
+                      const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary))
+                    else
+                      const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: AppColors.textSecondary),
+                  ],
+                ),
               ),
-              items: _popularBanks.map((b) => DropdownMenuItem(value: b['code'], child: Text(b['name']!))).toList(),
-              onChanged: (val) {
-                if (val != null) {
-                  setState(() {
-                    _selectedBankCode = val;
-                    _selectedBankName = _popularBanks.firstWhere((b) => b['code'] == val)['name']!;
-                  });
-                  _resolveAccount();
-                }
-              },
             ),
             const SizedBox(height: 14),
 
-            // Account Number
-            Text('10-DIGIT NUBAN ACCOUNT NUMBER', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+            // 2. Account Number Input
+            Text('2. ENTER 10-DIGIT NUBAN ACCOUNT NUMBER', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
             const SizedBox(height: 6),
             TextField(
               controller: _accountController,
               keyboardType: TextInputType.number,
               maxLength: 10,
-              style: GoogleFonts.plusJakartaSans(fontSize: 13.5, color: AppColors.textPrimary, fontWeight: FontWeight.w700),
+              style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
               decoration: InputDecoration(
                 counterText: '',
                 hintText: '0123456789',
                 hintStyle: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textMuted),
                 filled: true,
                 fillColor: const Color(0xFFF9FAFB),
-                prefixIcon: const Icon(Icons.account_balance_outlined, size: 18, color: AppColors.primary),
+                prefixIcon: const Icon(Icons.badge_outlined, size: 18, color: AppColors.primary),
                 suffixIcon: _isResolving
-                    ? const Padding(padding: EdgeInsets.all(12), child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)))
+                    ? const SizedBox(width: 16, height: 16, child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)))
                     : null,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.borderDark)),
               ),
               onChanged: (val) {
-                if (val.length == 10) _resolveAccount();
+                if (val.length == 10) {
+                  _resolveAccount();
+                } else {
+                  setState(() => _resolvedAccountName = null);
+                }
               },
             ),
 
@@ -298,14 +465,17 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
                 decoration: BoxDecoration(
                   color: AppColors.primaryLight.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.primaryLight.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.verified, size: 12, color: AppColors.primaryLight),
+                    const Icon(Icons.check_circle_rounded, size: 14, color: AppColors.primaryLight),
                     const SizedBox(width: 6),
-                    Text(
-                      _resolvedAccountName!,
-                      style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
+                    Expanded(
+                      child: Text(
+                        'Account Name: $_resolvedAccountName',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
+                      ),
                     ),
                   ],
                 ),
@@ -313,17 +483,26 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
             ],
             const SizedBox(height: 14),
 
-            // Amount
-            Text('AMOUNT TO WITHDRAW (₦)', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+            // 3. Amount Input
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('3. WITHDRAWAL AMOUNT (₦)', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                Text(
+                  'Avail: ₦${NumberFormat('#,###.00').format(widget.user.walletBalance)}',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary),
+                ),
+              ],
+            ),
             const SizedBox(height: 6),
             TextField(
               controller: _amountController,
               keyboardType: TextInputType.number,
-              style: GoogleFonts.plusJakartaSans(fontSize: 14, color: AppColors.textPrimary, fontWeight: FontWeight.w800),
+              style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
               decoration: InputDecoration(
                 prefixText: '₦ ',
-                prefixStyle: GoogleFonts.plusJakartaSans(color: AppColors.primary, fontWeight: FontWeight.bold),
-                hintText: '10,000',
+                prefixStyle: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primary),
+                hintText: '50,000',
                 hintStyle: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textMuted),
                 filled: true,
                 fillColor: const Color(0xFFF9FAFB),
@@ -331,24 +510,22 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.borderDark)),
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
 
-            // Submit Button
+            // Action Button
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton.icon(
+              child: ElevatedButton(
                 onPressed: _isProcessing ? null : _executeWithdrawal,
-                icon: const Icon(Icons.lock_rounded, size: 16),
-                label: Text(
-                  _isProcessing ? 'Processing Transfer...' : 'Confirm & Withdraw Funds',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold),
-                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
+                child: _isProcessing
+                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : Text('Authorize & Withdraw via Paystack', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold)),
               ),
             ),
           ],
