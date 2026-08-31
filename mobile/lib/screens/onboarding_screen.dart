@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_constants.dart';
+import 'auth/login_screen.dart';
 import 'main_navigation_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -55,7 +56,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
     );
   }
 

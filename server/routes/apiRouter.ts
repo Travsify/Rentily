@@ -29,6 +29,7 @@ apiRouter.get('/health', (_req, res) => {
 });
 
 // 2. Authentication
+apiRouter.post('/auth/register', authController.register);
 apiRouter.post('/auth/login', authController.login);
 apiRouter.get('/auth/me', authController.getMe);
 

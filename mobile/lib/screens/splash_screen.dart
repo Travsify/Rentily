@@ -3,6 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_constants.dart';
+import '../services/auth_service.dart';
+import 'auth/login_screen.dart';
 import 'onboarding_screen.dart';
 import 'main_navigation_screen.dart';
 
@@ -35,29 +37,42 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     );
 
     _controller.forward();
-    _navigateToNext();
+    _checkAuthGate();
   }
 
-  void _navigateToNext() async {
+  void _checkAuthGate() async {
     await Future.delayed(const Duration(milliseconds: 2200));
     if (!mounted) return;
 
-    final prefs = await SharedPreferences.getInstance();
-    final seenOnboarding = prefs.getBool(AppConstants.seenOnboardingKey) ?? false;
+    // Strict Authentication Gate Check
+    final bool loggedIn = await AuthService.isLoggedIn();
 
     if (!mounted) return;
 
-    Navigator.of(context).pushReplacement(
-      PageRouteBuilder(
-        transitionDuration: const Duration(milliseconds: 600),
-        pageBuilder: (_, __, ___) => seenOnboarding
-            ? const MainNavigationScreen()
-            : const OnboardingScreen(),
-        transitionsBuilder: (_, animation, __, child) {
-          return FadeTransition(opacity: animation, child: child);
-        },
-      ),
-    );
+    if (loggedIn) {
+      // User is authenticated -> Grant access to Home
+      Navigator.of(context).pushReplacement(
+        PageRouteBuilder(
+          transitionDuration: const Duration(milliseconds: 600),
+          pageBuilder: (_, __, ___) => const MainNavigationScreen(),
+          transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
+        ),
+      );
+    } else {
+      // User is NOT authenticated -> Gate access to Onboarding or Login
+      final prefs = await SharedPreferences.getInstance();
+      final seenOnboarding = prefs.getBool(AppConstants.seenOnboardingKey) ?? false;
+
+      if (!mounted) return;
+
+      Navigator.of(context).pushReplacement(
+        PageRouteBuilder(
+          transitionDuration: const Duration(milliseconds: 600),
+          pageBuilder: (_, __, ___) => seenOnboarding ? const LoginScreen() : const OnboardingScreen(),
+          transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
+        ),
+      );
+    }
   }
 
   @override
@@ -81,7 +96,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
               height: 300,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: AppColors.primaryLight.withOpacity(0.08),
+                color: AppColors.primaryLight.withValues(alpha: 0.08),
               ),
             ),
           ),
@@ -111,13 +126,13 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                             borderRadius: BorderRadius.circular(26),
                             boxShadow: [
                               BoxShadow(
-                                color: AppColors.primaryLight.withOpacity(0.35),
+                                color: AppColors.primaryLight.withValues(alpha: 0.35),
                                 blurRadius: 30,
                                 offset: const Offset(0, 10),
                               ),
                             ],
                             border: Border.all(
-                              color: Colors.white.withOpacity(0.25),
+                              color: Colors.white.withValues(alpha: 0.25),
                               width: 1.5,
                             ),
                           ),
@@ -147,10 +162,10 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                           decoration: BoxDecoration(
-                            color: AppColors.primaryLight.withOpacity(0.12),
+                            color: AppColors.primaryLight.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                              color: AppColors.primaryLight.withOpacity(0.25),
+                              color: AppColors.primaryLight.withValues(alpha: 0.25),
                             ),
                           ),
                           child: Text(

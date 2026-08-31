@@ -1,12 +1,53 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../constants/app_colors.dart';
+import '../../models/user_profile.dart';
+import '../../services/auth_service.dart';
+import '../auth/login_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
   @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  UserProfile? _currentUser;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUser();
+  }
+
+  void _loadUser() async {
+    final user = await AuthService.getCurrentUser();
+    setState(() {
+      _currentUser = user;
+      _isLoading = false;
+    });
+  }
+
+  void _handleSignOut() async {
+    await AuthService.logout();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+      (route) => false,
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final name = _currentUser?.fullName ?? 'Rentilly User';
+    final email = _currentUser?.email ?? 'user@rentilly.ng';
+    final phone = _currentUser?.phoneNumber ?? '+234 800 000 0000';
+    final initials = name.isNotEmpty
+        ? name.trim().split(' ').map((n) => n.isNotEmpty ? n[0] : '').take(2).join().toUpperCase()
+        : 'RU';
+
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
       body: SafeArea(
@@ -32,7 +73,7 @@ class ProfileScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: AppColors.surfaceDark,
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.borderDark.withOpacity(0.6)),
+                  border: Border.all(color: AppColors.borderDark.withValues(alpha: 0.6)),
                 ),
                 child: Row(
                   children: [
@@ -45,10 +86,10 @@ class ProfileScreen extends StatelessWidget {
                           colors: [AppColors.primaryLight, Color(0xFF0D9488)],
                         ),
                       ),
-                      child: const Center(
+                      child: Center(
                         child: Text(
-                          'FA',
-                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                          initials,
+                          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16),
                         ),
                       ),
                     ),
@@ -58,7 +99,7 @@ class ProfileScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Femi Adesanya',
+                            name,
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 14,
                               fontWeight: FontWeight.bold,
@@ -67,7 +108,9 @@ class ProfileScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            '+234 812 345 6789 • renter@rentilly.ng',
+                            '$phone • $email',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 10,
                               color: AppColors.textSecondary,
@@ -79,7 +122,7 @@ class ProfileScreen extends StatelessWidget {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: AppColors.primaryLight.withOpacity(0.15),
+                                  color: AppColors.primaryLight.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Row(
@@ -87,7 +130,7 @@ class ProfileScreen extends StatelessWidget {
                                     const Icon(Icons.verified, size: 10, color: AppColors.primaryLight),
                                     const SizedBox(width: 3),
                                     Text(
-                                      'NIN & BVN Verified',
+                                      _currentUser?.isVerified == true ? 'Prembly Verified' : 'Standard Tier 1',
                                       style: GoogleFonts.plusJakartaSans(
                                         fontSize: 8,
                                         fontWeight: FontWeight.bold,
@@ -124,12 +167,12 @@ class ProfileScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      const Color(0xFF0F382A).withOpacity(0.5),
+                      const Color(0xFF0F382A).withValues(alpha: 0.5),
                       AppColors.surfaceDark,
                     ],
                   ),
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: AppColors.primaryLight.withOpacity(0.35)),
+                  border: Border.all(color: AppColors.primaryLight.withValues(alpha: 0.35)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -154,7 +197,7 @@ class ProfileScreen extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            color: AppColors.primaryLight.withOpacity(0.2),
+                            color: AppColors.primaryLight.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
@@ -213,9 +256,9 @@ class ProfileScreen extends StatelessWidget {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
-                  onPressed: () {},
+                  onPressed: _handleSignOut,
                   style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: AppColors.error.withOpacity(0.5)),
+                    side: BorderSide(color: AppColors.error.withValues(alpha: 0.5)),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
@@ -244,7 +287,7 @@ class ProfileScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surfaceDark,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.borderDark.withOpacity(0.4)),
+        border: Border.all(color: AppColors.borderDark.withValues(alpha: 0.4)),
       ),
       child: Row(
         children: [
