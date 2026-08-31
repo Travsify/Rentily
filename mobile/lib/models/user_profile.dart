@@ -32,18 +32,21 @@ class UserProfile {
   // Extract real first name (e.g. "Patrick Atua" -> "Patrick")
   String get firstName {
     final trimmed = fullName.trim();
-    if (trimmed.isEmpty) return 'Patrick';
-    if (trimmed.toLowerCase().contains('avad') || trimmed.toLowerCase().contains('softtech')) {
-      return 'Patrick';
-    }
+    if (trimmed.isEmpty || trimmed.contains('@')) return 'User';
     final parts = trimmed.split(' ');
-    return parts.first;
+    // Capitalize first letter
+    final first = parts.first;
+    if (first.isEmpty) return 'User';
+    return '${first[0].toUpperCase()}${first.substring(1)}';
   }
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
-    String rawName = json['fullName']?.toString() ?? json['full_name']?.toString() ?? 'Patrick Atua';
-    if (rawName.toLowerCase().contains('avad') || rawName.toLowerCase().contains('softtech') || rawName.contains('@')) {
-      rawName = 'Patrick Atua';
+    // Get name from JSON, try both camelCase and snake_case keys
+    String rawName = json['fullName']?.toString() ?? json['full_name']?.toString() ?? '';
+
+    // If name looks like an email or is empty, clear it so firstName returns 'User'
+    if (rawName.contains('@')) {
+      rawName = '';
     }
 
     return UserProfile(

@@ -66,24 +66,20 @@ class _LoginScreenState extends State<LoginScreen> {
 
   void _handleBiometricAuth() async {
     setState(() => _errorMessage = null);
+
+    // Only allow biometric login if a real user session already exists
+    final existingUser = await AuthService.getCurrentUser();
+    if (existingUser == null || existingUser.fullName.isEmpty) {
+      setState(() => _errorMessage = 'Please sign in with your email and password first to set up biometric login.');
+      return;
+    }
+
     final authenticated = await BiometricService.authenticate();
     if (authenticated) {
-      final existingUser = await AuthService.getCurrentUser();
-      if (existingUser != null) {
-        if (!mounted) return;
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
-        );
-      } else {
-        final res = await AuthService.login(email: 'user@rentilly.ng', password: 'Forgetpassword.');
-        if (res['success'] == true && mounted) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
-          );
-        } else {
-          setState(() => _errorMessage = 'Please sign in with email first to register biometrics.');
-        }
-      }
+      if (!mounted) return;
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+      );
     }
   }
 
