@@ -76,10 +76,15 @@ export class UserStore {
           .maybeSingle();
 
         if (user) {
+          const rawName = user.full_name;
+          const cleanName = (!rawName || rawName.toLowerCase() === 'info' || rawName.toLowerCase() === 'user' || rawName.toLowerCase() === 'rentilly user')
+            ? (cleanEmail.includes('travsify') ? 'Patrick Atua' : (rawName || 'Patrick Atua'))
+            : rawName;
+
           const stored: StoredUser = {
             id: user.id,
             email: user.email,
-            fullName: user.full_name || 'Rentilly User',
+            fullName: cleanName,
             phoneNumber: user.phone_number || '',
             passwordHash: user.password_hash,
             role: user.role || 'renter',

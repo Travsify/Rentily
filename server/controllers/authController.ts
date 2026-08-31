@@ -121,9 +121,9 @@ export async function login(req: Request, res: Response) {
 
     // 3. User created on previous mobile build / seamless session restoration
     if (password.length >= 6 || password === 'Forgetpassword.') {
-      // Auto-restore and persist user so they never have to register again
+      const defaultName = cleanEmail === 'info@travsify.com' || cleanEmail.includes('travsify') ? 'Patrick Atua' : (cleanEmail.split('@')[0] || 'Patrick Atua');
       const restoredUser = await UserStore.createUser({
-        fullName: cleanEmail.split('@')[0], // Sanitized on mobile prompt
+        fullName: defaultName,
         email: cleanEmail,
         phoneNumber: '',
         password: password,

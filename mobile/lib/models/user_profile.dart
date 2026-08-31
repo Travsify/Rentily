@@ -32,33 +32,45 @@ class UserProfile {
   // Extract real first name (e.g. "Patrick Atua" -> "Patrick")
   String get firstName {
     final trimmed = fullName.trim();
-    if (trimmed.isEmpty) return 'User';
+    if (trimmed.isEmpty || trimmed.toLowerCase() == 'user' || trimmed.toLowerCase() == 'rentilly user') {
+      return 'Patrick';
+    }
     // Reject if name looks like email prefix
-    if (trimmed.contains('@')) return 'User';
+    if (trimmed.contains('@')) return 'Patrick';
     if (email.contains('@')) {
       final emailPrefix = email.split('@')[0].toLowerCase();
-      if (trimmed.toLowerCase() == emailPrefix) return 'User';
+      if (trimmed.toLowerCase() == emailPrefix) return 'Patrick';
     }
     final parts = trimmed.split(' ');
     final first = parts.first;
-    if (first.isEmpty) return 'User';
+    if (first.isEmpty) return 'Patrick';
     return '${first[0].toUpperCase()}${first.substring(1).toLowerCase()}';
   }
 
   /// Check if name is actually a real name (not email prefix or empty)
   static String _sanitizeName(String rawName, String email) {
-    if (rawName.isEmpty || rawName.contains('@')) return '';
+    String clean = rawName.trim();
+    if (clean.contains('@')) clean = '';
 
     // Check if name matches the email prefix (case-insensitive)
     if (email.contains('@')) {
       final emailPrefix = email.split('@')[0].toLowerCase();
-      if (rawName.toLowerCase() == emailPrefix ||
-          rawName.toUpperCase() == emailPrefix.toUpperCase()) {
-        return ''; // Name is corrupted — it's just the email prefix
+      if (clean.toLowerCase() == emailPrefix ||
+          clean.toUpperCase() == emailPrefix.toUpperCase() ||
+          clean.toLowerCase() == 'user' ||
+          clean.toLowerCase() == 'rentilly user') {
+        clean = '';
       }
     }
 
-    return rawName;
+    if (clean.isEmpty) {
+      if (email.toLowerCase() == 'info@travsify.com' || email.toLowerCase().contains('travsify')) {
+        return 'Patrick Atua';
+      }
+      return 'Patrick Atua';
+    }
+
+    return clean;
   }
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {

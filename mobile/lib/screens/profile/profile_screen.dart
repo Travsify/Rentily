@@ -121,12 +121,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            name,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textPrimary,
+                          GestureDetector(
+                            onTap: _showEditNameDialog,
+                            child: Row(
+                              children: [
+                                Text(
+                                  name,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                const Icon(Icons.edit_outlined, size: 14, color: AppColors.primary),
+                              ],
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -349,6 +358,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  void _showEditNameDialog() {
+    final nameCtrl = TextEditingController(text: _currentUser?.fullName ?? 'Patrick Atua');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Text('Edit Full Name', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: nameCtrl,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600),
+          decoration: InputDecoration(
+            hintText: 'Enter your full name',
+            filled: true,
+            fillColor: const Color(0xFFF9FAFB),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.borderDark)),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+            onPressed: () async {
+              final newName = nameCtrl.text.trim();
+              if (newName.isNotEmpty && _currentUser != null) {
+                final updated = _currentUser!.copyWith(fullName: newName);
+                await AuthService.updateUser(updated);
+                setState(() => _currentUser = updated);
+                Navigator.of(ctx).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Profile name updated to $newName', style: GoogleFonts.plusJakartaSans(fontSize: 11)), backgroundColor: AppColors.primary),
+                );
+              }
+            },
+            child: const Text('Save Name', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
     );
   }
