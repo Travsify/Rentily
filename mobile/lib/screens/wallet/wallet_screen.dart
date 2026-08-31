@@ -6,6 +6,7 @@ import '../../constants/app_colors.dart';
 import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/rentilly_bottom_bar.dart';
+import '../../widgets/verification_modal.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
@@ -38,15 +39,9 @@ class _WalletScreenState extends State<WalletScreen> {
 
   void _copyAccount() {
     if (_user?.accountNumber == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Please verify your BVN/NIN to generate your personal Wema/Providus account.',
-            style: GoogleFonts.plusJakartaSans(fontSize: 11),
-          ),
-          backgroundColor: AppColors.primary,
-        ),
-      );
+      VerificationModal.show(context, onSuccess: (updated) {
+        setState(() => _user = updated);
+      });
       return;
     }
     Clipboard.setData(ClipboardData(text: _user!.accountNumber!));
@@ -242,55 +237,62 @@ class _WalletScreenState extends State<WalletScreen> {
                         ),
                       )
                     else
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.25),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'VIRTUAL ACCOUNT',
-                                    style: GoogleFonts.plusJakartaSans(
-                                      fontSize: 8,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white.withValues(alpha: 0.7),
+                      GestureDetector(
+                        onTap: () {
+                          VerificationModal.show(context, onSuccess: (updated) {
+                            setState(() => _user = updated);
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.25),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'VIRTUAL ACCOUNT',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 8,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white.withValues(alpha: 0.7),
+                                      ),
                                     ),
-                                  ),
-                                  Text(
-                                    'Not Generated Yet',
-                                    style: GoogleFonts.plusJakartaSans(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.white,
+                                    Text(
+                                      'Not Generated Yet',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.white,
+                                      ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                              decoration: BoxDecoration(
-                                color: AppColors.accentOrange,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                'Activate Now',
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
+                                  ],
                                 ),
                               ),
-                            ),
-                          ],
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                decoration: BoxDecoration(
+                                  color: AppColors.accentOrange,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  'Activate Now',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                   ],

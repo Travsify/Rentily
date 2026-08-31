@@ -4,6 +4,7 @@ import '../../constants/app_colors.dart';
 import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/rentilly_bottom_bar.dart';
+import '../../widgets/verification_modal.dart';
 import '../auth/login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -125,25 +126,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           const SizedBox(height: 6),
                           Row(
                             children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary.withValues(alpha: 0.08),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.verified, size: 11, color: AppColors.primaryLight),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      _currentUser?.isVerified == true ? 'Prembly Verified' : 'Standard Tier 1',
-                                      style: GoogleFonts.plusJakartaSans(
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppColors.primary,
+                              GestureDetector(
+                                onTap: () {
+                                  if (_currentUser?.isVerified != true) {
+                                    VerificationModal.show(context, onSuccess: (updated) {
+                                      setState(() => _currentUser = updated);
+                                    });
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Identity & Bank Account fully verified via Prembly (NIMC/NIBSS).', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
+                                        backgroundColor: AppColors.primary,
                                       ),
+                                    );
+                                  }
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                                  decoration: BoxDecoration(
+                                    color: _currentUser?.isVerified == true
+                                        ? AppColors.primaryLight.withValues(alpha: 0.12)
+                                        : AppColors.accentOrange.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: _currentUser?.isVerified == true
+                                          ? AppColors.primaryLight.withValues(alpha: 0.4)
+                                          : AppColors.accentOrange.withValues(alpha: 0.4),
                                     ),
-                                  ],
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        _currentUser?.isVerified == true ? Icons.verified : Icons.shield_outlined,
+                                        size: 11,
+                                        color: _currentUser?.isVerified == true ? AppColors.primaryLight : AppColors.accentOrange,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        _currentUser?.isVerified == true ? 'Prembly Verified' : 'UNVERIFIED • Tap to Verify',
+                                        style: GoogleFonts.plusJakartaSans(
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                          color: _currentUser?.isVerified == true ? AppColors.primary : AppColors.accentOrange,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ],
