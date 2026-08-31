@@ -437,8 +437,9 @@ class _WalletScreenState extends State<WalletScreen> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildActionButton(IconData icon, String label, VoidCallback onTap) {
     return GestureDetector(
