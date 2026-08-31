@@ -112,7 +112,7 @@ class _VerificationModalState extends State<VerificationModal> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Rentilly Escrow - ${user.fullName.isNotEmpty ? user.fullName : 'Verified Tenant'}',
+                      'Rentilly ${user.fullName.isNotEmpty ? user.fullName : "User"}',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
                     ),

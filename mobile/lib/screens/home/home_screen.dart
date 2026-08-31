@@ -135,12 +135,12 @@ class _HomeScreenState extends State<HomeScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Account Number Copied! Send funds from any Nigerian banking app.',
+          'Account Copied! (${_user!.bankName ?? "Flutterwave MFB"} • Rentilly ${_user!.fullName})',
           style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w600),
         ),
         backgroundColor: AppColors.primary,
         behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
+        duration: const Duration(seconds: 3),
       ),
     );
   }
