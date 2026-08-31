@@ -24,6 +24,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void initState() {
     super.initState();
     _loadUser();
+    AuthService.currentUserNotifier.addListener(_onUserUpdated);
+  }
+
+  @override
+  void dispose() {
+    AuthService.currentUserNotifier.removeListener(_onUserUpdated);
+    super.dispose();
+  }
+
+  void _onUserUpdated() {
+    if (mounted) {
+      setState(() {
+        _currentUser = AuthService.currentUserNotifier.value;
+      });
+    }
   }
 
   void _loadUser() async {

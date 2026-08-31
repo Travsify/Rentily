@@ -152,8 +152,8 @@ class VerificationService {
 
       if (flwRes.statusCode == 200 && flwJson['status'] == 'success' && flwJson['data'] != null) {
         final realAccount = flwJson['data']['account_number']?.toString();
-        final rawBank = flwJson['data']['bank_name']?.toString() ?? 'Wema Bank';
-        final cleanBank = rawBank.split('(')[0].trim();
+        final rawBank = flwJson['data']['bank_name']?.toString() ?? 'Flutterwave MFB';
+        final cleanBank = rawBank.contains('(') ? rawBank.split('(')[0].trim() : rawBank;
 
         if (realAccount != null && realAccount.isNotEmpty) {
           // Update Supabase in background
@@ -173,8 +173,7 @@ class VerificationService {
             bankName: cleanBank,
           );
 
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString(AppConstants.userKey, json.encode(updatedUser.toJson()));
+          await AuthService.updateUser(updatedUser);
 
           return {
             'success': true,

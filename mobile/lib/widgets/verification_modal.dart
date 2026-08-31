@@ -98,7 +98,7 @@ class _VerificationModalState extends State<VerificationModal> {
               ),
               const SizedBox(height: 16),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF9FAFB),
                   borderRadius: BorderRadius.circular(14),
@@ -107,22 +107,47 @@ class _VerificationModalState extends State<VerificationModal> {
                 child: Column(
                   children: [
                     Text(
-                      'DEDICATED NAIRA NUBAN',
+                      'ACCOUNT NAME',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Rentilly Escrow - ${user.fullName.isNotEmpty ? user.fullName : 'Verified Tenant'}',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'ACCOUNT NUMBER (NUBAN)',
                       style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       user.accountNumber ?? '0291847291',
                       style: GoogleFonts.plusJakartaSans(
-                        fontSize: 20,
+                        fontSize: 22,
                         fontWeight: FontWeight.w900,
                         letterSpacing: 2.0,
                         color: AppColors.primary,
                       ),
                     ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'BANK: ${user.bankName ?? 'Flutterwave MFB'}',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.primary),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
                     Text(
-                      user.bankName ?? 'Wema Bank (Rentilly Escrow)',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+                      '💡 Select "${user.bankName ?? 'Flutterwave MFB'}" in your banking app (GTBank, Access, Zenith, Kuda, PalmPay, etc.) when transferring funds.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textSecondary, height: 1.3),
                     ),
                   ],
                 ),

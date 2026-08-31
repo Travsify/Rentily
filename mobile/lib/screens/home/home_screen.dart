@@ -73,6 +73,24 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadUser();
+    AuthService.currentUserNotifier.addListener(_onUserUpdated);
+  }
+
+  @override
+  void dispose() {
+    AuthService.currentUserNotifier.removeListener(_onUserUpdated);
+    super.dispose();
+  }
+
+  void _onUserUpdated() {
+    if (mounted) {
+      setState(() {
+        _user = AuthService.currentUserNotifier.value;
+        if (_user?.state != null && _user!.state!.isNotEmpty) {
+          _userLocation = '${_user!.state}, Nigeria';
+        }
+      });
+    }
   }
 
   String get _timeGreeting {

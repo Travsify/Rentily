@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/app_constants.dart';
@@ -217,6 +218,9 @@ class AuthService {
     };
   }
 
+  // Reactive notifier so all screens update in real-time
+  static final ValueNotifier<UserProfile?> currentUserNotifier = ValueNotifier<UserProfile?>(null);
+
   // 3. Check if user is currently logged in
   static Future<bool> isLoggedIn() async {
     final prefs = await SharedPreferences.getInstance();
@@ -230,22 +234,34 @@ class AuthService {
     final userJson = prefs.getString(AppConstants.userKey);
     if (userJson != null) {
       try {
-        return UserProfile.fromJson(json.decode(userJson));
+        final u = UserProfile.fromJson(json.decode(userJson));
+        currentUserNotifier.value = u;
+        return u;
       } catch (_) {}
     }
     return null;
   }
 
-  // 5. Sign Out
+  // 5. Update user profile globally and notify all listening screens
+  static Future<void> updateUser(UserProfile user) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(AppConstants.userKey, json.encode(user.toJson()));
+    currentUserNotifier.value = user;
+  }
+
+  // 6. Sign Out
   static Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(AppConstants.tokenKey);
     await prefs.remove(AppConstants.userKey);
+    currentUserNotifier.value = null;
   }
 
   static Future<void> _saveSession(String token, Map<String, dynamic> userData) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(AppConstants.tokenKey, token);
     await prefs.setString(AppConstants.userKey, json.encode(userData));
+    final u = UserProfile.fromJson(userData);
+    currentUserNotifier.value = u;
   }
 }
