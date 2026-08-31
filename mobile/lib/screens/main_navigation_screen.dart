@@ -34,11 +34,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         children: _screens,
       ),
       bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: AppColors.surfaceDark,
+        decoration: const BoxDecoration(
+          color: Colors.white,
           border: Border(
             top: BorderSide(
-              color: AppColors.borderDark.withValues(alpha: 0.5),
+              color: AppColors.borderDark,
               width: 1,
             ),
           ),
@@ -54,7 +54,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               backgroundColor: Colors.transparent,
               type: BottomNavigationBarType.fixed,
               elevation: 0,
-              selectedItemColor: AppColors.primaryLight,
+              selectedItemColor: AppColors.primary,
               unselectedItemColor: AppColors.textMuted,
               selectedLabelStyle: GoogleFonts.plusJakartaSans(
                 fontSize: 10,

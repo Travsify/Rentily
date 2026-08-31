@@ -46,25 +46,25 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final List<Map<String, dynamic>> _heroBanners = [
     {
-      'tag': 'ANTI-AGENT DISRUPTION',
-      'title': 'Zero 20% Agent Fees Guaranteed',
-      'description': 'Connect directly with verified property owners. Save an average of ₦850,000 on your next home.',
+      'tag': 'ZERO AGENT GUARANTEE',
+      'title': 'Save up to ₦850,000 in Middleman Fees',
+      'description': 'Direct connection to verified property landlords. Legal escrow protection guaranteed.',
       'icon': Icons.shield_rounded,
-      'color': Color(0xFF10B981),
+      'color': AppColors.primary,
     },
     {
       'tag': 'LIVING VAULTS',
-      'title': 'Earn 11.5% Yield on Your Rent Savings',
-      'description': 'Set aside 10% on every payment towards your next annual rent renewal with inflation protection.',
+      'title': 'Earn 11.5% Yield on Your Next Rent Renewal',
+      'description': 'Auto-save 10% on every deposit towards your annual rent with inflation hedge.',
       'icon': Icons.trending_up_rounded,
-      'color': Color(0xFFF59E0B),
+      'color': AppColors.accentOrange,
     },
     {
       'tag': 'DISCO AUTOPILOT',
-      'title': 'Never Sit in Darkness Again',
-      'description': 'Automated electricity token top-ups for EKEDC, IKEDC, AEDC, IBEDC, and PHED meters.',
+      'title': 'Instant Electricity Tokens 24/7',
+      'description': 'Automated token delivery for EKEDC, IKEDC, AEDC, and all 11 Nigerian power Discos.',
       'icon': Icons.bolt_rounded,
-      'color': Color(0xFF3B82F6),
+      'color': Color(0xFF0284C7),
     },
   ];
 
@@ -76,7 +76,7 @@ class _HomeScreenState extends State<HomeScreen> {
           'Account Number Copied! Send funds from any Nigerian banking app.',
           style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w600),
         ),
-        backgroundColor: AppColors.primaryLight,
+        backgroundColor: AppColors.primary,
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
       ),
@@ -94,7 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. Top Bar: Greeting & Action Icons (Clean & Uncluttered)
+              // 1. Top Bar: Greeting & Action Icons (Clean & Uncluttered Light Mode)
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -107,9 +107,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           Text(
                             'Good day, Femi',
                             style: GoogleFonts.plusJakartaSans(
-                              fontSize: 17,
+                              fontSize: 18,
                               fontWeight: FontWeight.w800,
-                              color: Colors.white,
+                              color: AppColors.textPrimary,
                             ),
                           ),
                           const SizedBox(width: 4),
@@ -121,12 +121,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         onTap: _showLocationPicker,
                         child: Row(
                           children: [
-                            const Icon(Icons.location_on_rounded, size: 12, color: AppColors.primaryLight),
+                            const Icon(Icons.location_on_rounded, size: 13, color: AppColors.accentOrange),
                             const SizedBox(width: 3),
                             Text(
                               _userLocation,
                               style: GoogleFonts.plusJakartaSans(
-                                fontSize: 10,
+                                fontSize: 11,
                                 fontWeight: FontWeight.w600,
                                 color: AppColors.textSecondary,
                               ),
@@ -141,7 +141,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   // Action Icons (Messages & Notification Bell)
                   Row(
                     children: [
-                      // Chat Icon with unread badge
                       GestureDetector(
                         onTap: () {
                           Navigator.of(context).push(
@@ -151,14 +150,20 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: AppColors.surfaceDark,
+                            color: Colors.white,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.borderDark.withValues(alpha: 0.5)),
+                            border: Border.all(color: AppColors.borderDark),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.03),
+                                blurRadius: 8,
+                              ),
+                            ],
                           ),
                           child: Stack(
                             clipBehavior: Clip.none,
                             children: [
-                              const Icon(Icons.chat_bubble_outline_rounded, size: 18, color: Colors.white),
+                              const Icon(Icons.chat_bubble_outline_rounded, size: 18, color: AppColors.textPrimary),
                               Positioned(
                                 top: -2,
                                 right: -2,
@@ -166,7 +171,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   width: 8,
                                   height: 8,
                                   decoration: const BoxDecoration(
-                                    color: AppColors.primaryLight,
+                                    color: AppColors.accentOrange,
                                     shape: BoxShape.circle,
                                   ),
                                 ),
@@ -177,15 +182,20 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(width: 8),
 
-                      // Notification Bell
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: AppColors.surfaceDark,
+                          color: Colors.white,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.borderDark.withValues(alpha: 0.5)),
+                          border: Border.all(color: AppColors.borderDark),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.03),
+                              blurRadius: 8,
+                            ),
+                          ],
                         ),
-                        child: const Icon(Icons.notifications_none_rounded, size: 18, color: Colors.white),
+                        child: const Icon(Icons.notifications_none_rounded, size: 18, color: AppColors.textPrimary),
                       ),
                     ],
                   ),
@@ -193,7 +203,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 18),
 
-              // 2. The Living Wallet Card (Before the Grid)
+              // 2. The Living Wallet Card (Royal Blue & Deep Navy Gradient)
               GestureDetector(
                 onTap: () {
                   Navigator.of(context).push(
@@ -202,59 +212,58 @@ class _HomeScreenState extends State<HomeScreen> {
                 },
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(18),
+                  padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [
-                        Color(0xFF0F382A),
-                        Color(0xFF061E16),
-                        Color(0xFF090E17),
+                        Color(0xFF1E40AF),
+                        Color(0xFF1D4ED8),
+                        Color(0xFF172554),
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(22),
-                    border: Border.all(color: AppColors.primaryLight.withValues(alpha: 0.35)),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.35),
-                        blurRadius: 18,
-                        offset: const Offset(0, 6),
+                        color: AppColors.primary.withValues(alpha: 0.3),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
                       ),
                     ],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Top Row: Brand & Wema Bank Tag
+                      // Top Row: Escrow Tag & Wema Bank Pill
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.shield_rounded, size: 16, color: AppColors.primaryLight),
+                              const Icon(Icons.shield_rounded, size: 16, color: Colors.white),
                               const SizedBox(width: 5),
                               Text(
                                 'RENTILLY ESCROW WALLET',
                                 style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 8.5,
+                                  fontSize: 9,
                                   fontWeight: FontWeight.w800,
                                   letterSpacing: 1.1,
-                                  color: AppColors.primaryLight,
+                                  color: Colors.white,
                                 ),
                               ),
                             ],
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.1),
+                              color: Colors.white.withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
                               _bankName.toUpperCase(),
                               style: GoogleFonts.plusJakartaSans(
-                                fontSize: 8,
+                                fontSize: 8.5,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
                               ),
@@ -266,12 +275,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
                       // Balance Section
                       Text(
-                        'AVAILABLE BALANCE',
+                        'TOTAL AVAILABLE BALANCE',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 8.5,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 0.9,
-                          color: AppColors.textMuted,
+                          color: Colors.white.withValues(alpha: 0.7),
                         ),
                       ),
                       const SizedBox(height: 3),
@@ -280,31 +289,31 @@ class _HomeScreenState extends State<HomeScreen> {
                           Text(
                             _hideBalance ? '₦ • • • • • •' : '₦${_currencyFormat.format(_balance)}',
                             style: GoogleFonts.plusJakartaSans(
-                              fontSize: 22,
+                              fontSize: 24,
                               fontWeight: FontWeight.w900,
                               color: Colors.white,
                             ),
                           ),
-                          const SizedBox(width: 6),
+                          const SizedBox(width: 8),
                           GestureDetector(
                             onTap: () => setState(() => _hideBalance = !_hideBalance),
                             child: Icon(
                               _hideBalance ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-                              size: 16,
-                              color: AppColors.textSecondary,
+                              size: 18,
+                              color: Colors.white.withValues(alpha: 0.8),
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 14),
 
-                      // Virtual Account Number Pill with 1-Tap Copy
+                      // NUBAN Pill with 1-Tap Copy
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.4),
+                          color: Colors.black.withValues(alpha: 0.25),
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -312,7 +321,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             Text(
                               'NUBAN: $_accountNumber • $_bankName',
                               style: GoogleFonts.plusJakartaSans(
-                                fontSize: 10,
+                                fontSize: 10.5,
                                 fontWeight: FontWeight.w700,
                                 color: Colors.white,
                               ),
@@ -322,15 +331,15 @@ class _HomeScreenState extends State<HomeScreen> {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(
-                                  color: AppColors.primaryLight.withValues(alpha: 0.2),
+                                  color: AppColors.accentOrange,
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
                                   'Copy',
                                   style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 9,
+                                    fontSize: 9.5,
                                     fontWeight: FontWeight.bold,
-                                    color: AppColors.primaryLight,
+                                    color: Colors.white,
                                   ),
                                 ),
                               ),
@@ -338,9 +347,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: 16),
 
-                      // 3 Quick Action Buttons on the Card
+                      // 3 Quick Action Buttons on Card
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -359,7 +368,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 22),
 
-              // 3. Circular Grid-Based Quick Hub (The Core 4 Action Pods)
+              // 3. Circular Grid-Based Quick Hub (The 4 Core Action Pods on Pure White Cards)
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -369,15 +378,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       fontSize: 10,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 1.1,
-                      color: AppColors.textMuted,
+                      color: AppColors.textSecondary,
                     ),
                   ),
                   Text(
-                    'Direct & Scam-Free',
+                    'Direct & Verified',
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primaryLight,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
                     ),
                   ),
                 ],
@@ -393,12 +402,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 mainAxisSpacing: 12,
                 childAspectRatio: 1.25,
                 children: [
-                  // Pod 1: Properties
+                  // Pod 1: Properties (Royal Blue)
                   _buildCircularGridPod(
                     title: 'Properties',
                     subtitle: 'Rent & Buy Direct',
                     icon: Icons.apartment_rounded,
-                    color: const Color(0xFF10B981),
+                    color: AppColors.primary,
                     badge: 'Zero 20% Fee',
                     onTap: () {
                       Navigator.of(context).push(
@@ -407,12 +416,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     },
                   ),
 
-                  // Pod 2: My Spaces
+                  // Pod 2: My Spaces (Sunset Orange)
                   _buildCircularGridPod(
                     title: 'My Spaces',
                     subtitle: 'Active Lease & Deeds',
                     icon: Icons.vpn_key_rounded,
-                    color: const Color(0xFFF59E0B),
+                    color: AppColors.accentOrange,
                     badge: '1 Leased',
                     onTap: () {
                       Navigator.of(context).push(
@@ -421,12 +430,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     },
                   ),
 
-                  // Pod 3: Bill Payments
+                  // Pod 3: Bill Payments (Sky Blue)
                   _buildCircularGridPod(
                     title: 'Bill Payments',
                     subtitle: 'Disco, Data, Airtime',
                     icon: Icons.electric_meter_rounded,
-                    color: const Color(0xFF3B82F6),
+                    color: const Color(0xFF0284C7),
                     badge: 'Instant Token',
                     onTap: () {
                       Navigator.of(context).push(
@@ -435,12 +444,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     },
                   ),
 
-                  // Pod 4: Rent Savings
+                  // Pod 4: Living Vaults (Emerald / Wealth)
                   _buildCircularGridPod(
                     title: 'Living Vaults',
                     subtitle: 'Save for Rent & Power',
                     icon: Icons.savings_rounded,
-                    color: const Color(0xFF8B5CF6),
+                    color: const Color(0xFF10B981),
                     badge: '11.5% Yield',
                     onTap: () {
                       Navigator.of(context).push(
@@ -465,30 +474,30 @@ class _HomeScreenState extends State<HomeScreen> {
 
                     return Container(
                       margin: const EdgeInsets.symmetric(horizontal: 2),
-                      padding: const EdgeInsets.all(14),
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            color.withValues(alpha: 0.16),
-                            AppColors.surfaceDark,
-                          ],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
+                        color: Colors.white,
                         borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: color.withValues(alpha: 0.35)),
+                        border: Border.all(color: color.withValues(alpha: 0.2)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.03),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
                       child: Row(
                         children: [
                           Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
-                              color: color.withValues(alpha: 0.2),
+                              color: color.withValues(alpha: 0.1),
                               shape: BoxShape.circle,
                             ),
-                            child: Icon(b['icon'] as IconData, size: 20, color: color),
+                            child: Icon(b['icon'] as IconData, size: 22, color: color),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 14),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -497,7 +506,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 Text(
                                   b['tag'],
                                   style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 8,
+                                    fontSize: 8.5,
                                     fontWeight: FontWeight.w800,
                                     letterSpacing: 1.1,
                                     color: color,
@@ -507,9 +516,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                 Text(
                                   b['title'],
                                   style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 11,
+                                    fontSize: 12,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.white,
+                                    color: AppColors.textPrimary,
                                   ),
                                 ),
                                 const SizedBox(height: 2),
@@ -518,7 +527,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                   style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 9.5,
+                                    fontSize: 10,
                                     color: AppColors.textSecondary,
                                   ),
                                 ),
@@ -540,10 +549,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   _heroBanners.length,
                   (i) => Container(
                     margin: const EdgeInsets.symmetric(horizontal: 3),
-                    width: _currentBanner == i ? 14 : 5,
+                    width: _currentBanner == i ? 16 : 6,
                     height: 5,
                     decoration: BoxDecoration(
-                      color: _currentBanner == i ? AppColors.primaryLight : AppColors.borderDark,
+                      color: _currentBanner == i ? AppColors.primary : AppColors.borderDark,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -561,19 +570,25 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceDark,
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.borderDark.withValues(alpha: 0.5)),
+                    border: Border.all(color: AppColors.borderDark),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.03),
+                        blurRadius: 8,
+                      ),
+                    ],
                   ),
                   child: Row(
                     children: [
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: AppColors.primaryLight.withValues(alpha: 0.15),
+                          color: AppColors.primary.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Icon(Icons.security_rounded, size: 16, color: AppColors.primaryLight),
+                        child: const Icon(Icons.security_rounded, size: 18, color: AppColors.primary),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -583,15 +598,15 @@ class _HomeScreenState extends State<HomeScreen> {
                             Text(
                               'Physical Inspection Gate Pass Ready',
                               style: GoogleFonts.plusJakartaSans(
-                                fontSize: 11,
+                                fontSize: 12,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                                color: AppColors.textPrimary,
                               ),
                             ),
                             Text(
                               'Plot 18, Lekki Phase 1 • Gate Pass: 749201',
                               style: GoogleFonts.plusJakartaSans(
-                                fontSize: 9.5,
+                                fontSize: 10,
                                 color: AppColors.textSecondary,
                               ),
                             ),
@@ -617,13 +632,13 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.08),
+          color: Colors.white.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
         ),
         child: Row(
           children: [
-            Icon(icon, size: 13, color: AppColors.primaryLight),
+            Icon(icon, size: 13, color: Colors.white),
             const SizedBox(width: 4),
             Text(
               label,
@@ -652,12 +667,12 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: AppColors.surfaceDark,
+          color: Colors.white,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppColors.borderDark.withValues(alpha: 0.5)),
+          border: Border.all(color: AppColors.borderDark),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.2),
+              color: Colors.black.withValues(alpha: 0.03),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -667,7 +682,6 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // Top Row: Circular Orb Icon & Micro-Badge
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -676,8 +690,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   height: 42,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: color.withValues(alpha: 0.16),
-                    border: Border.all(color: color.withValues(alpha: 0.4), width: 1.5),
+                    color: color.withValues(alpha: 0.1),
+                    border: Border.all(color: color.withValues(alpha: 0.3), width: 1.5),
                   ),
                   child: Center(
                     child: Icon(icon, size: 20, color: color),
@@ -686,7 +700,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
+                    color: color.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
@@ -700,8 +714,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
-
-            // Bottom Text
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -710,7 +722,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 12,
                     fontWeight: FontWeight.w800,
-                    color: Colors.white,
+                    color: AppColors.textPrimary,
                   ),
                 ),
                 Text(
@@ -718,7 +730,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: 9,
+                    fontSize: 9.5,
                     color: AppColors.textSecondary,
                   ),
                 ),
@@ -733,7 +745,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void _showLocationPicker() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.surfaceDark,
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
@@ -746,7 +758,7 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               Text(
                 'Select Your State / Region',
-                style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
               ),
               const SizedBox(height: 12),
               Expanded(
@@ -762,17 +774,17 @@ class _HomeScreenState extends State<HomeScreen> {
                       leading: Icon(
                         Icons.location_on_rounded,
                         size: 16,
-                        color: isSelected ? AppColors.primaryLight : AppColors.textMuted,
+                        color: isSelected ? AppColors.accentOrange : AppColors.textMuted,
                       ),
                       title: Text(
                         loc,
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 12,
                           fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                          color: isSelected ? AppColors.primaryLight : Colors.white,
+                          color: isSelected ? AppColors.primary : AppColors.textPrimary,
                         ),
                       ),
-                      trailing: isSelected ? const Icon(Icons.check, size: 16, color: AppColors.primaryLight) : null,
+                      trailing: isSelected ? const Icon(Icons.check, size: 16, color: AppColors.primary) : null,
                       onTap: () {
                         setState(() => _userLocation = loc);
                         Navigator.of(context).pop();
