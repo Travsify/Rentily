@@ -26,6 +26,21 @@ class _WalletScreenState extends State<WalletScreen> {
   void initState() {
     super.initState();
     _loadData();
+    AuthService.currentUserNotifier.addListener(_onUserUpdated);
+  }
+
+  @override
+  void dispose() {
+    AuthService.currentUserNotifier.removeListener(_onUserUpdated);
+    super.dispose();
+  }
+
+  void _onUserUpdated() {
+    if (mounted) {
+      setState(() {
+        _user = AuthService.currentUserNotifier.value;
+      });
+    }
   }
 
   void _loadData() async {
@@ -49,12 +64,12 @@ class _WalletScreenState extends State<WalletScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Account Number Copied! Send money from any Nigerian banking app.',
+          'Account Copied! (${_user!.bankName ?? "Flutterwave MFB"} • Rentilly - ${_user!.fullName})',
           style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w600),
         ),
         backgroundColor: AppColors.primary,
         behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
+        duration: const Duration(seconds: 3),
       ),
     );
   }
@@ -63,7 +78,7 @@ class _WalletScreenState extends State<WalletScreen> {
   Widget build(BuildContext context) {
     final double balance = _user?.walletBalance ?? 0.00;
     final String? accNum = _user?.accountNumber;
-    final String bank = _user?.bankName ?? 'Wema / Providus Bank';
+    final String bank = _user?.bankName ?? 'Flutterwave MFB';
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
@@ -74,10 +89,12 @@ class _WalletScreenState extends State<WalletScreen> {
         ),
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, size: 22, color: AppColors.textPrimary),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+        leading: Navigator.of(context).canPop()
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_rounded, size: 22, color: AppColors.textPrimary),
+                onPressed: () => Navigator.of(context).pop(),
+              )
+            : null,
       ),
       bottomNavigationBar: const RentillyBottomBar(currentIndex: 0),
       body: SafeArea(

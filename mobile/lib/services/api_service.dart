@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import '../constants/app_constants.dart';
 import '../models/property.dart';
 import '../models/inspection.dart';
+import 'auth_service.dart';
 
 class ApiService {
   static const String baseUrl = AppConstants.apiBaseUrl;
@@ -35,7 +36,9 @@ class ApiService {
       final response = await http.get(Uri.parse('$baseUrl/inspections')).timeout(const Duration(seconds: 8));
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
-        return data.map((json) => Inspection.fromJson(json)).toList();
+        if (data.isNotEmpty) {
+          return data.map((json) => Inspection.fromJson(json)).toList();
+        }
       }
     } catch (e) {
       // Fallback
@@ -123,7 +126,7 @@ class ApiService {
       'status': true,
       'data': {
         'accountNumber': '9948291038',
-        'bankName': 'Wema Bank (Rentilly Escrow)',
+        'bankName': 'Flutterwave MFB',
         'accountReference': 'RENTILLY-ESCROW-${DateTime.now().millisecondsSinceEpoch}',
         'amount': amount,
       }
@@ -228,16 +231,20 @@ class ApiService {
     ];
   }
 
-  static List<Inspection> _getFallbackInspections() {
+  static Future<List<Inspection>> _getFallbackInspections() async {
+    final user = await AuthService.getCurrentUser();
+    final name = user?.fullName.isNotEmpty == true ? user!.fullName : 'Rentilly Prospect';
+    final phone = user?.phoneNumber.isNotEmpty == true ? user!.phoneNumber : '+234 812 345 6789';
+
     return [
       Inspection(
         id: 'insp-001',
         propertyId: 'prop-001',
         propertyTitle: 'Luxury 4-Bedroom Semi-Detached Duplex + BQ',
         propertyAddress: 'Plot 18, Block B, Off Admiralty Way, Lekki Phase 1',
-        prospectId: 'usr-current',
-        prospectName: 'Femi Adesanya',
-        prospectPhone: '+234 812 345 6789',
+        prospectId: user?.id ?? 'usr-current',
+        prospectName: name,
+        prospectPhone: phone,
         ownerId: 'usr-owner-01',
         ownerName: 'Chief Adebayo Falana',
         ownerPhone: '+234 803 123 4567',

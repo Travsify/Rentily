@@ -151,7 +151,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final String firstName = _user?.firstName ?? 'User';
     final double balance = _user?.walletBalance ?? 0.00;
     final String? accNum = _user?.accountNumber;
-    final String bank = _user?.bankName ?? 'Wema / Providus Bank';
+    final String bank = _user?.bankName ?? 'Flutterwave MFB';
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
@@ -162,104 +162,132 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. Top Bar: Greeting & Action Icons (Pure Real Name)
+              // 1. Top Bar: Greeting & Action Icons (Pure Real Name & Guaranteed Visible Actions)
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  // Real Personalized Greeting & Location
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            '$_timeGreeting, $firstName',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          const Text('👋', style: TextStyle(fontSize: 16)),
-                          const SizedBox(width: 8),
-
-                          // Unverified / Verified Status Button
-                          GestureDetector(
-                            onTap: () {
-                              if (_user?.isVerified != true) {
-                                VerificationModal.show(context, onSuccess: (updated) {
-                                  setState(() => _user = updated);
-                                });
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Identity & Living Escrow Account fully verified.', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
-                                    backgroundColor: AppColors.primary,
-                                  ),
-                                );
-                              }
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                              decoration: BoxDecoration(
-                                color: _user?.isVerified == true
-                                    ? AppColors.primaryLight.withValues(alpha: 0.12)
-                                    : AppColors.accentOrange.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: _user?.isVerified == true
-                                      ? AppColors.primaryLight.withValues(alpha: 0.4)
-                                      : AppColors.accentOrange.withValues(alpha: 0.4),
+                  // Left Side: Greeting, Name, Location & Verification Badge
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Greeting & Name (Single Row, Ellipsis-protected)
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                '$_timeGreeting, $firstName',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.textPrimary,
                                 ),
                               ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    _user?.isVerified == true ? Icons.verified : Icons.shield_outlined,
-                                    size: 11,
-                                    color: _user?.isVerified == true ? AppColors.primaryLight : AppColors.accentOrange,
-                                  ),
-                                  const SizedBox(width: 3),
-                                  Text(
-                                    _user?.isVerified == true ? 'VERIFIED' : 'UNVERIFIED',
-                                    style: GoogleFonts.plusJakartaSans(
-                                      fontSize: 8,
-                                      fontWeight: FontWeight.w800,
-                                      color: _user?.isVerified == true ? AppColors.primaryLight : AppColors.accentOrange,
-                                    ),
-                                  ),
-                                ],
-                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 2),
-                      GestureDetector(
-                        onTap: _showLocationPicker,
-                        child: Row(
-                          children: [
-                            const Icon(Icons.location_on_rounded, size: 13, color: AppColors.accentOrange),
-                            const SizedBox(width: 3),
-                            Text(
-                              _userLocation,
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                            const Icon(Icons.keyboard_arrow_down_rounded, size: 14, color: AppColors.textMuted),
+                            const SizedBox(width: 4),
+                            const Text('👋', style: TextStyle(fontSize: 16)),
                           ],
                         ),
-                      ),
-                    ],
-                  ),
+                        const SizedBox(height: 4),
 
-                  // Action Icons (Messages & Notification Bell)
+                        // Subtitle Row: Geolocation & Verification Status Pill
+                        Row(
+                          children: [
+                            // Geolocation Dropdown Pill
+                            GestureDetector(
+                              onTap: _showLocationPicker,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: AppColors.borderDark),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.location_on_rounded, size: 11, color: AppColors.accentOrange),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      _userLocation,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                    const Icon(Icons.keyboard_arrow_down_rounded, size: 12, color: AppColors.textMuted),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+
+                            // Verification Badge Pill
+                            GestureDetector(
+                              onTap: () {
+                                if (_user?.isVerified != true) {
+                                  VerificationModal.show(context, onSuccess: (updated) {
+                                    setState(() => _user = updated);
+                                  });
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Identity & Living Escrow Account fully verified.', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
+                                      backgroundColor: AppColors.primary,
+                                    ),
+                                  );
+                                }
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+                                decoration: BoxDecoration(
+                                  color: _user?.isVerified == true
+                                      ? AppColors.primaryLight.withValues(alpha: 0.12)
+                                      : AppColors.accentOrange.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: _user?.isVerified == true
+                                        ? AppColors.primaryLight.withValues(alpha: 0.4)
+                                        : AppColors.accentOrange.withValues(alpha: 0.4),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      _user?.isVerified == true ? Icons.verified : Icons.shield_outlined,
+                                      size: 10,
+                                      color: _user?.isVerified == true ? AppColors.primaryLight : AppColors.accentOrange,
+                                    ),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      _user?.isVerified == true ? 'VERIFIED' : 'UNVERIFIED',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 8,
+                                        fontWeight: FontWeight.w800,
+                                        color: _user?.isVerified == true ? AppColors.primary : AppColors.accentOrange,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+
+                  // Right Side: Action Icons (Messages & Notification Bell - Guaranteed Visible)
                   Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
+                      // Chat / Messages Button
                       GestureDetector(
                         onTap: () {
                           Navigator.of(context).push(
@@ -267,7 +295,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           );
                         },
                         child: Container(
-                          padding: const EdgeInsets.all(8),
+                          width: 38,
+                          height: 38,
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(12),
@@ -279,25 +308,58 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ],
                           ),
-                          child: const Icon(Icons.chat_bubble_outline_rounded, size: 18, color: AppColors.textPrimary),
+                          child: const Center(
+                            child: Icon(Icons.chat_bubble_outline_rounded, size: 17, color: AppColors.textPrimary),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),
 
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.borderDark),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.02),
-                              blurRadius: 8,
+                      // Notification Bell Button with Indicator
+                      GestureDetector(
+                        onTap: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('No new notifications right now.', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
+                              backgroundColor: AppColors.primary,
+                              behavior: SnackBarBehavior.floating,
+                              duration: const Duration(seconds: 2),
                             ),
-                          ],
+                          );
+                        },
+                        child: Container(
+                          width: 38,
+                          height: 38,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.borderDark),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.02),
+                                blurRadius: 8,
+                              ),
+                            ],
+                          ),
+                          child: Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              const Icon(Icons.notifications_none_rounded, size: 18, color: AppColors.textPrimary),
+                              Positioned(
+                                top: 9,
+                                right: 9,
+                                child: Container(
+                                  width: 6,
+                                  height: 6,
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.accentOrange,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                        child: const Icon(Icons.notifications_none_rounded, size: 18, color: AppColors.textPrimary),
                       ),
                     ],
                   ),
@@ -1041,6 +1103,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       trailing: isSelected ? const Icon(Icons.check, size: 16, color: AppColors.primary) : null,
                       onTap: () {
                         setState(() => _userLocation = loc);
+                        if (_user != null) {
+                          final stateOnly = loc.split(',')[0].trim();
+                          final updated = _user!.copyWith(state: stateOnly);
+                          AuthService.updateUser(updated);
+                        }
                         Navigator.of(context).pop();
                       },
                     );

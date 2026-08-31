@@ -135,7 +135,7 @@ export class FlutterwaveService {
         status: true,
         data: {
           accountNumber: generatedAcc,
-          bankName: 'Wema Bank (Rentilly Escrow)',
+          bankName: 'Flutterwave MFB',
           orderRef: `FLW-${Date.now()}`,
           accountReference: txRef
         }
@@ -166,7 +166,7 @@ export class FlutterwaveService {
           status: true,
           data: {
             accountNumber: d.account_number,
-            bankName: d.bank_name || 'Wema Bank',
+            bankName: d.bank_name || 'Flutterwave MFB',
             orderRef: d.order_ref || txRef,
             accountReference: d.flw_ref || txRef
           }
@@ -179,7 +179,7 @@ export class FlutterwaveService {
         status: true,
         data: {
           accountNumber: fallbackAcc,
-          bankName: 'Wema Bank (Rentilly Escrow)',
+          bankName: 'Flutterwave MFB',
           orderRef: `FLW-FALLBACK-${Date.now()}`,
           accountReference: txRef
         },
@@ -191,7 +191,7 @@ export class FlutterwaveService {
         status: true,
         data: {
           accountNumber: fallbackAcc,
-          bankName: 'Wema Bank (Rentilly Escrow)',
+          bankName: 'Flutterwave MFB',
           orderRef: `FLW-ERR-${Date.now()}`,
           accountReference: txRef
         }

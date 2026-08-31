@@ -59,18 +59,23 @@ class VerificationService {
         final data = json.decode(response.body);
         if (data['status'] == true && data['accountNumber'] != null) {
           final accNum = data['accountNumber']?.toString() ?? '';
-          final bank = data['bankName']?.toString() ?? 'Wema Bank';
+          final bank = data['bankName']?.toString() ?? 'Flutterwave MFB';
 
-          final updatedUser = currentUser!.copyWith(
+          final updatedUser = (currentUser ?? UserProfile(
+            id: userId,
+            email: email,
+            fullName: fullName,
+            phoneNumber: phone,
+            role: 'renter',
+          )).copyWith(
             isVerified: true,
             bvnVerified: idType == 'bvn',
-            ninNumber: idType == 'nin' ? idNumber : currentUser.ninNumber,
+            ninNumber: idType == 'nin' ? idNumber : currentUser?.ninNumber,
             accountNumber: accNum,
             bankName: bank,
           );
 
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString(AppConstants.userKey, json.encode(updatedUser.toJson()));
+          await AuthService.updateUser(updatedUser);
 
           return {
             'success': true,
@@ -190,7 +195,7 @@ class VerificationService {
 
     // Step D: Instant Virtual Bank Account Provisioning
     final generatedNuban = '9399${(100000 + (DateTime.now().millisecondsSinceEpoch % 899999))}';
-    const assignedBank = 'Wema Bank';
+    const assignedBank = 'Flutterwave MFB';
 
     _syncSupabaseVerifiedAccount(userId, generatedNuban, assignedBank);
 
@@ -208,8 +213,7 @@ class VerificationService {
       bankName: assignedBank,
     );
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(AppConstants.userKey, json.encode(updatedUser.toJson()));
+    await AuthService.updateUser(updatedUser);
 
     return {
       'success': true,

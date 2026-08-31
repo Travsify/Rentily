@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/rentilly_bottom_bar.dart';
 
@@ -13,7 +15,52 @@ class VaultsScreen extends StatefulWidget {
 
 class _VaultsScreenState extends State<VaultsScreen> {
   final NumberFormat _currencyFormat = NumberFormat('#,###', 'en_US');
-  final List<Map<String, dynamic>> _userVaults = []; // Real user vaults (Empty for new accounts)
+  List<Map<String, dynamic>> _userVaults = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVaults();
+  }
+
+  void _loadVaults() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString('rentilly_user_vaults');
+    if (saved != null) {
+      try {
+        final List<dynamic> list = json.decode(saved);
+        setState(() {
+          _userVaults = list.map((e) => Map<String, dynamic>.from(e)).toList();
+        });
+        return;
+      } catch (_) {}
+    }
+
+    // Default target savings templates for new users
+    final defaultTemplates = [
+      {
+        'title': 'Annual Rent Stash 2027',
+        'target': 4500000.0,
+        'saved': 0.0,
+        'yieldRate': '11.5% p.a.',
+      },
+      {
+        'title': 'Service Charge & Utility Fund',
+        'target': 600000.0,
+        'saved': 0.0,
+        'yieldRate': '10.0% p.a.',
+      }
+    ];
+
+    setState(() {
+      _userVaults = defaultTemplates;
+    });
+  }
+
+  void _saveVaults() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('rentilly_user_vaults', json.encode(_userVaults));
+  }
 
   void _showCreateVaultDialog() {
     final TextEditingController titleController = TextEditingController();
@@ -95,9 +142,9 @@ class _VaultsScreenState extends State<VaultsScreen> {
                           'target': amt,
                           'saved': 0.0,
                           'yieldRate': '11.5% p.a.',
-                          'icon': Icons.savings_rounded,
                         });
                       });
+                      _saveVaults();
                       Navigator.of(ctx).pop();
                     }
                   },
@@ -130,10 +177,12 @@ class _VaultsScreenState extends State<VaultsScreen> {
         ),
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, size: 22, color: AppColors.textPrimary),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+        leading: Navigator.of(context).canPop()
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back_rounded, size: 22, color: AppColors.textPrimary),
+                onPressed: () => Navigator.of(context).pop(),
+              )
+            : null,
       ),
       body: SafeArea(
         child: SingleChildScrollView(

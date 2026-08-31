@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { IdentitypassService } from '../services/identitypassService';
 import { FlutterwaveService } from '../services/flutterwaveService';
 import { supabase } from '../supabaseClient';
+import { UserStore } from '../services/userStore';
 
 export async function verifyNIN(req: Request, res: Response) {
   try {
@@ -118,9 +119,21 @@ export async function verifyAndProvision(req: Request, res: Response) {
     });
 
     const accountNumber = bankResult.data?.accountNumber || ('02' + Math.floor(10000000 + Math.random() * 90000000));
-    const bankName = bankResult.data?.bankName || 'Wema Bank (Rentilly Escrow)';
+    const bankName = bankResult.data?.bankName || 'Flutterwave MFB';
 
-    // Step 3: Update Supabase Database
+    // Step 3: Update UserStore & Supabase Database
+    const existing = await UserStore.findByEmail(email || '');
+    if (existing) {
+      UserStore.upsertUser({
+        ...existing,
+        isVerified: true,
+        accountNumber: accountNumber,
+        bankName: bankName,
+        ninNumber: idType === 'nin' ? idNumber : existing.ninNumber,
+        bvnVerified: idType === 'bvn',
+      });
+    }
+
     if (supabase && userId) {
       try {
         await supabase.from('users').update({
