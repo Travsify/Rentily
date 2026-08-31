@@ -45,7 +45,7 @@ class _PropertiesScreenState extends State<PropertiesScreen> {
 
   void _loadProperties() async {
     setState(() => _isLoading = true);
-    final data = await ApiService.asyncFetchProperties(purpose: _selectedPurpose);
+    final data = await ApiService.fetchProperties(purpose: _selectedPurpose);
     if (mounted) {
       setState(() {
         _properties = data;

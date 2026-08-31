@@ -8,8 +8,8 @@ import 'auth_service.dart';
 class ApiService {
   static const String baseUrl = AppConstants.apiBaseUrl;
 
-  // 1. Fetch Properties Feed with optional purpose/search filters
-  static asyncFetchProperties({String? purpose, String? search}) async {
+  // 1. Fetch Properties Feed with optional purpose/search filters from live API
+  static Future<List<Property>> fetchProperties({String? purpose, String? search}) async {
     try {
       final uri = Uri.parse('$baseUrl/properties').replace(queryParameters: {
         if (purpose != null && purpose != 'all') 'purpose': purpose,
@@ -23,30 +23,31 @@ class ApiService {
         return data.map((json) => Property.fromJson(json)).toList();
       }
     } catch (e) {
-      // Fallback
+      // Network error handled cleanly
     }
-
-    // High quality sample data if offline
-    return _getFallbackProperties();
+    return [];
   }
 
-  // 2. Fetch User Inspections
+  // 2. Fetch User Inspections from live API
   static Future<List<Inspection>> fetchInspections() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/inspections')).timeout(const Duration(seconds: 8));
+      final user = await AuthService.getCurrentUser();
+      final email = user?.email;
+      final uri = Uri.parse('$baseUrl/inspections').replace(queryParameters: {
+        if (email != null) 'email': email,
+      });
+      final response = await http.get(uri).timeout(const Duration(seconds: 8));
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
-        if (data.isNotEmpty) {
-          return data.map((json) => Inspection.fromJson(json)).toList();
-        }
+        return data.map((json) => Inspection.fromJson(json)).toList();
       }
     } catch (e) {
-      // Fallback
+      // Network error handled cleanly
     }
-    return _getFallbackInspections();
+    return [];
   }
 
-  // 3. Book Physical Inspection with 6-Digit Gate Code
+  // 3. Book Physical Inspection with 6-Digit Gate Code on live API
   static Future<Inspection?> bookInspection({
     required String propertyId,
     required String scheduledDate,
@@ -72,29 +73,8 @@ class ApiService {
       if (response.statusCode == 201 || response.statusCode == 200) {
         return Inspection.fromJson(json.decode(response.body));
       }
-    } catch (e) {
-      // Fallback
-    }
-
-    // Local fallback inspection generator
-    return Inspection(
-      id: 'insp-${DateTime.now().millisecondsSinceEpoch}',
-      propertyId: propertyId,
-      propertyTitle: 'Booked Property',
-      propertyAddress: 'Lekki Phase 1, Lagos',
-      prospectId: 'usr-current',
-      prospectName: prospectName,
-      prospectPhone: prospectPhone,
-      ownerId: 'usr-owner-01',
-      ownerName: 'Chief Adebayo Falana',
-      ownerPhone: '+234 803 123 4567',
-      scheduledDate: scheduledDate,
-      scheduledTimeSlot: scheduledTimeSlot,
-      inspectionPassCode: (100000 + (DateTime.now().millisecond * 800) % 900000).toString(),
-      status: 'confirmed',
-      prospectNotes: notes,
-      createdAt: DateTime.now().toIso8601String(),
-    );
+    } catch (e) {}
+    return null;
   }
 
   // 4. Generate Dedicated Escrow Virtual Account for Rent/Deposit Payment
@@ -105,6 +85,7 @@ class ApiService {
     required double amount,
   }) async {
     try {
+      final user = await AuthService.getCurrentUser();
       final response = await http.post(
         Uri.parse('$baseUrl/payments/create-virtual-account'),
         headers: {'Content-Type': 'application/json'},
@@ -113,148 +94,14 @@ class ApiService {
           'propertyTitle': propertyTitle,
           'tenantName': tenantName,
           'expectedAmount': amount,
+          'email': user?.email ?? 'patrickachua3@gmail.com',
         }),
       );
 
       if (response.statusCode == 200) {
         return json.decode(response.body);
       }
-    } catch (e) {
-      // Fallback
-    }
-    return {
-      'status': true,
-      'data': {
-        'accountNumber': '9948291038',
-        'bankName': 'Flutterwave MFB',
-        'accountReference': 'RENTILLY-ESCROW-${DateTime.now().millisecondsSinceEpoch}',
-        'amount': amount,
-      }
-    };
-  }
-
-  // 5. Fallback Property Inventory
-  static List<Property> _getFallbackProperties() {
-    return [
-      Property(
-        id: 'prop-001',
-        ownerId: 'usr-owner-01',
-        ownerName: 'Chief Adebayo Falana',
-        ownerPhone: '+234 803 123 4567',
-        title: 'Luxury 4-Bedroom Semi-Detached Duplex + BQ',
-        description: 'Direct owner listing in a fully gated, serene estate. 24/7 central treated water, 20 hours guaranteed power, private transformer, stamped concrete flooring, fitted kitchen with heat extractor.',
-        purpose: 'rent',
-        propertyType: 'duplex',
-        basePrice: 6500000,
-        cautionFee: 500000,
-        serviceCharge: 600000,
-        rentillyFee: 650000, // 10%
-        totalInitialPayment: 8250000,
-        paymentFrequency: 'annually',
-        address: 'Plot 18, Block B, Off Admiralty Way',
-        state: 'Lagos',
-        lga: 'Eti-Osa',
-        neighborhood: 'Lekki Phase 1',
-        bedrooms: 4,
-        bathrooms: 4,
-        toilets: 5,
-        furnishing: 'semi_furnished',
-        amenities: ['24/7 Security', 'Prepaid Meter', 'Swimming Pool', 'Fitted Kitchen', 'Boys Quarters'],
-        images: [
-          'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=80',
-          'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80'
-        ],
-        status: 'verified',
-        verifiedAt: '2026-08-30T10:00:00Z',
-      ),
-      Property(
-        id: 'prop-002',
-        ownerId: 'usr-owner-02',
-        ownerName: 'Dr. Somtochukwu Eze',
-        ownerPhone: '+234 802 987 6543',
-        title: 'Executive 5-Bedroom Fully Detached Ambassadorial Mansion',
-        description: 'Prime ambassadorial real estate in Maitama District. Clean Governor’s Consent title, expansive master suite with walk-in closet, private smart elevator, 50kVA silent backup generator.',
-        purpose: 'sale',
-        propertyType: 'fully_detached',
-        basePrice: 450000000,
-        cautionFee: 0,
-        serviceCharge: 0,
-        rentillyFee: 22500000, // 5%
-        totalInitialPayment: 472500000,
-        paymentFrequency: 'outright',
-        address: '14 Gana Street, Near Transcorp Hilton',
-        state: 'Abuja (FCT)',
-        lga: 'Municipal',
-        neighborhood: 'Maitama',
-        bedrooms: 5,
-        bathrooms: 6,
-        toilets: 7,
-        furnishing: 'fully_furnished',
-        amenities: ['C of O Title', 'Private Elevator', 'Bulletproof Doors', 'Swimming Pool', 'Smart Home Automation'],
-        images: [
-          'https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=1200&q=80',
-          'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80'
-        ],
-        status: 'verified',
-        verifiedAt: '2026-08-29T14:30:00Z',
-      ),
-      Property(
-        id: 'prop-003',
-        ownerId: 'usr-owner-03',
-        ownerName: 'Mrs. Folashade Adeleke',
-        ownerPhone: '+234 818 555 4321',
-        title: 'Waterfront 3-Bedroom Serviced Apartment',
-        description: 'Direct Ikoyi waterfront living with scenic Lagos lagoon view. Fully fitted Italian kitchen, 24/7 central AC, high-speed fiber internet, and Olympic-size swimming pool.',
-        purpose: 'rent',
-        propertyType: 'flat_apartment',
-        basePrice: 12000000,
-        cautionFee: 1000000,
-        serviceCharge: 2500000,
-        rentillyFee: 1200000, // 10%
-        totalInitialPayment: 16700000,
-        paymentFrequency: 'annually',
-        address: 'Bourdillon Road, Old Ikoyi',
-        state: 'Lagos',
-        lga: 'Ikoyi/Obalende',
-        neighborhood: 'Old Ikoyi',
-        bedrooms: 3,
-        bathrooms: 3,
-        toilets: 4,
-        furnishing: 'fully_furnished',
-        amenities: ['Lagoon View', '24/7 Power', 'Gym', 'Squash Court', 'Concierge Service'],
-        images: [
-          'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1200&q=80'
-        ],
-        status: 'verified',
-        verifiedAt: '2026-08-28T09:00:00Z',
-      )
-    ];
-  }
-
-  static Future<List<Inspection>> _getFallbackInspections() async {
-    final user = await AuthService.getCurrentUser();
-    final name = user?.fullName.isNotEmpty == true ? user!.fullName : 'Rentilly Prospect';
-    final phone = user?.phoneNumber.isNotEmpty == true ? user!.phoneNumber : '+234 812 345 6789';
-
-    return [
-      Inspection(
-        id: 'insp-001',
-        propertyId: 'prop-001',
-        propertyTitle: 'Luxury 4-Bedroom Semi-Detached Duplex + BQ',
-        propertyAddress: 'Plot 18, Block B, Off Admiralty Way, Lekki Phase 1',
-        prospectId: user?.id ?? 'usr-current',
-        prospectName: name,
-        prospectPhone: phone,
-        ownerId: 'usr-owner-01',
-        ownerName: 'Chief Adebayo Falana',
-        ownerPhone: '+234 803 123 4567',
-        scheduledDate: '2026-09-02',
-        scheduledTimeSlot: '11:00 AM - 12:00 PM',
-        inspectionPassCode: '749201',
-        status: 'confirmed',
-        prospectNotes: 'Looking forward to viewing the title deeds and interior finish.',
-        createdAt: '2026-08-30T07:00:00Z',
-      )
-    ];
+    } catch (e) {}
+    return null;
   }
 }

@@ -39,88 +39,10 @@ class _MessagesScreenState extends State<MessagesScreen> {
       } catch (_) {}
     }
 
-    // Default active conversations with direct property landlords
-    final defaults = [
-      {
-        'id': 'chat_001',
-        'name': 'Chief Adebayo Falana',
-        'role': 'Direct Owner • Lekki Phase 1',
-        'avatar': 'AF',
-        'propertyTitle': 'Luxury 4-Bedroom Semi-Detached Duplex',
-        'lastMessage': 'Good day. The C of O and Governor Consent are ready for your physical inspection.',
-        'time': '10:45 AM',
-        'unread': 1,
-        'messages': [
-          {
-            'sender': 'Chief Adebayo Falana',
-            'isMe': false,
-            'text': 'Hello! Thank you for your interest in my 4-Bedroom Duplex in Lekki Phase 1.',
-            'time': '10:30 AM'
-          },
-          {
-            'sender': 'Chief Adebayo Falana',
-            'isMe': false,
-            'text': 'Good day. The C of O and Governor Consent are ready for your physical inspection.',
-            'time': '10:45 AM'
-          }
-        ]
-      },
-      {
-        'id': 'chat_002',
-        'name': 'Dr. Somtochukwu Eze',
-        'role': 'Direct Owner • Maitama Abuja',
-        'avatar': 'SE',
-        'propertyTitle': 'Executive 5-Bedroom Maitama Mansion',
-        'lastMessage': 'The silent 50kVA generator was serviced yesterday. Looking forward to meeting you.',
-        'time': 'Yesterday',
-        'unread': 0,
-        'messages': [
-          {
-            'sender': 'Dr. Somtochukwu Eze',
-            'isMe': false,
-            'text': 'Welcome! The Maitama property is available for inspection anytime between 11 AM and 4 PM.',
-            'time': 'Yesterday'
-          },
-          {
-            'sender': 'Dr. Somtochukwu Eze',
-            'isMe': false,
-            'text': 'The silent 50kVA generator was serviced yesterday. Looking forward to meeting you.',
-            'time': 'Yesterday'
-          }
-        ]
-      },
-      {
-        'id': 'chat_003',
-        'name': 'Rentilly Legal Escrow Desk',
-        'role': 'Official Verification Support',
-        'avatar': 'RL',
-        'propertyTitle': 'Tenancy Agreement & Caution Deposit',
-        'lastMessage': 'Your Living Escrow account is active and protected under Lagos Tenancy Law 2011.',
-        'time': 'Aug 29',
-        'unread': 0,
-        'messages': [
-          {
-            'sender': 'Rentilly Legal Desk',
-            'isMe': false,
-            'text': 'Welcome to Rentilly! We ensure 100% agent-free transactions with legal escrow protection.',
-            'time': 'Aug 29'
-          },
-          {
-            'sender': 'Rentilly Legal Desk',
-            'isMe': false,
-            'text': 'Your Living Escrow account is active and protected under Lagos Tenancy Law 2011.',
-            'time': 'Aug 29'
-          }
-        ]
-      }
-    ];
-
     setState(() {
       _currentUser = u;
-      _threads = defaults;
+      _threads = [];
     });
-
-    await prefs.setString('rentilly_chat_threads', json.encode(defaults));
   }
 
   void _openChat(Map<String, dynamic> thread) {
