@@ -54,18 +54,21 @@ class _WalletScreenState extends State<WalletScreen> {
   }
 
   void _copyAccount() {
-    if (_user?.accountNumber == null) {
+    final acc = _user?.accountNumber;
+    if (acc == null || acc.isEmpty) {
       VerificationModal.show(context, onSuccess: (updated) {
         setState(() => _user = updated);
       });
       return;
     }
-    Clipboard.setData(ClipboardData(text: _user!.accountNumber!));
+    Clipboard.setData(ClipboardData(text: acc));
+    HapticFeedback.lightImpact();
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Account Copied! (${_user!.bankName ?? "Flutterwave MFB"} • Rentilly - ${_user!.fullName})',
-          style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w600),
+          'Account Number Copied: $acc (${_user?.bankName ?? "Flutterwave MFB"})',
+          style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
         ),
         backgroundColor: AppColors.primary,
         behavior: SnackBarBehavior.floating,

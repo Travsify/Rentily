@@ -126,21 +126,8 @@ export class FlutterwaveService {
   }> {
     const txRef = `RENTILLY_ACC_${params.userId}_${Date.now()}`;
     const nameParts = params.fullName.trim().split(' ');
-    const firstName = nameParts[0] || 'Rentilly';
-    const lastName = nameParts.slice(1).join(' ') || 'Customer';
-
-    if (!this.isConfigured()) {
-      const generatedAcc = '02' + Math.floor(10000000 + Math.random() * 90000000).toString();
-      return {
-        status: true,
-        data: {
-          accountNumber: generatedAcc,
-          bankName: 'Flutterwave MFB',
-          orderRef: `FLW-${Date.now()}`,
-          accountReference: txRef
-        }
-      };
-    }
+    const firstName = nameParts[0] || 'Patrick';
+    const lastName = nameParts.slice(1).join(' ') || 'Achua';
 
     const bvnToUse = params.bvn && params.bvn.length === 11 ? params.bvn : '22194820183';
 
@@ -157,7 +144,7 @@ export class FlutterwaveService {
           phonenumber: params.phoneNumber || '08120000000',
           firstname: firstName,
           lastname: lastName,
-          narration: `Rentilly ${params.fullName}`
+          narration: `Rentilly - ${params.fullName}`
         })
       });
 

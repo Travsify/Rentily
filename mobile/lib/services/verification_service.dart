@@ -151,7 +151,7 @@ class VerificationService {
           'phonenumber': phone,
           'firstname': firstName,
           'lastname': lastName,
-          'narration': 'Rentilly $fullName',
+          'narration': 'Rentilly - $fullName',
         }),
       ).timeout(const Duration(seconds: 25));
 
