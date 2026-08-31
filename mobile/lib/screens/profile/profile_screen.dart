@@ -9,6 +9,7 @@ import '../../services/payment_security_service.dart';
 import '../../widgets/payment_pin_modal.dart';
 import '../../widgets/verification_modal.dart';
 import '../auth/login_screen.dart';
+import '../main_navigation_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -383,8 +384,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _buildMenuTile(
                 Icons.privacy_tip_outlined,
                 'Privacy Policy & Data Security',
-                'NDPR & Bank-Grade 256-Bit Encryption',
+                'Strict Data Protection & 256-Bit Encryption',
                 onTap: _openPrivacyPolicy,
+              ),
+              const SizedBox(height: 16),
+
+              // Landlord & Seller Mode Switcher
+              Container(
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.accentOrange.withValues(alpha: 0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.real_estate_agent_rounded, color: AppColors.accentOrange, size: 20),
+                  ),
+                  title: Text(
+                    'Landlord & Seller Portal',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                  subtitle: Text(
+                    'List properties, manage leases, and view rent escrow',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: Colors.white70),
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.white70),
+                  onTap: () {
+                    MainNavigationScreen.of(context)?.toggleLandlordMode(true);
+                  },
+                ),
               ),
               const SizedBox(height: 20),
 

@@ -247,31 +247,13 @@ class AuthService {
     return token != null && token.isNotEmpty;
   }
 
-  // 4. Get active user profile from storage with Auto-Adjustment
+  // 4. Get active user profile from storage
   static Future<UserProfile?> getCurrentUser() async {
     final prefs = await SharedPreferences.getInstance();
     final userJson = prefs.getString(AppConstants.userKey);
     if (userJson != null) {
       try {
-        var u = UserProfile.fromJson(json.decode(userJson));
-        // Auto-correct any email prefixes or digits in full name
-        final emailPrefix = u.email.split('@')[0].toLowerCase();
-        var cleanName = u.fullName.trim();
-        if (cleanName.isEmpty || cleanName.toLowerCase() == emailPrefix || cleanName.contains('@') || cleanName == 'patrickachua3' || cleanName == 'Patrick Achua 3' || cleanName == 'Patrick Achua3') {
-          cleanName = 'Patrick Achua';
-          u = u.copyWith(fullName: cleanName);
-          await prefs.setString(AppConstants.userKey, json.encode(u.toJson()));
-        }
-        // Auto-assign dedicated account and verified state if email is patrickachua3@gmail.com
-        if (u.email.toLowerCase() == 'patrickachua3@gmail.com' && (u.accountNumber == null || u.accountNumber != '9955394366' || !u.isVerified)) {
-          u = u.copyWith(
-            fullName: 'Patrick Achua',
-            accountNumber: '9955394366',
-            bankName: 'Flutterwave MFB',
-            isVerified: true,
-          );
-          await prefs.setString(AppConstants.userKey, json.encode(u.toJson()));
-        }
+        final u = UserProfile.fromJson(json.decode(userJson));
         currentUserNotifier.value = u;
         return u;
       } catch (_) {}
@@ -299,19 +281,12 @@ class AuthService {
     await prefs.setString(AppConstants.tokenKey, token);
     
     var userMap = Map<String, dynamic>.from(userData);
-    final email = (userMap['email'] ?? '').toString().toLowerCase();
-    final emailPrefix = email.split('@')[0];
+    final email = (userMap['email'] ?? '').toString().toLowerCase().trim();
     var cleanName = (userMap['fullName'] ?? userMap['full_name'] ?? '').toString().trim();
-    if (cleanName.isEmpty || cleanName.toLowerCase() == emailPrefix || cleanName.contains('@') || cleanName == 'patrickachua3' || cleanName == 'Patrick Achua 3' || cleanName == 'Patrick Achua3') {
-      cleanName = 'Patrick Achua';
-      userMap['fullName'] = cleanName;
+    if (cleanName.isEmpty) {
+      cleanName = email.split('@')[0];
     }
-    if (email == 'patrickachua3@gmail.com') {
-      userMap['fullName'] = 'Patrick Achua';
-      userMap['accountNumber'] = '9955394366';
-      userMap['bankName'] = 'Flutterwave MFB';
-      userMap['isVerified'] = true;
-    }
+    userMap['fullName'] = cleanName;
 
     await prefs.setString(AppConstants.userKey, json.encode(userMap));
     final u = UserProfile.fromJson(userMap);
