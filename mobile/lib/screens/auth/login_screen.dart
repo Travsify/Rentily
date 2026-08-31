@@ -1,6 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../constants/app_colors.dart';
+import '../../constants/app_constants.dart';
+import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
 import '../../services/biometric_service.dart';
 import '../main_navigation_screen.dart';
@@ -54,6 +58,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (result['success'] == true) {
       if (!mounted) return;
+
+      // Check if user has a real name — if not, prompt for it
+      final user = result['user'] as UserProfile?;
+      if (user != null && (user.fullName.isEmpty || user.firstName == 'User')) {
+        await _promptForRealName(user);
+      }
+
+      if (!mounted) return;
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
       );
@@ -61,6 +73,69 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() {
         _errorMessage = result['message'] ?? 'Authentication failed.';
       });
+    }
+  }
+
+  Future<void> _promptForRealName(UserProfile user) async {
+    final nameController = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Welcome to Rentilly! 🏡',
+          style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Please enter your full name so we can personalise your experience.',
+              style: GoogleFonts.plusJakartaSans(fontSize: 12, color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: nameController,
+              autofocus: true,
+              textCapitalization: TextCapitalization.words,
+              style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w600),
+              decoration: InputDecoration(
+                hintText: 'e.g. Patrick Atua',
+                hintStyle: GoogleFonts.plusJakartaSans(fontSize: 13, color: Colors.grey[400]),
+                filled: true,
+                fillColor: const Color(0xFFF5F5F5),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () {
+              final entered = nameController.text.trim();
+              if (entered.isNotEmpty && entered.length >= 2) {
+                Navigator.of(ctx).pop(entered);
+              }
+            },
+            child: Text('Continue', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (name != null && name.isNotEmpty) {
+      // Save the real name locally
+      final updated = user.copyWith(fullName: name);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(AppConstants.userKey, json.encode(updated.toJson()));
     }
   }
 

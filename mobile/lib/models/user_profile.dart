@@ -32,26 +32,46 @@ class UserProfile {
   // Extract real first name (e.g. "Patrick Atua" -> "Patrick")
   String get firstName {
     final trimmed = fullName.trim();
-    if (trimmed.isEmpty || trimmed.contains('@')) return 'User';
+    if (trimmed.isEmpty) return 'User';
+    // Reject if name looks like email prefix
+    if (trimmed.contains('@')) return 'User';
+    if (email.contains('@')) {
+      final emailPrefix = email.split('@')[0].toLowerCase();
+      if (trimmed.toLowerCase() == emailPrefix) return 'User';
+    }
     final parts = trimmed.split(' ');
-    // Capitalize first letter
     final first = parts.first;
     if (first.isEmpty) return 'User';
-    return '${first[0].toUpperCase()}${first.substring(1)}';
+    return '${first[0].toUpperCase()}${first.substring(1).toLowerCase()}';
+  }
+
+  /// Check if name is actually a real name (not email prefix or empty)
+  static String _sanitizeName(String rawName, String email) {
+    if (rawName.isEmpty || rawName.contains('@')) return '';
+
+    // Check if name matches the email prefix (case-insensitive)
+    if (email.contains('@')) {
+      final emailPrefix = email.split('@')[0].toLowerCase();
+      if (rawName.toLowerCase() == emailPrefix ||
+          rawName.toUpperCase() == emailPrefix.toUpperCase()) {
+        return ''; // Name is corrupted — it's just the email prefix
+      }
+    }
+
+    return rawName;
   }
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
+    final rawEmail = json['email']?.toString() ?? '';
     // Get name from JSON, try both camelCase and snake_case keys
     String rawName = json['fullName']?.toString() ?? json['full_name']?.toString() ?? '';
 
-    // If name looks like an email or is empty, clear it so firstName returns 'User'
-    if (rawName.contains('@')) {
-      rawName = '';
-    }
+    // Sanitize: reject if name is the email prefix (e.g. "INFO" from "info@travsify.com")
+    rawName = _sanitizeName(rawName, rawEmail);
 
     return UserProfile(
       id: json['id']?.toString() ?? '',
-      email: json['email']?.toString() ?? '',
+      email: rawEmail,
       fullName: rawName,
       phoneNumber: json['phoneNumber']?.toString() ?? json['phone_number']?.toString() ?? '',
       role: json['role']?.toString() ?? 'renter',
