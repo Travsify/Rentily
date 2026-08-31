@@ -144,18 +144,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             children: [
                               GestureDetector(
                                 onTap: () {
-                                  if (_currentUser?.isVerified != true) {
-                                    VerificationModal.show(context, onSuccess: (updated) {
-                                      setState(() => _currentUser = updated);
-                                    });
-                                  } else {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text('Identity & Living Escrow Account fully verified.', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
-                                        backgroundColor: AppColors.primary,
-                                      ),
-                                    );
-                                  }
+                                  VerificationModal.show(context, onSuccess: (updated) {
+                                    setState(() => _currentUser = updated);
+                                  });
                                 },
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
@@ -645,17 +636,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: ElevatedButton.icon(
                 onPressed: () {
                   Navigator.of(ctx).pop();
-                  if (_currentUser == null || !_currentUser!.isVerified) {
-                    VerificationModal.show(context, onSuccess: (updated) => setState(() => _currentUser = updated));
-                  } else {
-                    WithdrawalModal.show(context, user: _currentUser!, onWithdrawalSuccess: (newBal) => setState(() => _currentUser = _currentUser?.copyWith(walletBalance: newBal)));
-                  }
+                  VerificationModal.show(context, onSuccess: (updated) => setState(() => _currentUser = updated));
                 },
-                icon: const Icon(Icons.account_balance_outlined, size: 16),
-                label: Text('Manage Withdrawal Bank Accounts', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold)),
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                label: Text('Re-issue / Refresh Dedicated Bank Account', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  if (_currentUser != null) {
+                    WithdrawalModal.show(context, user: _currentUser!, onWithdrawalSuccess: (newBal) => setState(() => _currentUser = _currentUser?.copyWith(walletBalance: newBal)));
+                  }
+                },
+                icon: const Icon(Icons.account_balance_outlined, size: 16, color: AppColors.textPrimary),
+                label: Text('Manage Withdrawal Bank Accounts', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: AppColors.borderDark),
                   padding: const EdgeInsets.symmetric(vertical: 13),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),

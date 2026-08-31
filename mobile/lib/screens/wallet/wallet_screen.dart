@@ -235,23 +235,43 @@ class _WalletScreenState extends State<WalletScreen> {
                                 ),
                               ],
                             ),
-                            GestureDetector(
-                              onTap: _copyAccount,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                decoration: BoxDecoration(
-                                  color: AppColors.accentOrange,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  'Copy',
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
+                            Row(
+                              children: [
+                                GestureDetector(
+                                  onTap: () {
+                                    VerificationModal.show(context, onSuccess: (updated) {
+                                      setState(() => _user = updated);
+                                    });
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.all(5),
+                                    margin: const EdgeInsets.only(right: 6),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withValues(alpha: 0.15),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Icon(Icons.refresh_rounded, size: 16, color: Colors.white),
                                   ),
                                 ),
-                              ),
+                                GestureDetector(
+                                  onTap: _copyAccount,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.accentOrange,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      'Copy',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ],
                         ),
