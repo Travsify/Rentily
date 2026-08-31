@@ -298,6 +298,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'userId': widget.user.id,
+          'email': widget.user.email,
           'accountNumber': accNum,
           'bankCode': _selectedBankCode,
           'accountName': _resolvedAccountName ?? widget.user.fullName,
