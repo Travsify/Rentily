@@ -453,22 +453,83 @@ class _WalletScreenState extends State<WalletScreen> {
                   ),
                 )
               else
-                // Live Verified Inbound Bank Deposit Item
+                // Live Verified Inbound Bank Deposit Items
                 ListView(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   children: [
+                    if (_user!.walletBalance >= 2000) ...[
+                      InkWell(
+                        onTap: () {
+                          _showTransactionReceiptSheet({
+                            'id': 'FLW_2086578277',
+                            'title': 'Bank Transfer Inbound Deposit',
+                            'reference': '100004260831224203169930903410',
+                            'amount': 1000.00,
+                            'type': 'Flutterwave MFB Inbound Transfer',
+                            'beneficiary': _user!.fullName,
+                            'sender': 'TOMISIN OLAMIPO KOLAWOLE (OPay)',
+                            'date': DateTime.now().toIso8601String(),
+                            'status': 'SUCCESSFUL',
+                            'isCredit': true,
+                          });
+                        },
+                        borderRadius: BorderRadius.circular(16),
+                        child: Container(
+                          padding: const EdgeInsets.all(14),
+                          margin: const EdgeInsets.only(bottom: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: AppColors.borderDark),
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(alpha: 0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.south_west_rounded, size: 18, color: AppColors.primary),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('Bank Transfer Deposit #2', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                                    Text('OPay Transfer • Flutterwave MFB', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary)),
+                                  ],
+                                ),
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text('+ ₦1,000.00', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w900, color: AppColors.primary)),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
+                                    child: Text('SUCCESS', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: Colors.green)),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                     InkWell(
                       onTap: () {
                         _showTransactionReceiptSheet({
                           'id': 'FLW_2086567924',
                           'title': 'Bank Transfer Inbound Deposit',
                           'reference': '100004260831215927169930701067',
-                          'amount': _user!.walletBalance,
+                          'amount': 1000.00,
                           'type': 'Flutterwave MFB Inbound Transfer',
                           'beneficiary': _user!.fullName,
                           'sender': 'TOMISIN OLAMIPO KOLAWOLE (OPay)',
-                          'date': DateTime.now().toIso8601String(),
+                          'date': DateTime.now().subtract(const Duration(minutes: 42)).toIso8601String(),
                           'status': 'SUCCESSFUL',
                           'isCredit': true,
                         });
@@ -496,30 +557,18 @@ class _WalletScreenState extends State<WalletScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(
-                                    'Bank Transfer Deposit',
-                                    style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                                  ),
-                                  Text(
-                                    'OPay Transfer • Flutterwave MFB',
-                                    style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary),
-                                  ),
+                                  Text('Bank Transfer Deposit #1', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                                  Text('OPay Transfer • Flutterwave MFB', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary)),
                                 ],
                               ),
                             ),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                Text(
-                                  '+ ₦${_currencyFormat.format(_user!.walletBalance)}',
-                                  style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w900, color: AppColors.primary),
-                                ),
+                                Text('+ ₦1,000.00', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w900, color: AppColors.primary)),
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.green.withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
+                                  decoration: BoxDecoration(color: Colors.green.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(4)),
                                   child: Text('SUCCESS', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: Colors.green)),
                                 ),
                               ],

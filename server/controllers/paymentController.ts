@@ -3,6 +3,7 @@ import { FlutterwaveService } from '../services/flutterwaveService';
 import { PaystackService } from '../services/paystackService';
 import { FlutterwaveBillsService } from '../services/flutterwaveBillsService';
 import { supabase } from '../supabaseClient';
+import { UserStore } from '../services/userStore';
 
 export async function createVirtualAccount(req: Request, res: Response) {
   try {
