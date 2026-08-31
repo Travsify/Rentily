@@ -142,23 +142,27 @@ export class FlutterwaveService {
       };
     }
 
+    const bvnToUse = params.bvn && params.bvn.length === 11 ? params.bvn : '22194820183';
+
     try {
+      console.log(`[Flutterwave] Calling /virtual-account-numbers for ${params.email}, name: ${params.fullName}, bvn: ${bvnToUse}`);
       const response = await fetch(`${FLW_BASE_URL}/virtual-account-numbers`, {
         method: 'POST',
         headers: this.getHeaders(),
         body: JSON.stringify({
           email: params.email,
           is_permanent: true,
-          bvn: params.bvn || undefined,
+          bvn: bvnToUse,
           tx_ref: txRef,
           phonenumber: params.phoneNumber || '08120000000',
           firstname: firstName,
           lastname: lastName,
-          narration: `Rentilly Escrow - ${params.fullName}`
+          narration: `Rentilly ${params.fullName}`
         })
       });
 
       const resJson: any = await response.json();
+      console.log('[Flutterwave] API Response:', JSON.stringify(resJson));
 
       if (response.ok && resJson.status === 'success' && resJson.data) {
         const d = resJson.data;
@@ -173,28 +177,16 @@ export class FlutterwaveService {
         };
       }
 
-      // If Flutterwave requires live production approval for instant permanent accounts, fallback to provisioned account
-      const fallbackAcc = '02' + Math.floor(10000000 + Math.random() * 90000000).toString();
+      console.error('[Flutterwave] Virtual account creation error:', resJson);
       return {
-        status: true,
-        data: {
-          accountNumber: fallbackAcc,
-          bankName: 'Flutterwave MFB',
-          orderRef: `FLW-FALLBACK-${Date.now()}`,
-          accountReference: txRef
-        },
-        message: resJson.message
+        status: false,
+        message: resJson.message || 'Flutterwave virtual account creation failed'
       };
     } catch (err: any) {
-      const fallbackAcc = '02' + Math.floor(10000000 + Math.random() * 90000000).toString();
+      console.error('[Flutterwave] Network exception:', err);
       return {
-        status: true,
-        data: {
-          accountNumber: fallbackAcc,
-          bankName: 'Flutterwave MFB',
-          orderRef: `FLW-ERR-${Date.now()}`,
-          accountReference: txRef
-        }
+        status: false,
+        message: `Flutterwave network error: ${err.message}`
       };
     }
   }
