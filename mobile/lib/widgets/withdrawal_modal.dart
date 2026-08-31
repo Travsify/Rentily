@@ -8,6 +8,7 @@ import '../constants/app_constants.dart';
 import '../models/user_profile.dart';
 import '../services/auth_service.dart';
 import '../services/biometric_service.dart';
+import '../services/payment_security_service.dart';
 
 class WithdrawalModal extends StatefulWidget {
   final UserProfile user;
@@ -273,16 +274,16 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
       return;
     }
 
-    // Biometric authorization
-    final canBio = await BiometricService.isBiometricsAvailable();
-    if (canBio) {
-      final bioPassed = await BiometricService.authenticate(
-        reason: 'Authorize withdrawal of ₦${NumberFormat('#,###.00').format(amount)} to $accNum ($_selectedBankName)',
-      );
-      if (!bioPassed) {
-        setState(() => _errorMessage = 'Biometric authorization required to withdraw.');
-        return;
-      }
+    // Dual Security: Biometric (FaceID / Fingerprint) OR 6-Digit Payment Code
+    final authorized = await PaymentSecurityService.authorizeTransaction(
+      context,
+      title: 'Withdrawal to $_selectedBankName ($accNum)',
+      amount: amount,
+      recipient: _resolvedAccountName ?? widget.user.fullName,
+    );
+    if (!authorized) {
+      setState(() => _errorMessage = 'Payment authorization cancelled or incorrect.');
+      return;
     }
 
     setState(() {

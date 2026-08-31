@@ -8,6 +8,7 @@ import '../../constants/app_colors.dart';
 import '../../constants/app_constants.dart';
 import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
+import '../../services/statement_pdf_service.dart';
 import '../../widgets/rentilly_bottom_bar.dart';
 import '../../widgets/verification_modal.dart';
 import '../../widgets/withdrawal_modal.dart';
@@ -348,13 +349,13 @@ class _WalletScreenState extends State<WalletScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Wallet Actions (Add Money, Send Money, Living Vault)
+              // Wallet Actions (Add Money, Withdraw, Statement, Vault)
               Row(
                 children: [
                   Expanded(
                     child: _buildActionButton(Icons.add_rounded, 'Add Money', _copyAccount),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: _buildActionButton(Icons.north_east_rounded, 'Withdraw', () {
                       if (_user == null || !_user!.isVerified) {
@@ -372,9 +373,13 @@ class _WalletScreenState extends State<WalletScreen> {
                       );
                     }),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   Expanded(
-                    child: _buildActionButton(Icons.savings_rounded, 'Living Vault', () {}),
+                    child: _buildActionButton(Icons.description_outlined, 'Statement', _showStatementDialog),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildActionButton(Icons.savings_rounded, 'Vault', () {}),
                   ),
                 ],
               ),
@@ -469,6 +474,195 @@ class _WalletScreenState extends State<WalletScreen> {
                 color: AppColors.textPrimary,
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showStatementDialog() {
+    if (_user == null) return;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.description_rounded, size: 20, color: AppColors.primary),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Account Statement',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                    ),
+                  ],
+                ),
+                IconButton(icon: const Icon(Icons.close_rounded, size: 20), onPressed: () => Navigator.of(ctx).pop()),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Download an official certified PDF statement of your Rentilly Living Escrow account.',
+              style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF9FAFB),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.borderDark),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('ACCOUNT HOLDER', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                      Text(_user!.fullName, style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('ACCOUNT NUMBER', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                      Text('${_user!.accountNumber ?? "9955394366"} (${_user!.bankName ?? "Flutterwave MFB"})', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      Navigator.of(ctx).pop();
+                      await StatementPdfService.shareStatement(user: _user!, transactions: []);
+                    },
+                    icon: const Icon(Icons.share_rounded, size: 16, color: AppColors.primary),
+                    label: Text('Share Statement', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppColors.primary),
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      Navigator.of(ctx).pop();
+                      await StatementPdfService.downloadOrPrintStatement(context, user: _user!, transactions: []);
+                    },
+                    icon: const Icon(Icons.download_rounded, size: 16, color: Colors.white),
+                    label: Text('Download PDF', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showTransactionReceiptSheet(Map<String, dynamic> tx) {
+    if (_user == null) return;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Transaction Receipt', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                IconButton(icon: const Icon(Icons.close_rounded, size: 20), onPressed: () => Navigator.of(ctx).pop()),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF9FAFB),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.borderDark),
+              ),
+              child: Column(
+                children: [
+                  Text('AMOUNT', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                  const SizedBox(height: 4),
+                  Text('₦${_currencyFormat.format((tx['amount'] as num?)?.toDouble() ?? 0.0)}', style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                  const SizedBox(height: 4),
+                  Text(tx['title'] ?? 'Deposit / Settlement', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () async {
+                      Navigator.of(ctx).pop();
+                      await StatementPdfService.shareReceipt(transaction: tx, user: _user!);
+                    },
+                    icon: const Icon(Icons.share_rounded, size: 16, color: AppColors.primary),
+                    label: Text('Share', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppColors.primary),
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () async {
+                      Navigator.of(ctx).pop();
+                      await StatementPdfService.downloadOrPrintReceipt(context, transaction: tx, user: _user!);
+                    },
+                    icon: const Icon(Icons.download_rounded, size: 16, color: Colors.white),
+                    label: Text('Download PDF', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
           ],
         ),
       ),
