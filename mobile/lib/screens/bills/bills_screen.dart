@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../constants/app_colors.dart';
+import '../../widgets/rentilly_bottom_bar.dart';
 
 class BillsScreen extends StatefulWidget {
   const BillsScreen({super.key});
@@ -17,8 +18,8 @@ class _BillsScreenState extends State<BillsScreen> {
 
   // Disco State
   String _selectedDisco = 'EKEDC (Eko Electricity)';
-  final TextEditingController _meterController = TextEditingController(text: '04218930491');
-  final TextEditingController _amountController = TextEditingController(text: '15000');
+  final TextEditingController _meterController = TextEditingController();
+  final TextEditingController _amountController = TextEditingController();
   bool _isPurchasing = false;
   String? _purchasedToken;
 
@@ -35,6 +36,19 @@ class _BillsScreenState extends State<BillsScreen> {
   ];
 
   void _buyToken() async {
+    final meter = _meterController.text.trim();
+    final amount = _amountController.text.trim();
+
+    if (meter.isEmpty || amount.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Please enter your meter number and amount.', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
+          backgroundColor: AppColors.primary,
+        ),
+      );
+      return;
+    }
+
     setState(() => _isPurchasing = true);
     await Future.delayed(const Duration(milliseconds: 1500));
     setState(() {
@@ -50,18 +64,19 @@ class _BillsScreenState extends State<BillsScreen> {
       appBar: AppBar(
         title: Text(
           'Utility & Bill Payments',
-          style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+          style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
         ),
-        backgroundColor: AppColors.backgroundDark,
+        backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, size: 20, color: Colors.white),
+          icon: const Icon(Icons.arrow_back_rounded, size: 22, color: AppColors.textPrimary),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
+      bottomNavigationBar: const RentillyBottomBar(currentIndex: 0),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -79,39 +94,47 @@ class _BillsScreenState extends State<BillsScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Disco Autopilot Banner
+              // Disco Autopilot Banner (Warm Amber / Mint)
               Container(
-                padding: const EdgeInsets.all(14),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.accentGold.withValues(alpha: 0.15),
-                      AppColors.surfaceDark,
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.accentGold.withValues(alpha: 0.3)),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: AppColors.borderDark),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 10,
+                    ),
+                  ],
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.bolt_rounded, size: 20, color: AppColors.accentGold),
-                    const SizedBox(width: 10),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.accentOrange.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.bolt_rounded, size: 22, color: AppColors.accentOrange),
+                    ),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Disco Autopilot Protection Active',
+                            'Disco Instant Token Delivery',
                             style: GoogleFonts.plusJakartaSans(
-                              fontSize: 11,
+                              fontSize: 12,
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              color: AppColors.textPrimary,
                             ),
                           ),
                           Text(
-                            'Token is delivered directly to your SMS, WhatsApp, and email within 3 seconds of purchase.',
+                            'Tokens are generated instantly and delivered to your phone screen and WhatsApp.',
                             style: GoogleFonts.plusJakartaSans(
-                              fontSize: 9.5,
+                              fontSize: 10,
                               color: AppColors.textSecondary,
                             ),
                           ),
@@ -123,38 +146,44 @@ class _BillsScreenState extends State<BillsScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Purchase Form
+              // Purchase Form Card
               Container(
-                padding: const EdgeInsets.all(18),
+                padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceDark,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.borderDark.withValues(alpha: 0.5)),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(color: AppColors.borderDark),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 10,
+                    ),
+                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'SELECT ELECTRICITY DISTRIBUTION COMPANY',
+                      'DISTRIBUTION COMPANY (DISCO)',
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 8.5,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w800,
                         letterSpacing: 0.8,
-                        color: AppColors.textMuted,
+                        color: AppColors.textSecondary,
                       ),
                     ),
                     const SizedBox(height: 6),
                     DropdownButtonFormField<String>(
                       value: _selectedDisco,
-                      dropdownColor: AppColors.surfaceDark,
-                      style: GoogleFonts.plusJakartaSans(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600),
+                      dropdownColor: Colors.white,
+                      style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
                       decoration: InputDecoration(
                         filled: true,
-                        fillColor: AppColors.backgroundDark,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        fillColor: const Color(0xFFF9FAFB),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: AppColors.borderDark.withValues(alpha: 0.5)),
+                          borderSide: const BorderSide(color: AppColors.borderDark),
                         ),
                       ),
                       items: _discos.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
@@ -168,23 +197,26 @@ class _BillsScreenState extends State<BillsScreen> {
                       'PREPAID METER NUMBER',
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 8.5,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w800,
                         letterSpacing: 0.8,
-                        color: AppColors.textMuted,
+                        color: AppColors.textSecondary,
                       ),
                     ),
                     const SizedBox(height: 6),
                     TextField(
                       controller: _meterController,
-                      style: GoogleFonts.plusJakartaSans(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold),
+                      keyboardType: TextInputType.number,
+                      style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
                       decoration: InputDecoration(
                         filled: true,
-                        fillColor: AppColors.backgroundDark,
-                        prefixIcon: const Icon(Icons.electric_meter_rounded, size: 16, color: AppColors.primaryLight),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        fillColor: const Color(0xFFF9FAFB),
+                        prefixIcon: const Icon(Icons.electric_meter_rounded, size: 18, color: AppColors.primary),
+                        hintText: 'Enter your 11-digit meter number',
+                        hintStyle: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textMuted),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: AppColors.borderDark.withValues(alpha: 0.5)),
+                          borderSide: const BorderSide(color: AppColors.borderDark),
                         ),
                       ),
                     ),
@@ -194,43 +226,46 @@ class _BillsScreenState extends State<BillsScreen> {
                       'AMOUNT (₦)',
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 8.5,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w800,
                         letterSpacing: 0.8,
-                        color: AppColors.textMuted,
+                        color: AppColors.textSecondary,
                       ),
                     ),
                     const SizedBox(height: 6),
                     TextField(
                       controller: _amountController,
                       keyboardType: TextInputType.number,
-                      style: GoogleFonts.plusJakartaSans(fontSize: 13, color: Colors.white, fontWeight: FontWeight.bold),
+                      style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w700),
                       decoration: InputDecoration(
                         filled: true,
-                        fillColor: AppColors.backgroundDark,
+                        fillColor: const Color(0xFFF9FAFB),
                         prefixText: '₦ ',
-                        prefixStyle: GoogleFonts.plusJakartaSans(color: AppColors.primaryLight, fontWeight: FontWeight.bold),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        prefixStyle: GoogleFonts.plusJakartaSans(color: AppColors.primary, fontWeight: FontWeight.bold),
+                        hintText: '5,000',
+                        hintStyle: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textMuted),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: AppColors.borderDark.withValues(alpha: 0.5)),
+                          borderSide: const BorderSide(color: AppColors.borderDark),
                         ),
                       ),
                     ),
                     const SizedBox(height: 20),
 
-                    // Buy Token Button
+                    // Buy Token Button (Emerald Teal)
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: _isPurchasing ? null : _buyToken,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primaryLight,
+                          backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          elevation: 1,
                         ),
                         child: Text(
-                          _isPurchasing ? 'Recharging Meter...' : 'Generate 20-Digit Disco Token',
+                          _isPurchasing ? 'Generating Token...' : 'Generate 20-Digit Disco Token',
                           style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold),
                         ),
                       ),
@@ -240,14 +275,20 @@ class _BillsScreenState extends State<BillsScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Purchased Token Display Box
+              // Generated Token Box
               if (_purchasedToken != null)
                 Container(
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0F382A).withValues(alpha: 0.4),
+                    color: Colors.white,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.primaryLight.withValues(alpha: 0.5)),
+                    border: Border.all(color: AppColors.primaryLight),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primaryLight.withValues(alpha: 0.1),
+                        blurRadius: 10,
+                      ),
+                    ],
                   ),
                   child: Column(
                     children: [
@@ -274,7 +315,7 @@ class _BillsScreenState extends State<BillsScreen> {
                           fontSize: 18,
                           fontWeight: FontWeight.w900,
                           letterSpacing: 2.5,
-                          color: Colors.white,
+                          color: AppColors.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -284,17 +325,17 @@ class _BillsScreenState extends State<BillsScreen> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text('20-Digit Token Copied to Clipboard!', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
-                              backgroundColor: AppColors.primaryLight,
+                              backgroundColor: AppColors.primary,
                             ),
                           );
                         },
-                        icon: const Icon(Icons.copy_rounded, size: 13, color: AppColors.primaryLight),
+                        icon: const Icon(Icons.copy_rounded, size: 13, color: AppColors.primary),
                         label: Text(
                           'Copy Token for Prepaid Meter',
-                          style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                          style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
                         ),
                         style: OutlinedButton.styleFrom(
-                          side: BorderSide(color: AppColors.primaryLight.withValues(alpha: 0.5)),
+                          side: const BorderSide(color: AppColors.borderDark),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
                       ),
@@ -316,21 +357,21 @@ class _BillsScreenState extends State<BillsScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: isSelected ? AppColors.primaryLight : AppColors.surfaceDark,
+            color: isSelected ? AppColors.primary : Colors.white,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isSelected ? AppColors.primaryLight : AppColors.borderDark.withValues(alpha: 0.5),
+              color: isSelected ? AppColors.primary : AppColors.borderDark,
             ),
           ),
           child: Column(
             children: [
-              Icon(icon, size: 16, color: isSelected ? Colors.white : AppColors.textSecondary),
-              const SizedBox(height: 2),
+              Icon(icon, size: 18, color: isSelected ? Colors.white : AppColors.textSecondary),
+              const SizedBox(height: 3),
               Text(
                 label,
                 style: GoogleFonts.plusJakartaSans(
-                  fontSize: 9.5,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                  fontSize: 10,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
                   color: isSelected ? Colors.white : AppColors.textSecondary,
                 ),
               ),

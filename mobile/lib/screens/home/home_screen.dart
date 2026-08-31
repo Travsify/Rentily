@@ -3,13 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../constants/app_colors.dart';
+import '../../models/user_profile.dart';
+import '../../services/auth_service.dart';
 import '../wallet/wallet_screen.dart';
-import '../properties/properties_screen.dart';
 import '../my_spaces/my_spaces_screen.dart';
 import '../bills/bills_screen.dart';
-import '../vaults/vaults_screen.dart';
 import '../messages/messages_screen.dart';
-import '../inspections/inspections_screen.dart';
+import '../main_navigation_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -21,24 +21,21 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final NumberFormat _currencyFormat = NumberFormat('#,###.00', 'en_US');
   bool _hideBalance = false;
-  final double _balance = 2450000.00;
-  final String _accountNumber = '9948291038';
-  final String _bankName = 'Wema Bank';
+  UserProfile? _user;
+  bool _isLoadingUser = true;
 
-  String _userLocation = 'Lekki Phase 1, Lagos';
+  String _userLocation = 'Lagos State';
   final List<String> _locations = [
-    'Lekki Phase 1, Lagos',
-    'Old Ikoyi, Lagos',
-    'Victoria Island, Lagos',
-    'Ikeja GRA, Lagos',
-    'Maitama, Abuja (FCT)',
-    'Wuse 2, Abuja (FCT)',
-    'Port Harcourt, Rivers',
-    'Ibadan, Oyo',
+    'Lagos State',
+    'Abuja (FCT)',
+    'Rivers (Port Harcourt)',
+    'Oyo (Ibadan)',
     'Enugu State',
-    'Asaba, Delta',
-    'Benin City, Edo',
+    'Delta (Asaba / Warri)',
+    'Edo (Benin City)',
     'Kano State',
+    'Ogun (Abeokuta)',
+    'Kaduna State',
   ];
 
   final PageController _bannerController = PageController();
@@ -46,30 +43,58 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final List<Map<String, dynamic>> _heroBanners = [
     {
-      'tag': 'ZERO AGENT GUARANTEE',
-      'title': 'Save up to ₦850,000 in Middleman Fees',
+      'tag': 'ANTI-AGENT PLATFORM',
+      'title': 'Zero 20% Agent Fees Guaranteed',
       'description': 'Direct connection to verified property landlords. Legal escrow protection guaranteed.',
       'icon': Icons.shield_rounded,
       'color': AppColors.primary,
     },
     {
       'tag': 'LIVING VAULTS',
-      'title': 'Earn 11.5% Yield on Your Next Rent Renewal',
-      'description': 'Auto-save 10% on every deposit towards your annual rent with inflation hedge.',
+      'title': 'Earn 11.5% Yield on Your Rent Savings',
+      'description': 'Save automatically towards your next annual rent renewal with inflation hedge.',
       'icon': Icons.trending_up_rounded,
       'color': AppColors.accentOrange,
     },
     {
       'tag': 'DISCO AUTOPILOT',
       'title': 'Instant Electricity Tokens 24/7',
-      'description': 'Automated token delivery for EKEDC, IKEDC, AEDC, and all 11 Nigerian power Discos.',
+      'description': 'Direct prepaid token generation across all 11 Nigerian electricity Discos.',
       'icon': Icons.bolt_rounded,
-      'color': Color(0xFF0284C7),
+      'color': AppColors.primaryLight,
     },
   ];
 
+  @override
+  void initState() {
+    super.initState();
+    _loadUser();
+  }
+
+  void _loadUser() async {
+    final u = await AuthService.getCurrentUser();
+    if (mounted) {
+      setState(() {
+        _user = u;
+        _isLoadingUser = false;
+      });
+    }
+  }
+
   void _copyAccount() {
-    Clipboard.setData(ClipboardData(text: _accountNumber));
+    if (_user?.accountNumber == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Link your BVN/NIN in Profile to generate your dedicated Wema/Providus account.',
+            style: GoogleFonts.plusJakartaSans(fontSize: 11),
+          ),
+          backgroundColor: AppColors.primary,
+        ),
+      );
+      return;
+    }
+    Clipboard.setData(ClipboardData(text: _user!.accountNumber!));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -85,6 +110,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Real first name greeting (e.g. "Patrick" or "Femi")
+    final String firstName = _user?.firstName ?? 'User';
+    final double balance = _user?.walletBalance ?? 0.00;
+    final String? accNum = _user?.accountNumber;
+    final String bank = _user?.bankName ?? 'Wema / Providus Bank';
+
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
       body: SafeArea(
@@ -94,18 +125,18 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. Top Bar: Greeting & Action Icons (Clean & Uncluttered Light Mode)
+              // 1. Top Bar: Greeting & Action Icons (Pure Real Name)
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Greeting & Location
+                  // Real Personalized Greeting & Location
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
                         children: [
                           Text(
-                            'Good day, Femi',
+                            'Good day, $firstName',
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 18,
                               fontWeight: FontWeight.w800,
@@ -155,29 +186,12 @@ class _HomeScreenState extends State<HomeScreen> {
                             border: Border.all(color: AppColors.borderDark),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.03),
+                                color: Colors.black.withValues(alpha: 0.02),
                                 blurRadius: 8,
                               ),
                             ],
                           ),
-                          child: Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              const Icon(Icons.chat_bubble_outline_rounded, size: 18, color: AppColors.textPrimary),
-                              Positioned(
-                                top: -2,
-                                right: -2,
-                                child: Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: const BoxDecoration(
-                                    color: AppColors.accentOrange,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                          child: const Icon(Icons.chat_bubble_outline_rounded, size: 18, color: AppColors.textPrimary),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -190,7 +204,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           border: Border.all(color: AppColors.borderDark),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.03),
+                              color: Colors.black.withValues(alpha: 0.02),
                               blurRadius: 8,
                             ),
                           ],
@@ -203,7 +217,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 18),
 
-              // 2. The Living Wallet Card (Royal Blue & Deep Navy Gradient)
+              // 2. The Living Wallet Card (Deep Emerald Teal with Amber Highlights)
               GestureDetector(
                 onTap: () {
                   Navigator.of(context).push(
@@ -216,9 +230,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [
-                        Color(0xFF1E40AF),
-                        Color(0xFF1D4ED8),
-                        Color(0xFF172554),
+                        Color(0xFF0D5C46),
+                        Color(0xFF07382B),
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -226,7 +239,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     borderRadius: BorderRadius.circular(22),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.3),
+                        color: AppColors.primary.withValues(alpha: 0.25),
                         blurRadius: 20,
                         offset: const Offset(0, 8),
                       ),
@@ -235,7 +248,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Top Row: Escrow Tag & Wema Bank Pill
+                      // Top Row
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -244,7 +257,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               const Icon(Icons.shield_rounded, size: 16, color: Colors.white),
                               const SizedBox(width: 5),
                               Text(
-                                'RENTILLY ESCROW WALLET',
+                                'RENTILLY LIVING ESCROW',
                                 style: GoogleFonts.plusJakartaSans(
                                   fontSize: 9,
                                   fontWeight: FontWeight.w800,
@@ -261,9 +274,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
-                              _bankName.toUpperCase(),
+                              accNum != null ? bank.toUpperCase() : 'PENDING ACTIVATION',
                               style: GoogleFonts.plusJakartaSans(
-                                fontSize: 8.5,
+                                fontSize: 8,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
                               ),
@@ -273,7 +286,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: 14),
 
-                      // Balance Section
+                      // Balance Section (Real Data Only)
                       Text(
                         'TOTAL AVAILABLE BALANCE',
                         style: GoogleFonts.plusJakartaSans(
@@ -287,7 +300,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       Row(
                         children: [
                           Text(
-                            _hideBalance ? '₦ • • • • • •' : '₦${_currencyFormat.format(_balance)}',
+                            _hideBalance ? '₦ • • • • • •' : '₦${_currencyFormat.format(balance)}',
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 24,
                               fontWeight: FontWeight.w900,
@@ -307,35 +320,74 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(height: 14),
 
-                      // NUBAN Pill with 1-Tap Copy
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.25),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'NUBAN: $_accountNumber • $_bankName',
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 10.5,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
+                      // Virtual Account Number (Real Data Only)
+                      if (accNum != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.25),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'NUBAN: $accNum • $bank',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.white,
+                                ),
                               ),
-                            ),
-                            GestureDetector(
-                              onTap: _copyAccount,
-                              child: Container(
+                              GestureDetector(
+                                onTap: _copyAccount,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.accentOrange,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    'Copy',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 9.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.25),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Account: Activate via BVN / NIN',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(
                                   color: AppColors.accentOrange,
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
-                                  'Copy',
+                                  'Activate',
                                   style: GoogleFonts.plusJakartaSans(
                                     fontSize: 9.5,
                                     fontWeight: FontWeight.bold,
@@ -343,10 +395,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                 ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
                       const SizedBox(height: 16),
 
                       // 3 Quick Action Buttons on Card
@@ -358,7 +409,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WalletScreen()));
                           }),
                           _buildCardQuickAction(Icons.savings_rounded, 'Living Vault', () {
-                            Navigator.of(context).push(MaterialPageRoute(builder: (_) => const VaultsScreen()));
+                            MainNavigationScreen.of(context)?.switchTab(3);
                           }),
                         ],
                       ),
@@ -368,7 +419,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 22),
 
-              // 3. Circular Grid-Based Quick Hub (The 4 Core Action Pods on Pure White Cards)
+              // 3. Circular Grid-Based Quick Hub (The 4 Core Action Pods)
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -382,7 +433,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   Text(
-                    'Direct & Verified',
+                    'Zero Middlemen',
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
@@ -402,7 +453,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 mainAxisSpacing: 12,
                 childAspectRatio: 1.25,
                 children: [
-                  // Pod 1: Properties (Royal Blue)
+                  // Pod 1: Properties -> Switches directly to Tab 1 (Bottom Nav persists!)
                   _buildCircularGridPod(
                     title: 'Properties',
                     subtitle: 'Rent & Buy Direct',
@@ -410,19 +461,17 @@ class _HomeScreenState extends State<HomeScreen> {
                     color: AppColors.primary,
                     badge: 'Zero 20% Fee',
                     onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const PropertiesScreen(initialPurpose: 'rent')),
-                      );
+                      MainNavigationScreen.of(context)?.switchTab(1);
                     },
                   ),
 
-                  // Pod 2: My Spaces (Sunset Orange)
+                  // Pod 2: My Spaces
                   _buildCircularGridPod(
                     title: 'My Spaces',
                     subtitle: 'Active Lease & Deeds',
                     icon: Icons.vpn_key_rounded,
                     color: AppColors.accentOrange,
-                    badge: '1 Leased',
+                    badge: 'Real Escrow',
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => const MySpacesScreen()),
@@ -430,7 +479,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     },
                   ),
 
-                  // Pod 3: Bill Payments (Sky Blue)
+                  // Pod 3: Bill Payments
                   _buildCircularGridPod(
                     title: 'Bill Payments',
                     subtitle: 'Disco, Data, Airtime',
@@ -444,17 +493,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     },
                   ),
 
-                  // Pod 4: Living Vaults (Emerald / Wealth)
+                  // Pod 4: Living Vaults -> Switches directly to Tab 3 (Bottom Nav persists!)
                   _buildCircularGridPod(
                     title: 'Living Vaults',
-                    subtitle: 'Save for Rent & Power',
+                    subtitle: 'Target Savings',
                     icon: Icons.savings_rounded,
-                    color: const Color(0xFF10B981),
+                    color: AppColors.primaryLight,
                     badge: '11.5% Yield',
                     onTap: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const VaultsScreen()),
-                      );
+                      MainNavigationScreen.of(context)?.switchTab(3);
                     },
                   ),
                 ],
@@ -478,10 +525,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: color.withValues(alpha: 0.2)),
+                        border: Border.all(color: AppColors.borderDark),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.03),
+                            color: Colors.black.withValues(alpha: 0.02),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),
@@ -560,62 +607,57 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 20),
 
-              // 5. Active Inspection Gate Pass Quick Access
-              GestureDetector(
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const InspectionsScreen()),
-                  );
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.borderDark),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.03),
-                        blurRadius: 8,
+              // 5. Verification Notice
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.borderDark),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.02),
+                      blurRadius: 8,
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(Icons.security_rounded, size: 18, color: AppColors.primary),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Physical Inspection Gate Pass Ready',
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textPrimary,
-                              ),
+                      child: const Icon(Icons.verified_user_rounded, size: 18, color: AppColors.primary),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _user?.isVerified == true ? 'Prembly Identity Verified' : 'Tier 1 Account Active',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textPrimary,
                             ),
-                            Text(
-                              'Plot 18, Lekki Phase 1 • Gate Pass: 749201',
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 10,
-                                color: AppColors.textSecondary,
-                              ),
+                          ),
+                          Text(
+                            _user?.isVerified == true
+                                ? 'Full banking and direct lease execution enabled.'
+                                : 'Complete NIN / BVN check to unlock bank account.',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 10,
+                              color: AppColors.textSecondary,
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                      const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.textMuted),
-                    ],
-                  ),
+                    ),
+                    const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.textMuted),
+                  ],
                 ),
               ),
               const SizedBox(height: 24),
@@ -672,7 +714,7 @@ class _HomeScreenState extends State<HomeScreen> {
           border: Border.all(color: AppColors.borderDark),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
+              color: Colors.black.withValues(alpha: 0.02),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),

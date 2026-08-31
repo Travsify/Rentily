@@ -8,6 +8,9 @@ class UserProfile {
   final String? ninNumber;
   final bool bvnVerified;
   final String? avatarUrl;
+  final double walletBalance;
+  final String? accountNumber;
+  final String? bankName;
 
   UserProfile({
     required this.id,
@@ -19,7 +22,18 @@ class UserProfile {
     this.ninNumber,
     this.bvnVerified = false,
     this.avatarUrl,
+    this.walletBalance = 0.00,
+    this.accountNumber,
+    this.bankName,
   });
+
+  // Extract real first name (e.g. "Patrick Atua" -> "Patrick")
+  String get firstName {
+    final trimmed = fullName.trim();
+    if (trimmed.isEmpty) return 'User';
+    final parts = trimmed.split(' ');
+    return parts.first;
+  }
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
@@ -32,6 +46,9 @@ class UserProfile {
       ninNumber: json['ninNumber']?.toString() ?? json['nin_number']?.toString(),
       bvnVerified: json['bvnVerified'] ?? json['bvn_verified'] ?? false,
       avatarUrl: json['avatarUrl']?.toString() ?? json['avatar_url']?.toString(),
+      walletBalance: (json['walletBalance'] as num?)?.toDouble() ?? 0.00,
+      accountNumber: json['accountNumber']?.toString(),
+      bankName: json['bankName']?.toString(),
     );
   }
 
@@ -46,6 +63,9 @@ class UserProfile {
       'ninNumber': ninNumber,
       'bvnVerified': bvnVerified,
       'avatarUrl': avatarUrl,
+      'walletBalance': walletBalance,
+      'accountNumber': accountNumber,
+      'bankName': bankName,
     };
   }
 }

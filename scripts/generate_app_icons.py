@@ -7,17 +7,17 @@ def create_rentilly_icon(size):
     margin = int(canvas_size * 0.04)
     radius = int(canvas_size * 0.22)
     
-    # 1. Background gradient: Royal Blue (#1E40AF) to Deep Navy (#0F172A)
+    # 1. Background gradient: Deep Emerald Teal (#0D5C46) to Deep Pine (#07382B)
     base_bg = Image.new("RGBA", (canvas_size, canvas_size), (0, 0, 0, 0))
     bg_draw = ImageDraw.Draw(base_bg)
     
     steps = 100
     for i in range(steps):
         ratio = i / steps
-        # Color from #1E40AF (30, 64, 175) to #0F172A (15, 23, 42)
-        r = int(30 * (1 - ratio) + 15 * ratio)
-        g = int(64 * (1 - ratio) + 23 * ratio)
-        b = int(175 * (1 - ratio) + 42 * ratio)
+        # Color from #0D5C46 (13, 92, 70) to #07382B (7, 56, 43)
+        r = int(13 * (1 - ratio) + 7 * ratio)
+        g = int(92 * (1 - ratio) + 56 * ratio)
+        b = int(70 * (1 - ratio) + 43 * ratio)
         y = int(canvas_size * ratio)
         bg_draw.rectangle([0, y, canvas_size, y + int(canvas_size / steps) + 1], fill=(r, g, b, 255))
 
@@ -33,11 +33,11 @@ def create_rentilly_icon(size):
     icon_base = Image.composite(base_bg, Image.new("RGBA", (canvas_size, canvas_size), (0, 0, 0, 0)), mask)
     draw = ImageDraw.Draw(icon_base)
 
-    # 2. Subtle Inner Border
+    # 2. Subtle Inner Glowing Border
     draw.rounded_rectangle(
         [margin + scale * 2, margin + scale * 2, canvas_size - margin - scale * 2, canvas_size - margin - scale * 2],
         radius=radius - scale * 2,
-        outline=(255, 255, 255, 70),
+        outline=(255, 255, 255, 60),
         width=int(scale * 3)
     )
 
@@ -59,8 +59,8 @@ def create_rentilly_icon(size):
         (cx - shield_w / 2, shield_top + shield_h * 0.55),
     ]
 
-    # Shield fill (Deep navy blue with Sunset Orange #FF6B00 outline)
-    draw.polygon(points, fill=(15, 23, 42, 230), outline=(255, 107, 0, 255))
+    # Shield fill (Deep Pine with Radiant Amber outline)
+    draw.polygon(points, fill=(7, 56, 43, 230), outline=(245, 158, 11, 255))
     for off in range(int(scale * 4)):
         p_off = [
             (points[0][0] - off*0.3, points[0][1] - off*0.3),
@@ -69,7 +69,7 @@ def create_rentilly_icon(size):
             (points[3][0], points[3][1] + off*0.4),
             (points[4][0] - off*0.3, points[4][1]),
         ]
-        draw.polygon(p_off, outline=(255, 107, 0, max(30, 255 - off * 35)))
+        draw.polygon(p_off, outline=(245, 158, 11, max(30, 255 - off * 35)))
 
     # 4. Modern House Roof (Apex triangle in Crisp White)
     roof_w = shield_w * 0.68
@@ -85,12 +85,12 @@ def create_rentilly_icon(size):
     ]
     draw.polygon(roof_points, fill=(255, 255, 255, 255))
 
-    # 5. Keyhole / Vault Emblem (Sunset Orange Accent)
+    # 5. Keyhole / Vault Emblem (Radiant Amber Accent)
     keyhole_top = roof_top + roof_h + scale * 4
     kh_radius = int(scale * 16)
     draw.ellipse(
         [cx - kh_radius, keyhole_top, cx + kh_radius, keyhole_top + kh_radius * 2],
-        fill=(255, 107, 0, 255)
+        fill=(245, 158, 11, 255)
     )
     stem_top = keyhole_top + kh_radius * 1.3
     stem_bot = stem_top + scale * 26
@@ -100,7 +100,7 @@ def create_rentilly_icon(size):
         (cx + scale * 10, stem_bot),
         (cx - scale * 10, stem_bot),
     ]
-    draw.polygon(stem_points, fill=(255, 107, 0, 255))
+    draw.polygon(stem_points, fill=(245, 158, 11, 255))
 
     # Inner core cutout
     inner_radius = int(scale * 7)
@@ -135,7 +135,7 @@ def generate_all_icons():
     master_icon = create_rentilly_icon(512)
     master_icon.save(os.path.join(web_dir, "Icon-512.png"), "PNG")
     master_icon.resize((192, 192), Image.Resampling.LANCZOS).save(os.path.join(web_dir, "Icon-192.png"), "PNG")
-    print("Generated Royal Blue & Orange icons!")
+    print("Generated signature icons!")
 
 if __name__ == "__main__":
     generate_all_icons()

@@ -3,7 +3,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../constants/app_colors.dart';
 import '../../models/property.dart';
+import '../../models/user_profile.dart';
 import '../../services/api_service.dart';
+import '../../services/auth_service.dart';
 
 class PropertyDetailScreen extends StatefulWidget {
   final Property property;
@@ -17,18 +19,29 @@ class PropertyDetailScreen extends StatefulWidget {
 class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
   final NumberFormat _currencyFormat = NumberFormat('#,###', 'en_US');
   bool _isBooking = false;
-  String? _generatedGatePass;
+  UserProfile? _currentUser;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUser();
+  }
+
+  void _loadUser() async {
+    final u = await AuthService.getCurrentUser();
+    if (mounted) setState(() => _currentUser = u);
+  }
 
   void _showInspectionModal() {
-    String selectedDate = '2026-09-02';
+    String selectedDate = '2026-09-03';
     String selectedTime = '11:00 AM - 12:00 PM';
-    final nameController = TextEditingController(text: 'Femi Adesanya');
-    final phoneController = TextEditingController(text: '+234 812 345 6789');
+    final nameController = TextEditingController(text: _currentUser?.fullName ?? 'Rentilly Prospect');
+    final phoneController = TextEditingController(text: _currentUser?.phoneNumber ?? '+234 812 000 0000');
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppColors.surfaceDark,
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -52,66 +65,71 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                       Text(
                         'Book Physical Inspection',
                         style: GoogleFonts.plusJakartaSans(
-                          fontSize: 14,
+                          fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: AppColors.textPrimary,
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close, size: 18, color: Colors.grey),
+                        icon: const Icon(Icons.close_rounded, size: 20, color: AppColors.textMuted),
                         onPressed: () => Navigator.of(context).pop(),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Get a 6-digit security gate pass code for estate security entry. Zero inspection fee charged.',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 11,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
 
-                  // Date Picker
-                  Text(
-                    'SELECT INSPECTION DATE',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textMuted,
+                  // Name
+                  Text('YOUR FULL NAME', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                  const SizedBox(height: 4),
+                  TextField(
+                    controller: nameController,
+                    style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: const Color(0xFFF9FAFB),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.borderDark)),
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 12),
+
+                  // Phone
+                  Text('PHONE NUMBER', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                  const SizedBox(height: 4),
+                  TextField(
+                    controller: phoneController,
+                    style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: const Color(0xFFF9FAFB),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.borderDark)),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Date
+                  Text('PREFERRED DATE', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                  const SizedBox(height: 4),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     decoration: BoxDecoration(
-                      color: AppColors.backgroundDark,
-                      borderRadius: BorderRadius.circular(12),
+                      color: const Color(0xFFF9FAFB),
+                      borderRadius: BorderRadius.circular(10),
                       border: Border.all(color: AppColors.borderDark),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          selectedDate,
-                          style: GoogleFonts.plusJakartaSans(fontSize: 12, color: Colors.white, fontWeight: FontWeight.w600),
-                        ),
-                        const Icon(Icons.calendar_month, size: 16, color: AppColors.primaryLight),
+                        Text(selectedDate, style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600)),
+                        const Icon(Icons.calendar_month, size: 16, color: AppColors.primary),
                       ],
                     ),
                   ),
                   const SizedBox(height: 14),
 
                   // Time Slot
-                  Text(
-                    'SELECT TIME SLOT',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textMuted,
-                    ),
-                  ),
+                  Text('SELECT TIME SLOT', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
                   const SizedBox(height: 6),
                   Row(
                     children: [
@@ -148,10 +166,10 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                               }
                             },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primaryLight,
+                        backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       child: Text(
                         _isBooking ? 'Generating Security Pass...' : 'Confirm & Generate Gate Pass',
@@ -176,19 +194,17 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 8),
           decoration: BoxDecoration(
-            color: isSelected ? AppColors.primaryLight.withOpacity(0.2) : AppColors.backgroundDark,
+            color: isSelected ? AppColors.primary : const Color(0xFFF9FAFB),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: isSelected ? AppColors.primaryLight : AppColors.borderDark,
-            ),
+            border: Border.all(color: isSelected ? AppColors.primary : AppColors.borderDark),
           ),
           child: Center(
             child: Text(
               time,
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected ? AppColors.primaryLight : AppColors.textSecondary,
+                fontSize: 10.5,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                color: isSelected ? Colors.white : AppColors.textPrimary,
               ),
             ),
           ),
@@ -202,7 +218,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: AppColors.surfaceDark,
+          backgroundColor: Colors.white,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -210,37 +226,37 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppColors.primaryLight.withOpacity(0.15),
+                  color: AppColors.primary.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.security_rounded, size: 36, color: AppColors.primaryLight),
+                child: const Icon(Icons.security_rounded, size: 36, color: AppColors.primary),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               Text(
-                'Inspection Confirmed!',
-                style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                'Security Pass Generated',
+                style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
               ),
               const SizedBox(height: 6),
               Text(
-                'Show this 6-digit gate code to the estate security guard upon arrival:',
+                'Show this 6-digit code to the estate security guards upon arrival.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 16),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 decoration: BoxDecoration(
-                  color: AppColors.backgroundDark,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.primaryLight.withOpacity(0.5)),
+                  color: const Color(0xFFF9FAFB),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.borderDark),
                 ),
                 child: Text(
                   code,
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: 28,
+                    fontSize: 26,
                     fontWeight: FontWeight.w900,
-                    letterSpacing: 6,
-                    color: AppColors.primaryLight,
+                    letterSpacing: 4.0,
+                    color: AppColors.primary,
                   ),
                 ),
               ),
@@ -250,7 +266,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                 child: ElevatedButton(
                   onPressed: () => Navigator.of(context).pop(),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primaryLight,
+                    backgroundColor: AppColors.primary,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   child: Text('Done', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, color: Colors.white)),
@@ -272,85 +288,58 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
       backgroundColor: AppColors.backgroundDark,
       body: CustomScrollView(
         slivers: [
-          // Collapsible HDR Photo Gallery AppBar
+          // Photo Header
           SliverAppBar(
-            expandedHeight: 280,
+            expandedHeight: 260,
             pinned: true,
-            backgroundColor: AppColors.backgroundDark,
+            backgroundColor: Colors.white,
             leading: IconButton(
               icon: Container(
                 padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.6),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.arrow_back_rounded, size: 18, color: Colors.white),
+                child: const Icon(Icons.arrow_back_rounded, size: 18, color: AppColors.textPrimary),
               ),
               onPressed: () => Navigator.of(context).pop(),
             ),
-            actions: [
-              IconButton(
-                icon: Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.6),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.bookmark_border_rounded, size: 18, color: Colors.white),
-                ),
-                onPressed: () {},
-              ),
-            ],
             flexibleSpace: FlexibleSpaceBar(
-              background: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Image.network(
-                    prop.images.isNotEmpty ? prop.images[0] : '',
-                    fit: BoxFit.cover,
-                  ),
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Colors.transparent, Colors.black.withOpacity(0.85)],
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                      ),
-                    ),
-                  ),
-                ],
+              background: Image.network(
+                prop.images.isNotEmpty ? prop.images[0] : '',
+                fit: BoxFit.cover,
               ),
             ),
           ),
 
-          // Details Body
+          // Details Body (All text in sharp Ink Black)
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.all(18),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // KYP Badge & Purpose
+                  // Badges
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: AppColors.primaryLight.withOpacity(0.15),
+                          color: AppColors.primary.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppColors.primaryLight.withOpacity(0.3)),
+                          border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.verified_user_rounded, size: 13, color: AppColors.primaryLight),
+                            const Icon(Icons.verified_user_rounded, size: 13, color: AppColors.primary),
                             const SizedBox(width: 4),
                             Text(
                               'C OF O & TITLE AUDITED',
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 9,
                                 fontWeight: FontWeight.bold,
-                                color: AppColors.primaryLight,
+                                color: AppColors.primary,
                               ),
                             ),
                           ],
@@ -359,29 +348,29 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                       Text(
                         isRent ? 'FOR RENT' : 'FOR SALE',
                         style: GoogleFonts.plusJakartaSans(
-                          fontSize: 10,
+                          fontSize: 11,
                           fontWeight: FontWeight.w800,
-                          color: isRent ? AppColors.primaryLight : const Color(0xFF0D9488),
+                          color: AppColors.accentOrange,
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 12),
 
-                  // Title
+                  // Title (Ink Black)
                   Text(
                     prop.title,
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 18,
                       fontWeight: FontWeight.w800,
-                      color: Colors.white,
+                      color: AppColors.textPrimary,
                       height: 1.2,
                     ),
                   ),
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      const Icon(Icons.location_on_rounded, size: 14, color: AppColors.primaryLight),
+                      const Icon(Icons.location_on_rounded, size: 14, color: AppColors.accentOrange),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
@@ -400,9 +389,9 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: AppColors.surfaceDark,
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.borderDark.withOpacity(0.5)),
+                      border: Border.all(color: AppColors.borderDark),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -416,14 +405,14 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // Transparent Anti-Agent Financial Breakdown
+                  // Financial Breakdown
                   Text(
                     'TRANSPARENT FINANCIAL BREAKDOWN',
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 10,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 1.0,
-                      color: AppColors.textMuted,
+                      color: AppColors.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -431,180 +420,118 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: AppColors.surfaceDark,
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.borderDark.withOpacity(0.5)),
+                      border: Border.all(color: AppColors.borderDark),
                     ),
                     child: Column(
                       children: [
-                        _buildPriceRow('Direct Owner Base Rent', '₦${_currencyFormat.format(prop.basePrice)}'),
+                        _buildPriceRow('Direct Owner Base Price', '₦${_currencyFormat.format(prop.basePrice)}'),
                         if (prop.cautionFee > 0)
                           _buildPriceRow('Caution Deposit (Escrow Vault)', '₦${_currencyFormat.format(prop.cautionFee)}'),
                         if (prop.serviceCharge > 0)
                           _buildPriceRow('Service Charge', '₦${_currencyFormat.format(prop.serviceCharge)}'),
                         _buildPriceRow(
-                          'Rentilly Legal & Tenancy Contract Fee (10%)',
+                          'Rentilly Legal & Escrow Fee (10%)',
                           '₦${_currencyFormat.format(prop.rentillyFee)}',
                           highlight: true,
                         ),
                         const Divider(color: AppColors.borderDark, height: 20),
-                        _buildPriceRow(
-                          'Total Move-In Escrow Payment',
-                          '₦${_currencyFormat.format(prop.totalInitialPayment)}',
-                          isBold: true,
-                        ),
-                        const SizedBox(height: 12),
-
-                        // Anti-Agent Savings Banner
-                        Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryLight.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: AppColors.primaryLight.withOpacity(0.3)),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'Traditional 20% Agent Extortion:',
-                                style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'TOTAL PAYABLE',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.textPrimary,
                               ),
-                              Text(
-                                '̶₦̶${_currencyFormat.format(prop.traditionalAgentCommission)}',
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.error,
-                                ),
+                            ),
+                            Text(
+                              '₦${_currencyFormat.format(prop.totalInitialPayment)}',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                                color: AppColors.primary,
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 20),
 
-                  // Direct Landlord Identity & Prembly Shield
-                  Text(
-                    'VERIFIED PROPERTY OWNER',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.0,
-                      color: AppColors.textMuted,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-
+                  // Anti-Agent Savings Banner
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: AppColors.surfaceDark,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.borderDark.withOpacity(0.5)),
+                      color: AppColors.primary.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
                     ),
                     child: Row(
                       children: [
-                        CircleAvatar(
-                          radius: 22,
-                          backgroundColor: AppColors.primaryLight,
-                          child: Text(
-                            prop.ownerName.isNotEmpty ? prop.ownerName[0] : 'O',
-                            style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, color: Colors.white),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
+                        const Icon(Icons.savings_rounded, size: 20, color: AppColors.primary),
+                        const SizedBox(width: 10),
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Text(
-                                    prop.ownerName,
-                                    style: GoogleFonts.plusJakartaSans(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 4),
-                                  const Icon(Icons.check_circle, size: 14, color: AppColors.primaryLight),
-                                ],
-                              ),
-                              Text(
-                                'Direct Landlord • NIN & BVN Verified via Prembly',
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 9,
-                                  color: AppColors.textSecondary,
-                                ),
-                              ),
-                            ],
+                          child: Text(
+                            'You save ₦${_currencyFormat.format(prop.totalNairaSavedOnRentilly)} in agent & agreement fees on Rentilly.',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.primary,
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 20),
-
-                  // Description
-                  Text(
-                    'ABOUT THIS PROPERTY',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.0,
-                      color: AppColors.textMuted,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    prop.description,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 11,
-                      color: AppColors.textSecondary,
-                      height: 1.6,
-                    ),
-                  ),
-                  const SizedBox(height: 90),
+                  const SizedBox(height: 30),
                 ],
               ),
             ),
           ),
         ],
       ),
-
-      // Sticky Bottom Action Bar
-      bottomSheet: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceDark,
-          border: Border(top: BorderSide(color: AppColors.borderDark.withOpacity(0.5))),
+      bottomNavigationBar: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: AppColors.borderDark)),
         ),
-        child: Row(
-          children: [
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: _showInspectionModal,
-                icon: const Icon(Icons.calendar_today_rounded, size: 14),
-                label: Text(
-                  'Book Inspection',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryLight,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        child: SafeArea(
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Direct Landlord Price',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary),
+                    ),
+                    Text(
+                      '₦${_currencyFormat.format(prop.basePrice)}${isRent ? ' /yr' : ''}',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w900, color: AppColors.primary),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ],
+              ElevatedButton(
+                onPressed: _showInspectionModal,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: Text('Book Inspection', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -613,49 +540,22 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
   Widget _buildDetailSpec(IconData icon, String value, String label) {
     return Column(
       children: [
-        Icon(icon, size: 18, color: AppColors.primaryLight),
+        Icon(icon, size: 20, color: AppColors.primary),
         const SizedBox(height: 4),
-        Text(
-          value,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-        Text(
-          label,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 9,
-            color: AppColors.textMuted,
-          ),
-        ),
+        Text(value, style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+        Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 9, color: AppColors.textSecondary)),
       ],
     );
   }
 
-  Widget _buildPriceRow(String label, String value, {bool isBold = false, bool highlight = false}) {
+  Widget _buildPriceRow(String label, String value, {bool highlight = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 10,
-              fontWeight: isBold ? FontWeight.bold : FontWeight.w500,
-              color: highlight ? AppColors.primaryLight : AppColors.textSecondary,
-            ),
-          ),
-          Text(
-            value,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: isBold ? 13 : 11,
-              fontWeight: isBold ? FontWeight.w800 : FontWeight.w600,
-              color: highlight ? AppColors.primaryLight : Colors.white,
-            ),
-          ),
+          Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 11, color: highlight ? AppColors.primary : AppColors.textSecondary, fontWeight: highlight ? FontWeight.bold : FontWeight.w500)),
+          Text(value, style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: highlight ? AppColors.primary : AppColors.textPrimary)),
         ],
       ),
     );

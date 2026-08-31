@@ -59,16 +59,11 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         ),
       );
     } else {
-      // User is NOT authenticated -> Gate access to Onboarding or Login
-      final prefs = await SharedPreferences.getInstance();
-      final seenOnboarding = prefs.getBool(AppConstants.seenOnboardingKey) ?? false;
-
-      if (!mounted) return;
-
+      // User is NOT authenticated -> Strict Auth Gateway (Must Log In or Register)
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
           transitionDuration: const Duration(milliseconds: 600),
-          pageBuilder: (_, __, ___) => seenOnboarding ? const LoginScreen() : const OnboardingScreen(),
+          pageBuilder: (_, __, ___) => const LoginScreen(),
           transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
         ),
       );
@@ -146,14 +141,14 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                         ),
                         const SizedBox(height: 24),
 
-                        // Title
+                        // Title (Ink Black)
                         Text(
                           AppConstants.appName,
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 34,
                             fontWeight: FontWeight.w800,
                             letterSpacing: -0.5,
-                            color: Colors.white,
+                            color: AppColors.textPrimary,
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -162,19 +157,19 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                           decoration: BoxDecoration(
-                            color: AppColors.primaryLight.withValues(alpha: 0.12),
+                            color: AppColors.primary.withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                              color: AppColors.primaryLight.withValues(alpha: 0.25),
+                              color: AppColors.primary.withValues(alpha: 0.2),
                             ),
                           ),
                           child: Text(
                             'ZERO AGENTS • DIRECT OWNERS',
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 10,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w800,
                               letterSpacing: 1.2,
-                              color: AppColors.primaryLight,
+                              color: AppColors.primary,
                             ),
                           ),
                         ),

@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../constants/app_colors.dart';
 import '../../models/property.dart';
 import '../../services/api_service.dart';
+import '../../widgets/rentilly_bottom_bar.dart';
 import '../home/property_detail_screen.dart';
 
 class PropertiesScreen extends StatefulWidget {
@@ -33,7 +34,6 @@ class _PropertiesScreenState extends State<PropertiesScreen> {
     'Edo (Benin City)',
     'Ogun (Abeokuta)',
     'Kano',
-    'Cross River (Calabar)',
   ];
 
   @override
@@ -46,10 +46,12 @@ class _PropertiesScreenState extends State<PropertiesScreen> {
   void _loadProperties() async {
     setState(() => _isLoading = true);
     final data = await ApiService.asyncFetchProperties(purpose: _selectedPurpose);
-    setState(() {
-      _properties = data;
-      _isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        _properties = data;
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -59,27 +61,28 @@ class _PropertiesScreenState extends State<PropertiesScreen> {
       appBar: AppBar(
         title: Text(
           'Zero-Agent Properties Hub',
-          style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+          style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
         ),
-        backgroundColor: AppColors.backgroundDark,
+        backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, size: 20, color: Colors.white),
+          icon: const Icon(Icons.arrow_back_rounded, size: 22, color: AppColors.textPrimary),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
+      bottomNavigationBar: const RentillyBottomBar(currentIndex: 1),
       body: SafeArea(
         child: Column(
           children: [
-            // Top Purpose Selector (Rent / Lease vs Outright Sale)
+            // Top Purpose Selector (Rent vs Outright Sale)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
               child: Container(
                 padding: const EdgeInsets.all(4),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceDark,
+                  color: Colors.white,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.borderDark.withValues(alpha: 0.5)),
+                  border: Border.all(color: AppColors.borderDark),
                 ),
                 child: Row(
                   children: [
@@ -94,11 +97,11 @@ class _PropertiesScreenState extends State<PropertiesScreen> {
               ),
             ),
 
-            // Nationwide State Filter Horizontal Chips
+            // Nationwide State Filter Chips
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
+              padding: const EdgeInsets.symmetric(vertical: 4),
               child: SizedBox(
-                height: 32,
+                height: 34,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 18),
@@ -113,20 +116,20 @@ class _PropertiesScreenState extends State<PropertiesScreen> {
                       },
                       child: Container(
                         margin: const EdgeInsets.only(right: 8),
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                         decoration: BoxDecoration(
-                          color: isSelected ? AppColors.primaryLight.withValues(alpha: 0.2) : AppColors.surfaceDark,
+                          color: isSelected ? AppColors.primary : Colors.white,
                           borderRadius: BorderRadius.circular(20),
                           border: Border.all(
-                            color: isSelected ? AppColors.primaryLight : AppColors.borderDark.withValues(alpha: 0.4),
+                            color: isSelected ? AppColors.primary : AppColors.borderDark,
                           ),
                         ),
                         child: Text(
                           st,
                           style: GoogleFonts.plusJakartaSans(
-                            fontSize: 10,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                            color: isSelected ? AppColors.primaryLight : AppColors.textSecondary,
+                            fontSize: 11,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                            color: isSelected ? Colors.white : AppColors.textSecondary,
                           ),
                         ),
                       ),
@@ -139,7 +142,7 @@ class _PropertiesScreenState extends State<PropertiesScreen> {
             // Property Listings View
             Expanded(
               child: _isLoading
-                  ? const Center(child: CircularProgressIndicator(color: AppColors.primaryLight))
+                  ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
                   : ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                       itemCount: _properties.length,
@@ -156,21 +159,27 @@ class _PropertiesScreenState extends State<PropertiesScreen> {
                           child: Container(
                             margin: const EdgeInsets.only(bottom: 16),
                             decoration: BoxDecoration(
-                              color: AppColors.surfaceDark,
+                              color: Colors.white,
                               borderRadius: BorderRadius.circular(18),
-                              border: Border.all(color: AppColors.borderDark.withValues(alpha: 0.5)),
+                              border: Border.all(color: AppColors.borderDark),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.02),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
                             ),
                             clipBehavior: Clip.antiAlias,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // Photo with Title Document Pill
                                 Stack(
                                   children: [
                                     Container(
                                       height: 160,
                                       width: double.infinity,
-                                      color: AppColors.cardDark,
+                                      color: const Color(0xFFF3F4F6),
                                       child: Image.network(
                                         prop.images.isNotEmpty ? prop.images[0] : '',
                                         fit: BoxFit.cover,
@@ -180,14 +189,14 @@ class _PropertiesScreenState extends State<PropertiesScreen> {
                                       top: 10,
                                       left: 10,
                                       child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                         decoration: BoxDecoration(
-                                          color: AppColors.primaryLight,
+                                          color: AppColors.primary,
                                           borderRadius: BorderRadius.circular(6),
                                         ),
                                         child: Text(
                                           isRent ? 'RENTAL' : 'OUTRIGHT SALE',
-                                          style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white),
+                                          style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: Colors.white),
                                         ),
                                       ),
                                     ),
@@ -195,19 +204,24 @@ class _PropertiesScreenState extends State<PropertiesScreen> {
                                       top: 10,
                                       right: 10,
                                       child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                         decoration: BoxDecoration(
-                                          color: Colors.black.withValues(alpha: 0.7),
+                                          color: Colors.white,
                                           borderRadius: BorderRadius.circular(6),
-                                          border: Border.all(color: AppColors.primaryLight.withValues(alpha: 0.5)),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withValues(alpha: 0.1),
+                                              blurRadius: 4,
+                                            ),
+                                          ],
                                         ),
                                         child: Row(
                                           children: [
-                                            const Icon(Icons.verified_user_rounded, size: 10, color: AppColors.primaryLight),
+                                            const Icon(Icons.verified, size: 12, color: AppColors.primaryLight),
                                             const SizedBox(width: 4),
                                             Text(
-                                              'C OF O VERIFIED',
-                                              style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: AppColors.primaryLight),
+                                              'VERIFIED OWNER',
+                                              style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.primary),
                                             ),
                                           ],
                                         ),
@@ -216,24 +230,22 @@ class _PropertiesScreenState extends State<PropertiesScreen> {
                                   ],
                                 ),
 
-                                // Content Details
                                 Padding(
-                                  padding: const EdgeInsets.all(12),
+                                  padding: const EdgeInsets.all(14),
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         prop.title,
-                                        style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                                        style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                                       ),
-                                      const SizedBox(height: 2),
+                                      const SizedBox(height: 3),
                                       Text(
                                         '${prop.neighborhood}, ${prop.state}',
-                                        style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary),
+                                        style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
                                       ),
-                                      const SizedBox(height: 10),
+                                      const SizedBox(height: 12),
 
-                                      // Pricing
                                       Row(
                                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
@@ -242,23 +254,23 @@ class _PropertiesScreenState extends State<PropertiesScreen> {
                                             children: [
                                               Text(
                                                 'Direct Landlord Price',
-                                                style: GoogleFonts.plusJakartaSans(fontSize: 8, color: AppColors.textMuted),
+                                                style: GoogleFonts.plusJakartaSans(fontSize: 9, color: AppColors.textMuted),
                                               ),
                                               Text(
                                                 '₦${_currencyFormat.format(prop.basePrice)}${isRent ? ' /yr' : ''}',
-                                                style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.primaryLight),
+                                                style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.primary),
                                               ),
                                             ],
                                           ),
                                           Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                                             decoration: BoxDecoration(
-                                              color: AppColors.primaryLight.withValues(alpha: 0.15),
+                                              color: AppColors.accentOrange.withValues(alpha: 0.12),
                                               borderRadius: BorderRadius.circular(8),
                                             ),
                                             child: Text(
                                               'SAVE ₦${_currencyFormat.format(prop.totalNairaSavedOnRentilly)}',
-                                              style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.primaryLight),
+                                              style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.bold, color: AppColors.accentOrange),
                                             ),
                                           ),
                                         ],
@@ -289,14 +301,14 @@ class _PropertiesScreenState extends State<PropertiesScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primaryLight : Colors.transparent,
+          color: isSelected ? AppColors.primary : Colors.transparent,
           borderRadius: BorderRadius.circular(10),
         ),
         child: Center(
           child: Text(
             label,
             style: GoogleFonts.plusJakartaSans(
-              fontSize: 10,
+              fontSize: 10.5,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
               color: isSelected ? Colors.white : AppColors.textSecondary,
             ),
