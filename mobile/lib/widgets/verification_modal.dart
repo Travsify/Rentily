@@ -137,7 +137,7 @@ class _VerificationModalState extends State<VerificationModal> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Your dedicated virtual bank account is now active on the NIBSS switch and ready to receive funds.',
+                'Your dedicated virtual account is now active and ready to receive funds.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
               ),
@@ -163,7 +163,7 @@ class _VerificationModalState extends State<VerificationModal> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'ACCOUNT NUMBER (NUBAN)',
+                      'DEDICATED ACCOUNT NUMBER',
                       style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 2),
@@ -184,13 +184,13 @@ class _VerificationModalState extends State<VerificationModal> {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        'BANK: ${user.bankName ?? 'Flutterwave MFB'}',
+                        'SETTLEMENT: DEDICATED ESCROW',
                         style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w800, color: AppColors.primary),
                       ),
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      '💡 Select "${user.bankName ?? 'Flutterwave MFB'}" in your banking app (GTBank, Access, Zenith, Kuda, PalmPay, etc.) when transferring funds.',
+                      '💡 Use your dedicated account number to fund your Living Escrow balance from any bank app.',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textSecondary, height: 1.3),
                     ),
@@ -421,7 +421,7 @@ class _VerificationModalState extends State<VerificationModal> {
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'Bank-grade CBN compliance. Securely validated against NIMC, NIBSS & Flutterwave MFB.',
+                    'Bank-grade security compliance. Securely validated against official identity databases.',
                     style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textMuted),
                   ),
                 ),

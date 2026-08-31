@@ -194,8 +194,8 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
                                   ),
                                 ),
                                 subtitle: Text(
-                                  'CBN Code: ${bank['code']}',
-                                  style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textMuted),
+                                  'Bank Code: ${bank['code']}',
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary),
                                 ),
                                 trailing: isSelected ? const Icon(Icons.check_circle_rounded, size: 18, color: AppColors.primary) : null,
                                 onTap: () {
@@ -270,7 +270,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
 
     final accNum = _accountController.text.trim();
     if (accNum.length != 10) {
-      setState(() => _errorMessage = 'Please enter a 10-digit Nigerian NUBAN account number.');
+      setState(() => _errorMessage = 'Please enter a 10-digit Nigerian account number.');
       return;
     }
 
@@ -323,7 +323,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Withdrawal of ₦${NumberFormat('#,###.00').format(amount)} initiated successfully via Paystack!',
+              'Withdrawal of ₦${NumberFormat('#,###.00').format(amount)} initiated successfully!',
               style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold),
             ),
             backgroundColor: AppColors.primary,
@@ -377,7 +377,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Instant Paystack settlement to any of Nigeria\'s 180+ commercial & microfinance banks.',
+              'Instant direct payout to any of Nigeria\'s 180+ verified commercial & microfinance banks.',
               style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 16),
@@ -431,7 +431,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
             const SizedBox(height: 14),
 
             // 2. Account Number Input
-            Text('2. ENTER 10-DIGIT NUBAN ACCOUNT NUMBER', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+            Text('2. ENTER 10-DIGIT ACCOUNT NUMBER', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
             const SizedBox(height: 6),
             TextField(
               controller: _accountController,
@@ -527,7 +527,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
                 ),
                 child: _isProcessing
                     ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : Text('Authorize & Withdraw via Paystack', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold)),
+                    : Text('Authorize & Withdraw Funds', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold)),
               ),
             ),
           ],

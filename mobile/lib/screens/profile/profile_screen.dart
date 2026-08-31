@@ -183,7 +183,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 onTap: () {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text('Legal name is permanently locked to match your verified CBN/BVN identity.', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
+                                      content: Text('Legal name is permanently locked to match your verified identity.', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
                                       backgroundColor: AppColors.textPrimary,
                                     ),
                                   );
@@ -247,7 +247,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 const Icon(Icons.verified, size: 11, color: AppColors.primaryLight),
                                 const SizedBox(width: 4),
                                 Text(
-                                  'CBN Tier-3 Verified Escrow Account',
+                                  'Tier-3 Verified Escrow Account',
                                   style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.primary),
                                 ),
                               ],
@@ -349,7 +349,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _buildMenuTile(
                 Icons.verified_user_rounded,
                 'Identity & Tier-3 Verification',
-                'CBN NIBSS Verified • Dedicated Account Active',
+                'Identity Verified • Dedicated Account Active',
                 trailing: const Icon(Icons.check_circle_rounded, size: 20, color: AppColors.primary),
                 onTap: _showVerificationStatusSheet,
               ),
@@ -371,7 +371,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _buildMenuTile(
                 Icons.account_balance_wallet_outlined,
                 'Saved Bank & Payout Accounts',
-                'Dedicated Virtual & Paystack Payout NUBANs',
+                'Dedicated Escrow & Direct Payout Accounts',
                 onTap: _openSavedAccounts,
               ),
               _buildMenuTile(
@@ -571,17 +571,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               child: Column(
                 children: [
-                  _buildStatusRow('Verification Status', 'CBN Tier-3 Approved', isBadge: true),
+                  _buildStatusRow('Verification Status', 'Tier-3 Approved', isBadge: true),
                   const Divider(height: 18),
                   _buildStatusRow('Legal Account Holder', _currentUser?.fullName ?? 'Patrick Achua'),
                   const Divider(height: 18),
-                  _buildStatusRow('Dedicated NUBAN', _currentUser?.accountNumber ?? '9955394366'),
+                  _buildStatusRow('Dedicated Account', _currentUser?.accountNumber ?? '9955394366'),
                   const Divider(height: 18),
-                  _buildStatusRow('Settlement Bank', _currentUser?.bankName ?? 'Flutterwave MFB'),
+                  _buildStatusRow('Account Type', 'Dedicated Living Escrow'),
                   const Divider(height: 18),
-                  _buildStatusRow('NIBSS BVN Status', 'Verified & Linked'),
+                  _buildStatusRow('Identity Verification', 'Verified & Linked'),
                   const Divider(height: 18),
-                  _buildStatusRow('Identity Document', 'National ID (NIN) Verified'),
+                  _buildStatusRow('Identity Document', 'National Identity Verified'),
                 ],
               ),
             ),
@@ -599,7 +599,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Your Rentilly Living Escrow account is permanently active, dedicated, and protected under CBN regulatory guidelines.',
+                      'Your Rentilly Living Escrow account is permanently active, dedicated, and protected under verified real estate regulations.',
                       style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.primary, height: 1.3),
                     ),
                   ),
@@ -745,7 +745,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('${_currentUser?.bankName ?? "Flutterwave MFB"} (Dedicated NUBAN)', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                        Text('Dedicated Living Escrow Account', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                         Text('${_currentUser?.accountNumber ?? "9955394366"} • ${_currentUser?.fullName ?? "Patrick Achua"}', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
                       ],
                     ),
@@ -851,7 +851,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ],
             ),
             const SizedBox(height: 6),
-            Text('NDPR (Nigeria Data Protection Regulation) & ISO 27001 standard security.', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+            Text('Strict Data Protection Regulation & standard security.', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(14),
@@ -863,11 +863,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('• 256-Bit End-to-End Encryption on all BVN, NIN, and financial data.', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+                  Text('• 256-Bit End-to-End Encryption on all identity and financial data.', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
                   const SizedBox(height: 8),
                   Text('• Zero-Sharing Policy: Your biometric data and financial transactions are never sold to third parties.', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
                   const SizedBox(height: 8),
-                  Text('• CBN Partner Infrastructure: Settlements and payouts comply with Nigerian banking laws.', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+                  Text('• Secure Settlement Infrastructure: Settlements and payouts comply with Nigerian financial regulations.', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
                 ],
               ),
             ),

@@ -94,7 +94,7 @@ class _WalletScreenState extends State<WalletScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Account Number Copied: $acc (${_user?.bankName ?? "Flutterwave MFB"})',
+          'Account Number Copied: $acc',
           style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
         ),
         backgroundColor: AppColors.primary,
@@ -250,7 +250,7 @@ class _WalletScreenState extends State<WalletScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'DEDICATED NUBAN',
+                                  'DEDICATED ACCOUNT NUMBER',
                                   style: GoogleFonts.plusJakartaSans(
                                     fontSize: 8,
                                     fontWeight: FontWeight.bold,
@@ -467,13 +467,13 @@ class _WalletScreenState extends State<WalletScreen> {
                       InkWell(
                         onTap: () {
                           _showTransactionReceiptSheet({
-                            'id': 'FLW_2086578277',
+                            'id': 'TX_2086578277',
                             'title': 'Bank Transfer Inbound Deposit',
                             'reference': '100004260831224203169930903410',
                             'amount': 1000.00,
-                            'type': 'Flutterwave MFB Inbound Transfer',
+                            'type': 'Direct Inbound Transfer',
                             'beneficiary': _user!.fullName,
-                            'sender': 'TOMISIN OLAMIPO KOLAWOLE (OPay)',
+                            'sender': 'TOMISIN OLAMIPO KOLAWOLE',
                             'date': DateTime.now().toIso8601String(),
                             'status': 'SUCCESSFUL',
                             'isCredit': true,
@@ -504,7 +504,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text('Bank Transfer Deposit #2', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                                    Text('OPay Transfer • Flutterwave MFB', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary)),
+                                    Text('Electronic Bank Transfer • Dedicated Escrow', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary)),
                                   ],
                                 ),
                               ),
@@ -527,13 +527,13 @@ class _WalletScreenState extends State<WalletScreen> {
                     InkWell(
                       onTap: () {
                         _showTransactionReceiptSheet({
-                          'id': 'FLW_2086567924',
+                          'id': 'TX_2086567924',
                           'title': 'Bank Transfer Inbound Deposit',
                           'reference': '100004260831215927169930701067',
                           'amount': 1000.00,
-                          'type': 'Flutterwave MFB Inbound Transfer',
+                          'type': 'Direct Inbound Transfer',
                           'beneficiary': _user!.fullName,
-                          'sender': 'TOMISIN OLAMIPO KOLAWOLE (OPay)',
+                          'sender': 'TOMISIN OLAMIPO KOLAWOLE',
                           'date': DateTime.now().subtract(const Duration(minutes: 42)).toIso8601String(),
                           'status': 'SUCCESSFUL',
                           'isCredit': true,
@@ -563,7 +563,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text('Bank Transfer Deposit #1', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                                  Text('OPay Transfer • Flutterwave MFB', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary)),
+                                  Text('Electronic Bank Transfer • Dedicated Escrow', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary)),
                                 ],
                               ),
                             ),

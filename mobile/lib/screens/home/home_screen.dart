@@ -135,12 +135,12 @@ class _HomeScreenState extends State<HomeScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'Account Copied! (${_user!.bankName ?? "Flutterwave MFB"} • Rentilly ${_user!.fullName})',
-          style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w600),
+          'Account Copied! (${_user!.accountNumber})',
+          style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold),
         ),
         backgroundColor: AppColors.primary,
         behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 3),
+        duration: const Duration(seconds: 2),
       ),
     );
   }
@@ -487,7 +487,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(
-                                      'DEDICATED NUBAN',
+                                      'DEDICATED ACCOUNT NUMBER',
                                       style: GoogleFonts.plusJakartaSans(
                                         fontSize: 7.5,
                                         fontWeight: FontWeight.w800,

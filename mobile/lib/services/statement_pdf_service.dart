@@ -30,7 +30,7 @@ class StatementPdfService {
         : _dateFormat.format(DateTime.now());
     final status = transaction['status'] ?? 'SUCCESSFUL';
     final beneficiary = transaction['beneficiary'] ?? user.fullName;
-    final sender = transaction['sender'] ?? 'NIBSS Central Switch';
+    final sender = transaction['sender'] ?? 'Electronic Banking Settlement';
 
     pdf.addPage(
       pw.Page(
@@ -97,7 +97,7 @@ class StatementPdfService {
               ),
               pw.Divider(thickness: 1, color: PdfColors.grey300, height: 24),
 
-              // Hero Amount Card (Revolut/Brex Inspired)
+              // Hero Amount Card
               pw.Container(
                 width: double.infinity,
                 padding: const pw.EdgeInsets.symmetric(vertical: 22, horizontal: 20),
@@ -154,15 +154,15 @@ class StatementPdfService {
               _buildPdfDetailRow('Channel / Category', type),
               _buildPdfDetailRow('Sender / Source', sender),
               _buildPdfDetailRow('Beneficiary Account Name', beneficiary),
-              _buildPdfDetailRow('Account Number (NUBAN)', user.accountNumber ?? '9955394366'),
-              _buildPdfDetailRow('Settlement Institution', user.bankName ?? 'Flutterwave MFB'),
+              _buildPdfDetailRow('Dedicated Account Number', user.accountNumber ?? '9955394366'),
+              _buildPdfDetailRow('Settlement Category', 'Living Escrow Protected'),
               _buildPdfDetailRow('Payer Email', user.email),
               _buildPdfDetailRow('Timestamp (UTC+1)', date),
-              _buildPdfDetailRow('Settlement Gateway', 'Flutterwave / Paystack NIBSS Electronic Switch'),
+              _buildPdfDetailRow('Settlement Gateway', 'Rentilly Secure Settlement Protocol'),
 
               pw.Spacer(),
 
-              // Holographic Security Seal & QR Code
+              // Security Seal & QR Code
               pw.Container(
                 padding: const pw.EdgeInsets.all(14),
                 decoration: pw.BoxDecoration(
@@ -182,7 +182,7 @@ class StatementPdfService {
                         ),
                         pw.SizedBox(height: 2),
                         pw.Text(
-                          'CBN/NDIC Partner Banking Infrastructure • Tier-3 Protected Escrow',
+                          'Institutional Banking Infrastructure • Tier-3 Protected Escrow',
                           style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey700),
                         ),
                         pw.Text(
@@ -303,9 +303,9 @@ class StatementPdfService {
                       pw.Text(user.fullName, style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: primaryColor)),
                       pw.SizedBox(height: 2),
                       pw.Text('Email: ${user.email}', style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey800)),
-                      pw.Text('Dedicated NUBAN: ${user.accountNumber ?? "9955394366"}', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: primaryColor)),
-                      pw.Text('Settlement Bank: ${user.bankName ?? "Flutterwave MFB"}', style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey800)),
-                      pw.Text('Verification Status: CBN Tier-3 Verified Identity', style: pw.TextStyle(fontSize: 8.5, color: PdfColors.green800, fontWeight: pw.FontWeight.bold)),
+                      pw.Text('Dedicated Account: ${user.accountNumber ?? "9955394366"}', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: primaryColor)),
+                      pw.Text('Account Category: Dedicated Living Escrow', style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey800)),
+                      pw.Text('Verification Status: Tier-3 Verified Identity', style: pw.TextStyle(fontSize: 8.5, color: PdfColors.green800, fontWeight: pw.FontWeight.bold)),
                     ],
                   ),
                 ),
@@ -362,7 +362,7 @@ class StatementPdfService {
                   : [
                       [
                         DateFormat('dd/MM/yy').format(DateTime.now()),
-                        'Flutterwave MFB Inbound Transfer (OPay Deposit)',
+                        'Direct Inbound Electronic Deposit',
                         '10000426',
                         'CR',
                         '-',
@@ -417,7 +417,7 @@ class StatementPdfService {
                     borderRadius: pw.BorderRadius.circular(6),
                   ),
                   child: pw.Text(
-                    'AUTHENTIC • CBN ESCROW VERIFIED',
+                    'AUTHENTIC • ESCROW VERIFIED',
                     style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: accentGold),
                   ),
                 ),
