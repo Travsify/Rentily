@@ -58,7 +58,8 @@ apiRouter.post('/bills/validate-meter', paymentController.validateDiscoMeter);
 apiRouter.post('/bills/purchase-electricity', paymentController.purchaseElectricityToken);
 apiRouter.post('/webhooks/flutterwave', paymentController.flutterwaveWebhook);
 
-// 8. Paystack Bank Settlements & Instant Withdrawals
+// 8. Paystack Bank Settlements, Balance Sync & Instant Withdrawals
+apiRouter.get('/wallet/balance', paymentController.getWalletBalance);
 apiRouter.get('/payments/paystack-banks', paymentController.getPaystackBanks);
 apiRouter.get('/payments/resolve-account', paymentController.resolvePaystackAccount);
 apiRouter.post('/payments/withdraw-paystack', paymentController.withdrawWithPaystack);

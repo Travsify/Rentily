@@ -196,13 +196,14 @@ export async function purchaseElectricityToken(req: Request, res: Response) {
   }
 }
 
-// 6. Flutterwave Webhook Listener
+// 6. Flutterwave Webhook Listener (Instant Inbound Wallet Deposit)
 export async function flutterwaveWebhook(req: Request, res: Response) {
   try {
-    const secretHash = process.env.FLUTTERWAVE_WEBHOOK_SECRET;
+    const secretHash = process.env.FLUTTERWAVE_SECRET_HASH || process.env.FLUTTERWAVE_WEBHOOK_SECRET;
     const signature = req.headers['verif-hash'];
 
     if (secretHash && signature && signature !== secretHash) {
+      console.warn('Flutterwave Webhook Signature Mismatch');
       return res.status(401).end();
     }
 
@@ -210,33 +211,111 @@ export async function flutterwaveWebhook(req: Request, res: Response) {
     const event = payload?.event;
     const data = payload?.data;
 
-    console.log(`🔔 Received Flutterwave Webhook Event: ${event}`, data?.tx_ref);
+    console.log(`🔔 Received Flutterwave Webhook Event: ${event}`, {
+      tx_ref: data?.tx_ref,
+      amount: data?.amount,
+      customer: data?.customer?.email,
+      account_number: data?.account_number || data?.virtual_account_number
+    });
 
-    if (event === 'charge.completed' && data?.status === 'successful') {
+    if ((event === 'charge.completed' || event === 'transfer.completed') && (data?.status === 'successful' || data?.status === 'success')) {
       const txRef = data.tx_ref;
-      const amountPaid = data.amount;
+      const amountPaid = Number(data.amount || data.charged_amount || 0);
+      const email = data.customer?.email?.toLowerCase();
+      const accNum = (data.account_number || data.virtual_account_number)?.toString();
 
-      if (supabase && txRef) {
-        await supabase
-          .from('virtual_bank_accounts')
-          .update({
-            status: 'paid',
-            amount_paid: amountPaid
-          })
-          .eq('account_reference', txRef);
+      if (amountPaid > 0) {
+        // Step A: Update in-memory UserStore
+        let matchedUser = email ? await UserStore.findByEmail(email) : null;
+        if (matchedUser) {
+          const newBal = (matchedUser.walletBalance || 0) + amountPaid;
+          UserStore.upsertUser({
+            ...matchedUser,
+            walletBalance: newBal
+          });
+          console.log(`✅ Credited ${matchedUser.email} with ₦${amountPaid}. New Balance: ₦${newBal}`);
+        }
 
-        await supabase.from('transactions').insert({
-          total_amount: amountPaid,
-          escrow_status: 'held_in_escrow',
-          payment_gateway: 'flutterwave',
-          payment_reference: data.flw_ref || txRef
-        });
+        // Step B: Update Supabase Database
+        if (supabase) {
+          try {
+            // Find user in Supabase by email or account number
+            let query = supabase.from('users').select('*');
+            if (email) {
+              query = query.ilike('email', email);
+            } else if (accNum) {
+              query = query.eq('account_number', accNum);
+            }
+
+            const { data: dbUsers } = await query;
+            const targetUser = dbUsers && dbUsers.length > 0 ? dbUsers[0] : null;
+
+            if (targetUser) {
+              const currentBal = Number(targetUser.wallet_balance || 0);
+              const updatedBal = currentBal + amountPaid;
+
+              await supabase.from('users').update({
+                wallet_balance: updatedBal
+              }).eq('id', targetUser.id);
+
+              await supabase.from('transactions').insert({
+                user_id: targetUser.id,
+                total_amount: amountPaid,
+                escrow_status: 'deposit_completed',
+                payment_gateway: 'flutterwave',
+                payment_reference: data.flw_ref || txRef || `DEP_${Date.now()}`
+              });
+
+              console.log(`✅ Supabase Database user ${targetUser.id} updated with ₦${amountPaid}. Total: ₦${updatedBal}`);
+            }
+          } catch (dbErr) {
+            console.error('Supabase Webhook Credit Error:', dbErr);
+          }
+        }
       }
     }
 
     res.status(200).json({ received: true });
   } catch (err: any) {
     console.error('Webhook error:', err);
+    res.status(500).json({ error: err.message });
+  }
+}
+
+// 7. Instant Wallet Balance Sync API
+export async function getWalletBalance(req: Request, res: Response) {
+  try {
+    const { userId, email } = req.query;
+
+    let balance = 0;
+    let foundUser: any = null;
+
+    if (supabase && (userId || email)) {
+      let query = supabase.from('users').select('*');
+      if (userId) query = query.eq('id', userId.toString());
+      else if (email) query = query.ilike('email', email.toString());
+
+      const { data } = await query.single();
+      if (data) {
+        foundUser = data;
+        balance = Number(data.wallet_balance || 0);
+      }
+    }
+
+    if (!foundUser && email) {
+      const memUser = await UserStore.findByEmail(email.toString());
+      if (memUser) {
+        balance = memUser.walletBalance || 0;
+        foundUser = memUser;
+      }
+    }
+
+    res.json({
+      status: true,
+      walletBalance: balance,
+      user: foundUser
+    });
+  } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 }

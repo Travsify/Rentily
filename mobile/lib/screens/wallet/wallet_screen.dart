@@ -1,8 +1,11 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import '../../constants/app_colors.dart';
+import '../../constants/app_constants.dart';
 import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/rentilly_bottom_bar.dart';
@@ -43,13 +46,31 @@ class _WalletScreenState extends State<WalletScreen> {
     }
   }
 
-  void _loadData() async {
+  Future<void> _loadData() async {
     final u = await AuthService.getCurrentUser();
     if (mounted) {
       setState(() {
         _user = u;
         _isLoading = false;
       });
+    }
+
+    if (u != null) {
+      try {
+        final url = Uri.parse('${AppConstants.apiBaseUrl}/wallet/balance?userId=${u.id}&email=${u.email}');
+        final res = await http.get(url).timeout(const Duration(seconds: 8));
+        if (res.statusCode == 200) {
+          final data = json.decode(res.body);
+          if (data['status'] == true && data['walletBalance'] != null) {
+            final double serverBal = (data['walletBalance'] as num).toDouble();
+            if (serverBal != u.walletBalance) {
+              final updated = u.copyWith(walletBalance: serverBal);
+              await AuthService.updateUser(updated);
+              if (mounted) setState(() => _user = updated);
+            }
+          }
+        }
+      } catch (_) {}
     }
   }
 
@@ -101,8 +122,12 @@ class _WalletScreenState extends State<WalletScreen> {
       ),
       bottomNavigationBar: const RentillyBottomBar(currentIndex: 0),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        child: RefreshIndicator(
+          onRefresh: _loadData,
+          color: AppColors.primary,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
