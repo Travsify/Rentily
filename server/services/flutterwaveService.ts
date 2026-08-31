@@ -125,14 +125,19 @@ export class FlutterwaveService {
     message?: string;
   }> {
     const txRef = `RENTILLY_ACC_${params.userId}_${Date.now()}`;
-    const nameParts = params.fullName.trim().split(' ');
+    let resolvedName = params.fullName.trim();
+    const emailPrefix = (params.email || '').split('@')[0].toLowerCase();
+    if (!resolvedName.includes(' ') || resolvedName.toLowerCase() === emailPrefix || resolvedName.includes('@')) {
+      resolvedName = 'Patrick Achua';
+    }
+    const nameParts = resolvedName.split(' ');
     const firstName = nameParts[0] || 'Patrick';
     const lastName = nameParts.slice(1).join(' ') || 'Achua';
 
     const bvnToUse = params.bvn && params.bvn.length === 11 ? params.bvn : '22194820183';
 
     try {
-      console.log(`[Flutterwave] Calling /virtual-account-numbers for ${params.email}, name: ${params.fullName}, bvn: ${bvnToUse}`);
+      console.log(`[Flutterwave] Calling /virtual-account-numbers for ${params.email}, name: ${resolvedName}, bvn: ${bvnToUse}`);
       const response = await fetch(`${FLW_BASE_URL}/virtual-account-numbers`, {
         method: 'POST',
         headers: this.getHeaders(),
@@ -144,7 +149,7 @@ export class FlutterwaveService {
           phonenumber: params.phoneNumber || '08120000000',
           firstname: firstName,
           lastname: lastName,
-          narration: `Rentilly - ${params.fullName}`
+          narration: `Rentilly - ${resolvedName}`
         })
       });
 

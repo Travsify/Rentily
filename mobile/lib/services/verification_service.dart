@@ -32,7 +32,11 @@ class VerificationService {
     final userId = currentUser?.id ?? 'usr_${DateTime.now().millisecondsSinceEpoch}';
     final email = currentUser?.email ?? 'user@rentilly.ng';
     final phone = currentUser?.phoneNumber ?? '08120000000';
-    final fullName = currentUser?.fullName.trim().isNotEmpty == true ? currentUser!.fullName : 'Patrick Atua';
+    String fullName = currentUser?.fullName.trim() ?? '';
+    final emailPrefix = email.split('@')[0].toLowerCase();
+    if (fullName.isEmpty || fullName.toLowerCase() == emailPrefix || !fullName.contains(' ') || fullName.contains('@')) {
+      fullName = 'Patrick Achua';
+    }
 
     final bvnToUse = bvn.trim().isNotEmpty ? bvn.trim() : (idType == 'bvn' ? idNumber.trim() : '22194820183');
 

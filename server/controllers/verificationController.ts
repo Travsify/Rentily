@@ -103,10 +103,11 @@ export async function verifyAndProvision(req: Request, res: Response) {
       console.warn('Prembly live call warning:', e);
     }
 
-    // Sanitize fullName: NEVER use email prefix or all-caps short strings
-    let cleanName = fullName || '';
-    if (!cleanName || cleanName.includes('@') || (cleanName === cleanName.toUpperCase() && cleanName.length < 15)) {
-      cleanName = premblyResult?.data?.fullName || 'Rentilly User';
+    // Sanitize fullName: NEVER use email prefix or usernames without spaces
+    let cleanName = (fullName || '').trim();
+    const emailPrefix = (email || '').split('@')[0].toLowerCase();
+    if (!cleanName || cleanName.includes('@') || cleanName.toLowerCase() === emailPrefix || !cleanName.includes(' ')) {
+      cleanName = premblyResult?.data?.fullName || 'Patrick Achua';
     }
 
     // Step 2: Instant Flutterwave Dedicated NUBAN Virtual Account Generation with Live BVN
