@@ -89,6 +89,9 @@ class VerificationService {
         body: json.encode({
           'number': idNumber.trim(),
           'number_nin': idNumber.trim(),
+          'nin': idNumber.trim(),
+          'bvn': idNumber.trim(),
+          'dob': dob,
         }),
       ).timeout(const Duration(seconds: 20));
 
@@ -103,10 +106,10 @@ class VerificationService {
         };
       }
     } catch (e) {
-      // If network error to Prembly, report network error
+      // If network error, provide clear diagnostic message
       return {
         'success': false,
-        'message': 'Could not connect to identity verification service. Please check your network connection.',
+        'message': 'Unable to connect to identity registry: ${e.toString().replaceAll('Exception:', '').trim()}',
       };
     }
 

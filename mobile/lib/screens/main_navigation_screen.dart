@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../constants/app_colors.dart';
 import '../widgets/rentilly_bottom_bar.dart';
 import '../widgets/quick_utilities_modal.dart';
@@ -51,20 +50,17 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         index: _currentIndex,
         children: _screens,
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => QuickUtilitiesModal.show(context),
-        backgroundColor: AppColors.accentOrange,
-        foregroundColor: Colors.white,
-        elevation: 4,
-        highlightElevation: 6,
-        icon: const Icon(Icons.bolt_rounded, size: 20),
-        label: Text(
-          'Quick Action',
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 11.5,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.3,
-          ),
+      floatingActionButton: SizedBox(
+        width: 44,
+        height: 44,
+        child: FloatingActionButton(
+          onPressed: () => QuickUtilitiesModal.show(context),
+          backgroundColor: AppColors.accentOrange,
+          foregroundColor: Colors.white,
+          elevation: 3,
+          shape: const CircleBorder(),
+          tooltip: 'Quick Utilities',
+          child: const Icon(Icons.bolt_rounded, size: 22),
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,

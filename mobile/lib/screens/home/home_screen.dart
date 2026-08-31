@@ -641,7 +641,59 @@ class _HomeScreenState extends State<HomeScreen> {
               const DailyQuotesCard(),
               const SizedBox(height: 22),
 
-              // 4. Slidable Hero Banner Carousel
+              // 4. Quick Action Utilities Hub (Flutterwave Bills Suite)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.bolt_rounded, size: 16, color: AppColors.accentOrange),
+                      const SizedBox(width: 4),
+                      Text(
+                        'QUICK UTILITY ACTIONS',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.1,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    'Instant Delivery',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // 4x2 Grid of Circular Bill Payment Pods
+              GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 4,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 10,
+                childAspectRatio: 0.78,
+                children: [
+                  _buildQuickUtilityIcon('Electricity', Icons.bolt_rounded, AppColors.accentOrange, () => _openBills('electricity')),
+                  _buildQuickUtilityIcon('Data Bundle', Icons.wifi_rounded, const Color(0xFF0284C7), () => _openBills('data')),
+                  _buildQuickUtilityIcon('Airtime VTU', Icons.phone_android_rounded, AppColors.primary, () => _openBills('airtime')),
+                  _buildQuickUtilityIcon('Cable TV', Icons.tv_rounded, const Color(0xFF7C3AED), () => _openBills('cable')),
+                  _buildQuickUtilityIcon('Water Bill', Icons.water_drop_rounded, const Color(0xFF0D9488), () => _openBills('water')),
+                  _buildQuickUtilityIcon('Broadband', Icons.router_rounded, const Color(0xFFD97706), () => _openBills('internet')),
+                  _buildQuickUtilityIcon('Tolls/Transit', Icons.directions_car_rounded, const Color(0xFF4F46E5), () => _openBills('toll')),
+                  _buildQuickUtilityIcon('Waste Mgmt', Icons.delete_outline_rounded, AppColors.primaryLight, () => _openBills('waste')),
+                ],
+              ),
+              const SizedBox(height: 22),
+
+              // 5. Slidable Hero Banner Carousel
               SizedBox(
                 height: 120,
                 child: PageView.builder(
@@ -983,4 +1035,45 @@ class _HomeScreenState extends State<HomeScreen> {
       },
     );
   }
+
+  void _openBills(String category) {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const BillsScreen()),
+    );
+  }
+
+  Widget _buildQuickUtilityIcon(String label, IconData icon, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+              border: Border.all(color: color.withValues(alpha: 0.2)),
+            ),
+            child: Icon(icon, size: 22, color: color),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
+

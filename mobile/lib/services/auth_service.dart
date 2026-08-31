@@ -153,7 +153,7 @@ class AuthService {
       // Render sleeping; fall through to Layer 2
     }
 
-    // Layer 2: Supabase REST API Fallback
+    // Layer 2: Supabase REST API (Live Database)
     try {
       final response = await http.get(
         Uri.parse('$supabaseUrl/rest/v1/users?email=eq.$cleanEmail&select=*'),
@@ -161,7 +161,7 @@ class AuthService {
           'apikey': supabaseKey,
           'Authorization': 'Bearer $supabaseKey',
         },
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(const Duration(seconds: 12));
 
       if (response.statusCode == 200) {
         final List<dynamic> users = json.decode(response.body);
@@ -169,12 +169,16 @@ class AuthService {
           final user = users[0];
           final token = 'rentilly_sb_${DateTime.now().millisecondsSinceEpoch}';
           final userMap = {
-            'id': user['id'],
-            'fullName': user['full_name'] ?? 'Rentilly User',
-            'email': user['email'],
+            'id': user['id']?.toString() ?? 'usr_${DateTime.now().millisecondsSinceEpoch}',
+            'fullName': user['full_name'] ?? 'Patrick Atua',
+            'email': user['email'] ?? cleanEmail,
             'phoneNumber': user['phone_number'] ?? '',
             'role': user['role'] ?? 'renter',
             'isVerified': user['is_verified'] ?? false,
+            'state': user['state'] ?? 'Lagos',
+            'walletBalance': (user['wallet_balance'] as num?)?.toDouble() ?? 0.00,
+            'accountNumber': user['account_number'],
+            'bankName': user['bank_name'],
           };
           await _saveSession(token, userMap);
           return {
@@ -185,7 +189,7 @@ class AuthService {
       }
     } catch (_) {}
 
-    // Layer 3: Local cached credential validation
+    // Layer 3: Local cached user validation
     final existingUser = await getCurrentUser();
     if (existingUser != null && existingUser.email.toLowerCase() == cleanEmail) {
       final token = 'rentilly_jwt_${DateTime.now().millisecondsSinceEpoch}';
@@ -196,28 +200,20 @@ class AuthService {
       };
     }
 
-    // Direct password access for quick testing
-    if (password.length >= 6) {
-      final name = cleanEmail.split('@')[0];
-      final capitalizedName = name[0].toUpperCase() + name.substring(1);
-      final fallbackUser = {
-        'id': 'usr_${DateTime.now().millisecondsSinceEpoch}',
-        'fullName': capitalizedName,
-        'email': cleanEmail,
-        'phoneNumber': '+234 812 000 0000',
-        'role': 'renter',
-        'isVerified': false,
-      };
-      await _saveSession('rentilly_token_active', fallbackUser);
+    if (existingUser != null && existingUser.fullName.isNotEmpty) {
+      // Retain the registered user's real name
+      final token = 'rentilly_jwt_${DateTime.now().millisecondsSinceEpoch}';
+      final updated = existingUser.copyWith(email: cleanEmail);
+      await _saveSession(token, updated.toJson());
       return {
         'success': true,
-        'user': UserProfile.fromJson(fallbackUser),
+        'user': updated,
       };
     }
 
     return {
       'success': false,
-      'message': 'Invalid email or password. Please try again.',
+      'message': 'Account not found with this email. Please sign up to create your account.',
     };
   }
 
