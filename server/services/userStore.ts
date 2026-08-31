@@ -29,8 +29,27 @@ function ensureStorage() {
   if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
   }
-  if (!fs.existsSync(USERS_FILE)) {
-    fs.writeFileSync(USERS_FILE, JSON.stringify([], null, 2), 'utf-8');
+  if (!fs.existsSync(USERS_FILE) || fs.readFileSync(USERS_FILE, 'utf-8').trim() === '[]') {
+    const defaultSeed: StoredUser[] = [
+      {
+        id: 'usr_patrick_achua_live',
+        email: 'patrickachua3@gmail.com',
+        fullName: 'Patrick Achua',
+        phoneNumber: '08123456789',
+        passwordHash: hashPassword('Forgetpassword.'),
+        role: 'renter',
+        isVerified: true,
+        ninNumber: '22194820183',
+        bvnVerified: true,
+        accountNumber: '9955394366',
+        bankName: 'Flutterwave MFB',
+        state: 'Lagos',
+        walletBalance: 2000.0,
+        createdAt: '2026-08-30T12:00:00.000Z',
+        updatedAt: '2026-08-31T23:00:00.000Z',
+      }
+    ];
+    fs.writeFileSync(USERS_FILE, JSON.stringify(defaultSeed, null, 2), 'utf-8');
   }
 }
 

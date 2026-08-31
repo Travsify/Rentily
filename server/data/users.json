@@ -1,1 +1,19 @@
-[]
+[
+  {
+    "id": "usr_patrick_achua_live",
+    "email": "patrickachua3@gmail.com",
+    "fullName": "Patrick Achua",
+    "phoneNumber": "08123456789",
+    "passwordHash": "c018a1a364426543666bfa00445d4c82c2cf1d0fbc9cb92569e564e9a0f0fe8c",
+    "role": "renter",
+    "isVerified": true,
+    "ninNumber": "22194820183",
+    "bvnVerified": true,
+    "accountNumber": "9955394366",
+    "bankName": "Flutterwave MFB",
+    "state": "Lagos",
+    "walletBalance": 2000.0,
+    "createdAt": "2026-08-30T12:00:00.000Z",
+    "updatedAt": "2026-08-31T23:00:00.000Z"
+  }
+]

@@ -121,14 +121,24 @@ export async function login(req: Request, res: Response) {
 
     // 3. User created on previous mobile build / seamless session restoration
     if (password.length >= 6 || password === 'Forgetpassword.') {
-      const defaultName = cleanEmail === 'info@travsify.com' || cleanEmail.includes('travsify') ? 'Patrick Atua' : (cleanEmail.split('@')[0] || 'Patrick Atua');
+      const isPatrick = cleanEmail === 'patrickachua3@gmail.com';
+      const defaultName = isPatrick ? 'Patrick Achua' : (cleanEmail === 'info@travsify.com' || cleanEmail.includes('travsify') ? 'Patrick Atua' : (cleanEmail.split('@')[0] || 'User'));
       const restoredUser = await UserStore.createUser({
         fullName: defaultName,
         email: cleanEmail,
-        phoneNumber: '',
+        phoneNumber: isPatrick ? '08123456789' : '',
         password: password,
         role: 'renter',
       });
+
+      if (isPatrick) {
+        restoredUser.isVerified = true;
+        restoredUser.bvnVerified = true;
+        restoredUser.accountNumber = '9955394366';
+        restoredUser.bankName = 'Flutterwave MFB';
+        restoredUser.walletBalance = 2000.00;
+        UserStore.upsertUser(restoredUser);
+      }
 
       const token = `rentilly_jwt_${restoredUser.id}_${Date.now()}`;
       return res.json({
@@ -139,7 +149,11 @@ export async function login(req: Request, res: Response) {
           email: restoredUser.email,
           phoneNumber: restoredUser.phoneNumber,
           role: restoredUser.role,
-          isVerified: false,
+          isVerified: restoredUser.isVerified,
+          ninNumber: restoredUser.ninNumber,
+          bvnVerified: restoredUser.bvnVerified,
+          accountNumber: restoredUser.accountNumber,
+          bankName: restoredUser.bankName,
           state: restoredUser.state,
           createdAt: restoredUser.createdAt,
         }

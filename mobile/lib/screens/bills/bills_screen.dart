@@ -48,41 +48,159 @@ class _BillsScreenState extends State<BillsScreen> {
   String _selectedTelco = 'MTN';
   final List<String> _telcos = ['MTN', 'Airtel', 'Glo', '9mobile'];
 
-  static const Map<String, List<String>> _telcoDataMap = {
-    'MTN': [
-      '1.0GB (30 Days) - ₦500',
-      '2.5GB (30 Days) - ₦1,000',
-      '5.0GB (30 Days) - ₦2,000',
-      '10.0GB (30 Days) - ₦3,500',
-      '20.0GB (30 Days) - ₦6,000',
-      '40.0GB (30 Days) - ₦11,000',
-    ],
-    'Airtel': [
-      '1.5GB (30 Days) - ₦1,200',
-      '3.0GB (30 Days) - ₦1,500',
-      '6.0GB (30 Days) - ₦2,500',
-      '10.0GB (30 Days) - ₦3,000',
-      '20.0GB (30 Days) - ₦5,000',
-      '40.0GB (30 Days) - ₦10,000',
-    ],
-    'Glo': [
-      '2.0GB (30 Days) - ₦1,000',
-      '4.5GB (30 Days) - ₦2,000',
-      '8.0GB (30 Days) - ₦3,000',
-      '14.0GB (30 Days) - ₦4,000',
-      '24.0GB (30 Days) - ₦5,000',
-      '50.0GB (30 Days) - ₦10,000',
-    ],
-    '9mobile': [
-      '1.5GB (30 Days) - ₦1,200',
-      '3.0GB (30 Days) - ₦1,500',
-      '7.0GB (30 Days) - ₦2,500',
-      '11.0GB (30 Days) - ₦3,500',
-      '15.0GB (30 Days) - ₦4,500',
-      '40.0GB (30 Days) - ₦10,000',
-    ],
+  String _selectedDataDuration = 'All';
+  final List<String> _dataDurations = ['All', 'Daily', 'Weekly', 'Monthly', 'Night / Weekend', 'Mega & 5G Router'];
+
+  static const Map<String, Map<String, List<String>>> _categorizedDataMap = {
+    'MTN': {
+      'Daily': [
+        '100MB (1 Day) - ₦100',
+        '200MB (2 Days) - ₦200',
+        '1.0GB (1 Day) - ₦350',
+        '2.0GB (2 Days) - ₦500',
+        '3.0GB (2 Days) - ₦800',
+      ],
+      'Weekly': [
+        '350MB (7 Days) - ₦300',
+        '750MB (7 Days) - ₦500',
+        '1.5GB (7 Days) - ₦1,000',
+        '6.0GB (7 Days) - ₦1,500',
+        '10.0GB (7 Days) - ₦2,000',
+      ],
+      'Monthly': [
+        '1.5GB (30 Days) - ₦1,000',
+        '2.5GB (30 Days) - ₦1,200',
+        '5.0GB (30 Days) - ₦2,000',
+        '10.0GB (30 Days) - ₦3,000',
+        '15.0GB (30 Days) - ₦4,500',
+        '20.0GB (30 Days) - ₦5,500',
+        '40.0GB (30 Days) - ₦10,000',
+        '75.0GB (30 Days) - ₦15,000',
+        '120.0GB (30 Days) - ₦20,000',
+      ],
+      'Night / Weekend': [
+        'Night Owl 500MB (11PM - 6AM) - ₦50',
+        'Night Owl 1.0GB (11PM - 6AM) - ₦100',
+        'Weekend Max 2.0GB (Sat & Sun) - ₦400',
+        'Weekend Max 5.0GB (Sat & Sun) - ₦800',
+      ],
+      'Mega & 5G Router': [
+        '150GB 5G Router Plan - ₦25,000',
+        '200GB 5G Router Plan - ₦30,000',
+        '400GB 5G Router Plan - ₦50,000',
+        '1TB 5G Mega Broadband - ₦100,000',
+      ],
+    },
+    'Airtel': {
+      'Daily': [
+        '100MB (1 Day) - ₦100',
+        '300MB (1 Day) - ₦200',
+        '1.0GB (1 Day) - ₦350',
+        '2.0GB (2 Days) - ₦500',
+      ],
+      'Weekly': [
+        '350MB (7 Days) - ₦300',
+        '1.5GB (7 Days) - ₦500',
+        '3.0GB (7 Days) - ₦1,000',
+        '6.0GB (7 Days) - ₦1,500',
+      ],
+      'Monthly': [
+        '1.5GB (30 Days) - ₦1,000',
+        '3.0GB (30 Days) - ₦1,500',
+        '6.0GB (30 Days) - ₦2,500',
+        '10.0GB (30 Days) - ₦3,000',
+        '20.0GB (30 Days) - ₦5,000',
+        '40.0GB (30 Days) - ₦10,000',
+        '75.0GB (30 Days) - ₦15,000',
+        '120.0GB (30 Days) - ₦20,000',
+      ],
+      'Night / Weekend': [
+        'Night Plan 500MB (12AM - 5AM) - ₦50',
+        'Night Plan 1.5GB (12AM - 5AM) - ₦150',
+        'Weekend 2.5GB (Sat - Sun) - ₦500',
+      ],
+      'Mega & 5G Router': [
+        '100GB Ultra Router - ₦20,000',
+        '200GB Ultra Router - ₦35,000',
+        '500GB 5G Router - ₦60,000',
+      ],
+    },
+    'Glo': {
+      'Daily': [
+        '150MB (1 Day) - ₦100',
+        '350MB (2 Days) - ₦200',
+        '1.05GB (1 Day) - ₦300',
+        '2.0GB (2 Days) - ₦500',
+      ],
+      'Weekly': [
+        '1.05GB (7 Days) - ₦500',
+        '2.5GB (7 Days) - ₦1,000',
+        '7.0GB (7 Days) - ₦1,500',
+      ],
+      'Monthly': [
+        '2.0GB (30 Days) - ₦1,000',
+        '4.5GB (30 Days) - ₦2,000',
+        '8.0GB (30 Days) - ₦3,000',
+        '14.0GB (30 Days) - ₦4,000',
+        '24.0GB (30 Days) - ₦5,000',
+        '50.0GB (30 Days) - ₦10,000',
+        '100.0GB (30 Days) - ₦18,000',
+      ],
+      'Night / Weekend': [
+        'Glo TGIF Weekend 3.0GB - ₦500',
+        'Night Boost 1.0GB (12AM - 5AM) - ₦100',
+      ],
+      'Mega & 5G Router': [
+        '119GB Mega Data - ₦15,000',
+        '138GB Mega Data - ₦18,000',
+        '225GB Mega Data - ₦30,000',
+        '1TB Enterprise - ₦100,000',
+      ],
+    },
+    '9mobile': {
+      'Daily': [
+        '100MB (1 Day) - ₦100',
+        '1.0GB (1 Day) - ₦300',
+        '2.0GB (3 Days) - ₦500',
+      ],
+      'Weekly': [
+        '1.0GB (7 Days) - ₦500',
+        '2.5GB (7 Days) - ₦1,000',
+        '7.0GB (7 Days) - ₦1,500',
+      ],
+      'Monthly': [
+        '1.5GB (30 Days) - ₦1,000',
+        '3.0GB (30 Days) - ₦1,500',
+        '7.0GB (30 Days) - ₦2,500',
+        '11.0GB (30 Days) - ₦3,500',
+        '15.0GB (30 Days) - ₦4,500',
+        '40.0GB (30 Days) - ₦10,000',
+        '75.0GB (30 Days) - ₦15,000',
+      ],
+      'Night / Weekend': [
+        'Night Plan 1.0GB (11PM - 5AM) - ₦100',
+        'Weekend 3.0GB (Sat & Sun) - ₦500',
+      ],
+      'Mega & 5G Router': [
+        '100GB Mega Plan - ₦20,000',
+        '225GB Super Mega - ₦30,000',
+      ],
+    },
   };
-  String _selectedDataPlan = '2.5GB (30 Days) - ₦1,000';
+
+  List<String> _getCurrentDataPlans() {
+    final operatorMap = _categorizedDataMap[_selectedTelco] ?? _categorizedDataMap['MTN']!;
+    if (_selectedDataDuration == 'All') {
+      final List<String> all = [];
+      for (final list in operatorMap.values) {
+        all.addAll(list);
+      }
+      return all;
+    }
+    return operatorMap[_selectedDataDuration] ?? operatorMap['Monthly']!;
+  }
+
+  String _selectedDataPlan = '2.5GB (30 Days) - ₦1,200';
 
   // Cable TV
   String _selectedCable = 'DSTV';
@@ -730,11 +848,11 @@ class _BillsScreenState extends State<BillsScreen> {
         );
 
       case 'data':
-        final currentDataPlans = _telcoDataMap[_selectedTelco] ?? _telcoDataMap['MTN']!;
+        final currentDataPlans = _getCurrentDataPlans();
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildLabel('MOBILE NETWORK OPERATOR'),
+            _buildLabel('1. SELECT MOBILE NETWORK'),
             const SizedBox(height: 6),
             DropdownButtonFormField<String>(
               value: _selectedTelco,
@@ -746,24 +864,68 @@ class _BillsScreenState extends State<BillsScreen> {
                 if (v != null) {
                   setState(() {
                     _selectedTelco = v;
-                    _selectedDataPlan = (_telcoDataMap[v] ?? _telcoDataMap['MTN']!).first;
+                    final plans = _getCurrentDataPlans();
+                    _selectedDataPlan = plans.first;
                   });
                 }
               },
             ),
             const SizedBox(height: 14),
-            _buildLabel('SELECT DATA BUNDLE'),
+
+            _buildLabel('2. BUNDLE VALIDITY / DURATION'),
+            const SizedBox(height: 8),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: _dataDurations.map((duration) {
+                  final isSel = _selectedDataDuration == duration;
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _selectedDataDuration = duration;
+                        final plans = _getCurrentDataPlans();
+                        if (!plans.contains(_selectedDataPlan)) {
+                          _selectedDataPlan = plans.first;
+                        }
+                      });
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: isSel ? const Color(0xFF0284C7) : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: isSel ? const Color(0xFF0284C7) : AppColors.borderDark),
+                      ),
+                      child: Text(
+                        duration,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 10.5,
+                          fontWeight: isSel ? FontWeight.bold : FontWeight.w600,
+                          color: isSel ? Colors.white : AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            _buildLabel('3. SELECT DATA PLAN (${currentDataPlans.length} AVAILABLE)'),
             const SizedBox(height: 6),
             DropdownButtonFormField<String>(
               value: currentDataPlans.contains(_selectedDataPlan) ? _selectedDataPlan : currentDataPlans.first,
               dropdownColor: Colors.white,
+              isExpanded: true,
               style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
               decoration: _buildInputDeco(),
-              items: currentDataPlans.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+              items: currentDataPlans.map((p) => DropdownMenuItem(value: p, child: Text(p, overflow: TextOverflow.ellipsis))).toList(),
               onChanged: (v) => setState(() => _selectedDataPlan = v!),
             ),
             const SizedBox(height: 14),
-            _buildLabel('RECIPIENT PHONE NUMBER'),
+
+            _buildLabel('4. RECIPIENT PHONE NUMBER'),
             const SizedBox(height: 6),
             TextField(
               controller: _phoneController,
