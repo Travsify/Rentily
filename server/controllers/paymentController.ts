@@ -405,7 +405,7 @@ export async function flutterwaveWebhook(req: Request, res: Response) {
     });
 
     // Record the inbound transaction
-    const txRef = data?.flw_ref || data?.tx_ref || `FLW_CREDIT_${Date.now()}`;
+    const creditRef = data?.flw_ref || data?.tx_ref || `FLW_CREDIT_${Date.now()}`;
     const senderName = data?.meta?.originatorname || data?.narration || 'Bank Transfer';
     await TransactionStore.addTransaction({
       id: `TX_CREDIT_${Date.now()}`,
@@ -416,7 +416,7 @@ export async function flutterwaveWebhook(req: Request, res: Response) {
       category: 'wallet_funding',
       amount: amountPaid,
       isCredit: true,
-      reference: txRef,
+      reference: creditRef,
       sender: senderName,
       beneficiary: targetUser.accountNumber || '',
       status: 'SUCCESSFUL',
