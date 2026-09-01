@@ -10,6 +10,7 @@ import '../my_spaces/my_spaces_screen.dart';
 import '../bills/bills_screen.dart';
 import '../messages/messages_screen.dart';
 import '../notifications/notifications_screen.dart';
+import '../roommates/roommates_screen.dart';
 import '../main_navigation_screen.dart';
 import '../../services/notification_service.dart';
 import '../../widgets/add_money_modal.dart';
@@ -713,6 +714,128 @@ class _HomeScreenState extends State<HomeScreen> {
 
               // Daily Motivational Quotes Carousel (Life, Habits, Marriage, Finance - 15s Auto-refresh)
               const DailyQuotesCard(),
+              const SizedBox(height: 20),
+
+              // Split-the-Scroll Co-Living & Roommate Finder Hero Card
+              GestureDetector(
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const RoommatesScreen()),
+                  );
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFF334155)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.15),
+                        blurRadius: 14,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.accentOrange,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    'SPLIT-THE-SCROLL 👥',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w900,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF16A34A).withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    '0% CAUTION',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                      color: const Color(0xFF4ADE80),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Find a Roommate & Split Rent 50/50',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 14.5,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Verified tech workers & professionals splitting luxury 2-bed flats in Lekki, Yaba & Abuja.',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 11,
+                                color: Colors.white70,
+                                height: 1.35,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Text(
+                                  'Explore Split-the-Scroll',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: const Color(0xFF38BDF8),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(Icons.arrow_forward_rounded, size: 14, color: Color(0xFF38BDF8)),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.primary.withValues(alpha: 0.2),
+                          border: Border.all(color: AppColors.primary.withValues(alpha: 0.5)),
+                        ),
+                        child: const Center(
+                          child: Icon(Icons.people_alt_rounded, size: 28, color: Color(0xFF38BDF8)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
               const SizedBox(height: 22),
 
               // 4. Quick Action Utilities Hub (Flutterwave Bills Suite)
