@@ -11,7 +11,9 @@ import '../../services/payment_security_service.dart';
 import '../../widgets/payment_pin_modal.dart';
 import '../../widgets/verification_modal.dart';
 import '../auth/login_screen.dart';
+import '../auth/register_screen.dart';
 import '../main_navigation_screen.dart';
+import '../agreements/tenancy_agreements_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -422,7 +424,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Landlord & Seller Mode Switcher
+              // Landlord & Seller Portal Information Card
               Container(
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
@@ -447,12 +449,82 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
                   ),
                   subtitle: Text(
-                    'List properties, manage leases, and view rent escrow',
+                    'Requires dedicated Landlord / Property Owner account',
                     style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: Colors.white70),
                   ),
                   trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.white70),
                   onTap: () {
-                    MainNavigationScreen.of(context)?.toggleLandlordMode(true);
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        backgroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                        title: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: AppColors.accentOrange.withValues(alpha: 0.12),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.shield_rounded, color: AppColors.accentOrange, size: 20),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'Landlord Account Required',
+                                style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                              ),
+                            ),
+                          ],
+                        ),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'To maintain strict legal escrow separation and security compliance, a tenant/renter account cannot be converted to a landlord account within the same profile.',
+                              style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: AppColors.textSecondary, height: 1.4),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              'If you are a property owner or wish to list properties for rent or sale, please register a dedicated Landlord Account.',
+                              style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppColors.textPrimary, height: 1.4),
+                            ),
+                          ],
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.of(ctx).pop(),
+                            child: Text(
+                              'Stay as Renter',
+                              style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+                            ),
+                          ),
+                          ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.accentOrange,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            onPressed: () async {
+                              Navigator.of(ctx).pop();
+                              await AuthService.logout();
+                              if (context.mounted) {
+                                Navigator.of(context).pushAndRemoveUntil(
+                                  MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                                  (route) => false,
+                                );
+                              }
+                            },
+                            child: Text(
+                              'Create Landlord Account',
+                              style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
                   },
                 ),
               ),
@@ -699,76 +771,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // C. My Tenancy Agreements Modal
+  // C. My Tenancy Agreements
   void _openTenancyAgreements() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.fromLTRB(22, 22, 22, 32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.description_outlined, size: 20, color: AppColors.primary),
-                    const SizedBox(width: 8),
-                    Text('My Tenancy Agreements', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                  ],
-                ),
-                IconButton(icon: const Icon(Icons.close_rounded, size: 20), onPressed: () => Navigator.of(ctx).pop()),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text('Official legally binding agreements compliant with Lagos State Tenancy Law 2011.', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF9FAFB),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.borderDark),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.verified_outlined, color: AppColors.primary, size: 20),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Living Escrow Tenancy Contract', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                        Text('Standard Zero-Agent Lease • Verified', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary)),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.download_rounded, size: 20, color: AppColors.primary),
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Standard Tenancy Agreement downloaded as PDF', style: GoogleFonts.plusJakartaSans(fontSize: 11)), backgroundColor: AppColors.primary),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const TenancyAgreementsScreen()),
     );
   }
 
