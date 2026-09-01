@@ -443,13 +443,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  // STEP 0: Role Selection (3 Big 1-Tap Cards)
+  // STEP 0: Role Selection (Fully Contained Modern Cards with Zero Slippage)
   Widget _buildRoleSelectionStep() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'SELECT YOUR PRIMARY PROFILE',
+          'SELECT YOUR ACCOUNT TYPE',
           style: GoogleFonts.plusJakartaSans(
             fontSize: 8.5,
             fontWeight: FontWeight.w800,
@@ -460,29 +460,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
         const SizedBox(height: 12),
         _buildRoleSelectionCard(
           id: 'renter',
-          title: 'Renter / Home Buyer 🏠',
-          subtitle: 'Find and rent verified homes with zero agent fees & smart salary utility splitter.',
+          title: 'Renter / Home Buyer',
+          subtitle: 'Find and rent verified homes with zero agent fees and smart salary utility splitting.',
           icon: Icons.home_rounded,
           badgeText: 'POPULAR',
           badgeColor: const Color(0xFF10B981),
+          tags: ['Zero Agent Fees', 'Salary Splitter', 'Verified Homes'],
         ),
         const SizedBox(height: 12),
         _buildRoleSelectionCard(
           id: 'partner',
-          title: 'Corporate Partner / Broker 🏢',
-          subtitle: 'Lock 2.5% rent / 2.0% sales escrow commissions with verified CAC accreditation.',
+          title: 'Corporate Partner / Broker',
+          subtitle: 'Lock 2.5% rent and 2.0% sales escrow commissions with verified CAC accreditation.',
           icon: Icons.business_center_rounded,
           badgeText: '2.5% ESCROW',
           badgeColor: AppColors.primary,
+          tags: ['2.5% Commission', 'CAC Accredited', 'Dedicated Vault'],
         ),
         const SizedBox(height: 12),
         _buildRoleSelectionCard(
           id: 'owner',
-          title: 'Direct Landlord / Property Owner 🔑',
-          subtitle: 'List apartments, screen tenants, and collect rent straight to your bank account.',
+          title: 'Direct Landlord / Owner',
+          subtitle: 'List apartments, screen verified tenants, and receive automated direct rent payouts.',
           icon: Icons.real_estate_agent_rounded,
           badgeText: 'DIRECT PAYOUTS',
           badgeColor: AppColors.accentOrange,
+          tags: ['Direct Payouts', 'Verified Tenants', 'Zero Agency Cut'],
         ),
       ],
     );
@@ -495,81 +498,135 @@ class _RegisterScreenState extends State<RegisterScreen> {
     required IconData icon,
     required String badgeText,
     required Color badgeColor,
+    required List<String> tags,
   }) {
     final isSelected = _selectedRole == id;
     return GestureDetector(
       onTap: () => setState(() => _selectedRole = id),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(16),
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isSelected ? badgeColor.withValues(alpha: 0.05) : const Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.circular(16),
+          color: isSelected ? badgeColor.withValues(alpha: 0.06) : const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: isSelected ? badgeColor : AppColors.borderDark,
             width: isSelected ? 2.0 : 1.0,
           ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: badgeColor.withValues(alpha: 0.12),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
+              : null,
         ),
-        child: Row(
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: isSelected ? badgeColor : Colors.white,
-                shape: BoxShape.circle,
-                border: Border.all(color: isSelected ? badgeColor : AppColors.borderDark),
-              ),
-              child: Icon(
-                icon,
-                size: 20,
-                color: isSelected ? Colors.white : AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        title,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: badgeColor.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          badgeText,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 7.5,
-                            fontWeight: FontWeight.w900,
-                            color: badgeColor,
-                          ),
-                        ),
-                      ),
-                    ],
+            // Top Bar: Icon + Badge + Selection Checkmark
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: isSelected ? badgeColor : Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: isSelected ? badgeColor : AppColors.borderDark),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
+                  child: Icon(
+                    icon,
+                    size: 18,
+                    color: isSelected ? Colors.white : AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: badgeColor.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    badgeText,
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: 10.5,
-                      color: AppColors.textSecondary,
-                      height: 1.35,
+                      fontSize: 8,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 0.5,
+                      color: badgeColor,
                     ),
                   ),
-                ],
+                ),
+                const Spacer(),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isSelected ? badgeColor : Colors.transparent,
+                    border: Border.all(
+                      color: isSelected ? badgeColor : AppColors.borderDark,
+                      width: 1.5,
+                    ),
+                  ),
+                  child: isSelected
+                      ? const Icon(Icons.check, size: 13, color: Colors.white)
+                      : null,
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+
+            // Role Title
+            Text(
+              title,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+                color: isSelected ? badgeColor : AppColors.textPrimary,
               ),
+            ),
+            const SizedBox(height: 4),
+
+            // Role Description (fully contained, flexible wrapping)
+            Text(
+              subtitle,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 11,
+                color: AppColors.textSecondary,
+                height: 1.35,
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Feature Pills
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: tags.map((t) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: isSelected ? Colors.white : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: isSelected ? badgeColor.withValues(alpha: 0.3) : const Color(0xFFE2E8F0),
+                    ),
+                  ),
+                  child: Text(
+                    t,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.w700,
+                      color: isSelected ? badgeColor : AppColors.textSecondary,
+                    ),
+                  ),
+                );
+              }).toList(),
             ),
           ],
         ),
