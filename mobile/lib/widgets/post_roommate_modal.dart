@@ -32,6 +32,7 @@ class PostRoommateModal extends StatefulWidget {
 
 class _PostRoommateModalState extends State<PostRoommateModal> {
   String _postType = 'have_room'; // 'have_room' | 'need_room'
+  int _splitCount = 2; // 2 or 3 persons (min 2, max 3)
   final TextEditingController _budgetController = TextEditingController();
   final TextEditingController _totalRentController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
@@ -58,7 +59,7 @@ class _PostRoommateModalState extends State<PostRoommateModal> {
     'Foodie / Cook',
   ];
 
-  final List<String> _selectedTags = ['Remote Worker', 'Non-Smoker', 'Quiet / Introverted'];
+  final List<String> _selectedTags = ['Remote Worker', 'Non-Smoker', 'Clean & Organized'];
   bool _isSubmitting = false;
 
   @override
@@ -80,11 +81,20 @@ class _PostRoommateModalState extends State<PostRoommateModal> {
     super.dispose();
   }
 
+  void _onTotalRentChanged(String val) {
+    final clean = val.replaceAll(',', '').trim();
+    final total = double.tryParse(clean) ?? 0.0;
+    if (total > 0) {
+      final share = (total / _splitCount);
+      _budgetController.text = NumberFormat('#,###').format(share);
+    }
+  }
+
   void _handleSubmit() async {
     final budgetStr = _budgetController.text.replaceAll(',', '').trim();
     final budget = double.tryParse(budgetStr) ?? 0.0;
     final totalStr = _totalRentController.text.replaceAll(',', '').trim();
-    final total = double.tryParse(totalStr) ?? (budget * 2);
+    final total = double.tryParse(totalStr) ?? (budget * _splitCount);
     final location = _locationController.text.trim();
     final about = _aboutController.text.trim();
     final occupation = _occupationController.text.trim();
@@ -100,6 +110,8 @@ class _PostRoommateModalState extends State<PostRoommateModal> {
 
     setState(() => _isSubmitting = true);
 
+    final pct = _splitCount == 2 ? 50 : 33;
+
     final newPost = RoommatePost(
       id: 'ROOM_${DateTime.now().millisecondsSinceEpoch}',
       userId: widget.user.id,
@@ -111,7 +123,8 @@ class _PostRoommateModalState extends State<PostRoommateModal> {
       postType: _postType,
       budgetShare: budget,
       totalRent: total,
-      splitPercentage: total > 0 ? ((budget / total) * 100).round() : 50,
+      splitCount: _splitCount,
+      splitPercentage: pct,
       location: '$location, $_selectedState',
       state: _selectedState,
       bedroomType: _bedroomType,
@@ -120,7 +133,6 @@ class _PostRoommateModalState extends State<PostRoommateModal> {
       lifestyleTags: _selectedTags,
       imageUrls: [
         'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800',
-        'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800',
       ],
       aboutMe: about.isNotEmpty ? about : 'Looking for a responsible, verified flatmate to split our lease through Rentilly living escrow.',
       isVerified: widget.user.isVerified,
@@ -131,12 +143,12 @@ class _PostRoommateModalState extends State<PostRoommateModal> {
 
     await NotificationService.addNotification(
       title: 'Roommate Request Published 👥✨',
-      message: 'Your ${_postType == "have_room" ? "Co-Living Host" : "Roommate Search"} request in $location ($_selectedState) is live on Split-the-Scroll.',
+      message: 'Your ${_splitCount}-person co-living request in $location ($_selectedState) is live on Split-the-Scroll.',
       category: 'property',
       metadata: {
+        'split': '$_splitCount Persons (${pct}%)',
         'budget': '₦${NumberFormat('#,###').format(budget)} / yr',
         'location': location,
-        'state': _selectedState,
       },
     );
 
@@ -162,7 +174,7 @@ class _PostRoommateModalState extends State<PostRoommateModal> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: MediaQuery.of(context).size.height * 0.88,
+      height: MediaQuery.of(context).size.height * 0.90,
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -186,7 +198,7 @@ class _PostRoommateModalState extends State<PostRoommateModal> {
                       style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                     ),
                     Text(
-                      'Verified Co-Living & Split-Escrow Requests',
+                      'Split rent 50/50 (2 persons) or 33/33/33 (3 persons)',
                       style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
                     ),
                   ],
@@ -205,7 +217,7 @@ class _PostRoommateModalState extends State<PostRoommateModal> {
               padding: const EdgeInsets.all(20),
               children: [
                 // 1. Post Type Switcher
-                Text('1. SELECT REQUEST TYPE', style: _labelStyle),
+                Text('1. REQUEST TYPE', style: _labelStyle),
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -221,7 +233,7 @@ class _PostRoommateModalState extends State<PostRoommateModal> {
                           ),
                           child: Column(
                             children: [
-                              Icon(Icons.meeting_room_rounded, size: 20, color: _postType == 'have_room' ? Colors.white : AppColors.primary),
+                              Icon(Icons.meeting_room_rounded, size: 18, color: _postType == 'have_room' ? Colors.white : AppColors.primary),
                               const SizedBox(height: 4),
                               Text(
                                 'I Have a Room 🛋️',
@@ -232,7 +244,7 @@ class _PostRoommateModalState extends State<PostRoommateModal> {
                                 ),
                               ),
                               Text(
-                                'Seeking a flatmate',
+                                'Seeking flatmate',
                                 style: GoogleFonts.plusJakartaSans(
                                   fontSize: 9.5,
                                   color: _postType == 'have_room' ? Colors.white70 : AppColors.textSecondary,
@@ -256,7 +268,7 @@ class _PostRoommateModalState extends State<PostRoommateModal> {
                           ),
                           child: Column(
                             children: [
-                              Icon(Icons.person_search_rounded, size: 20, color: _postType == 'need_room' ? Colors.white : AppColors.primary),
+                              Icon(Icons.person_search_rounded, size: 18, color: _postType == 'need_room' ? Colors.white : AppColors.primary),
                               const SizedBox(height: 4),
                               Text(
                                 'Buddy Up / Need Room 🔍',
@@ -282,11 +294,103 @@ class _PostRoommateModalState extends State<PostRoommateModal> {
                 ),
                 const SizedBox(height: 18),
 
-                // 2. Budget Share & Total Rent
-                Text('2. BUDGET SHARE & TOTAL ANNUAL RENT (₦)', style: _labelStyle),
+                // 2. Number of Roommates Splitting (2 or 3 Persons)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('2. SPLIT COUNT (MIN 2, MAX 3 PERSONS)', style: _labelStyle),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppColors.accentOrange.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        _splitCount == 2 ? '50% / 50% (2 PERSONS)' : '33.3% EACH (3 PERSONS)',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.w800, color: AppColors.accentOrange),
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _splitCount = 2;
+                            _onTotalRentChanged(_totalRentController.text);
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: _splitCount == 2 ? AppColors.primary : const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: _splitCount == 2 ? AppColors.primary : AppColors.borderDark),
+                          ),
+                          child: Center(
+                            child: Text(
+                              '2 Persons (50% Each)',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                                color: _splitCount == 2 ? Colors.white : AppColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _splitCount = 3;
+                            _onTotalRentChanged(_totalRentController.text);
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          decoration: BoxDecoration(
+                            color: _splitCount == 3 ? AppColors.primary : const Color(0xFFF1F5F9),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: _splitCount == 3 ? AppColors.primary : AppColors.borderDark),
+                          ),
+                          child: Center(
+                            child: Text(
+                              '3 Persons (33.3% Each)',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                                color: _splitCount == 3 ? Colors.white : AppColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+
+                // 3. Total Annual Rent & Budget Share
+                Text('3. TOTAL ANNUAL RENT & INDIVIDUAL SHARE (₦)', style: _labelStyle),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _totalRentController,
+                        keyboardType: TextInputType.number,
+                        onChanged: _onTotalRentChanged,
+                        style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold),
+                        decoration: _inputDeco(hint: 'Total Rent: e.g. 2,400,000'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: TextField(
                         controller: _budgetController,
@@ -295,21 +399,12 @@ class _PostRoommateModalState extends State<PostRoommateModal> {
                         decoration: _inputDeco(hint: 'My Share: e.g. 1,200,000'),
                       ),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: TextField(
-                        controller: _totalRentController,
-                        keyboardType: TextInputType.number,
-                        style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold),
-                        decoration: _inputDeco(hint: 'Total: e.g. 2,400,000'),
-                      ),
-                    ),
                   ],
                 ),
                 const SizedBox(height: 18),
 
-                // 3. Location & State
-                Text('3. TARGET AREA / NEIGHBORHOOD', style: _labelStyle),
+                // 4. Location & State
+                Text('4. TARGET AREA / NEIGHBORHOOD', style: _labelStyle),
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -337,8 +432,8 @@ class _PostRoommateModalState extends State<PostRoommateModal> {
                 ),
                 const SizedBox(height: 18),
 
-                // 4. Bedroom Type & Timeline
-                Text('4. APARTMENT TYPE & TIMELINE', style: _labelStyle),
+                // 5. Bedroom Type & Timeline
+                Text('5. APARTMENT TYPE & TIMELINE', style: _labelStyle),
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -377,8 +472,8 @@ class _PostRoommateModalState extends State<PostRoommateModal> {
                 ),
                 const SizedBox(height: 18),
 
-                // 5. Gender Preference & Occupation
-                Text('5. GENDER PREFERENCE & OCCUPATION', style: _labelStyle),
+                // 6. Gender Preference & Occupation
+                Text('6. GENDER PREFERENCE & OCCUPATION', style: _labelStyle),
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -404,8 +499,8 @@ class _PostRoommateModalState extends State<PostRoommateModal> {
                 ),
                 const SizedBox(height: 18),
 
-                // 6. Lifestyle Compatibility Badges
-                Text('6. LIFESTYLE & HABITS (SELECT ALL THAT APPLY)', style: _labelStyle),
+                // 7. Lifestyle Compatibility Badges
+                Text('7. LIFESTYLE & HABITS', style: _labelStyle),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 6,
@@ -442,8 +537,8 @@ class _PostRoommateModalState extends State<PostRoommateModal> {
                 ),
                 const SizedBox(height: 18),
 
-                // 7. About Me & Cleanliness Bio
-                Text('7. ABOUT YOU & CO-LIVING STANDARDS', style: _labelStyle),
+                // 8. About Me & Cleanliness Bio
+                Text('8. ABOUT YOU & CO-LIVING STANDARDS', style: _labelStyle),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _aboutController,
@@ -470,7 +565,7 @@ class _PostRoommateModalState extends State<PostRoommateModal> {
                             const Icon(Icons.flash_on_rounded, size: 18, color: AppColors.accentOrange),
                             const SizedBox(width: 6),
                             Text(
-                              'Publish to Split-the-Scroll',
+                              'Publish ${_splitCount}-Person Request',
                               style: GoogleFonts.plusJakartaSans(fontSize: 13.5, fontWeight: FontWeight.bold),
                             ),
                           ],

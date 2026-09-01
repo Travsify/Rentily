@@ -7,15 +7,16 @@ class RoommatePost {
   final String userAvatar;
   final String userOccupation;
   final String postType; // 'have_room' | 'need_room'
-  final double budgetShare; // e.g. 1200000 (annual share)
+  final double budgetShare; // e.g. 1200000 (individual annual share)
   final double totalRent; // e.g. 2400000 (total annual apartment rent)
-  final int splitPercentage; // e.g. 50
+  final int splitCount; // 2 or 3 persons
+  final int splitPercentage; // e.g. 50 or 33
   final String location; // e.g. 'Lekki Phase 1, Lagos'
   final String state; // e.g. 'Lagos'
-  final String bedroomType; // e.g. '2 Bedroom Luxury Flat'
-  final String moveInTimeline; // e.g. 'Immediate (Nov 2026)'
-  final String genderPreference; // 'Any' | 'Female' | 'Male'
-  final List<String> lifestyleTags; // e.g. ['Remote Tech Worker', 'Non-Smoker', 'Quiet / Introverted']
+  final String bedroomType; // e.g. '2 Bedroom Flat' or '3 Bedroom Flat'
+  final String moveInTimeline; // e.g. 'Immediate'
+  final String genderPreference; // 'Any' | 'Female Only' | 'Male Only'
+  final List<String> lifestyleTags; // e.g. ['Remote Tech Worker', 'Non-Smoker']
   final List<String> imageUrls;
   final String aboutMe;
   final bool isVerified;
@@ -30,6 +31,7 @@ class RoommatePost {
     required this.postType,
     required this.budgetShare,
     required this.totalRent,
+    this.splitCount = 2,
     required this.splitPercentage,
     required this.location,
     required this.state,
@@ -52,6 +54,7 @@ class RoommatePost {
     'postType': postType,
     'budgetShare': budgetShare,
     'totalRent': totalRent,
+    'splitCount': splitCount,
     'splitPercentage': splitPercentage,
     'location': location,
     'state': state,
@@ -74,6 +77,7 @@ class RoommatePost {
     postType: json['postType'] ?? 'have_room',
     budgetShare: (json['budgetShare'] as num?)?.toDouble() ?? 1200000.0,
     totalRent: (json['totalRent'] as num?)?.toDouble() ?? 2400000.0,
+    splitCount: (json['splitCount'] as num?)?.toInt() ?? 2,
     splitPercentage: (json['splitPercentage'] as num?)?.toInt() ?? 50,
     location: json['location'] ?? 'Lagos, Nigeria',
     state: json['state'] ?? 'Lagos',

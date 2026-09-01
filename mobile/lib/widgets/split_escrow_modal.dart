@@ -34,16 +34,19 @@ class _SplitEscrowModalState extends State<SplitEscrowModal> {
 
     await Future.delayed(const Duration(milliseconds: 1200));
 
+    final count = widget.post.splitCount;
+    final pct = widget.post.splitPercentage;
+
     await NotificationService.addNotification(
       title: 'Joint Split-Escrow Initiated 👥🔒',
-      message: 'Your 50% split deposit of ₦${_currencyFormat.format(widget.post.budgetShare)} was locked into joint living escrow with ${widget.post.userName} for ${widget.post.bedroomType}.',
+      message: 'Your $pct% co-living share of ₦${_currencyFormat.format(widget.post.budgetShare)} was locked into living escrow with ${widget.post.userName} for ${widget.post.bedroomType} ($count-way split).',
       category: 'transaction',
       metadata: {
         'post_id': widget.post.id,
         'partner': widget.post.userName,
+        'split_type': '$count Persons (${pct}% each)',
         'share': '₦${_currencyFormat.format(widget.post.budgetShare)}',
         'property': widget.post.bedroomType,
-        'escrow_status': 'AWAITING_PARTNER_MATCH',
       },
     );
 
@@ -67,7 +70,7 @@ class _SplitEscrowModalState extends State<SplitEscrowModal> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Your 50% rent deposit has been securely escrowed. Rentilly has notified ${widget.post.userName} to match their half.',
+              'Your individual rent share has been securely escrowed. Rentilly has notified ${widget.post.userName} to complete their matching share.',
               style: GoogleFonts.plusJakartaSans(fontSize: 12, height: 1.45, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 12),
@@ -84,7 +87,7 @@ class _SplitEscrowModalState extends State<SplitEscrowModal> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Protected by 0% Caution Living Escrow Protocol. Funds are only disbursed when both parties sign.',
+                      'Protected by 0% Caution Living Escrow Protocol. Funds are only disbursed when all co-tenants sign.',
                       style: GoogleFonts.plusJakartaSans(fontSize: 10, color: const Color(0xFF16A34A), fontWeight: FontWeight.w600),
                     ),
                   ),
@@ -112,9 +115,11 @@ class _SplitEscrowModalState extends State<SplitEscrowModal> {
   Widget build(BuildContext context) {
     final myShare = widget.post.budgetShare;
     final totalRent = widget.post.totalRent;
+    final splitCount = widget.post.splitCount;
+    final pct = widget.post.splitPercentage;
 
     return Container(
-      height: MediaQuery.of(context).size.height * 0.78,
+      height: MediaQuery.of(context).size.height * 0.82,
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -145,11 +150,11 @@ class _SplitEscrowModalState extends State<SplitEscrowModal> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Split-the-Scroll Escrow Contract',
+                          'Split-the-Scroll Escrow',
                           style: GoogleFonts.plusJakartaSans(fontSize: 14.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                         ),
                         Text(
-                          'Dual-Party Living Escrow Agreement',
+                          '$splitCount-Way Joint Living Escrow ($pct% Each)',
                           style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary),
                         ),
                       ],
@@ -169,7 +174,7 @@ class _SplitEscrowModalState extends State<SplitEscrowModal> {
             child: ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                // Property & Location Card
+                // Property Summary Box
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
@@ -186,11 +191,11 @@ class _SplitEscrowModalState extends State<SplitEscrowModal> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: AppColors.accentOrange.withValues(alpha: 0.1),
+                              color: AppColors.accentOrange.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
-                              '50 / 50 LEASE SPLIT',
+                              '$splitCount-PERSON SPLIT ($pct% EACH)',
                               style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w800, color: AppColors.accentOrange),
                             ),
                           ),
@@ -221,8 +226,8 @@ class _SplitEscrowModalState extends State<SplitEscrowModal> {
                 ),
                 const SizedBox(height: 18),
 
-                // 2 Co-Tenants Breakdown
-                Text('CO-TENANT SHARES BREAKDOWN', style: _labelStyle),
+                // Co-Tenants Breakdown Box
+                Text('CO-TENANT SHARES BREAKDOWN ($splitCount PERSONS)', style: _labelStyle),
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -239,17 +244,17 @@ class _SplitEscrowModalState extends State<SplitEscrowModal> {
                           children: [
                             Text('Roommate A (Host)', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textSecondary)),
                             const SizedBox(height: 4),
-                            Text(widget.post.userName, style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                            Text(widget.post.userName, style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
                             const SizedBox(height: 4),
                             Text(
                               '₦${_currencyFormat.format(myShare)}',
-                              style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.primary),
+                              style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.w800, color: AppColors.primary),
                             ),
                           ],
                         ),
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Container(
                         padding: const EdgeInsets.all(12),
@@ -263,21 +268,47 @@ class _SplitEscrowModalState extends State<SplitEscrowModal> {
                           children: [
                             Text('Roommate B (You)', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.primary, fontWeight: FontWeight.bold)),
                             const SizedBox(height: 4),
-                            Text(widget.user.fullName.isNotEmpty ? widget.user.fullName : 'Me', style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                            Text(widget.user.fullName.isNotEmpty ? widget.user.fullName : 'Me', style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
                             const SizedBox(height: 4),
                             Text(
                               '₦${_currencyFormat.format(myShare)}',
-                              style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w800, color: AppColors.primary),
+                              style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.w800, color: AppColors.primary),
                             ),
                           ],
                         ),
                       ),
                     ),
+                    if (splitCount == 3) ...[
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.borderDark),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Roommate C', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textSecondary)),
+                              const SizedBox(height: 4),
+                              Text('Pending Match', style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+                              const SizedBox(height: 4),
+                              Text(
+                                '₦${_currencyFormat.format(myShare)}',
+                                style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.w800, color: AppColors.textSecondary),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 18),
 
-                // Escrow Safety Guarantees
+                // Escrow Safety Box
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -286,7 +317,7 @@ class _SplitEscrowModalState extends State<SplitEscrowModal> {
                   ),
                   child: Column(
                     children: [
-                      _buildGuaranteeRow(Icons.check_circle_outline_rounded, 'Funds remain protected in living escrow until both parties sign.'),
+                      _buildGuaranteeRow(Icons.check_circle_outline_rounded, 'Funds remain in secure living escrow until all co-tenants sign.'),
                       const SizedBox(height: 6),
                       _buildGuaranteeRow(Icons.check_circle_outline_rounded, '0% illegal caution fee & 0% hidden middleman markups.'),
                       const SizedBox(height: 6),
@@ -313,7 +344,7 @@ class _SplitEscrowModalState extends State<SplitEscrowModal> {
                             const Icon(Icons.lock_outline_rounded, size: 18, color: AppColors.accentOrange),
                             const SizedBox(width: 8),
                             Text(
-                              'Fund 50% Share (₦${NumberFormat('#,###').format(myShare)})',
+                              'Fund $pct% Share (₦${NumberFormat('#,###').format(myShare)})',
                               style: GoogleFonts.plusJakartaSans(fontSize: 13.5, fontWeight: FontWeight.bold),
                             ),
                           ],

@@ -728,15 +728,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   padding: const EdgeInsets.all(18),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+                      colors: [AppColors.primary, Color(0xFF064E3B)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: const Color(0xFF334155)),
+                    border: Border.all(color: AppColors.primaryLight.withValues(alpha: 0.3)),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.15),
+                        color: AppColors.primary.withValues(alpha: 0.2),
                         blurRadius: 14,
                         offset: const Offset(0, 6),
                       ),
@@ -769,15 +769,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF16A34A).withValues(alpha: 0.2),
+                                    color: Colors.white.withValues(alpha: 0.15),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Text(
-                                    '0% CAUTION',
+                                    '2 - 3 PERSONS (50% / 33%)',
                                     style: GoogleFonts.plusJakartaSans(
                                       fontSize: 9,
                                       fontWeight: FontWeight.bold,
-                                      color: const Color(0xFF4ADE80),
+                                      color: Colors.white,
                                     ),
                                   ),
                                 ),
@@ -785,19 +785,19 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'Find a Roommate & Split Rent 50/50',
+                              'Find a Roommate & Split Rent',
                               style: GoogleFonts.plusJakartaSans(
-                                fontSize: 14.5,
+                                fontSize: 15,
                                 fontWeight: FontWeight.w800,
                                 color: Colors.white,
                               ),
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Verified tech workers & professionals splitting luxury 2-bed flats in Lekki, Yaba & Abuja.',
+                              'Verified flatmates splitting luxury 2-bed and 3-bed apartments in Lekki, Yaba, Ikeja & Abuja.',
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 11,
-                                color: Colors.white70,
+                                color: Colors.white.withValues(alpha: 0.85),
                                 height: 1.35,
                               ),
                             ),
@@ -809,11 +809,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                   style: GoogleFonts.plusJakartaSans(
                                     fontSize: 11.5,
                                     fontWeight: FontWeight.bold,
-                                    color: const Color(0xFF38BDF8),
+                                    color: AppColors.accentOrange,
                                   ),
                                 ),
                                 const SizedBox(width: 4),
-                                const Icon(Icons.arrow_forward_rounded, size: 14, color: Color(0xFF38BDF8)),
+                                const Icon(Icons.arrow_forward_rounded, size: 14, color: AppColors.accentOrange),
                               ],
                             ),
                           ],
@@ -821,15 +821,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       const SizedBox(width: 12),
                       Container(
-                        width: 56,
-                        height: 56,
+                        width: 54,
+                        height: 54,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: AppColors.primary.withValues(alpha: 0.2),
-                          border: Border.all(color: AppColors.primary.withValues(alpha: 0.5)),
+                          color: Colors.white.withValues(alpha: 0.12),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
                         ),
                         child: const Center(
-                          child: Icon(Icons.people_alt_rounded, size: 28, color: Color(0xFF38BDF8)),
+                          child: Icon(Icons.people_alt_rounded, size: 26, color: Colors.white),
                         ),
                       ),
                     ],

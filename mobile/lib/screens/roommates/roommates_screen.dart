@@ -25,7 +25,7 @@ class _RoommatesScreenState extends State<RoommatesScreen> {
   UserProfile? _user;
   List<RoommatePost> _allPosts = [];
   bool _isLoading = true;
-  String _selectedFilter = 'all'; // 'all', 'have_room', 'need_room', 'Lagos', 'Abuja', 'Ibadan'
+  String _selectedFilter = 'all'; // 'all', 'have_room', 'need_room', '2_split', '3_split'
 
   final NumberFormat _currencyFormat = NumberFormat('#,###');
 
@@ -53,7 +53,13 @@ class _RoommatesScreenState extends State<RoommatesScreen> {
     if (_selectedFilter == 'have_room' || _selectedFilter == 'need_room') {
       return _allPosts.where((p) => p.postType == _selectedFilter).toList();
     }
-    return _allPosts.where((p) => p.state.toLowerCase().contains(_selectedFilter.toLowerCase()) || p.location.toLowerCase().contains(_selectedFilter.toLowerCase())).toList();
+    if (_selectedFilter == '2_split') {
+      return _allPosts.where((p) => p.splitCount == 2).toList();
+    }
+    if (_selectedFilter == '3_split') {
+      return _allPosts.where((p) => p.splitCount == 3).toList();
+    }
+    return _allPosts;
   }
 
   void _openPostModal() {
@@ -68,7 +74,6 @@ class _RoommatesScreenState extends State<RoommatesScreen> {
   void _openChatWithRoommate(RoommatePost post) async {
     if (_user == null) return;
 
-    // Check KYC verification
     if (!_user!.isVerified) {
       VerificationModal.show(context, onSuccess: (updated) {
         setState(() => _user = updated);
@@ -81,7 +86,7 @@ class _RoommatesScreenState extends State<RoommatesScreen> {
       'id': threadId,
       'name': post.userName,
       'avatar': post.userAvatar,
-      'propertyTitle': 'Co-Living: ${post.bedroomType} (${post.location})',
+      'propertyTitle': 'Co-Living (${post.splitCount}-Person Split): ${post.bedroomType}',
       'time': 'Just now',
       'lastMessage': 'Hi ${post.userName}, I saw your Split-the-Scroll request for ${post.bedroomType} and would like to connect!',
       'unread': 0,
@@ -89,13 +94,12 @@ class _RoommatesScreenState extends State<RoommatesScreen> {
         {
           'sender': _user!.fullName.isNotEmpty ? _user!.fullName : 'Me',
           'isMe': true,
-          'text': 'Hi ${post.userName}! I saw your verified request on Split-the-Scroll for ${post.bedroomType} in ${post.location}. Are you still looking for a co-tenant?',
+          'text': 'Hi ${post.userName}! I saw your verified ${post.splitCount}-person request on Split-the-Scroll for ${post.bedroomType} in ${post.location}. Are you still looking for a flatmate?',
           'time': DateFormat('hh:mm a').format(DateTime.now()),
         }
       ],
     };
 
-    // Save thread to messages
     final prefs = await SharedPreferences.getInstance();
     final saved = prefs.getString('rentilly_chat_threads');
     List<Map<String, dynamic>> threads = [];
@@ -134,7 +138,7 @@ class _RoommatesScreenState extends State<RoommatesScreen> {
   void _sharePost(RoommatePost post) {
     Share.share(
       'Check out this verified co-living request on Rentilly Split-the-Scroll:\n\n'
-      '${post.userName} is looking for a flatmate for a ${post.bedroomType} in ${post.location} (₦${_currencyFormat.format(post.budgetShare)}/yr per share).\n\n'
+      '${post.userName} is looking for a flatmate for a ${post.bedroomType} in ${post.location} (₦${_currencyFormat.format(post.budgetShare)}/yr per share • ${post.splitCount}-person split).\n\n'
       'Connect securely with 0% caution fees on Rentilly: https://rentilly.ng/roommates/${post.id}',
     );
   }
@@ -144,12 +148,12 @@ class _RoommatesScreenState extends State<RoommatesScreen> {
     final list = _filteredPosts;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A), // Dark luxury aesthetic for Split-the-Scroll
+      backgroundColor: AppColors.backgroundDark,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0F172A),
+        backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, size: 22, color: Colors.white),
+          icon: const Icon(Icons.arrow_back_rounded, size: 22, color: AppColors.textPrimary),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Column(
@@ -159,31 +163,31 @@ class _RoommatesScreenState extends State<RoommatesScreen> {
               children: [
                 Text(
                   'Split-the-Scroll',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.white),
+                  style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
                 ),
                 const SizedBox(width: 6),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: AppColors.accentOrange,
+                    color: AppColors.accentOrange.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     'CO-LIVING 👥',
-                    style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w900, color: Colors.white),
+                    style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w900, color: AppColors.accentOrange),
                   ),
                 ),
               ],
             ),
             Text(
-              'Find Verified Roommates & Split Rent 50/50',
-              style: GoogleFonts.plusJakartaSans(fontSize: 10, color: Colors.white70),
+              'Find Verified Roommates & Split Rent (2-3 Persons)',
+              style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary),
             ),
           ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh_rounded, size: 20, color: Colors.white70),
+            icon: const Icon(Icons.refresh_rounded, size: 20, color: AppColors.textSecondary),
             onPressed: _loadData,
           ),
         ],
@@ -200,10 +204,10 @@ class _RoommatesScreenState extends State<RoommatesScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Filter Strip
+            // Contained Header Filter Bar
             Container(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              color: const Color(0xFF1E293B),
+              color: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 8),
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -212,22 +216,22 @@ class _RoommatesScreenState extends State<RoommatesScreen> {
                     _buildFilterChip('all', 'All Roommates 👥'),
                     _buildFilterChip('have_room', 'Have a Room 🛋️'),
                     _buildFilterChip('need_room', 'Seeking Room 🔍'),
-                    _buildFilterChip('Lagos', 'Lagos 🌴'),
-                    _buildFilterChip('Abuja', 'Abuja 🏛️'),
-                    _buildFilterChip('Ibadan', 'Ibadan 🌳'),
+                    _buildFilterChip('2_split', '2-Way Split (50%)'),
+                    _buildFilterChip('3_split', '3-Way Split (33%)'),
                   ],
                 ),
               ),
             ),
+            const Divider(height: 1, color: AppColors.borderDark),
 
-            // Scrollable Feed Cards
+            // Scrollable Contained Feed Cards
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
                   : list.isEmpty
                       ? _buildEmptyState()
-                      : PageView.builder(
-                          scrollDirection: Axis.vertical,
+                      : ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           itemCount: list.length,
                           itemBuilder: (context, index) {
                             final post = list[index];
@@ -246,19 +250,19 @@ class _RoommatesScreenState extends State<RoommatesScreen> {
     return GestureDetector(
       onTap: () => setState(() => _selectedFilter = key),
       child: Container(
-        margin: const EdgeInsets.only(right: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        margin: const EdgeInsets.only(right: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSel ? AppColors.primary : const Color(0xFF334155),
+          color: isSel ? AppColors.primary : const Color(0xFFF1F5F9),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isSel ? AppColors.primary : const Color(0xFF475569)),
+          border: Border.all(color: isSel ? AppColors.primary : AppColors.borderDark),
         ),
         child: Text(
           label,
           style: GoogleFonts.plusJakartaSans(
-            fontSize: 11,
+            fontSize: 10.5,
             fontWeight: isSel ? FontWeight.bold : FontWeight.w600,
-            color: Colors.white,
+            color: isSel ? Colors.white : AppColors.textPrimary,
           ),
         ),
       ),
@@ -266,31 +270,33 @@ class _RoommatesScreenState extends State<RoommatesScreen> {
   }
 
   Widget _buildRoommateCard(RoommatePost post) {
+    final splitLabel = post.splitCount == 3 ? '3-WAY SPLIT (33.3%)' : '2-WAY SPLIT (50%)';
+
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFF334155)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.borderDark),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.3),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Card Header: User Identity & Verification Pill
+          // 1. User Header Box
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(14),
             child: Row(
               children: [
                 Container(
-                  width: 44,
-                  height: 44,
+                  width: 42,
+                  height: 42,
                   decoration: const BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: LinearGradient(colors: [AppColors.primary, AppColors.primaryLight]),
@@ -298,11 +304,11 @@ class _RoommatesScreenState extends State<RoommatesScreen> {
                   child: Center(
                     child: Text(
                       post.userAvatar,
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16),
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 15),
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -312,18 +318,18 @@ class _RoommatesScreenState extends State<RoommatesScreen> {
                           Flexible(
                             child: Text(
                               post.userName,
-                              style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                              style: GoogleFonts.plusJakartaSans(fontSize: 13.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          const SizedBox(width: 6),
-                          const Icon(Icons.verified_rounded, size: 15, color: Color(0xFF38BDF8)),
+                          const SizedBox(width: 4),
+                          const Icon(Icons.verified_rounded, size: 14, color: Color(0xFF0284C7)),
                         ],
                       ),
                       Text(
                         post.userOccupation,
-                        style: GoogleFonts.plusJakartaSans(fontSize: 11, color: Colors.white70),
+                        style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -331,18 +337,18 @@ class _RoommatesScreenState extends State<RoommatesScreen> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: post.postType == 'have_room' ? const Color(0xFF0284C7).withValues(alpha: 0.2) : const Color(0xFF16A34A).withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: post.postType == 'have_room' ? const Color(0xFF0284C7) : const Color(0xFF16A34A)),
+                    color: post.postType == 'have_room' ? AppColors.primary.withValues(alpha: 0.1) : const Color(0xFF16A34A).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: post.postType == 'have_room' ? AppColors.primary.withValues(alpha: 0.3) : const Color(0xFF16A34A).withValues(alpha: 0.3)),
                   ),
                   child: Text(
                     post.postType == 'have_room' ? 'HAVE ROOM 🛋️' : 'NEED ROOM 🔍',
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: 9.5,
-                      fontWeight: FontWeight.bold,
-                      color: post.postType == 'have_room' ? const Color(0xFF38BDF8) : const Color(0xFF4ADE80),
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                      color: post.postType == 'have_room' ? AppColors.primary : const Color(0xFF16A34A),
                     ),
                   ),
                 ),
@@ -350,18 +356,14 @@ class _RoommatesScreenState extends State<RoommatesScreen> {
             ),
           ),
 
-          // Budget & Split Highlight Bar
+          // 2. Contained Rent Breakdown Box
           Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            padding: const EdgeInsets.all(14),
+            margin: const EdgeInsets.symmetric(horizontal: 14),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF0F766E), Color(0xFF134E4A)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFF2DD4BF).withValues(alpha: 0.3)),
+              color: const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.borderDark),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -370,13 +372,13 @@ class _RoommatesScreenState extends State<RoommatesScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'MY 50% ANNUAL SHARE',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: Colors.white70),
+                      '$splitLabel SHARE',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.6, color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '₦${_currencyFormat.format(post.budgetShare)} / year',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white),
+                      '₦${_currencyFormat.format(post.budgetShare)} / yr',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 14.5, fontWeight: FontWeight.w900, color: AppColors.primary),
                     ),
                   ],
                 ),
@@ -385,144 +387,141 @@ class _RoommatesScreenState extends State<RoommatesScreen> {
                   children: [
                     Text(
                       'TOTAL APARTMENT RENT',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: Colors.white70),
+                      style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.6, color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       '₦${_currencyFormat.format(post.totalRent)}',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFFFDE047)),
+                      style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.accentOrange),
                     ),
                   ],
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
 
-          // Property & Location Details
+          // 3. Property & Location Box
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   post.bedroomType,
-                  style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                  style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                 ),
                 const SizedBox(height: 3),
                 Row(
                   children: [
-                    const Icon(Icons.location_on_rounded, size: 13, color: AppColors.accentOrange),
+                    const Icon(Icons.location_on_rounded, size: 12, color: AppColors.accentOrange),
                     const SizedBox(width: 4),
-                    Text(
-                      post.location,
-                      style: GoogleFonts.plusJakartaSans(fontSize: 11, color: Colors.white70),
+                    Expanded(
+                      child: Text(
+                        post.location,
+                        style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    const Spacer(),
-                    const Icon(Icons.calendar_today_rounded, size: 12, color: Colors.white60),
+                    const Icon(Icons.calendar_today_rounded, size: 11, color: AppColors.textMuted),
                     const SizedBox(width: 4),
                     Text(
                       post.moveInTimeline,
-                      style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: Colors.white70),
+                      style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary),
                     ),
                   ],
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
 
-          // Lifestyle Compatibility Tags
+          // 4. Lifestyle Compatibility Cloud
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
             child: Wrap(
-              spacing: 6,
-              runSpacing: 6,
+              spacing: 4,
+              runSpacing: 4,
               children: post.lifestyleTags.map((tag) {
                 return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF334155),
-                    borderRadius: BorderRadius.circular(12),
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
                     tag,
-                    style: GoogleFonts.plusJakartaSans(fontSize: 10, color: const Color(0xFFE2E8F0), fontWeight: FontWeight.w600),
+                    style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textSecondary, fontWeight: FontWeight.w600),
                   ),
                 );
               }).toList(),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
 
-          // Bio Snippet
+          // 5. Bio Description
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 14),
             child: Text(
               post.aboutMe,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.plusJakartaSans(fontSize: 11, color: Colors.white60, height: 1.4),
+              style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary, height: 1.35),
             ),
           ),
-          const Spacer(),
+          const SizedBox(height: 12),
 
-          // Bottom Action Dock
+          // 6. Contained Bottom Action Dock
           Container(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(10),
             decoration: const BoxDecoration(
-              color: Color(0xFF0F172A),
-              borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+              color: Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+              border: Border(top: BorderSide(color: AppColors.borderDark)),
             ),
             child: Row(
               children: [
-                // Share Button
                 IconButton(
-                  icon: const Icon(Icons.share_outlined, size: 18, color: Colors.white70),
+                  icon: const Icon(Icons.share_outlined, size: 17, color: AppColors.textSecondary),
                   onPressed: () => _sharePost(post),
                 ),
                 const SizedBox(width: 4),
-
-                // Connect & Chat Button
                 Expanded(
-                  flex: 1,
                   child: OutlinedButton(
                     onPressed: () => _openChatWithRoommate(post),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
+                      foregroundColor: AppColors.primary,
                       side: const BorderSide(color: AppColors.primary),
-                      padding: const EdgeInsets.symmetric(vertical: 11),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 9),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.chat_bubble_outline_rounded, size: 14, color: AppColors.primary),
-                        const SizedBox(width: 6),
-                        Text('Connect', style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                        const Icon(Icons.chat_bubble_outline_rounded, size: 13, color: AppColors.primary),
+                        const SizedBox(width: 5),
+                        Text('Connect', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold)),
                       ],
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
-
-                // Split Escrow Button
                 Expanded(
-                  flex: 1,
                   child: ElevatedButton(
                     onPressed: () => _openSplitEscrow(post),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 11),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      padding: const EdgeInsets.symmetric(vertical: 9),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.handshake_rounded, size: 14, color: AppColors.accentOrange),
-                        const SizedBox(width: 6),
-                        Text('Split Escrow', style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                        const Icon(Icons.handshake_rounded, size: 13, color: AppColors.accentOrange),
+                        const SizedBox(width: 5),
+                        Text('Split Escrow', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold)),
                       ],
                     ),
                   ),
@@ -545,28 +544,33 @@ class _RoommatesScreenState extends State<RoommatesScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
+                color: AppColors.primary.withValues(alpha: 0.08),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.people_outline_rounded, size: 42, color: AppColors.primary),
+              child: const Icon(Icons.people_outline_rounded, size: 40, color: AppColors.primary),
             ),
             const SizedBox(height: 16),
             Text(
-              'No Roommates in this Category',
-              style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+              'No Roommate Requests Yet',
+              style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
             ),
             const SizedBox(height: 6),
             Text(
-              'Be the first verified user to post a co-living request on Split-the-Scroll and find a flatmate in your target area.',
+              'Be the first verified user to post a co-living request on Split-the-Scroll and find a flatmate to split rent 50/50 (2 persons) or 33% (3 persons).',
               textAlign: TextAlign.center,
-              style: GoogleFonts.plusJakartaSans(fontSize: 11, color: Colors.white60, height: 1.45),
+              style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary, height: 1.45),
             ),
             const SizedBox(height: 20),
             ElevatedButton.icon(
               onPressed: _openPostModal,
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
               icon: const Icon(Icons.add_rounded, size: 18),
-              label: Text('Post Roommate Request', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+              label: Text('Post Roommate Request', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
