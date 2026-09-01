@@ -51,13 +51,17 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     if (!mounted) return;
 
     if (loggedIn) {
+      final isPartner = user != null && user.role == 'partner';
       final isLandlord = user != null && (user.role == 'owner' || user.role == 'landlord');
 
-      // User is authenticated -> Grant access to Home
+      // User is authenticated -> Grant access to Home with their proper portal
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
           transitionDuration: const Duration(milliseconds: 600),
-          pageBuilder: (_, __, ___) => MainNavigationScreen(initialLandlordMode: isLandlord),
+          pageBuilder: (_, __, ___) => MainNavigationScreen(
+            initialPartnerMode: isPartner,
+            initialLandlordMode: isLandlord,
+          ),
           transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
         ),
       );

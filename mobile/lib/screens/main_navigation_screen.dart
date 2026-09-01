@@ -15,11 +15,13 @@ import 'partner/partner_dashboard_screen.dart';
 class MainNavigationScreen extends StatefulWidget {
   final int initialIndex;
   final bool initialLandlordMode;
+  final bool initialPartnerMode;
 
   const MainNavigationScreen({
     super.key,
     this.initialIndex = 0,
     this.initialLandlordMode = false,
+    this.initialPartnerMode = false,
   });
 
   static _MainNavigationScreenState? of(BuildContext context) {
@@ -32,7 +34,7 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   late int _currentIndex;
-  String _activeViewMode = 'consumer'; // 'consumer', 'landlord', 'partner'
+  late String _activeViewMode; // 'consumer', 'landlord', 'partner'
   UserProfile? _user;
 
   final List<Widget> _screens = const [
@@ -47,7 +49,37 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
+    if (widget.initialPartnerMode) {
+      _activeViewMode = 'partner';
+    } else if (widget.initialLandlordMode) {
+      _activeViewMode = 'landlord';
+    } else {
+      _activeViewMode = 'consumer';
+    }
     _checkUserRole();
+    AuthService.currentUserNotifier.addListener(_onUserAuthChanged);
+  }
+
+  void _onUserAuthChanged() {
+    if (mounted) {
+      final u = AuthService.currentUserNotifier.value;
+      if (u != null) {
+        setState(() {
+          _user = u;
+          if (u.role == 'partner') {
+            _activeViewMode = 'partner';
+          } else if (u.role == 'owner' || u.role == 'landlord') {
+            _activeViewMode = 'landlord';
+          }
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    AuthService.currentUserNotifier.removeListener(_onUserAuthChanged);
+    super.dispose();
   }
 
   void _checkUserRole() async {
@@ -57,10 +89,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         _user = user;
         if (user.role == 'partner') {
           _activeViewMode = 'partner';
-        } else if (user.role == 'owner' || user.role == 'landlord' || widget.initialLandlordMode) {
+        } else if (user.role == 'owner' || user.role == 'landlord') {
           _activeViewMode = 'landlord';
-        } else {
-          _activeViewMode = 'consumer';
         }
       });
     }

@@ -105,8 +105,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     if (result['success'] == true) {
       if (!mounted) return;
+      final isPartner = effectiveRole == 'partner';
+      final isLandlord = effectiveRole == 'owner' || effectiveRole == 'landlord';
+
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+        MaterialPageRoute(
+          builder: (_) => MainNavigationScreen(
+            initialPartnerMode: isPartner,
+            initialLandlordMode: isLandlord,
+          ),
+        ),
         (route) => false,
       );
     } else {
