@@ -1,117 +1,90 @@
-import dotenv from 'dotenv';
-
-dotenv.config();
+import { AppConstants } from '../constants/appConstants';
 
 const FLW_BASE_URL = 'https://api.flutterwave.com/v3';
 
 export class FlutterwaveService {
-  private static getSecretKey(): string {
-    return process.env.FLUTTERWAVE_SECRET_KEY || '';
-  }
-
-  static isConfigured(): boolean {
-    const key = this.getSecretKey();
-    return Boolean(key && key.startsWith('FLWSECK'));
-  }
-
   private static getHeaders() {
     return {
-      'Authorization': `Bearer ${this.getSecretKey()}`,
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.FLUTTERWAVE_SECRET_KEY || AppConstants.flutterwaveSecretKey}`
     };
   }
 
-  // 1. Generate Dedicated Escrow Virtual Account for Property Payment
+  // 1. Dynamic Virtual Account for Rent Escrow Collection
   static async createVirtualAccount(params: {
+    email: string;
+    amount: number;
     propertyId: string;
     propertyTitle: string;
-    email: string;
     tenantName: string;
-    phoneNumber?: string;
-    expectedAmount: number;
   }): Promise<{
     status: boolean;
     data?: {
       accountNumber: string;
       bankName: string;
       orderRef: string;
-      accountReference: string;
-      amount: number;
-      expiryDate?: string;
+      flwRef: string;
+      expiryDate: string;
     };
     message?: string;
   }> {
-    const txRef = `RENTILLY-VA-${params.propertyId.slice(0, 8)}-${Date.now()}`;
-
-    if (!this.isConfigured()) {
-      // Dynamic simulated virtual account in test/fallback mode
-      const randomAcc = '99' + Math.floor(10000000 + Math.random() * 90000000).toString();
-      return {
-        status: true,
-        data: {
-          accountNumber: randomAcc,
-          bankName: 'Flutterwave MFB',
-          orderRef: `FLW-${Date.now()}`,
-          accountReference: txRef,
-          amount: params.expectedAmount
-        },
-        message: 'Flutterwave demo mode'
-      };
-    }
+    const txRef = `RENTILLY_PROP_${params.propertyId}_${Date.now()}`;
+    const nameParts = (params.tenantName || 'Rentilly Tenant').trim().split(' ');
+    const firstName = nameParts[0] || 'Rentilly';
+    const lastName = nameParts.slice(1).join(' ') || 'Tenant';
 
     try {
-      const nameParts = params.tenantName.split(' ');
-      const firstName = nameParts[0] || 'Rentilly';
-      const lastName = nameParts.slice(1).join(' ') || 'Renter';
-
       const response = await fetch(`${FLW_BASE_URL}/virtual-account-numbers`, {
         method: 'POST',
         headers: this.getHeaders(),
         body: JSON.stringify({
           email: params.email,
           is_permanent: false,
+          bvn: '22194820183',
           tx_ref: txRef,
-          phonenumber: params.phoneNumber || '08000000000',
+          phonenumber: '08120000000',
           firstname: firstName,
           lastname: lastName,
-          narration: `Rentilly Escrow - ${params.propertyTitle.slice(0, 30)}`
+          narration: `Rentilly Escrow - ${params.propertyTitle}`,
+          amount: params.amount
         })
       });
 
       const resJson: any = await response.json();
 
-      if (response.ok && resJson.status === 'success') {
-        const d = resJson.data;
+      if (response.ok && resJson.status === 'success' && resJson.data) {
         return {
           status: true,
           data: {
-            accountNumber: d.account_number,
-            bankName: d.bank_name || 'Flutterwave MFB',
-            orderRef: d.order_ref,
-            accountReference: d.flw_ref || txRef,
-            amount: params.expectedAmount,
-            expiryDate: d.expiry_date
+            accountNumber: resJson.data.account_number,
+            bankName: resJson.data.bank_name || 'Flutterwave MFB',
+            orderRef: resJson.data.order_ref || txRef,
+            flwRef: resJson.data.flw_ref || txRef,
+            expiryDate: resJson.data.expiry_date || new Date(Date.now() + 86400000 * 3).toISOString()
           }
         };
-      } else {
-        return {
-          status: false,
-          message: resJson.message || 'Failed to generate Flutterwave virtual account'
-        };
       }
-    } catch (err: any) {
+
       return {
         status: false,
-        message: `Flutterwave connection error: ${err.message}`
+        message: resJson.message || 'Failed to create dynamic virtual account'
+      };
+    } catch (error: any) {
+      console.error('[Flutterwave] Virtual account creation error:', error);
+      return {
+        status: false,
+        message: error.message || 'Network error communicating with Flutterwave'
       };
     }
   }
 
-  // 1b. Generate Dedicated Permanent Virtual Bank Account for Verified User
+  // 1b. Generate Dedicated Permanent Virtual Bank Account for Verified User / Partner
   static async createPermanentUserVirtualAccount(params: {
     userId: string;
     email: string;
     fullName: string;
+    businessName?: string;
+    role?: string;
     bvn?: string;
     phoneNumber?: string;
   }): Promise<{
@@ -125,19 +98,29 @@ export class FlutterwaveService {
     message?: string;
   }> {
     const txRef = `RENTILLY_ACC_${params.userId}_${Date.now()}`;
-    let resolvedName = params.fullName.trim();
-    const emailPrefix = (params.email || '').split('@')[0].toLowerCase();
-    if (!resolvedName.includes(' ') || resolvedName.toLowerCase() === emailPrefix || resolvedName.includes('@')) {
-      resolvedName = 'Patrick Achua';
+    const isPartner = params.role === 'partner' || (params.businessName && params.businessName.trim().length > 0);
+    
+    let firstName: string;
+    let lastName: string;
+    let narration: string;
+
+    if (isPartner) {
+      const bizName = (params.businessName || params.fullName).trim();
+      firstName = bizName;
+      lastName = 'Rentilly Partner';
+      narration = `Rentilly Partner - ${bizName}`;
+    } else {
+      const resolvedName = params.fullName.trim();
+      const nameParts = resolvedName.split(' ');
+      firstName = nameParts[0] || 'Property';
+      lastName = nameParts.slice(1).join(' ') || 'Owner';
+      narration = `Rentilly Living - ${resolvedName}`;
     }
-    const nameParts = resolvedName.split(' ');
-    const firstName = nameParts[0] || 'Patrick';
-    const lastName = nameParts.slice(1).join(' ') || 'Achua';
 
     const bvnToUse = params.bvn && params.bvn.length === 11 ? params.bvn : '22194820183';
 
     try {
-      console.log(`[Flutterwave] Calling /virtual-account-numbers for ${params.email}, name: ${resolvedName}, bvn: ${bvnToUse}`);
+      console.log(`[Flutterwave] Calling /virtual-account-numbers for ${params.email}, name: ${firstName} ${lastName}, bvn: ${bvnToUse}`);
       const response = await fetch(`${FLW_BASE_URL}/virtual-account-numbers`, {
         method: 'POST',
         headers: this.getHeaders(),
@@ -149,7 +132,7 @@ export class FlutterwaveService {
           phonenumber: params.phoneNumber || '08120000000',
           firstname: firstName,
           lastname: lastName,
-          narration: `Rentilly - ${resolvedName}`
+          narration: narration
         })
       });
 
@@ -174,59 +157,40 @@ export class FlutterwaveService {
         status: false,
         message: resJson.message || 'Flutterwave virtual account creation failed'
       };
-    } catch (err: any) {
-      console.error('[Flutterwave] Network exception:', err);
+    } catch (error: any) {
+      console.error('[Flutterwave] Dedicated virtual account error:', error);
       return {
         status: false,
-        message: `Flutterwave network error: ${err.message}`
+        message: error.message || 'Network error communicating with Flutterwave'
       };
     }
   }
 
-  // 2. Automated Landlord Bank Transfer / Payout from Escrow
+  // 2. Transfer Funds to Landlord / Partner Bank Account
   static async transferToLandlord(params: {
-    accountBankCode: string; // e.g. "058" for GTBank, "044" for Access Bank
+    accountBank: string;
     accountNumber: string;
     amount: number;
-    landlordName: string;
-    propertyTitle: string;
-    transactionId: string;
+    narration: string;
+    currency?: string;
+    reference?: string;
   }): Promise<{
     status: boolean;
-    data?: {
-      transferId: number;
-      reference: string;
-      status: string;
-      fullName: string;
-    };
-    message?: string;
+    message: string;
+    data?: any;
   }> {
-    const transferRef = `PAYOUT-RENTILLY-${params.transactionId}-${Date.now()}`;
-
-    if (!this.isConfigured()) {
-      return {
-        status: true,
-        data: {
-          transferId: Math.floor(100000 + Math.random() * 900000),
-          reference: transferRef,
-          status: 'SUCCESSFUL',
-          fullName: params.landlordName
-        },
-        message: 'Flutterwave test payout executed'
-      };
-    }
-
     try {
       const response = await fetch(`${FLW_BASE_URL}/transfers`, {
         method: 'POST',
         headers: this.getHeaders(),
         body: JSON.stringify({
-          account_bank: params.accountBankCode,
+          account_bank: params.accountBank,
           account_number: params.accountNumber,
           amount: params.amount,
-          narration: `Rentilly Escrow Payout: ${params.propertyTitle.slice(0, 30)}`,
-          currency: 'NGN',
-          reference: transferRef
+          narration: params.narration,
+          currency: params.currency || 'NGN',
+          reference: params.reference || `RENTILLY_TRF_${Date.now()}`,
+          callback_url: 'https://rentilly.ng/api/payments/webhook'
         })
       });
 
@@ -235,68 +199,61 @@ export class FlutterwaveService {
       if (response.ok && resJson.status === 'success') {
         return {
           status: true,
-          data: {
-            transferId: resJson.data.id,
-            reference: resJson.data.reference,
-            status: resJson.data.status,
-            fullName: resJson.data.full_name
-          }
-        };
-      } else {
-        return {
-          status: false,
-          message: resJson.message || 'Flutterwave bank transfer failed'
+          message: 'Transfer queued successfully',
+          data: resJson.data
         };
       }
-    } catch (err: any) {
+
       return {
         status: false,
-        message: `Flutterwave transfer connection error: ${err.message}`
+        message: resJson.message || 'Failed to initiate transfer'
+      };
+    } catch (error: any) {
+      console.error('[Flutterwave] Transfer error:', error);
+      return {
+        status: false,
+        message: error.message || 'Network error initiating transfer'
       };
     }
   }
 
-  // 3. Fetch Nigerian Commercial & Microfinance Banks
+  // 3. Fetch list of supported Nigerian banks
   static async getNigerianBanks(): Promise<Array<{ code: string; name: string }>> {
     try {
       const response = await fetch(`${FLW_BASE_URL}/banks/NG`, {
         headers: this.getHeaders()
       });
-      const resJson: any = await response.json();
-      if (response.ok && resJson.data) {
-        return resJson.data.map((b: any) => ({ code: b.code, name: b.name }));
-      }
-    } catch {}
 
-    // Standard Nigerian bank fallback list
-    return [
-      { code: '058', name: 'Guaranty Trust Bank (GTBank)' },
-      { code: '057', name: 'Zenith Bank' },
-      { code: '044', name: 'Access Bank' },
-      { code: '033', name: 'United Bank for Africa (UBA)' },
-      { code: '011', name: 'First Bank of Nigeria' },
-      { code: '035', name: 'Wema Bank' },
-      { code: '101', name: 'Providus Bank' },
-      { code: '50211', name: 'Kuda Microfinance Bank' },
-      { code: '999992', name: 'OPay Digital Services' },
-      { code: '999991', name: 'PalmPay' }
-    ];
+      const resJson: any = await response.json();
+      if (response.ok && resJson.status === 'success') {
+        return resJson.data.map((bank: any) => ({
+          code: bank.code,
+          name: bank.name
+        }));
+      }
+      return [];
+    } catch (error) {
+      console.error('[Flutterwave] Failed to fetch bank list:', error);
+      return [];
+    }
   }
 
-  // 4. Fetch Live Inbound Transactions directly from Flutterwave Cloud API
-  static async fetchLiveTransactions(): Promise<any[]> {
-    if (!this.isConfigured()) return [];
+  // 4. Fetch Live Transactions from Flutterwave
+  static async fetchLiveTransactions(email?: string): Promise<any[]> {
     try {
-      const response = await fetch(`${FLW_BASE_URL}/transactions?currency=NGN`, {
+      const query = email ? `?customer_email=${encodeURIComponent(email)}` : '';
+      const response = await fetch(`${FLW_BASE_URL}/transactions${query}`, {
         headers: this.getHeaders()
       });
+
       const resJson: any = await response.json();
       if (response.ok && resJson.status === 'success' && Array.isArray(resJson.data)) {
         return resJson.data;
       }
-    } catch (err: any) {
-      console.error('[Flutterwave] fetchLiveTransactions error:', err.message);
+      return [];
+    } catch (error) {
+      console.error('[Flutterwave] Failed to fetch transactions:', error);
+      return [];
     }
-    return [];
   }
 }

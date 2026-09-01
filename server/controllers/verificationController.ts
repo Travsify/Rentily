@@ -1,94 +1,78 @@
-import type { Request, Response } from 'express';
+import { Request, Response } from 'express';
 import { IdentitypassService } from '../services/identitypassService';
 import { FlutterwaveService } from '../services/flutterwaveService';
-import { supabase } from '../supabaseClient';
 import { UserStore } from '../services/userStore';
 
+// 1. Verify NIN
 export async function verifyNIN(req: Request, res: Response) {
   try {
-    const { nin, propertyId, ownerId } = req.body;
-    if (!nin) {
-      return res.status(400).json({ error: 'NIN number is required' });
+    const { ninNumber, firstname, lastname, dob } = req.body;
+
+    if (!ninNumber) {
+      return res.status(400).json({ error: 'NIN Number is required' });
     }
 
-    const result = await IdentitypassService.verifyNIN(nin);
-
-    // Save verification audit log in Supabase
-    if (supabase && result.status) {
-      await supabase.from('identity_verifications').insert({
-        property_id: propertyId || null,
-        user_id: ownerId || null,
-        verification_type: 'nin',
-        id_number: nin,
-        full_name_returned: result.data?.fullName || null,
-        date_of_birth: result.data?.dateOfBirth || null,
-        phone_number_returned: result.data?.phone || null,
-        photo_url: result.data?.photo || null,
-        raw_response: result.raw || null,
-        status: 'verified',
-        verified_by_admin: 'Rentilly Automated Prembly Engine'
-      });
-    }
-
-    res.json(result);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    const result = await IdentitypassService.verifyNIN(ninNumber);
+    return res.status(200).json(result);
+  } catch (error: any) {
+    console.error('NIN verification error:', error);
+    return res.status(500).json({
+      error: 'NIN verification service unavailable',
+      details: error.message
+    });
   }
 }
 
+// 2. Verify BVN
 export async function verifyBVN(req: Request, res: Response) {
   try {
-    const { bvn, propertyId, ownerId } = req.body;
-    if (!bvn) {
-      return res.status(400).json({ error: 'BVN number is required' });
+    const { bvnNumber, firstname, lastname, dob } = req.body;
+
+    if (!bvnNumber) {
+      return res.status(400).json({ error: 'BVN Number is required' });
     }
 
-    const result = await IdentitypassService.verifyBVN(bvn);
-
-    if (supabase && result.status) {
-      await supabase.from('identity_verifications').insert({
-        property_id: propertyId || null,
-        user_id: ownerId || null,
-        verification_type: 'bvn',
-        id_number: bvn,
-        full_name_returned: result.data?.fullName || null,
-        date_of_birth: result.data?.dateOfBirth || null,
-        phone_number_returned: result.data?.phone || null,
-        raw_response: result.raw || null,
-        status: 'verified',
-        verified_by_admin: 'Rentilly Automated Prembly Engine'
-      });
-    }
-
-    res.json(result);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    const result = await IdentitypassService.verifyBVN(bvnNumber);
+    return res.status(200).json(result);
+  } catch (error: any) {
+    console.error('BVN verification error:', error);
+    return res.status(500).json({
+      error: 'BVN verification service unavailable',
+      details: error.message
+    });
   }
 }
 
+// 3. Verify CAC RC Number
 export async function verifyCAC(req: Request, res: Response) {
   try {
-    const { rcNumber, companyName } = req.body;
+    const { rcNumber, companyName, companyType } = req.body;
+
     if (!rcNumber) {
-      return res.status(400).json({ error: 'RC / Business Registration Number is required' });
+      return res.status(400).json({ error: 'CAC RC Number is required' });
     }
 
-    const result = await IdentitypassService.verifyCAC(rcNumber, companyName);
-    res.json(result);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    const result = await IdentitypassService.verifyCAC(rcNumber, companyName, companyType);
+    return res.status(200).json(result);
+  } catch (error: any) {
+    console.error('CAC verification error:', error);
+    return res.status(500).json({
+      error: 'CAC verification service unavailable',
+      details: error.message
+    });
   }
 }
 
 // 4. Automated Prembly Identity Verification -> Instant Flutterwave Virtual Bank Issuance
 export async function verifyAndProvision(req: Request, res: Response) {
   try {
-    const { userId, email, fullName, idType = 'nin', idNumber, bvn, dob, phoneNumber } = req.body;
+    const { userId, email, fullName, businessName, cacNumber, role, idType = 'nin', idNumber, bvn, dob, phoneNumber } = req.body;
 
     if (!idNumber) {
       return res.status(400).json({ error: 'Identification document number is required' });
     }
 
+    const isPartner = role === 'partner' || (businessName && businessName.trim().length > 0);
     const bvnToUse = bvn && bvn.length === 11 ? bvn : (idType === 'bvn' ? idNumber : '22194820183');
 
     // Step 1: Prembly Live Registry Verification
@@ -103,11 +87,10 @@ export async function verifyAndProvision(req: Request, res: Response) {
       console.warn('Prembly live call warning:', e);
     }
 
-    // Sanitize fullName: NEVER use email prefix or usernames without spaces
+    const partnerBizName = (businessName || '').trim();
     let cleanName = (fullName || '').trim();
-    const emailPrefix = (email || '').split('@')[0].toLowerCase();
-    if (!cleanName || cleanName.includes('@') || cleanName.toLowerCase() === emailPrefix || !cleanName.includes(' ')) {
-      cleanName = premblyResult?.data?.fullName || 'Patrick Achua';
+    if (!cleanName || cleanName.includes('@')) {
+      cleanName = partnerBizName.isNotEmpty ? partnerBizName : (premblyResult?.data?.fullName || 'Rentilly Partner');
     }
 
     // Step 2: Instant Flutterwave Dedicated NUBAN Virtual Account Generation with Live BVN
@@ -115,6 +98,8 @@ export async function verifyAndProvision(req: Request, res: Response) {
       userId: userId || `usr_${Date.now()}`,
       email: email || 'user@rentilly.ng',
       fullName: cleanName,
+      businessName: partnerBizName,
+      role: role || (isPartner ? 'partner' : 'renter'),
       bvn: bvnToUse,
       phoneNumber: phoneNumber || premblyResult.data?.phone
     });
@@ -135,49 +120,67 @@ export async function verifyAndProvision(req: Request, res: Response) {
       UserStore.upsertUser({
         ...existing,
         fullName: cleanName,
+        businessName: isPartner ? partnerBizName : existing.businessName,
+        cacNumber: isPartner ? (cacNumber || existing.cacNumber) : existing.cacNumber,
         isVerified: true,
         accountNumber: accountNumber,
         bankName: bankName,
-        ninNumber: idType === 'nin' ? idNumber : existing.ninNumber,
-        bvnVerified: true,
+        role: role || existing.role
       });
     }
 
-    if (supabase && userId) {
-      try {
-        await supabase.from('users').update({
-          full_name: cleanName,
-          is_verified: true,
-          account_number: accountNumber,
-          bank_name: bankName,
-          nin_number: idType === 'nin' ? idNumber : null,
-          bvn_verified: true,
-        }).eq('id', userId);
-      } catch (dbErr) {
-        console.warn('Supabase user verification update warning:', dbErr);
-      }
-    }
-
-    return res.json({
+    return res.status(200).json({
       status: true,
-      message: 'Identity verified and dedicated virtual bank account issued successfully!',
-      isVerified: true,
+      message: isPartner
+        ? `Corporate KYB verified! Dedicated commission vault provisioned in your business name.`
+        : 'Identity and BVN verified successfully! Dedicated account provisioned.',
       accountNumber: accountNumber,
       bankName: bankName,
       user: {
         id: userId,
-        fullName: cleanName,
         email: email,
-        phoneNumber: phoneNumber || existing?.phoneNumber,
-        role: existing?.role || 'renter',
+        fullName: cleanName,
+        businessName: partnerBizName,
+        cacNumber: cacNumber,
         isVerified: true,
         accountNumber: accountNumber,
         bankName: bankName,
-        state: existing?.state || 'Lagos',
+        role: role || (isPartner ? 'partner' : 'renter')
       }
     });
-  } catch (err: any) {
-    console.error('verifyAndProvision error:', err);
-    res.status(500).json({ error: err.message || 'Verification processing failed' });
+  } catch (error: any) {
+    console.error('Verify and provision error:', error);
+    return res.status(500).json({
+      status: false,
+      error: 'Identity provisioning service error',
+      details: error.message
+    });
+  }
+}
+
+// 5. Verification Status Check
+export async function getVerificationStatus(req: Request, res: Response) {
+  try {
+    const { email } = req.query;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email parameter is required' });
+    }
+
+    const user = await UserStore.findByEmail(email.toString());
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    return res.status(200).json({
+      isVerified: user.isVerified || false,
+      accountNumber: user.accountNumber,
+      bankName: user.bankName,
+      role: user.role
+    });
+  } catch (error: any) {
+    console.error('Status check error:', error);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 }
