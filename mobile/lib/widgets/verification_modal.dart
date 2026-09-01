@@ -974,6 +974,7 @@ class _VerificationModalState extends State<VerificationModal> {
                   ),
                 ),
               ],
+            ],
             const SizedBox(height: 24),
           ],
         ),
