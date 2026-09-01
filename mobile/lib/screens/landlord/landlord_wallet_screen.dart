@@ -228,7 +228,7 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
     final isPositive = amount > 0;
     final formattedAmount = '${isPositive ? "+" : "-"}NGN ${_currencyFormat.format(amount.abs())}';
     final ref = txn['reference'] ?? txn['id'] ?? 'REF-9254090338';
-    final title = txn['title'] as String;
+    final title = (txn['title'] as String).replaceAll('₦', 'NGN ').replaceAll('—', '-');
     final date = txn['date'] as String;
     final channel = txn['channel'] ?? 'Flutterwave Settlement Account';
     final session = txn['session'] ?? 'SES-${DateTime.now().millisecondsSinceEpoch}';
@@ -476,8 +476,15 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
   // --- 3. DOWNLOAD FULL ACCOUNT STATEMENT PDF ---
   void _downloadStatement() async {
     final name = _user?.fullName ?? 'Property Owner';
-    final balance = _user?.walletBalance ?? 2000.0;
     final acc = _user?.accountNumber ?? '9254090338';
+
+    // Calculate true dynamic net balance directly from the transactions ledger
+    double computedNet = 0.0;
+    for (var t in _transactions) {
+      final amt = (t['amount'] as num?)?.toDouble() ?? 0.0;
+      computedNet += amt;
+    }
+    final balance = computedNet < 0 ? 0.0 : computedNet;
 
     final doc = pw.Document();
     doc.addPage(
@@ -551,13 +558,20 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                     ],
                   ),
                   ..._transactions.map((t) {
-                    final isPos = (t['amount'] as double) > 0;
+                    final amt = (t['amount'] as num?)?.toDouble() ?? 0.0;
+                    final isPos = amt > 0;
+                    final cleanTitle = (t['title'] ?? '')
+                        .toString()
+                        .replaceAll('₦', 'NGN ')
+                        .replaceAll('—', '-')
+                        .replaceAll('–', '-');
+
                     return pw.TableRow(
                       children: [
                         pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(t['date'] ?? 'Today', style: const pw.TextStyle(fontSize: 8))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(t['title'] ?? '', style: const pw.TextStyle(fontSize: 8))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(cleanTitle, style: const pw.TextStyle(fontSize: 8))),
                         pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(t['type'] ?? 'Inflow', style: const pw.TextStyle(fontSize: 8))),
-                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('${isPos ? "+" : "-"} ${_currencyFormat.format((t['amount'] as double).abs())}', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: isPos ? PdfColor.fromHex('16A34A') : PdfColor.fromHex('DC2626')))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('${isPos ? "+" : "-"} ${_currencyFormat.format(amt.abs())}', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: isPos ? PdfColor.fromHex('16A34A') : PdfColor.fromHex('DC2626')))),
                         pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(t['status'] ?? 'COMPLETED', style: const pw.TextStyle(fontSize: 8, color: PdfColors.green700))),
                       ],
                     );
