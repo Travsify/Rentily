@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../constants/app_colors.dart';
 import '../../services/notification_service.dart';
+import '../../widgets/smart_salary_splitter_modal.dart';
 
 class VaultsScreen extends StatefulWidget {
   const VaultsScreen({super.key});
@@ -17,11 +18,38 @@ class _VaultsScreenState extends State<VaultsScreen> {
   final NumberFormat _currencyFormat = NumberFormat('#,###', 'en_US');
   List<Map<String, dynamic>> _userVaults = [];
   bool _isLoading = true;
+  bool _isSplitterEnabled = true;
+  int _splitterRentPct = 30;
+  int _splitterStartDay = 24;
+  int _splitterEndDay = 31;
+  String _splitterDateMode = 'range';
+  String _splitterTargetVault = 'Annual Rent Stash';
 
   @override
   void initState() {
     super.initState();
     _loadVaults();
+    _loadSplitterConfig();
+  }
+
+  void _loadSplitterConfig() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = prefs.getString('rentilly_salary_splitter_config');
+    if (data != null) {
+      try {
+        final map = json.decode(data);
+        if (mounted) {
+          setState(() {
+            _isSplitterEnabled = map['isEnabled'] ?? true;
+            _splitterRentPct = ((map['rentPercentage'] as num?)?.toDouble() ?? 30.0).toInt();
+            _splitterStartDay = (map['startDay'] as num?)?.toInt() ?? 24;
+            _splitterEndDay = (map['endDay'] as num?)?.toInt() ?? 31;
+            _splitterDateMode = map['dateWindowMode'] ?? 'range';
+            _splitterTargetVault = map['targetVaultTitle'] ?? 'Annual Rent Stash';
+          });
+        }
+      } catch (_) {}
+    }
   }
 
   void _loadVaults() async {
@@ -380,48 +408,108 @@ class _VaultsScreenState extends State<VaultsScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Smart Salary Splitter Banner
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: AppColors.borderDark),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: AppColors.accentOrange.withValues(alpha: 0.12),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.auto_fix_high_rounded, size: 20, color: AppColors.accentOrange),
+              // Smart Salary Splitter Interactive Hub Card
+              InkWell(
+                onTap: () {
+                  SmartSalarySplitterModal.show(
+                    context,
+                    userVaults: _userVaults,
+                    onConfigSaved: _loadSplitterConfig,
+                  );
+                },
+                borderRadius: BorderRadius.circular(18),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: _isSplitterEnabled ? const Color(0xFFBBF7D0) : AppColors.borderDark,
+                      width: _isSplitterEnabled ? 1.5 : 1,
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Smart Salary Splitter',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.textPrimary,
-                            ),
-                          ),
-                          Text(
-                            'Automatically allocates a percentage of every wallet top-up into your annual rent renewal vault.',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 10,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ],
+                    boxShadow: [
+                      BoxShadow(
+                        color: _isSplitterEnabled ? const Color(0xFF16A34A).withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.02),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: _isSplitterEnabled ? const Color(0xFF16A34A).withValues(alpha: 0.12) : AppColors.accentOrange.withValues(alpha: 0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.auto_fix_high_rounded,
+                          size: 20,
+                          color: _isSplitterEnabled ? const Color(0xFF16A34A) : AppColors.accentOrange,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  'Smart Salary Splitter',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: _isSplitterEnabled ? const Color(0xFFDCFCE7) : const Color(0xFFF1F5F9),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    _isSplitterEnabled ? 'ACTIVE • ${_splitterRentPct}%' : 'OFF',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 8.5,
+                                      fontWeight: FontWeight.w900,
+                                      color: _isSplitterEnabled ? const Color(0xFF15803D) : AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              _isSplitterEnabled
+                                  ? (_splitterDateMode == 'range'
+                                      ? 'Sweeps $_splitterRentPct% of deposits between Day $_splitterStartDay - Day $_splitterEndDay to "$_splitterTargetVault".'
+                                      : 'Sweeps $_splitterRentPct% of every incoming deposit to "$_splitterTargetVault".')
+                                  : 'Tap to configure custom split percentage & payday date window.',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 10,
+                                color: _isSplitterEnabled ? const Color(0xFF15803D) : AppColors.textSecondary,
+                                height: 1.3,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.borderDark),
+                        ),
+                        child: const Icon(Icons.tune_rounded, size: 14, color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               const SizedBox(height: 22),
