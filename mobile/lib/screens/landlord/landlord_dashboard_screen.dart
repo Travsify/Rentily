@@ -5,6 +5,7 @@ import '../../constants/app_colors.dart';
 import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/verification_modal.dart';
+import '../../widgets/partner_listing_modal.dart';
 import '../properties/properties_screen.dart';
 import '../inspections/inspections_screen.dart';
 
@@ -55,7 +56,7 @@ class _LandlordDashboardScreenState extends State<LandlordDashboardScreen> {
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
-                'LANDLORD / SELLER PORTAL',
+                'LANDLORD / PARTNER PORTAL',
                 style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w800, color: AppColors.accentOrange),
               ),
             ),
@@ -82,13 +83,13 @@ class _LandlordDashboardScreenState extends State<LandlordDashboardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Landlord Hero Card
+              // Landlord / Partner Hero Card
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
+                    colors: [Color(0xFF064E3B), Color(0xFF0F172A)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -109,12 +110,12 @@ class _LandlordDashboardScreenState extends State<LandlordDashboardScreen> {
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.real_estate_agent_rounded, size: 18, color: Colors.white70),
+                            const Icon(Icons.business_center_rounded, size: 18, color: Colors.white70),
                             const SizedBox(width: 6),
                             Text(
-                              'DIRECT PROPERTY OWNER',
+                              _user?.role == 'partner' ? 'VERIFIED CORPORATE PARTNER' : 'DIRECT PROPERTY OWNER',
                               style: GoogleFonts.plusJakartaSans(
-                                fontSize: 9,
+                                fontSize: 8.5,
                                 fontWeight: FontWeight.w800,
                                 letterSpacing: 1.1,
                                 color: Colors.white70,
@@ -134,7 +135,7 @@ class _LandlordDashboardScreenState extends State<LandlordDashboardScreen> {
                             ),
                           ),
                           child: Text(
-                            isVerified ? 'VERIFIED OWNER' : 'UNVERIFIED',
+                            isVerified ? 'VERIFIED' : 'UNVERIFIED',
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 8,
                               fontWeight: FontWeight.w800,
@@ -146,13 +147,13 @@ class _LandlordDashboardScreenState extends State<LandlordDashboardScreen> {
                     ),
                     const SizedBox(height: 14),
                     Text(
-                      name,
+                      _user?.role == 'partner' && _user?.businessName != null ? _user!.businessName! : name,
                       style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _user?.email ?? '',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 11, color: Colors.white60),
+                      _user?.role == 'partner' ? 'CAC RC/BN: ${_user?.cacNumber ?? "Verified Partner"} • ${_user?.email ?? ""}' : (_user?.email ?? ''),
+                      style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: Colors.white60),
                     ),
                     const SizedBox(height: 20),
 
@@ -163,7 +164,10 @@ class _LandlordDashboardScreenState extends State<LandlordDashboardScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('ACTIVE ESCROW RENT', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white60)),
+                              Text(
+                                _user?.role == 'partner' ? 'PARTNER COMMISSIONS' : 'ACTIVE ESCROW RENT',
+                                style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white60),
+                              ),
                               const SizedBox(height: 2),
                               Text('₦0.00', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white)),
                             ],
@@ -173,7 +177,7 @@ class _LandlordDashboardScreenState extends State<LandlordDashboardScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('LISTED PROPERTIES', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white60)),
+                              Text('VETTED PROPERTIES', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white60)),
                               const SizedBox(height: 2),
                               Text('0 Units', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w900, color: AppColors.accentOrange)),
                             ],
@@ -188,20 +192,22 @@ class _LandlordDashboardScreenState extends State<LandlordDashboardScreen> {
 
               // Owner Operations Hub
               Text(
-                'LANDLORD MANAGEMENT SUITE',
+                'LANDLORD & PARTNER SUITE',
                 style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 12),
 
-              // 1. List New Property
+              // 1. List New Property (Opens Anti-Ghost Partner Listing Modal)
               _buildActionCard(
                 icon: Icons.add_home_work_rounded,
-                title: 'List New Property for Rent or Sale',
-                subtitle: 'Zero agent commissions. Direct verified tenant connection.',
+                title: 'List Property (Landlord / Partner)',
+                subtitle: 'Anti-ghost listing protection. 2.5% Rent / 2.0% Sales Commission.',
                 tag: 'NEW LISTING',
                 color: AppColors.primary,
                 onTap: () {
-                  _showListPropertyDialog();
+                  if (_user != null) {
+                    PartnerListingModal.show(context, user: _user!, onListingCreated: _loadUser);
+                  }
                 },
               ),
 

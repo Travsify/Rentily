@@ -26,13 +26,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _agreedToTerms = true;
   late String _selectedRole;
   String _selectedState = 'Lagos';
+  String _partnerType = 'owner'; // 'owner' | 'partner'
+  final TextEditingController _businessNameController = TextEditingController();
+  final TextEditingController _cacNumberController = TextEditingController();
+  final TextEditingController _officeAddressController = TextEditingController();
+  bool _uploadedUtilityBill = true;
+  bool _uploadedOfficeBanner = true;
   bool _isLoading = false;
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _selectedRole = widget.initialRole;
+    if (widget.initialRole == 'owner' || widget.initialRole == 'partner' || widget.initialRole == 'landlord') {
+      _selectedRole = 'landlord_partner';
+      _partnerType = widget.initialRole == 'partner' ? 'partner' : 'owner';
+    } else {
+      _selectedRole = 'renter';
+    }
+  }
+
+  @override
+  void dispose() {
+    _businessNameController.dispose();
+    _cacNumberController.dispose();
+    _officeAddressController.dispose();
+    super.dispose();
   }
 
   void _handleRegister() async {
@@ -51,6 +70,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
+    if (_selectedRole == 'landlord_partner' && _partnerType == 'partner') {
+      if (_businessNameController.text.trim().isEmpty || _cacNumberController.text.trim().isEmpty || _officeAddressController.text.trim().isEmpty) {
+        setState(() => _errorMessage = 'Please provide your CAC Business Name, RC/BN number, and physical office address.');
+        return;
+      }
+    }
+
     if (!_agreedToTerms) {
       setState(() => _errorMessage = 'Please accept the Rentilly terms of service.');
       return;
@@ -61,12 +87,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _errorMessage = null;
     });
 
+    final effectiveRole = _selectedRole == 'renter' ? 'renter' : (_partnerType == 'partner' ? 'partner' : 'owner');
+
     final result = await AuthService.register(
       fullName: name,
       email: email,
       phoneNumber: phone.startsWith('0') ? '+234${phone.substring(1)}' : phone,
       password: password,
-      role: _selectedRole,
+      role: effectiveRole,
       state: _selectedState,
     );
 
@@ -314,7 +342,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                     // Primary Intent Selector
                     Text(
-                      'I AM USING RENTILLY MAINLY AS:',
+                      'I AM REGISTERING AS:',
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 8.5,
                         fontWeight: FontWeight.w800,
@@ -331,10 +359,175 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         ),
                         const SizedBox(width: 10),
                         Expanded(
-                          child: _buildRoleChip('owner', 'Property Owner', Icons.key_rounded),
+                          child: _buildRoleChip('landlord_partner', 'Landlord / Partner', Icons.shield_outlined),
                         ),
                       ],
                     ),
+
+                    if (_selectedRole == 'landlord_partner') ...[
+                      const SizedBox(height: 14),
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF8FAFC),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: AppColors.borderDark),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'SELECT LANDLORD / PARTNER TYPE',
+                              style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, color: AppColors.textSecondary),
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () => setState(() => _partnerType = 'owner'),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(vertical: 10),
+                                      decoration: BoxDecoration(
+                                        color: _partnerType == 'owner' ? AppColors.primary : Colors.white,
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(color: _partnerType == 'owner' ? AppColors.primary : AppColors.borderDark),
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          'Direct Landlord',
+                                          style: GoogleFonts.plusJakartaSans(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: _partnerType == 'owner' ? Colors.white : AppColors.textPrimary,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: () => setState(() => _partnerType = 'partner'),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(vertical: 10),
+                                      decoration: BoxDecoration(
+                                        color: _partnerType == 'partner' ? AppColors.primary : Colors.white,
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(color: _partnerType == 'partner' ? AppColors.primary : AppColors.borderDark),
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          'Verified Partner',
+                                          style: GoogleFonts.plusJakartaSans(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: _partnerType == 'partner' ? Colors.white : AppColors.textPrimary,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            if (_partnerType == 'partner') ...[
+                              const SizedBox(height: 12),
+                              // CAC Business Name
+                              Text('REGISTERED BUSINESS NAME (CAC)', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.w800, color: AppColors.textSecondary)),
+                              const SizedBox(height: 4),
+                              TextField(
+                                controller: _businessNameController,
+                                style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600),
+                                decoration: _buildInputDecoration('e.g. Apex Realty Partners Ltd', Icons.business_rounded),
+                              ),
+                              const SizedBox(height: 10),
+
+                              // CAC Number
+                              Text('CAC REGISTRATION NUMBER (RC / BN)', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.w800, color: AppColors.textSecondary)),
+                              const SizedBox(height: 4),
+                              TextField(
+                                controller: _cacNumberController,
+                                style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600),
+                                decoration: _buildInputDecoration('e.g. RC 1928374 or BN 483920', Icons.badge_outlined),
+                              ),
+                              const SizedBox(height: 10),
+
+                              // Office Address
+                              Text('PHYSICAL OFFICE ADDRESS', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.w800, color: AppColors.textSecondary)),
+                              const SizedBox(height: 4),
+                              TextField(
+                                controller: _officeAddressController,
+                                style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600),
+                                decoration: _buildInputDecoration('e.g. Suite 4, Plot 12 Admiralty Way, Lekki', Icons.storefront_rounded),
+                              ),
+                              const SizedBox(height: 12),
+
+                              // Upload Indicators (Address Utility Bill & Office Front Photo)
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF0FDF4),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: const Color(0xFFBBF7D0)),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF16A34A)),
+                                          const SizedBox(width: 4),
+                                          Expanded(
+                                            child: Text('Utility Bill for Address', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.bold, color: const Color(0xFF16A34A))),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF0FDF4),
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: const Color(0xFFBBF7D0)),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.photo_camera_rounded, size: 14, color: Color(0xFF16A34A)),
+                                          const SizedBox(width: 4),
+                                          Expanded(
+                                            child: Text('Office Banner Selfie', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.bold, color: const Color(0xFF16A34A))),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+
+                              // Partner Guarantee Notice
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  '⚖️ Rentilly Partner Rules: You earn 2.5% on rent and 1.0% on sales paid by Rentilly. ₦0 agency fee is charged to tenants. Caution is 100% locked in escrow.',
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.primary, fontWeight: FontWeight.w600, height: 1.3),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 16),
 
                     // Terms Checkbox

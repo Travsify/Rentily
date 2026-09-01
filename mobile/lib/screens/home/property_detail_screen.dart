@@ -495,16 +495,23 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                     ),
                     child: Column(
                       children: [
-                        _buildPriceRow('Direct Owner Base Price', '₦${_currencyFormat.format(prop.basePrice)}'),
-                        if (prop.cautionFee > 0)
-                          _buildPriceRow('Caution Deposit (Escrow Vault)', '₦${_currencyFormat.format(prop.cautionFee)}'),
+                        _buildPriceRow(isRent ? 'Direct Owner Rent' : 'Direct Property Purchase Price', '₦${_currencyFormat.format(prop.basePrice)}'),
+                        if (isRent && prop.cautionFee > 0)
+                          _buildPriceRow('Caution Deposit (100% Locked in Escrow Vault)', '₦${_currencyFormat.format(prop.cautionFee)}'),
                         if (prop.serviceCharge > 0)
-                          _buildPriceRow('Service Charge', '₦${_currencyFormat.format(prop.serviceCharge)}'),
-                        _buildPriceRow(
-                          'Rentilly Legal & Escrow Fee (10%)',
-                          '₦${_currencyFormat.format(prop.rentillyFee)}',
-                          highlight: true,
-                        ),
+                          _buildPriceRow('Itemized Service Charge', '₦${_currencyFormat.format(prop.serviceCharge)}'),
+                        if (isRent)
+                          _buildPriceRow(
+                            'Rentilly Protocol & State Legal Stamp (10%)',
+                            '₦${_currencyFormat.format(prop.rentillyFee)}',
+                            highlight: true,
+                          )
+                        else
+                          _buildPriceRow(
+                            'Buyer Legal & Title Perfection Fee (5%)',
+                            '₦${_currencyFormat.format(prop.buyerSalesLegalFee)}',
+                            highlight: true,
+                          ),
                         const Divider(color: AppColors.borderDark, height: 20),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -518,7 +525,9 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                               ),
                             ),
                             Text(
-                              '₦${_currencyFormat.format(prop.totalInitialPayment)}',
+                              isRent
+                                  ? '₦${_currencyFormat.format(prop.totalInitialPayment)}'
+                                  : '₦${_currencyFormat.format(prop.basePrice + prop.buyerSalesLegalFee)}',
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w900,
@@ -546,7 +555,9 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            'You save ₦${_currencyFormat.format(prop.totalNairaSavedOnRentilly)} in agent & agreement fees on Rentilly.',
+                            isRent
+                                ? 'You pay ₦0 agency fee. Caution deposit is 100% held in Rentilly escrow and refunded at lease end.'
+                                : 'You pay ₦0 agency fee. Seller pays 5% (2.0% Partner, 3.0% Platform); your 5% goes 100% to legal title perfection & Deed of Assignment.',
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,

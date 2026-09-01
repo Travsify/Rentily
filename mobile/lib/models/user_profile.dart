@@ -3,7 +3,7 @@ class UserProfile {
   final String email;
   final String fullName;
   final String phoneNumber;
-  final String role; // 'renter', 'buyer', 'owner', 'admin'
+  final String role; // 'renter', 'buyer', 'owner', 'partner', 'admin'
   final bool isVerified;
   final String? ninNumber;
   final bool bvnVerified;
@@ -12,6 +12,14 @@ class UserProfile {
   final String? accountNumber;
   final String? bankName;
   final String? state;
+
+  // Partner / Corporate Vetting Fields
+  final String? businessName;
+  final String? cacNumber;
+  final String? officeAddress;
+  final String? officeUtilityBillUrl;
+  final String? officeBannerPhotoUrl;
+  final String partnerStatus; // 'unverified', 'pending_review', 'verified'
 
   UserProfile({
     required this.id,
@@ -27,15 +35,21 @@ class UserProfile {
     this.accountNumber,
     this.bankName,
     this.state = 'Lagos',
+    this.businessName,
+    this.cacNumber,
+    this.officeAddress,
+    this.officeUtilityBillUrl,
+    this.officeBannerPhotoUrl,
+    this.partnerStatus = 'unverified',
   });
 
   // Extract real first name (e.g. "Patrick Atua" -> "Patrick")
   String get firstName {
     final trimmed = fullName.trim();
-    if (trimmed.isEmpty) return 'Renter';
+    if (trimmed.isEmpty) return 'User';
     final parts = trimmed.split(' ');
     final first = parts.first;
-    if (first.isEmpty) return 'Renter';
+    if (first.isEmpty) return 'User';
     return '${first[0].toUpperCase()}${first.substring(1).toLowerCase()}';
   }
 
@@ -50,10 +64,7 @@ class UserProfile {
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     final rawEmail = json['email']?.toString() ?? '';
-    // Get name from JSON, try both camelCase and snake_case keys
     String rawName = json['fullName']?.toString() ?? json['full_name']?.toString() ?? '';
-
-    // Sanitize: reject if name is the email prefix (e.g. "INFO" from "info@travsify.com")
     rawName = _sanitizeName(rawName, rawEmail);
 
     return UserProfile(
@@ -70,6 +81,12 @@ class UserProfile {
       accountNumber: json['accountNumber']?.toString(),
       bankName: json['bankName']?.toString(),
       state: json['state']?.toString() ?? 'Lagos',
+      businessName: json['businessName']?.toString() ?? json['business_name']?.toString(),
+      cacNumber: json['cacNumber']?.toString() ?? json['cac_number']?.toString(),
+      officeAddress: json['officeAddress']?.toString() ?? json['office_address']?.toString(),
+      officeUtilityBillUrl: json['officeUtilityBillUrl']?.toString() ?? json['office_utility_bill_url']?.toString(),
+      officeBannerPhotoUrl: json['officeBannerPhotoUrl']?.toString() ?? json['office_banner_photo_url']?.toString(),
+      partnerStatus: json['partnerStatus']?.toString() ?? json['partner_status']?.toString() ?? 'unverified',
     );
   }
 
@@ -88,6 +105,12 @@ class UserProfile {
       'accountNumber': accountNumber,
       'bankName': bankName,
       'state': state,
+      'businessName': businessName,
+      'cacNumber': cacNumber,
+      'officeAddress': officeAddress,
+      'officeUtilityBillUrl': officeUtilityBillUrl,
+      'officeBannerPhotoUrl': officeBannerPhotoUrl,
+      'partnerStatus': partnerStatus,
     };
   }
 
@@ -105,6 +128,12 @@ class UserProfile {
     String? accountNumber,
     String? bankName,
     String? state,
+    String? businessName,
+    String? cacNumber,
+    String? officeAddress,
+    String? officeUtilityBillUrl,
+    String? officeBannerPhotoUrl,
+    String? partnerStatus,
   }) {
     return UserProfile(
       id: id ?? this.id,
@@ -120,6 +149,12 @@ class UserProfile {
       accountNumber: accountNumber ?? this.accountNumber,
       bankName: bankName ?? this.bankName,
       state: state ?? this.state,
+      businessName: businessName ?? this.businessName,
+      cacNumber: cacNumber ?? this.cacNumber,
+      officeAddress: officeAddress ?? this.officeAddress,
+      officeUtilityBillUrl: officeUtilityBillUrl ?? this.officeUtilityBillUrl,
+      officeBannerPhotoUrl: officeBannerPhotoUrl ?? this.officeBannerPhotoUrl,
+      partnerStatus: partnerStatus ?? this.partnerStatus,
     );
   }
 }
