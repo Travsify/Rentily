@@ -39,7 +39,7 @@ class _PartnerLandlordOnboardModalState extends State<PartnerLandlordOnboardModa
         ? widget.user.businessName!.trim()
         : (widget.user.fullName.trim().isNotEmpty ? widget.user.fullName.trim() : 'Accredited Partner Enterprise');
     final partnerId = 'RNT-PTR-${widget.user.id.replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0').substring(0, 4)}';
-    final inviteLink = 'https://rentilly.ng/invite/landlord?partner_id=$partnerId&firm=${Uri.encodeComponent(businessName)}';
+    final inviteLink = 'https://myrentilly.com/invite/landlord?partner_id=$partnerId&firm=${Uri.encodeComponent(businessName)}';
 
     final message = 'Dear Property Owner,\n\n'
         'Kindly register and list your properties on Rentilly through our accredited firm link below:\n\n'
@@ -59,7 +59,7 @@ class _PartnerLandlordOnboardModalState extends State<PartnerLandlordOnboardModa
         ? widget.user.businessName!.trim()
         : (widget.user.fullName.trim().isNotEmpty ? widget.user.fullName.trim() : 'Accredited Partner Enterprise');
     final partnerId = 'RNT-PTR-${widget.user.id.replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0').substring(0, 4)}';
-    final inviteLink = 'https://rentilly.ng/invite/landlord?partner_id=$partnerId&firm=${Uri.encodeComponent(businessName)}';
+    final inviteLink = 'https://myrentilly.com/invite/landlord?partner_id=$partnerId&firm=${Uri.encodeComponent(businessName)}';
 
     Clipboard.setData(ClipboardData(text: inviteLink));
     ScaffoldMessenger.of(context).showSnackBar(

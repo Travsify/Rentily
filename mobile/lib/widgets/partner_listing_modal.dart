@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/app_colors.dart';
+import '../constants/nigerian_states_cities.dart';
 import '../models/property.dart';
 import '../models/user_profile.dart';
 import '../services/api_service.dart';
@@ -48,6 +49,7 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
   String _purpose = 'rent'; // 'rent' | 'sale'
   String _propertyType = 'flat_apartment';
   String _selectedState = 'Lagos';
+  String _selectedLga = 'Eti-Osa';
   int _bedrooms = 2;
   int _bathrooms = 2;
 
@@ -429,7 +431,7 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
       paymentFrequency: 'annually',
       address: address,
       state: _selectedState,
-      lga: 'Eti-Osa',
+      lga: _selectedLga,
       neighborhood: address.split(',').first.trim(),
       bedrooms: _bedrooms,
       bathrooms: _bathrooms,
@@ -437,7 +439,7 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
       furnishing: 'semi_furnished',
       amenities: ['24/7 Power', 'Treated Water', 'Security Guard', 'CCTV'],
       images: _uploadedImages,
-      videoWalkthroughUrl: _uploadedVideoPath ?? 'https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_1mb.mp4',
+      videoWalkthroughUrl: _uploadedVideoPath,
       status: 'available',
       listedByRole: _isDirectLandlord ? 'direct_landlord' : 'verified_partner',
       partnerCommissionRate: _isDirectLandlord ? 0.0 : (_purpose == 'rent' ? 0.025 : 0.02),
@@ -802,14 +804,32 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
                         value: _selectedState,
                         decoration: _inputDeco(hint: 'State'),
                         style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textPrimary),
-                        items: const [
-                          DropdownMenuItem(value: 'Lagos', child: Text('Lagos')),
-                          DropdownMenuItem(value: 'Abuja', child: Text('Abuja (FCT)')),
-                          DropdownMenuItem(value: 'Ogun', child: Text('Ogun')),
-                          DropdownMenuItem(value: 'Rivers', child: Text('Rivers (PH)')),
-                          DropdownMenuItem(value: 'Oyo', child: Text('Oyo (Ibadan)')),
-                        ],
-                        onChanged: (val) => setState(() => _selectedState = val!),
+                        items: nigerianStatesAndCities.keys.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() {
+                              _selectedState = val;
+                              final lgas = nigerianStatesAndCities[val] ?? ['Central'];
+                              _selectedLga = lgas.first;
+                            });
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: (nigerianStatesAndCities[_selectedState] ?? []).contains(_selectedLga)
+                            ? _selectedLga
+                            : (nigerianStatesAndCities[_selectedState]?.first ?? 'Central'),
+                        decoration: _inputDeco(hint: 'LGA'),
+                        style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textPrimary),
+                        items: (nigerianStatesAndCities[_selectedState] ?? ['Central'])
+                            .map((lga) => DropdownMenuItem(value: lga, child: Text(lga, overflow: TextOverflow.ellipsis)))
+                            .toList(),
+                        onChanged: (val) {
+                          if (val != null) setState(() => _selectedLga = val);
+                        },
                       ),
                     ),
                   ],
