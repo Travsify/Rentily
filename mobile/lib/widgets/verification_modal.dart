@@ -43,7 +43,7 @@ class _VerificationModalState extends State<VerificationModal> {
   String _selectedIdType = 'nin'; // 'nin', 'voters_card', 'drivers_license', 'passport'
   final TextEditingController _idController = TextEditingController();
   final TextEditingController _bvnController = TextEditingController();
-  final TextEditingController _dobController = TextEditingController(text: '14/08/1994');
+  final TextEditingController _dobController = TextEditingController();
 
   bool _isLoading = false;
   bool _isSyncingNuban = false;

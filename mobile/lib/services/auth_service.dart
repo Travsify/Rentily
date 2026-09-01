@@ -183,10 +183,10 @@ class AuthService {
 
           final userMap = {
             'id': user['id']?.toString() ?? 'usr_${DateTime.now().millisecondsSinceEpoch}',
-            'fullName': user['full_name'] ?? user['fullName'] ?? 'User',
+            'fullName': user['full_name'] ?? user['fullName'] ?? '',
             'email': user['email'] ?? cleanEmail,
             'phoneNumber': user['phone_number'] ?? user['phoneNumber'] ?? '',
-            'role': user['role'] ?? 'partner',
+            'role': user['role'] ?? 'renter',
             'businessName': user['business_name'] ?? user['businessName'],
             'cacNumber': user['cac_number'] ?? user['cacNumber'],
             'officeAddress': user['office_address'] ?? user['officeAddress'],
@@ -206,7 +206,7 @@ class AuthService {
       }
     } catch (_) {}
 
-    // Layer 3: Local saved user profile by specific email (100% data preservation)
+    // Layer 3: Local saved user profile by specific email (Cached from prior authentic login)
     final prefs = await SharedPreferences.getInstance();
     final savedEmailJson = prefs.getString('rentilly_user_$cleanEmail');
     if (savedEmailJson != null && savedEmailJson.isNotEmpty) {
@@ -233,39 +233,9 @@ class AuthService {
       };
     }
 
-    // Layer 5: Fallback new session
-    if (password.length >= 6 || password == 'Forgetpassword.') {
-      final token = 'rentilly_jwt_${DateTime.now().millisecondsSinceEpoch}';
-      final isDrivegates = cleanEmail == 'info@drivegates.co.uk' || cleanEmail.contains('drivegates');
-      final isPartner = isDrivegates || cleanEmail.contains('partner') || cleanEmail.contains('broker') || cleanEmail.contains('eoms');
-      final bizName = isDrivegates ? 'Drivegates Limited' : (isPartner ? 'Eoms Global Inclusive Limited' : null);
-      
-      final localUser = {
-        'id': 'usr_${DateTime.now().millisecondsSinceEpoch}',
-        'fullName': bizName ?? (cleanEmail == 'patrickachua3@gmail.com' ? 'Patrick Achua' : cleanEmail.split('@')[0]),
-        'email': cleanEmail,
-        'phoneNumber': '08123456789',
-        'role': isPartner ? 'partner' : (cleanEmail == 'patrickachua3@gmail.com' ? 'owner' : 'renter'),
-        'businessName': bizName,
-        'cacNumber': isPartner ? (isDrivegates ? 'RC 1892834' : 'RC 1928374') : null,
-        'officeAddress': isPartner ? '14 Admiralty Way, Lekki Phase 1, Lagos' : null,
-        'isVerified': isPartner || cleanEmail == 'patrickachua3@gmail.com',
-        'bvnVerified': isPartner || cleanEmail == 'patrickachua3@gmail.com',
-        'accountNumber': isPartner ? '9861458175' : (cleanEmail == 'patrickachua3@gmail.com' ? '9254090338' : null),
-        'bankName': 'Flutterwave MFB',
-        'state': 'Lagos',
-        'walletBalance': 0.0,
-      };
-      await _saveSession(token, localUser);
-      return {
-        'success': true,
-        'user': UserProfile.fromJson(localUser),
-      };
-    }
-
     return {
       'success': false,
-      'message': 'Invalid password. Password must be at least 6 characters.',
+      'message': 'Account not found or password incorrect. Please check your credentials.',
     };
   }
 

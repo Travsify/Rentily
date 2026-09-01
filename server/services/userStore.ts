@@ -28,52 +28,13 @@ export interface StoredUser {
 const DATA_DIR = path.join(process.cwd(), 'server', 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 
-// Ensure directory and seed file exist
+// Ensure storage directory and file exist
 function ensureStorage() {
   if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
   }
-  if (!fs.existsSync(USERS_FILE) || fs.readFileSync(USERS_FILE, 'utf-8').trim() === '[]') {
-    const defaultSeed: StoredUser[] = [
-      {
-        id: 'usr_drivegates_partner_live',
-        email: 'info@drivegates.co.uk',
-        fullName: 'Drivegates Limited',
-        businessName: 'Drivegates Limited',
-        phoneNumber: '08123456789',
-        passwordHash: hashPassword('Forgetpassword.'),
-        role: 'partner',
-        isVerified: true,
-        ninNumber: '22194820183',
-        cacNumber: 'RC 1892834',
-        officeAddress: '14 Admiralty Way, Lekki Phase 1, Lagos',
-        bvnVerified: true,
-        accountNumber: '9861458175',
-        bankName: 'Flutterwave MFB',
-        state: 'Lagos',
-        walletBalance: 0.0,
-        createdAt: '2026-08-30T12:00:00.000Z',
-        updatedAt: new Date().toISOString(),
-      },
-      {
-        id: 'usr_patrick_achua_live',
-        email: 'patrickachua3@gmail.com',
-        fullName: 'Patrick Achua',
-        phoneNumber: '08123456789',
-        passwordHash: hashPassword('Forgetpassword.'),
-        role: 'owner',
-        isVerified: true,
-        ninNumber: '22194820183',
-        bvnVerified: true,
-        accountNumber: '9254090338',
-        bankName: 'Flutterwave MFB',
-        state: 'Lagos',
-        walletBalance: 4000.0,
-        createdAt: '2026-08-30T12:00:00.000Z',
-        updatedAt: new Date().toISOString(),
-      }
-    ];
-    fs.writeFileSync(USERS_FILE, JSON.stringify(defaultSeed, null, 2), 'utf-8');
+  if (!fs.existsSync(USERS_FILE)) {
+    fs.writeFileSync(USERS_FILE, '[]', 'utf-8');
   }
 }
 

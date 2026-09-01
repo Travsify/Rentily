@@ -149,15 +149,15 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
     }
 
     final isVerified = _user?.isVerified ?? false;
-    final businessName = (_user?.businessName != null && _user!.businessName!.isNotEmpty)
-        ? _user!.businessName!
-        : ((_user?.fullName.isNotEmpty == true && _user!.fullName.toLowerCase() != 'info' && _user!.fullName.toLowerCase() != 'user')
-            ? _user!.fullName
-            : 'Drivegates Limited');
-    final cacNumber = _user?.cacNumber ?? 'CAC Registered';
+    final businessName = (_user?.businessName != null && _user!.businessName!.trim().isNotEmpty)
+        ? _user!.businessName!.trim()
+        : (_user?.fullName.trim().isNotEmpty == true ? _user!.fullName.trim() : 'Corporate Partner');
+    final cacNumber = (_user?.cacNumber != null && _user!.cacNumber!.trim().isNotEmpty)
+        ? _user!.cacNumber!.trim()
+        : (isVerified ? 'CAC Verified' : 'Pending CAC KYB');
     final accountNumber = _user?.accountNumber ?? 'Pending KYC';
     final bankName = _user?.bankName ?? 'Flutterwave MFB';
-    final partnerId = 'RNT-PTR-${_user?.id.replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0').substring(0, 4) ?? "0042"}';
+    final partnerId = 'RNT-PTR-${(_user?.id ?? "0000").replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0')}';
     final operationalBalance = _user?.walletBalance ?? 0.0;
     final escrowCommission = 0.00;
 

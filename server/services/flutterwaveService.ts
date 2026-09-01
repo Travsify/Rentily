@@ -163,34 +163,16 @@ export class FlutterwaveService {
         };
       }
 
-      console.warn('[Flutterwave] Virtual account creation live response:', resJson?.message || 'fallback activated');
-      
-      // Graceful fallback to dedicated NUBAN virtual vault
-      const hash = Math.abs((params.email + params.userId + bvnToUse).split('').reduce((acc, char) => acc + char.charCodeAt(0), 0));
-      const fallbackNuban = '78' + ((hash * 9301 + 49297) % 90000000 + 10000000).toString().slice(0, 8);
-
+      console.error('[Flutterwave] Virtual account creation failed:', resJson?.message);
       return {
-        status: true,
-        data: {
-          accountNumber: fallbackNuban,
-          bankName: 'Flutterwave MFB',
-          orderRef: txRef,
-          accountReference: txRef
-        }
+        status: false,
+        message: resJson?.message || 'Failed to issue live virtual bank account from Flutterwave.'
       };
     } catch (error: any) {
-      console.warn('[Flutterwave] Dedicated virtual account exception, activating fallback:', error);
-      const hash = Math.abs((params.email + params.userId + bvnToUse).split('').reduce((acc, char) => acc + char.charCodeAt(0), 0));
-      const fallbackNuban = '78' + ((hash * 9301 + 49297) % 90000000 + 10000000).toString().slice(0, 8);
-
+      console.error('[Flutterwave] Dedicated virtual account exception:', error);
       return {
-        status: true,
-        data: {
-          accountNumber: fallbackNuban,
-          bankName: 'Flutterwave MFB',
-          orderRef: txRef,
-          accountReference: txRef
-        }
+        status: false,
+        message: error.message || 'Flutterwave service connectivity error'
       };
     }
   }

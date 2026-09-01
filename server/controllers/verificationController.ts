@@ -73,7 +73,7 @@ export async function verifyAndProvision(req: Request, res: Response) {
     }
 
     const isPartner = role === 'partner' || (businessName && businessName.trim().length > 0);
-    const bvnToUse = bvn && bvn.length === 11 ? bvn : (idType === 'bvn' ? idNumber : '22194820183');
+    const bvnToUse = (bvn && bvn.length === 11) ? bvn : (idType === 'bvn' ? idNumber : (idNumber || ''));
 
     // Step 1: Prembly Live Registry Verification
     let premblyResult: any = { status: true };
@@ -196,18 +196,19 @@ export async function syncNuban(req: Request, res: Response) {
 
     const isPartner = role === 'partner' || (businessName && businessName.trim().length > 0);
     const partnerBizName = (businessName || '').trim();
-    const cleanName = (fullName || (partnerBizName ? partnerBizName : 'Rentilly User')).trim();
-    const bvnToUse = bvn && bvn.length === 11 ? bvn : '22194820183';
+    const cleanName = (fullName || (partnerBizName ? partnerBizName : (email ? email.split('@')[0] : 'User'))).trim();
+    const existing = await UserStore.findByEmail(email || '');
+    const bvnToUse = (bvn && bvn.length === 11) ? bvn : (existing?.ninNumber || '');
 
     // Call Flutterwave Live API
     const bankResult = await FlutterwaveService.createPermanentUserVirtualAccount({
-      userId: userId || `usr_${Date.now()}`,
-      email: email || 'user@rentilly.ng',
+      userId: userId || existing?.id || `usr_${Date.now()}`,
+      email: email || existing?.email || '',
       fullName: cleanName,
       businessName: partnerBizName,
       role: role || (isPartner ? 'partner' : 'renter'),
       bvn: bvnToUse,
-      phoneNumber: phoneNumber || '08120000000'
+      phoneNumber: phoneNumber || existing?.phoneNumber || ''
     });
 
     if (!bankResult.status || !bankResult.data?.accountNumber) {
