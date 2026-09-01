@@ -1,8 +1,11 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import '../../constants/app_colors.dart';
+import '../../constants/app_constants.dart';
 import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/verification_modal.dart';
@@ -22,6 +25,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
   final NumberFormat _currencyFormat = NumberFormat('#,###.00', 'en_US');
   UserProfile? _user;
   bool _isLoading = true;
+  bool _isSyncing = false;
 
   @override
   void initState() {
@@ -52,6 +56,63 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
         _user = user;
         _isLoading = false;
       });
+    }
+  }
+
+  void _syncNuban() async {
+    final user = _user;
+    if (user == null) return;
+    setState(() => _isSyncing = true);
+
+    try {
+      final url = Uri.parse('${AppConstants.apiBaseUrl}/verification/sync-nuban');
+      final res = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'userId': user.id,
+          'email': user.email,
+          'fullName': user.fullName,
+          'businessName': user.businessName,
+          'role': user.role,
+          'phoneNumber': user.phoneNumber,
+        }),
+      ).timeout(const Duration(seconds: 20));
+
+      final data = json.decode(res.body);
+      if (res.statusCode == 200 && data['status'] == true && data['accountNumber'] != null) {
+        final updated = user.copyWith(
+          accountNumber: data['accountNumber'],
+          bankName: data['bankName'] ?? 'Flutterwave MFB',
+        );
+        await AuthService.updateUser(updated);
+        setState(() {
+          _user = updated;
+          _isSyncing = false;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Live NUBAN updated: ${data['accountNumber']} (${data['bankName']}) ⚡', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold)),
+              backgroundColor: const Color(0xFF16A34A),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } else {
+        throw Exception(data['message'] ?? 'Could not sync NUBAN');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSyncing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not sync account: $e', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 
@@ -332,6 +393,27 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                           ),
                         ],
                       ),
+                      if (accountNumber.startsWith('78') || bankName.contains('Fallback')) ...[
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: _isSyncing ? null : _syncNuban,
+                            icon: _isSyncing
+                                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                : const Icon(Icons.sync_rounded, size: 15, color: Colors.white),
+                            label: Text(
+                              _isSyncing ? 'Syncing with Flutterwave MFB...' : 'Sync Live NIBSS Bank Account ⚡',
+                              style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF16A34A),
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 12),
                       Row(
                         children: [

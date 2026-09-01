@@ -48,6 +48,7 @@ apiRouter.post('/kyp/:id/review', kypController.reviewKYP);
 
 // 6. Identitypass / Prembly Verification (NIN, BVN, CAC) & Automated Flutterwave Issuance
 apiRouter.post('/verification/verify-and-provision', verificationController.verifyAndProvision);
+apiRouter.post('/verification/sync-nuban', verificationController.syncNuban);
 apiRouter.post('/verify/nin', verificationController.verifyNIN);
 apiRouter.post('/verify/bvn', verificationController.verifyBVN);
 apiRouter.post('/verify/cac', verificationController.verifyCAC);

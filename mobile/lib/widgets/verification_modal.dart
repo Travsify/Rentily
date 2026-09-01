@@ -1,6 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
 import '../constants/app_colors.dart';
+import '../constants/app_constants.dart';
 import '../models/user_profile.dart';
 import '../services/auth_service.dart';
 import '../services/verification_service.dart';
@@ -43,6 +46,7 @@ class _VerificationModalState extends State<VerificationModal> {
   final TextEditingController _dobController = TextEditingController(text: '14/08/1994');
 
   bool _isLoading = false;
+  bool _isSyncingNuban = false;
   String? _errorMessage;
 
   @override
@@ -498,6 +502,27 @@ class _VerificationModalState extends State<VerificationModal> {
                 child: Divider(height: 1, color: AppColors.borderDark),
               ),
               _buildAuditItem('DEDICATED COMMISSIONS ACCOUNT', '$acc ($bank)', Icons.account_balance_rounded),
+              if (acc.startsWith('78') || bank.contains('Fallback')) ...[
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _isSyncingNuban ? null : _syncLiveNuban,
+                    icon: _isSyncingNuban
+                        ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : const Icon(Icons.sync_rounded, size: 16, color: Colors.white),
+                    label: Text(
+                      _isSyncingNuban ? 'Provisioning Live Flutterwave NUBAN...' : 'Sync Live NIBSS Bank Account ⚡',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF16A34A),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -522,6 +547,65 @@ class _VerificationModalState extends State<VerificationModal> {
         const SizedBox(height: 16),
       ],
     );
+  }
+
+  void _syncLiveNuban() async {
+    setState(() => _isSyncingNuban = true);
+    try {
+      final user = _currentUser;
+      if (user == null) return;
+
+      final url = Uri.parse('${AppConstants.apiBaseUrl}/verification/sync-nuban');
+      final res = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'userId': user.id,
+          'email': user.email,
+          'fullName': user.fullName,
+          'businessName': user.businessName,
+          'role': user.role,
+          'phoneNumber': user.phoneNumber,
+        }),
+      ).timeout(const Duration(seconds: 20));
+
+      final data = json.decode(res.body);
+      if (res.statusCode == 200 && data['status'] == true && data['accountNumber'] != null) {
+        final updatedUser = user.copyWith(
+          accountNumber: data['accountNumber'],
+          bankName: data['bankName'] ?? 'Flutterwave MFB',
+        );
+        await AuthService.updateUser(updatedUser);
+        widget.onSuccess(updatedUser);
+        setState(() {
+          _currentUser = updatedUser;
+          _isSyncingNuban = false;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Live Flutterwave NUBAN active: ${data['accountNumber']} (${data['bankName']}) 🎉',
+                style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              backgroundColor: const Color(0xFF16A34A),
+            ),
+          );
+        }
+      } else {
+        throw Exception(data['message'] ?? 'Could not provision live account');
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isSyncingNuban = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Sync error: $e', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   @override
