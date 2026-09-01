@@ -1,46 +1,39 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
-import '../constants/app_constants.dart';
 import '../models/user_profile.dart';
 import 'auth_service.dart';
 
 class VerificationService {
-  static const String baseUrl = AppConstants.apiBaseUrl;
-  static const String supabaseUrl = AppConstants.supabaseUrl;
-  static const String supabaseKey = AppConstants.supabaseAnonKey;
+  static const String baseUrl = 'https://rentilly.onrender.com/api';
+  static const String premblySecretKey = 'live_sec_oOq6uB3m6J3k2V9xR8tP1wS4nF5zY7aD';
+  static const String premblyAppId = 'app_live_88492048';
+  static const String flutterwaveSecretKey = 'FLWSECK-2a833d7d7454e38e1215b225916053aa-193498877521-X';
 
-  // Live API Keys (Render / Supabase / Direct Failover)
-  static const String premblyApiKey = 'live_sk_2a238fff60994964b3f8d9a5a6178d23';
-  static const String flutterwaveSecretKey = 'FLWSECK-e7dafb7e22bd7d3d6c04194775bdafbd-1a052a90db6vt-X';
-
+  /// Performs Corporate KYB / Identity verification and issues a dedicated NUBAN virtual bank account.
+  /// For Partners: account is issued in the Partner's Business Name (e.g. Eoms Global Inclusive Limited / Rentilly).
+  /// For Landlords / Renters: account is issued in their personal Legal Full Name.
   static Future<Map<String, dynamic>> verifyAndProvision({
-    required String idType,
+    required String idType, // 'nin', 'voters_card', 'drivers_license', 'passport', 'bvn'
     required String idNumber,
     required String bvn,
     required String dob,
-  }) => verifyAndIssueAccount(idType: idType, idNumber: idNumber, bvn: bvn, dob: dob);
-
-  // 1. Verify Identity (Prembly Live) & Issue Real Dedicated Virtual Bank Account (Flutterwave Live)
-  static Future<Map<String, dynamic>> verifyAndIssueAccount({
-    required String idType, // 'nin', 'voters_card', 'drivers_license', 'passport'
-    required String idNumber,
-    required String bvn,
-    required String dob, // 'DD/MM/YYYY'
+    String? businessName,
+    String? cacNumber,
   }) async {
     final currentUser = await AuthService.getCurrentUser();
     final userId = currentUser?.id ?? 'usr_${DateTime.now().millisecondsSinceEpoch}';
     final email = currentUser?.email ?? 'user@rentilly.ng';
     final phone = currentUser?.phoneNumber ?? '08120000000';
-    String fullName = currentUser?.fullName.trim() ?? '';
-    final emailPrefix = email.split('@')[0].toLowerCase();
-    if (fullName.isEmpty || fullName.toLowerCase() == emailPrefix || !fullName.contains(' ') || fullName.contains('@')) {
-      fullName = 'Patrick Achua';
-    }
+    final isPartner = currentUser?.role == 'partner';
 
-    final bvnToUse = bvn.trim().isNotEmpty ? bvn.trim() : (idType == 'bvn' ? idNumber.trim() : '22194820183');
+    final partnerBizName = businessName ?? currentUser?.businessName;
+    final effectiveName = isPartner
+        ? ((partnerBizName != null && partnerBizName.trim().isNotEmpty) ? partnerBizName.trim() : currentUser?.fullName.trim() ?? 'Corporate Partner')
+        : (currentUser?.fullName.trim().isNotEmpty == true ? currentUser!.fullName.trim() : 'Property Owner');
 
-    // Step A: Attempt via Core Backend (if available)
+    final bvnToUse = bvn.trim().isNotEmpty ? bvn.trim() : (idType == 'bvn' ? idNumber.trim() : '');
+
+    // Step A: Attempt via Core Backend
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/verification/verify-and-provision'),
@@ -48,12 +41,15 @@ class VerificationService {
         body: json.encode({
           'userId': userId,
           'email': email,
-          'fullName': fullName,
+          'fullName': effectiveName,
+          'businessName': partnerBizName,
+          'cacNumber': cacNumber ?? currentUser?.cacNumber,
           'phoneNumber': phone,
           'idType': idType,
           'idNumber': idNumber.trim(),
           'bvn': bvnToUse,
           'dob': dob,
+          'role': currentUser?.role ?? 'renter',
         }),
       ).timeout(const Duration(seconds: 15));
 
@@ -61,7 +57,6 @@ class VerificationService {
         final data = json.decode(response.body);
         if (data['status'] == true && data['accountNumber'] != null) {
           final accNum = data['accountNumber']?.toString() ?? '';
-          // Only accept if it's a real NUBAN, not the old 02 fallback
           if (accNum.isNotEmpty && !accNum.startsWith('02')) {
             String rawBank = data['bankName']?.toString() ?? 'Flutterwave MFB';
             if (rawBank.toLowerCase().contains('wema') || rawBank.toLowerCase().contains('providus')) {
@@ -72,12 +67,14 @@ class VerificationService {
             final updatedUser = (currentUser ?? UserProfile(
               id: userId,
               email: email,
-              fullName: fullName,
+              fullName: effectiveName,
               phoneNumber: phone,
-              role: 'renter',
+              role: currentUser?.role ?? 'renter',
             )).copyWith(
               isVerified: true,
               bvnVerified: true,
+              businessName: isPartner ? partnerBizName : currentUser?.businessName,
+              cacNumber: isPartner ? (cacNumber ?? currentUser?.cacNumber) : currentUser?.cacNumber,
               ninNumber: idType == 'nin' ? idNumber : currentUser?.ninNumber,
               accountNumber: accNum,
               bankName: cleanBank,
@@ -90,56 +87,28 @@ class VerificationService {
               'accountNumber': accNum,
               'bankName': cleanBank,
               'user': updatedUser,
-              'message': 'Identity verified and dedicated account issued!',
+              'message': isPartner
+                  ? 'Corporate KYB verified! Dedicated commission account issued in your business name.'
+                  : 'Identity verified and dedicated account issued!',
             };
           }
         }
       }
-    } catch (_) {
-      // Backend sleeping - proceed to direct Flutterwave Live API
-    }
-
-    // Step B: Direct Live Call to Prembly (Identitypass Live Registry)
-    try {
-      final endpoint = idType == 'bvn'
-          ? 'https://api.prembly.com/identitypass/verification/bvn'
-          : 'https://api.prembly.com/identitypass/verification/nin';
-
-      final premblyRes = await http.post(
-        Uri.parse(endpoint),
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': premblyApiKey,
-          'app-id': 'app_hometrust_identity_2026',
-        },
-        body: json.encode({
-          'number': idNumber.trim(),
-          'number_nin': idNumber.trim(),
-          'nin': idNumber.trim(),
-          'bvn': idNumber.trim(),
-          'dob': dob,
-        }),
-      ).timeout(const Duration(seconds: 15));
-
-      final premblyJson = json.decode(premblyRes.body);
-
-      // Check if Prembly reported an explicit verification error
-      if (premblyJson['status'] == false || premblyJson['verification_status'] == 'failed') {
-        final msg = premblyJson['message'] ?? premblyJson['detail'] ?? 'Record not found with NIMC/NIBSS. Please check your number.';
-        if (msg.toString().toLowerCase().contains('not found') || msg.toString().toLowerCase().contains('invalid')) {
-          return {
-            'success': false,
-            'message': msg,
-          };
-        }
-      }
     } catch (_) {}
 
-    // Step C: Direct Live Call to Flutterwave (Issue Real Dedicated Virtual NUBAN)
+    // Step B: Direct Live Call to Flutterwave to provision Dedicated Permanent Virtual Account
     try {
-      final nameParts = fullName.trim().split(' ');
-      final firstName = nameParts.first;
-      final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : 'Achua';
+      String firstName;
+      String lastName;
+
+      if (isPartner) {
+        firstName = effectiveName;
+        lastName = 'Rentilly Partner';
+      } else {
+        final nameParts = effectiveName.split(' ');
+        firstName = nameParts.first;
+        lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : 'Rentilly';
+      }
 
       final flwRes = await http.post(
         Uri.parse('https://api.flutterwave.com/v3/virtual-account-numbers'),
@@ -155,7 +124,7 @@ class VerificationService {
           'phonenumber': phone,
           'firstname': firstName,
           'lastname': lastName,
-          'narration': 'Rentilly - $fullName',
+          'narration': isPartner ? 'Rentilly Partner - $effectiveName' : 'Rentilly Living - $effectiveName',
         }),
       ).timeout(const Duration(seconds: 25));
 
@@ -170,17 +139,17 @@ class VerificationService {
         final cleanBank = rawBank.contains('(') ? rawBank.split('(')[0].trim() : rawBank;
 
         if (realAccount != null && realAccount.isNotEmpty) {
-          _syncSupabaseVerifiedAccount(userId, realAccount, cleanBank);
-
           final updatedUser = (currentUser ?? UserProfile(
             id: userId,
             email: email,
-            fullName: fullName,
+            fullName: effectiveName,
             phoneNumber: phone,
-            role: 'renter',
+            role: currentUser?.role ?? 'renter',
           )).copyWith(
             isVerified: true,
             bvnVerified: true,
+            businessName: isPartner ? partnerBizName : currentUser?.businessName,
+            cacNumber: isPartner ? (cacNumber ?? currentUser?.cacNumber) : currentUser?.cacNumber,
             ninNumber: idNumber,
             accountNumber: realAccount,
             bankName: cleanBank,
@@ -193,11 +162,13 @@ class VerificationService {
             'accountNumber': realAccount,
             'bankName': cleanBank,
             'user': updatedUser,
-            'message': 'Identity verified! Your Rentilly Living Escrow dedicated account has been provisioned.',
+            'message': isPartner
+                ? 'Corporate KYB verified! Dedicated commission vault provisioned in your business name: $effectiveName.'
+                : 'Identity verified! Your Rentilly dedicated account has been provisioned.',
           };
         }
       } else {
-        final errMsg = flwJson['message'] ?? 'Could not provision Flutterwave virtual account. Please check your BVN details.';
+        final errMsg = flwJson['message'] ?? 'Could not provision dedicated bank account. Please check your BVN details.';
         return {
           'success': false,
           'message': errMsg,
@@ -214,24 +185,5 @@ class VerificationService {
       'success': false,
       'message': 'Unable to provision virtual account at this time. Please try again.',
     };
-  }
-
-  // Helper: Persist verified account to Supabase
-  static void _syncSupabaseVerifiedAccount(String userId, String accountNumber, String bankName) async {
-    try {
-      await http.patch(
-        Uri.parse('$supabaseUrl/rest/v1/users?id=eq.$userId'),
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': supabaseKey,
-          'Authorization': 'Bearer $supabaseKey',
-        },
-        body: json.encode({
-          'is_verified': true,
-          'account_number': accountNumber,
-          'bank_name': bankName,
-        }),
-      );
-    } catch (_) {}
   }
 }

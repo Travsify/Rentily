@@ -182,6 +182,8 @@ class _VerificationModalState extends State<VerificationModal> {
       idNumber: idNum,
       bvn: bvn,
       dob: dob,
+      businessName: _isPartner ? bName : null,
+      cacNumber: _isPartner ? cac : null,
     );
 
     setState(() => _isLoading = false);
