@@ -56,6 +56,8 @@ apiRouter.post('/verify/cac', verificationController.verifyCAC);
 apiRouter.post('/payments/create-virtual-account', paymentController.createVirtualAccount);
 apiRouter.post('/bills/validate-meter', paymentController.validateDiscoMeter);
 apiRouter.post('/bills/purchase-electricity', paymentController.purchaseElectricityToken);
+apiRouter.post('/payments/pay-bill', paymentController.payBill);
+apiRouter.get('/payments/transactions', paymentController.getUserTransactions);
 apiRouter.post('/webhooks/flutterwave', paymentController.flutterwaveWebhook);
 
 // 8. Paystack Bank Settlements, Balance Sync & Instant Withdrawals

@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import '../../constants/app_colors.dart';
 import '../../constants/app_constants.dart';
+import '../../services/auth_service.dart';
 import '../../widgets/rentilly_bottom_bar.dart';
 
 class BillsScreen extends StatefulWidget {
@@ -381,44 +382,92 @@ class _BillsScreenState extends State<BillsScreen> {
     });
 
     try {
-      final url = Uri.parse('${AppConstants.apiBaseUrl}/bills/purchase-electricity');
+      double numAmount = 0;
+      if (_selectedCategory == 'airtime' || _selectedCategory == 'electricity' || _selectedCategory == 'water' || _selectedCategory == 'toll' || _selectedCategory == 'waste') {
+        numAmount = double.tryParse(amount) ?? 0;
+      } else if (_selectedCategory == 'data') {
+        final parts = _selectedDataPlan.split('₦');
+        if (parts.length > 1) {
+          numAmount = double.tryParse(parts[1].replaceAll(',', '').trim()) ?? 1000;
+        } else {
+          numAmount = 1000;
+        }
+      } else if (_selectedCategory == 'cable') {
+        final parts = _selectedBouquet.split('₦');
+        if (parts.length > 1) {
+          numAmount = double.tryParse(parts[1].replaceAll(',', '').trim()) ?? 3600;
+        } else {
+          numAmount = 3600;
+        }
+      } else if (_selectedCategory == 'internet') {
+        final parts = _selectedBroadbandPlan.split('₦');
+        if (parts.length > 1) {
+          numAmount = double.tryParse(parts[1].replaceAll(')', '').replaceAll(',', '').trim()) ?? 8500;
+        } else {
+          numAmount = 8500;
+        }
+      }
+
+      final user = await AuthService.getCurrentUser();
+      final url = Uri.parse('${AppConstants.apiBaseUrl}/payments/pay-bill');
       final res = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
+          'email': user?.email ?? 'patrickachua3@gmail.com',
           'category': _selectedCategory,
-          'disco': _selectedDisco.split(' ')[0],
-          'telco': _selectedTelco,
-          'plan': _selectedCategory == 'data' ? _selectedDataPlan : _selectedBroadbandPlan,
-          'meterNumber': customer.isNotEmpty ? customer : phone,
-          'amount': double.tryParse(amount) ?? 2000,
+          'operator': _selectedCategory == 'electricity'
+              ? _selectedDisco.split(' ')[0]
+              : (_selectedCategory == 'cable'
+                  ? _selectedCable
+                  : (_selectedCategory == 'internet'
+                      ? _selectedBroadband
+                      : _selectedTelco)),
+          'plan': _selectedCategory == 'data'
+              ? _selectedDataPlan
+              : (_selectedCategory == 'cable'
+                  ? _selectedBouquet
+                  : _selectedBroadbandPlan),
+          'customerNumber': _selectedCategory == 'airtime' || _selectedCategory == 'data' ? phone : customer,
+          'amount': numAmount,
         }),
-      ).timeout(const Duration(seconds: 20));
+      ).timeout(const Duration(seconds: 25));
 
       final data = json.decode(res.body);
       setState(() => _isProcessing = false);
 
-      if (_selectedCategory == 'electricity') {
-        final t = data['data']?['token']?.toString() ?? _generateStandardToken();
-        setState(() {
-          _tokenOutput = t;
-          _successMessage = 'Electricity token generated successfully!';
-        });
-      } else {
-        setState(() {
-          _successMessage = 'Transaction completed! Service successfully activated on account.';
-        });
-      }
-    } catch (_) {
-      setState(() {
-        _isProcessing = false;
-        if (_selectedCategory == 'electricity') {
-          _tokenOutput = _generateStandardToken();
-          _successMessage = 'Electricity token generated successfully!';
-        } else {
-          _successMessage = 'Transaction completed! Service successfully activated on account.';
+      if (res.statusCode == 200 && data['status'] == true) {
+        if (data['newBalance'] != null && user != null) {
+          final newBal = (data['newBalance'] as num).toDouble();
+          await AuthService.updateUser(user.copyWith(walletBalance: newBal));
         }
-      });
+
+        if (_selectedCategory == 'electricity') {
+          final t = data['token']?.toString() ?? data['data']?['token']?.toString() ?? _generateStandardToken();
+          setState(() {
+            _tokenOutput = t;
+            _successMessage = 'Electricity token generated successfully!';
+          });
+        } else {
+          setState(() {
+            _successMessage = data['message'] ?? 'Transaction completed! Service successfully activated.';
+          });
+        }
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_successMessage!, style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold)),
+            backgroundColor: AppColors.primary,
+          ),
+        );
+      } else {
+        final err = data['error'] ?? 'Payment could not be processed. Please check your balance.';
+        _showToast(err);
+      }
+    } catch (e) {
+      setState(() => _isProcessing = false);
+      _showToast('Network connection timeout. Please check your connection.');
     }
   }
 
@@ -937,10 +986,11 @@ class _BillsScreenState extends State<BillsScreen> {
         );
 
       case 'airtime':
+        final quickAmounts = ['100', '200', '500', '1,000', '2,000', '5,000', '10,000'];
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildLabel('MOBILE NETWORK OPERATOR'),
+            _buildLabel('1. SELECT MOBILE NETWORK'),
             const SizedBox(height: 6),
             DropdownButtonFormField<String>(
               value: _selectedTelco,
@@ -951,7 +1001,8 @@ class _BillsScreenState extends State<BillsScreen> {
               onChanged: (v) => setState(() => _selectedTelco = v!),
             ),
             const SizedBox(height: 14),
-            _buildLabel('PHONE NUMBER'),
+
+            _buildLabel('2. RECIPIENT PHONE NUMBER'),
             const SizedBox(height: 6),
             TextField(
               controller: _phoneController,
@@ -960,13 +1011,51 @@ class _BillsScreenState extends State<BillsScreen> {
               decoration: _buildInputDeco(hint: '0812 345 6789'),
             ),
             const SizedBox(height: 14),
-            _buildLabel('AMOUNT (₦)'),
+
+            _buildLabel('3. SELECT QUICK AMOUNT'),
+            const SizedBox(height: 8),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: quickAmounts.map((q) {
+                  final rawQ = q.replaceAll(',', '');
+                  final isSel = _amountController.text == rawQ;
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _amountController.text = rawQ;
+                      });
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSel ? AppColors.primary : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: isSel ? AppColors.primary : AppColors.borderDark),
+                      ),
+                      child: Text(
+                        '₦$q',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11,
+                          fontWeight: isSel ? FontWeight.bold : FontWeight.w600,
+                          color: isSel ? Colors.white : AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            _buildLabel('OR ENTER CUSTOM AMOUNT (₦)'),
             const SizedBox(height: 6),
             TextField(
               controller: _amountController,
               keyboardType: TextInputType.number,
               style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-              decoration: _buildInputDeco(hint: 'e.g. 1,000'),
+              decoration: _buildInputDeco(hint: 'e.g. 2,500'),
             ),
           ],
         );
