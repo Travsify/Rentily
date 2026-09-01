@@ -183,7 +183,7 @@ class AuthService {
             'state': user['state'] ?? 'Lagos',
             'walletBalance': ((user['wallet_balance'] as num?)?.toDouble() ?? 0.0) >= 2000.0 ? ((user['wallet_balance'] as num?)?.toDouble() ?? 2000.0) : (isLandlord ? 2000.0 : 0.0),
             'accountNumber': isLandlord ? '9254090338' : (user['account_number'] ?? '9823481234'),
-            'bankName': 'Flutterwave with MFB',
+            'bankName': 'Flutterwave MFB',
           };
           await _saveSession(token, userMap);
           return {
@@ -233,7 +233,7 @@ class AuthService {
         'state': 'Lagos',
         'walletBalance': isLandlord ? 2000.0 : 0.0,
         'accountNumber': isLandlord ? '9254090338' : (isPartner ? '9834192847' : '9812739281'),
-        'bankName': 'Flutterwave with MFB',
+        'bankName': 'Flutterwave MFB',
         'businessName': isPartner ? 'Apex Realty Partners Ltd' : null,
         'cacNumber': isPartner ? 'RC 1928374' : null,
         'officeAddress': isPartner ? 'Admiralty Way, Lekki Phase 1' : null,
@@ -283,7 +283,7 @@ class AuthService {
             isVerified: true,
             bvnVerified: true,
             accountNumber: '9254090338',
-            bankName: 'Flutterwave with MFB',
+            bankName: 'Flutterwave MFB',
           );
           if (u.walletBalance < 2000.0) {
             u = u.copyWith(walletBalance: 2000.0);
@@ -317,7 +317,7 @@ class AuthService {
             isVerified: true,
             bvnVerified: true,
             accountNumber: '9254090338',
-            bankName: 'Flutterwave with MFB',
+            bankName: 'Flutterwave MFB',
           );
           if (u.walletBalance < 2000.0) {
             u = u.copyWith(walletBalance: 2000.0);
