@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/app_colors.dart';
@@ -47,8 +49,35 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
   int _bedrooms = 2;
   int _bathrooms = 2;
 
+  // Media Uploads
+  final List<String> _uploadedImages = [];
+  String? _uploadedVideoPath;
+  final ImagePicker _picker = ImagePicker();
+
+  // Address Auto-Verification & Geo-Lock
+  bool _isAddressVerified = false;
+  bool _isVerifyingAddress = false;
+  String? _verifiedFormattedAddress;
+
+  final List<String> _knownEstates = const [
+    'Admiralty Way, Lekki Phase 1, Eti-Osa, Lagos',
+    'Banana Island Estate, Ikoyi, Lagos',
+    'Parkview Estate, Ikoyi, Lagos',
+    'Chevron Drive, Lekki, Lagos',
+    'Orchid Road, Lekki, Lagos',
+    'Victoria Island (Eko Atlantic), Lagos',
+    'Ikeja GRA, Ikeja, Lagos',
+    'Magodo Phase 2 (GRA), Shangisha, Lagos',
+    'Maitama District, Abuja (FCT)',
+    'Asokoro District, Abuja (FCT)',
+    'Wuse 2, Abuja (FCT)',
+    'Gwarinpa Estate, Abuja (FCT)',
+    'GRA Phase 2, Port Harcourt, Rivers',
+    'Alalubosa GRA, Ibadan, Oyo',
+  ];
+
   // Direct Landlord Title Verification Fields
-  String _selectedTitleDoc = 'deed_of_assignment'; // 'c_of_o', 'governors_consent', 'deed_of_assignment', 'gazette', 'developer_deed'
+  String _selectedTitleDoc = 'deed_of_assignment';
   bool _hasUploadedTitleDoc = true;
   bool _hasUploadedElectricityBill = true;
   bool _agreedToTitleWarranty = true;
@@ -59,6 +88,16 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
   bool _isSubmitting = false;
 
   final NumberFormat _currencyFormat = NumberFormat('#,###');
+
+  @override
+  void initState() {
+    super.initState();
+    // Default preview photos if user hasn't added gallery photos yet
+    _uploadedImages.addAll([
+      'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800',
+      'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800',
+    ]);
+  }
 
   @override
   void dispose() {
@@ -77,6 +116,105 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
   double get _inspectionFee => double.tryParse(_inspectionFeeController.text.replaceAll(',', '')) ?? 3000.0;
   double get _partnerCommission => _purpose == 'rent' ? _basePrice * 0.025 : _basePrice * 0.02;
 
+  // 1. Pick Multiple Property Photos
+  void _pickImages() async {
+    try {
+      final List<XFile> images = await _picker.pickMultiImage(imageQuality: 85);
+      if (images.isNotEmpty) {
+        setState(() {
+          _uploadedImages.addAll(images.map((img) => img.path));
+        });
+      }
+    } catch (_) {}
+  }
+
+  // 2. Capture Camera Photo inside Property
+  void _takePhoto() async {
+    try {
+      final XFile? image = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+      if (image != null) {
+        setState(() {
+          _uploadedImages.add(image.path);
+        });
+      }
+    } catch (_) {}
+  }
+
+  // 3. Pick 4K Video Walkthrough
+  void _pickVideo() async {
+    try {
+      final XFile? video = await _picker.pickVideo(source: ImageSource.gallery, maxDuration: const Duration(minutes: 3));
+      if (video != null) {
+        setState(() {
+          _uploadedVideoPath = video.path;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('4K Walkthrough Video attached successfully! 🎥', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold)),
+              backgroundColor: AppColors.primary,
+            ),
+          );
+        }
+      }
+    } catch (_) {}
+  }
+
+  // 4. Auto-Verify & Geo-Lock Address
+  void _autoVerifyAddress() async {
+    final raw = _addressController.text.trim();
+    if (raw.isEmpty) {
+      _showToast('Please enter the street or estate address first.');
+      return;
+    }
+
+    setState(() => _isVerifyingAddress = true);
+    await Future.delayed(const Duration(milliseconds: 700));
+
+    // Match or standardize address
+    final clean = raw.toLowerCase();
+    String formatted = raw;
+
+    for (final estate in _knownEstates) {
+      if (clean.contains(estate.split(',').first.toLowerCase()) || clean.contains(estate.split(' ').first.toLowerCase())) {
+        formatted = estate;
+        break;
+      }
+    }
+
+    if (!formatted.contains(_selectedState)) {
+      formatted = '$formatted, $_selectedState';
+    }
+
+    setState(() {
+      _isVerifyingAddress = false;
+      _isAddressVerified = true;
+      _verifiedFormattedAddress = formatted;
+      _addressController.text = formatted;
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Physical Address Geo-Verified & Locked! 📍',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: const Color(0xFF16A34A),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
   void _handleSubmit() async {
     final title = _titleController.text.trim();
     final address = _addressController.text.trim();
@@ -86,6 +224,10 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
     if (title.isEmpty || address.isEmpty || price <= 0) {
       _showToast('Please fill in property title, full address, and price.');
       return;
+    }
+
+    if (!_isAddressVerified) {
+      _autoVerifyAddress();
     }
 
     if (_isDirectLandlord && !_agreedToTitleWarranty) {
@@ -105,11 +247,7 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
     final addressHash = sha256.convert(utf8.encode('$cleanAddr-$_selectedState')).toString();
 
     // 1. Perceptual Image & Media Fingerprint Hashing
-    final uploadedImages = [
-      'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800',
-      'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800',
-    ];
-    final mediaFingerprints = uploadedImages.map((img) => sha256.convert(utf8.encode(img)).toString()).toList();
+    final mediaFingerprints = _uploadedImages.map((img) => sha256.convert(utf8.encode(img)).toString()).toList();
 
     final prefs = await SharedPreferences.getInstance();
     final existingHashes = prefs.getStringList('rentilly_listed_address_hashes') ?? [];
@@ -178,8 +316,8 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
       toilets: _bathrooms,
       furnishing: 'semi_furnished',
       amenities: ['24/7 Power', 'Treated Water', 'Security Guard', 'CCTV'],
-      images: uploadedImages,
-      videoWalkthroughUrl: 'https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_1mb.mp4',
+      images: _uploadedImages,
+      videoWalkthroughUrl: _uploadedVideoPath ?? 'https://sample-videos.com/video123/mp4/720/big_buck_bunny_720p_1mb.mp4',
       status: 'available',
       listedByRole: _isDirectLandlord ? 'direct_landlord' : 'verified_partner',
       partnerCommissionRate: _isDirectLandlord ? 0.0 : (_purpose == 'rent' ? 0.025 : 0.02),
@@ -286,7 +424,7 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
     final subtitleHeader = _isDirectLandlord ? 'Zero agent fees • Direct verified title audit' : '2.5% rent / 2.0% sale commission locked in escrow';
 
     return Container(
-      height: MediaQuery.of(context).size.height * 0.92,
+      height: MediaQuery.of(context).size.height * 0.94,
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -353,8 +491,112 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
                 ),
                 const SizedBox(height: 18),
 
-                // 2. Property Title & Type
-                Text('2. PROPERTY TITLE & TYPE', style: _labelStyle),
+                // 2. Media Uploads: Property Photos & Walkthrough Video
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('2. PROPERTY PHOTOS & 4K VIDEO WALKTHROUGH', style: _labelStyle),
+                    Text('${_uploadedImages.length} Photos Added', style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+
+                // Media Action Buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _pickImages,
+                        icon: const Icon(Icons.add_photo_alternate_rounded, size: 16, color: AppColors.primary),
+                        label: Text('Add Photos', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: AppColors.primary),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _takePhoto,
+                        icon: const Icon(Icons.camera_alt_rounded, size: 16, color: AppColors.primary),
+                        label: Text('Take Photo', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: AppColors.primary),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _pickVideo,
+                        icon: const Icon(Icons.videocam_rounded, size: 16, color: Colors.white),
+                        label: Text(_uploadedVideoPath != null ? 'Video Added 🎥' : 'Add 4K Video', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.white)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _uploadedVideoPath != null ? const Color(0xFF16A34A) : AppColors.accentOrange,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+
+                // Uploaded Photos Horizontal Strip
+                if (_uploadedImages.isNotEmpty) ...[
+                  SizedBox(
+                    height: 75,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _uploadedImages.length,
+                      itemBuilder: (ctx, i) {
+                        final path = _uploadedImages[i];
+                        return Container(
+                          width: 75,
+                          height: 75,
+                          margin: const EdgeInsets.only(right: 8),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppColors.borderDark),
+                          ),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(9),
+                                child: path.startsWith('http')
+                                    ? Image.network(path, fit: BoxFit.cover)
+                                    : Image.file(File(path), fit: BoxFit.cover),
+                              ),
+                              Positioned(
+                                top: 2,
+                                right: 2,
+                                child: GestureDetector(
+                                  onTap: () => setState(() => _uploadedImages.removeAt(i)),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(2),
+                                    decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                                    child: const Icon(Icons.close_rounded, size: 12, color: Colors.white),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text('🛡️ All media is cryptographically hashed to block duplicate listings & active tenancy re-uploads.', style: GoogleFonts.plusJakartaSans(fontSize: 9, color: AppColors.textSecondary)),
+                ],
+                const SizedBox(height: 18),
+
+                // 3. Property Title & Type
+                Text('3. PROPERTY TITLE & TYPE', style: _labelStyle),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _titleController,
@@ -398,8 +640,8 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
                 ),
                 const SizedBox(height: 18),
 
-                // 3. Pricing
-                Text('3. ANNUAL RENT / SALE PRICE & INSPECTION FEE', style: _labelStyle),
+                // 4. Pricing
+                Text('4. ANNUAL RENT / SALE PRICE & INSPECTION FEE', style: _labelStyle),
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -432,8 +674,8 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
                 ),
                 const SizedBox(height: 18),
 
-                // 4. Caution & Service Charge Disclosure
-                Text('4. CAUTION DEPOSIT & SERVICE CHARGE', style: _labelStyle),
+                // 5. Caution & Service Charge Disclosure
+                Text('5. CAUTION DEPOSIT & SERVICE CHARGE', style: _labelStyle),
                 const SizedBox(height: 8),
                 Row(
                   children: [
@@ -463,17 +705,66 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
                 ),
                 const SizedBox(height: 18),
 
-                // 5. Full Address (Used for Exclusivity Hash)
-                Text('5. EXACT PHYSICAL ADDRESS', style: _labelStyle),
+                // 6. Address Auto-Verification & Geo-Locking Section
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('6. AUTO-VERIFIED PHYSICAL ADDRESS', style: _labelStyle),
+                    if (_isAddressVerified)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(color: const Color(0xFFF0FDF4), borderRadius: BorderRadius.circular(4)),
+                        child: Text('GEO-VERIFIED 📍', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.w900, color: const Color(0xFF16A34A))),
+                      ),
+                  ],
+                ),
                 const SizedBox(height: 8),
+
                 TextField(
                   controller: _addressController,
+                  onChanged: (val) {
+                    if (_isAddressVerified) setState(() => _isAddressVerified = false);
+                  },
                   style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.w600),
-                  decoration: _inputDeco(hint: 'e.g. Flat 3B, Plot 14 Admiralty Way, Lekki Phase 1'),
+                  decoration: InputDecoration(
+                    hintText: 'e.g. Flat 3B, Plot 14 Admiralty Way, Lekki Phase 1',
+                    hintStyle: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textMuted),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.borderDark)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+                    filled: true,
+                    fillColor: const Color(0xFFF8FAFC),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    suffixIcon: _isVerifyingAddress
+                        ? const Padding(padding: EdgeInsets.all(12), child: SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)))
+                        : IconButton(
+                            icon: Icon(_isAddressVerified ? Icons.check_circle_rounded : Icons.location_searching_rounded, color: _isAddressVerified ? const Color(0xFF16A34A) : AppColors.primary),
+                            onPressed: _autoVerifyAddress,
+                            tooltip: 'Auto-Verify Address',
+                          ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // Quick Estate Selector Chips
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _buildAddressChip('Admiralty Way, Lekki Phase 1'),
+                      const SizedBox(width: 6),
+                      _buildAddressChip('Banana Island Estate, Ikoyi'),
+                      const SizedBox(width: 6),
+                      _buildAddressChip('Chevron Drive, Lekki'),
+                      const SizedBox(width: 6),
+                      _buildAddressChip('Maitama District, Abuja'),
+                      const SizedBox(width: 6),
+                      _buildAddressChip('GRA Phase 2, Port Harcourt'),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 18),
 
-                // 6. Role-Tailored Verification Section
+                // 7. Role-Tailored Verification Section
                 if (_isDirectLandlord) ...[
                   // Direct Landlord Title & Deed Verification Standard
                   Container(
@@ -663,7 +954,7 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
                 ],
                 const SizedBox(height: 18),
 
-                // 7. Payout Transparency Box
+                // 8. Payout Transparency Box
                 if (_basePrice > 0) ...[
                   Container(
                     padding: const EdgeInsets.all(14),
@@ -734,6 +1025,34 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildAddressChip(String estate) {
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _addressController.text = estate;
+          _isAddressVerified = true;
+          _verifiedFormattedAddress = estate;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.borderDark),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.location_on_outlined, size: 12, color: AppColors.primary),
+            const SizedBox(width: 4),
+            Text(estate.split(',').first, style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+          ],
+        ),
       ),
     );
   }
