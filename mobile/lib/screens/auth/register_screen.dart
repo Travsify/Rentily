@@ -31,7 +31,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _cacNumberController = TextEditingController();
   final TextEditingController _officeStreetController = TextEditingController();
   final TextEditingController _officeLandmarkController = TextEditingController();
-  final TextEditingController _officePostalCodeController = TextEditingController();
 
   late String _selectedRole; // 'renter', 'partner', 'owner'
   String _selectedState = 'Lagos';
@@ -64,7 +63,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _cacNumberController.dispose();
     _officeStreetController.dispose();
     _officeLandmarkController.dispose();
-    _officePostalCodeController.dispose();
     super.dispose();
   }
 
@@ -206,11 +204,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     // Synthesize structured address
     final street = _officeStreetController.text.trim();
     final landmark = _officeLandmarkController.text.trim();
-    final postcode = _officePostalCodeController.text.trim();
     
     String? fullOfficeAddress;
     if (effectiveRole == 'partner') {
-      fullOfficeAddress = '$street${landmark.isNotEmpty ? ", Near $landmark" : ""}, $_selectedCity, $_selectedState State${postcode.isNotEmpty ? ", $postcode" : ""}';
+      fullOfficeAddress = '$street${landmark.isNotEmpty ? ", Near $landmark" : ""}, $_selectedCity, $_selectedState State';
     }
 
     final result = await AuthService.register(
@@ -678,62 +675,45 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         const SizedBox(height: 14),
 
-        // State & City Row
-        Row(
-          children: [
-            // State (All 36 States + FCT)
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('STATE OF RESIDENCE', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
-                  const SizedBox(height: 6),
-                  DropdownButtonFormField<String>(
-                    value: _selectedState,
-                    dropdownColor: Colors.white,
-                    style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-                    decoration: _buildInputDecoration('State', Icons.location_on_outlined),
-                    items: NigerianStatesCities.states.map((s) => DropdownMenuItem(value: s, child: Text(s, overflow: TextOverflow.ellipsis))).toList(),
-                    onChanged: (val) {
-                      if (val != null) {
-                        setState(() {
-                          _selectedState = val;
-                          final cities = NigerianStatesCities.getCitiesForState(val);
-                          _selectedCity = cities.contains(_selectedCity) ? _selectedCity : cities.first;
-                        });
-                      }
-                    },
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
+        // State of Residence (Full Width)
+        Text('STATE OF RESIDENCE', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+        const SizedBox(height: 6),
+        DropdownButtonFormField<String>(
+          isExpanded: true,
+          value: _selectedState,
+          dropdownColor: Colors.white,
+          style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+          decoration: _buildInputDecoration('Select State', Icons.location_on_outlined),
+          items: NigerianStatesCities.states.map((s) => DropdownMenuItem(value: s, child: Text(s, overflow: TextOverflow.ellipsis, maxLines: 1))).toList(),
+          onChanged: (val) {
+            if (val != null) {
+              setState(() {
+                _selectedState = val;
+                final cities = NigerianStatesCities.getCitiesForState(val);
+                _selectedCity = cities.contains(_selectedCity) ? _selectedCity : cities.first;
+              });
+            }
+          },
+        ),
+        const SizedBox(height: 14),
 
-            // City / District (Cascading)
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('CITY / DISTRICT', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
-                  const SizedBox(height: 6),
-                  DropdownButtonFormField<String>(
-                    value: NigerianStatesCities.getCitiesForState(_selectedState).contains(_selectedCity)
-                        ? _selectedCity
-                        : NigerianStatesCities.getCitiesForState(_selectedState).first,
-                    dropdownColor: Colors.white,
-                    style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-                    decoration: _buildInputDecoration('City', Icons.location_city_rounded),
-                    items: NigerianStatesCities.getCitiesForState(_selectedState)
-                        .map((c) => DropdownMenuItem(value: c, child: Text(c, overflow: TextOverflow.ellipsis)))
-                        .toList(),
-                    onChanged: (val) {
-                      if (val != null) setState(() => _selectedCity = val);
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ],
+        // City / District (Full Width & Cascading)
+        Text('CITY / DISTRICT / AREA', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+        const SizedBox(height: 6),
+        DropdownButtonFormField<String>(
+          isExpanded: true,
+          value: NigerianStatesCities.getCitiesForState(_selectedState).contains(_selectedCity)
+              ? _selectedCity
+              : NigerianStatesCities.getCitiesForState(_selectedState).first,
+          dropdownColor: Colors.white,
+          style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+          decoration: _buildInputDecoration('Select City / District', Icons.location_city_rounded),
+          items: NigerianStatesCities.getCitiesForState(_selectedState)
+              .map((c) => DropdownMenuItem(value: c, child: Text(c, overflow: TextOverflow.ellipsis, maxLines: 1)))
+              .toList(),
+          onChanged: (val) {
+            if (val != null) setState(() => _selectedCity = val);
+          },
         ),
       ],
     );
@@ -766,62 +746,45 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         const SizedBox(height: 14),
 
-        // State & City Row
-        Row(
-          children: [
-            // State
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('PRIMARY PROPERTY STATE', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
-                  const SizedBox(height: 6),
-                  DropdownButtonFormField<String>(
-                    value: _selectedState,
-                    dropdownColor: Colors.white,
-                    style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-                    decoration: _buildInputDecoration('State', Icons.location_on_outlined),
-                    items: NigerianStatesCities.states.map((s) => DropdownMenuItem(value: s, child: Text(s, overflow: TextOverflow.ellipsis))).toList(),
-                    onChanged: (val) {
-                      if (val != null) {
-                        setState(() {
-                          _selectedState = val;
-                          final cities = NigerianStatesCities.getCitiesForState(val);
-                          _selectedCity = cities.contains(_selectedCity) ? _selectedCity : cities.first;
-                        });
-                      }
-                    },
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
+        // Primary Property State (Full Width)
+        Text('PRIMARY PROPERTY STATE', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+        const SizedBox(height: 6),
+        DropdownButtonFormField<String>(
+          isExpanded: true,
+          value: _selectedState,
+          dropdownColor: Colors.white,
+          style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+          decoration: _buildInputDecoration('Select State', Icons.location_on_outlined),
+          items: NigerianStatesCities.states.map((s) => DropdownMenuItem(value: s, child: Text(s, overflow: TextOverflow.ellipsis, maxLines: 1))).toList(),
+          onChanged: (val) {
+            if (val != null) {
+              setState(() {
+                _selectedState = val;
+                final cities = NigerianStatesCities.getCitiesForState(val);
+                _selectedCity = cities.contains(_selectedCity) ? _selectedCity : cities.first;
+              });
+            }
+          },
+        ),
+        const SizedBox(height: 14),
 
-            // City / District
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('CITY / DISTRICT', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
-                  const SizedBox(height: 6),
-                  DropdownButtonFormField<String>(
-                    value: NigerianStatesCities.getCitiesForState(_selectedState).contains(_selectedCity)
-                        ? _selectedCity
-                        : NigerianStatesCities.getCitiesForState(_selectedState).first,
-                    dropdownColor: Colors.white,
-                    style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-                    decoration: _buildInputDecoration('City', Icons.location_city_rounded),
-                    items: NigerianStatesCities.getCitiesForState(_selectedState)
-                        .map((c) => DropdownMenuItem(value: c, child: Text(c, overflow: TextOverflow.ellipsis)))
-                        .toList(),
-                    onChanged: (val) {
-                      if (val != null) setState(() => _selectedCity = val);
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ],
+        // City / District (Full Width)
+        Text('CITY / DISTRICT / AREA', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+        const SizedBox(height: 6),
+        DropdownButtonFormField<String>(
+          isExpanded: true,
+          value: NigerianStatesCities.getCitiesForState(_selectedState).contains(_selectedCity)
+              ? _selectedCity
+              : NigerianStatesCities.getCitiesForState(_selectedState).first,
+          dropdownColor: Colors.white,
+          style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+          decoration: _buildInputDecoration('Select City / District', Icons.location_city_rounded),
+          items: NigerianStatesCities.getCitiesForState(_selectedState)
+              .map((c) => DropdownMenuItem(value: c, child: Text(c, overflow: TextOverflow.ellipsis, maxLines: 1)))
+              .toList(),
+          onChanged: (val) {
+            if (val != null) setState(() => _selectedCity = val);
+          },
         ),
       ],
     );
@@ -856,57 +819,43 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         const SizedBox(height: 14),
 
-        // State & City Row (36 States + Cascading Cities)
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('STATE OF OPERATION', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
-                  const SizedBox(height: 6),
-                  DropdownButtonFormField<String>(
-                    value: _selectedState,
-                    dropdownColor: Colors.white,
-                    style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-                    decoration: _buildInputDecoration('State', Icons.location_on_outlined),
-                    items: NigerianStatesCities.states.map((s) => DropdownMenuItem(value: s, child: Text(s, overflow: TextOverflow.ellipsis))).toList(),
-                    onChanged: (val) {
-                      if (val != null) {
-                        setState(() {
-                          _selectedState = val;
-                          final cities = NigerianStatesCities.getCitiesForState(val);
-                          _selectedCity = cities.contains(_selectedCity) ? _selectedCity : cities.first;
-                        });
-                      }
-                    },
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('CITY / DISTRICT', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
-                  const SizedBox(height: 6),
-                  DropdownButtonFormField<String>(
-                    value: effectiveCity,
-                    dropdownColor: Colors.white,
-                    style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-                    decoration: _buildInputDecoration('City', Icons.location_city_rounded),
-                    items: currentCities
-                        .map((c) => DropdownMenuItem(value: c, child: Text(c, overflow: TextOverflow.ellipsis)))
-                        .toList(),
-                    onChanged: (val) {
-                      if (val != null) setState(() => _selectedCity = val);
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ],
+        // State of Operation (Full Width)
+        Text('STATE OF OPERATION', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+        const SizedBox(height: 6),
+        DropdownButtonFormField<String>(
+          isExpanded: true,
+          value: _selectedState,
+          dropdownColor: Colors.white,
+          style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+          decoration: _buildInputDecoration('Select State', Icons.location_on_outlined),
+          items: NigerianStatesCities.states.map((s) => DropdownMenuItem(value: s, child: Text(s, overflow: TextOverflow.ellipsis, maxLines: 1))).toList(),
+          onChanged: (val) {
+            if (val != null) {
+              setState(() {
+                _selectedState = val;
+                final cities = NigerianStatesCities.getCitiesForState(val);
+                _selectedCity = cities.contains(_selectedCity) ? _selectedCity : cities.first;
+              });
+            }
+          },
+        ),
+        const SizedBox(height: 14),
+
+        // City / Commercial District (Full Width)
+        Text('CITY / COMMERCIAL DISTRICT', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+        const SizedBox(height: 6),
+        DropdownButtonFormField<String>(
+          isExpanded: true,
+          value: effectiveCity,
+          dropdownColor: Colors.white,
+          style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+          decoration: _buildInputDecoration('Select Commercial District', Icons.location_city_rounded),
+          items: currentCities
+              .map((c) => DropdownMenuItem(value: c, child: Text(c, overflow: TextOverflow.ellipsis, maxLines: 1)))
+              .toList(),
+          onChanged: (val) {
+            if (val != null) setState(() => _selectedCity = val);
+          },
         ),
         const SizedBox(height: 14),
 
@@ -920,42 +869,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         const SizedBox(height: 14),
 
-        // Nearest Landmark & Postal Code Row
-        Row(
-          children: [
-            Expanded(
-              flex: 3,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('NEAREST LANDMARK / BUS STOP', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: _officeLandmarkController,
-                    style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.w600),
-                    decoration: _buildInputDecoration('e.g. Near Ebeano Supermarket', Icons.near_me_rounded),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              flex: 2,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('POSTCODE', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
-                  const SizedBox(height: 6),
-                  TextField(
-                    controller: _officePostalCodeController,
-                    keyboardType: TextInputType.number,
-                    style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.w600),
-                    decoration: _buildInputDecoration('e.g. 105102', Icons.markunread_mailbox_outlined),
-                  ),
-                ],
-              ),
-            ),
-          ],
+        // Nearest Landmark / Bus Stop
+        Text('NEAREST LANDMARK / BUS STOP', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+        const SizedBox(height: 6),
+        TextField(
+          controller: _officeLandmarkController,
+          style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.w600),
+          decoration: _buildInputDecoration('e.g. Near Ebeano Supermarket', Icons.near_me_rounded),
         ),
       ],
     );
@@ -965,8 +885,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget _buildPartnerDirectorStep() {
     final street = _officeStreetController.text.trim();
     final landmark = _officeLandmarkController.text.trim();
-    final postcode = _officePostalCodeController.text.trim();
-    final synthesizedAddress = '$street${landmark.isNotEmpty ? ", Near $landmark" : ""}, $_selectedCity, $_selectedState State${postcode.isNotEmpty ? ", $postcode" : ""}';
+    final synthesizedAddress = '$street${landmark.isNotEmpty ? ", Near $landmark" : ""}, $_selectedCity, $_selectedState State';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
