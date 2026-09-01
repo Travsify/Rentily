@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -281,7 +281,7 @@ class _InlineOtpVerificationWidgetState extends State<InlineOtpVerificationWidge
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      shape: RoundedRectangle.circular(8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
                     child: _isSending
                         ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2))
@@ -399,7 +399,7 @@ class _InlineOtpVerificationWidgetState extends State<InlineOtpVerificationWidge
                         backgroundColor: AppColors.primary,
                         elevation: 0,
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                        shape: RoundedRectangle.circular(8),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         minimumSize: Size.zero,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
