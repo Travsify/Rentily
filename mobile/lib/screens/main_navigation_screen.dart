@@ -113,6 +113,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     });
   }
 
+  void togglePartnerMode(bool enable) {
+    setState(() {
+      _activeViewMode = enable ? 'partner' : 'consumer';
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_activeViewMode == 'partner') {

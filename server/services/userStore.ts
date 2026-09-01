@@ -36,6 +36,26 @@ function ensureStorage() {
   if (!fs.existsSync(USERS_FILE) || fs.readFileSync(USERS_FILE, 'utf-8').trim() === '[]') {
     const defaultSeed: StoredUser[] = [
       {
+        id: 'usr_drivegates_partner_live',
+        email: 'info@drivegates.co.uk',
+        fullName: 'Drivegates Limited',
+        businessName: 'Drivegates Limited',
+        phoneNumber: '08123456789',
+        passwordHash: hashPassword('Forgetpassword.'),
+        role: 'partner',
+        isVerified: true,
+        ninNumber: '22194820183',
+        cacNumber: 'RC 1892834',
+        officeAddress: '14 Admiralty Way, Lekki Phase 1, Lagos',
+        bvnVerified: true,
+        accountNumber: '9861458175',
+        bankName: 'Flutterwave MFB',
+        state: 'Lagos',
+        walletBalance: 0.0,
+        createdAt: '2026-08-30T12:00:00.000Z',
+        updatedAt: new Date().toISOString(),
+      },
+      {
         id: 'usr_patrick_achua_live',
         email: 'patrickachua3@gmail.com',
         fullName: 'Patrick Achua',

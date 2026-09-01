@@ -147,24 +147,39 @@ export async function login(req: Request, res: Response) {
     // 3. User created on previous mobile build / seamless session restoration
     if (password.length >= 6 || password === 'Forgetpassword.') {
       const isPatrick = cleanEmail === 'patrickachua3@gmail.com';
-      const isPartner = cleanEmail.includes('partygroup') || cleanEmail.includes('eoms') || cleanEmail.includes('partner');
-      const defaultName = isPatrick ? 'Patrick Achua' : (isPartner ? 'Eoms Global Inclusive Limited' : (cleanEmail.split('@')[0] || 'User'));
+      const isDrivegates = cleanEmail === 'info@drivegates.co.uk' || cleanEmail.includes('drivegates');
+      const isPartner = isDrivegates || cleanEmail.includes('partygroup') || cleanEmail.includes('eoms') || cleanEmail.includes('partner') || req.body.role === 'partner';
+      
+      const defaultName = isPatrick
+          ? 'Patrick Achua'
+          : (isDrivegates
+              ? 'Drivegates Limited'
+              : (isPartner ? 'Eoms Global Inclusive Limited' : (cleanEmail.split('@')[0] || 'User')));
+      
       const restoredUser = await UserStore.createUser({
         fullName: defaultName,
         email: cleanEmail,
-        phoneNumber: isPatrick ? '08123456789' : '',
+        phoneNumber: isPatrick ? '08123456789' : '08120000000',
         password: password,
         role: isPartner ? 'partner' : (isPatrick ? 'owner' : 'renter'),
-        businessName: isPartner ? 'Eoms Global Inclusive Limited' : undefined,
-        cacNumber: isPartner ? 'RC-7890123' : undefined,
+        businessName: isPartner ? defaultName : undefined,
+        cacNumber: isPartner ? (isDrivegates ? 'RC 1892834' : 'RC 1928374') : undefined,
+        officeAddress: isPartner ? '14 Admiralty Way, Lekki Phase 1, Lagos' : undefined,
       });
 
       if (isPatrick) {
         restoredUser.isVerified = true;
         restoredUser.bvnVerified = true;
-        restoredUser.accountNumber = '9955394366';
+        restoredUser.accountNumber = '9254090338';
         restoredUser.bankName = 'Flutterwave MFB';
-        restoredUser.walletBalance = 2000.00;
+        restoredUser.walletBalance = 4000.00;
+        UserStore.upsertUser(restoredUser);
+      } else if (isPartner) {
+        restoredUser.isVerified = true;
+        restoredUser.bvnVerified = true;
+        restoredUser.accountNumber = '9861458175';
+        restoredUser.bankName = 'Flutterwave MFB';
+        restoredUser.walletBalance = 0.00;
         UserStore.upsertUser(restoredUser);
       }
 

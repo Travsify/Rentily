@@ -43,10 +43,18 @@ class UserProfile {
     this.partnerStatus = 'unverified',
   });
 
-  // Extract real first name (e.g. "Patrick Atua" -> "Patrick")
+  // Extract real first name or corporate business name
   String get firstName {
+    if (role == 'partner') {
+      if (businessName != null && businessName!.isNotEmpty) return businessName!;
+      if (fullName.isNotEmpty && fullName.toLowerCase() != 'info' && fullName.toLowerCase() != 'user') return fullName;
+      return 'Corporate Partner';
+    }
     final trimmed = fullName.trim();
-    if (trimmed.isEmpty) return 'User';
+    if (trimmed.isEmpty || trimmed.toLowerCase() == 'info' || trimmed.toLowerCase() == 'user') {
+      if (businessName != null && businessName!.isNotEmpty) return businessName!;
+      return 'User';
+    }
     final parts = trimmed.split(' ');
     final first = parts.first;
     if (first.isEmpty) return 'User';

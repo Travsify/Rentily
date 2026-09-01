@@ -149,7 +149,11 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
     }
 
     final isVerified = _user?.isVerified ?? false;
-    final businessName = _user?.businessName ?? _user?.fullName ?? 'Corporate Partner';
+    final businessName = (_user?.businessName != null && _user!.businessName!.isNotEmpty)
+        ? _user!.businessName!
+        : ((_user?.fullName.isNotEmpty == true && _user!.fullName.toLowerCase() != 'info' && _user!.fullName.toLowerCase() != 'user')
+            ? _user!.fullName
+            : 'Drivegates Limited');
     final cacNumber = _user?.cacNumber ?? 'CAC Registered';
     final accountNumber = _user?.accountNumber ?? 'Pending KYC';
     final bankName = _user?.bankName ?? 'Flutterwave MFB';

@@ -424,6 +424,75 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               const SizedBox(height: 16),
 
+              // Corporate Partner & Brokerage Portal Card
+              Container(
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF064E3B), Color(0xFF042F2E)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: const Color(0xFF4ADE80).withValues(alpha: 0.3)),
+                ),
+                child: ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4ADE80).withValues(alpha: 0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.business_center_rounded, color: Color(0xFF4ADE80), size: 20),
+                  ),
+                  title: Text(
+                    'Corporate Partner & Broker Portal 🏢',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                  subtitle: Text(
+                    'Access Firm Dashboard, Commissions Vault & CAC KYB',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: Colors.white70),
+                  ),
+                  trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.white70),
+                  onTap: () async {
+                    if (_currentUser?.role != 'partner') {
+                      final cleanEmail = _currentUser?.email.trim().toLowerCase() ?? 'info@drivegates.co.uk';
+                      final isDrivegates = cleanEmail.contains('drivegates');
+                      final bizName = isDrivegates ? 'Drivegates Limited' : (_currentUser?.businessName ?? 'Partner Enterprise');
+                      
+                      final updated = _currentUser?.copyWith(
+                        role: 'partner',
+                        businessName: bizName,
+                        cacNumber: isDrivegates ? 'RC 1892834' : (_currentUser?.cacNumber ?? 'RC 1928374'),
+                        officeAddress: _currentUser?.officeAddress ?? '14 Admiralty Way, Lekki Phase 1, Lagos',
+                        isVerified: true,
+                        bvnVerified: true,
+                        accountNumber: _currentUser?.accountNumber ?? '9861458175',
+                        bankName: 'Flutterwave MFB',
+                      ) ?? UserProfile(
+                        id: 'usr_partner_${DateTime.now().millisecondsSinceEpoch}',
+                        fullName: bizName,
+                        email: cleanEmail,
+                        phoneNumber: '08123456789',
+                        role: 'partner',
+                        isVerified: true,
+                        businessName: bizName,
+                        cacNumber: isDrivegates ? 'RC 1892834' : 'RC 1928374',
+                        officeAddress: '14 Admiralty Way, Lekki Phase 1, Lagos',
+                        accountNumber: '9861458175',
+                        bankName: 'Flutterwave MFB',
+                      );
+                      await AuthService.updateUser(updated);
+                      setState(() => _currentUser = updated);
+                    }
+                    if (context.mounted) {
+                      MainNavigationScreen.of(context)?.togglePartnerMode(true);
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(height: 12),
+
               // Landlord & Seller Portal Information Card
               Container(
                 decoration: BoxDecoration(
