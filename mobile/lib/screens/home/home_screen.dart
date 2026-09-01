@@ -910,7 +910,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              _user?.isVerified == true ? 'Rentilly Verified Account' : 'Tier 1 Account (Unverified)',
+                              _user?.isVerified == true ? 'Tier-3 Identity & Bank Verification' : 'Tier 1 Account (Unverified)',
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,

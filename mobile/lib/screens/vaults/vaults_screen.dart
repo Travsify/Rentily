@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../constants/app_colors.dart';
-import '../../widgets/rentilly_bottom_bar.dart';
 
 class VaultsScreen extends StatefulWidget {
   const VaultsScreen({super.key});
@@ -16,6 +15,7 @@ class VaultsScreen extends StatefulWidget {
 class _VaultsScreenState extends State<VaultsScreen> {
   final NumberFormat _currencyFormat = NumberFormat('#,###', 'en_US');
   List<Map<String, dynamic>> _userVaults = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -31,29 +31,16 @@ class _VaultsScreenState extends State<VaultsScreen> {
         final List<dynamic> list = json.decode(saved);
         setState(() {
           _userVaults = list.map((e) => Map<String, dynamic>.from(e)).toList();
+          _isLoading = false;
         });
         return;
       } catch (_) {}
     }
 
-    // Default target savings templates for new users with FGN T-Bill backed yields
-    final defaultTemplates = [
-      {
-        'title': 'Annual Rent Stash 2027',
-        'target': 4500000.0,
-        'saved': 0.0,
-        'yieldRate': '15.5% p.a.',
-      },
-      {
-        'title': 'Caution Deposit & Service Fund',
-        'target': 600000.0,
-        'saved': 0.0,
-        'yieldRate': '16.0% p.a.',
-      }
-    ];
-
+    // Per specifications: Blank living vault until user adds one themselves!
     setState(() {
-      _userVaults = defaultTemplates;
+      _userVaults = [];
+      _isLoading = false;
     });
   }
 
@@ -65,100 +52,213 @@ class _VaultsScreenState extends State<VaultsScreen> {
   void _showCreateVaultDialog() {
     final TextEditingController titleController = TextEditingController();
     final TextEditingController targetController = TextEditingController();
+    String selectedCategory = 'Annual Rent Stash';
+
+    final categories = [
+      {
+        'name': 'Annual Rent Stash',
+        'desc': 'Save towards yearly rent renewal',
+        'yield': '7.0% p.a.',
+        'yieldNote': '5.0% - 8.0% APY',
+      },
+      {
+        'name': 'Living Utility & Target Stash',
+        'desc': 'Power tokens, water, data, & maintenance',
+        'yield': '5.0% p.a.',
+        'yieldNote': 'Max 5.0% APY',
+      },
+      {
+        'name': 'Caution Deposit & Service Fund',
+        'desc': 'Interest-free escrow damage deposit',
+        'yield': '0.0%',
+        'yieldNote': 'Interest-Free Escrow Protection',
+      },
+    ];
 
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
-            left: 20,
-            right: 20,
-            top: 20,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Create New Living Vault 🎯',
-                style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Lock funds aside with up to 11.5% annual yield for rent, power, or groceries.',
-                style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 16),
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            final currentCategoryMeta = categories.firstWhere((c) => c['name'] == selectedCategory);
 
-              Text('VAULT NAME', style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
-              const SizedBox(height: 6),
-              TextField(
-                controller: titleController,
-                style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-                decoration: InputDecoration(
-                  hintText: 'e.g. Annual Rent 2027 or Light Bill Stash',
-                  hintStyle: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textMuted),
-                  filled: true,
-                  fillColor: const Color(0xFFF9FAFB),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.borderDark)),
-                ),
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+                left: 20,
+                right: 20,
+                top: 20,
               ),
-              const SizedBox(height: 14),
-
-              Text('TARGET AMOUNT (₦)', style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
-              const SizedBox(height: 6),
-              TextField(
-                controller: targetController,
-                keyboardType: TextInputType.number,
-                style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w700),
-                decoration: InputDecoration(
-                  prefixText: '₦ ',
-                  prefixStyle: GoogleFonts.plusJakartaSans(color: AppColors.primary, fontWeight: FontWeight.bold),
-                  hintText: '2,500,000',
-                  hintStyle: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textMuted),
-                  filled: true,
-                  fillColor: const Color(0xFFF9FAFB),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.borderDark)),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    final t = titleController.text.trim();
-                    final amt = double.tryParse(targetController.text.replaceAll(',', '').trim()) ?? 0;
-                    if (t.isNotEmpty && amt > 0) {
-                      setState(() {
-                        _userVaults.add({
-                          'title': t,
-                          'target': amt,
-                          'saved': 0.0,
-                          'yieldRate': '11.5% p.a.',
-                        });
-                      });
-                      _saveVaults();
-                      Navigator.of(ctx).pop();
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                            child: const Icon(Icons.savings_rounded, color: AppColors.primary, size: 20),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            'Create Living Vault 🎯',
+                            style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                          ),
+                        ],
+                      ),
+                      IconButton(icon: const Icon(Icons.close_rounded, size: 20), onPressed: () => Navigator.of(ctx).pop()),
+                    ],
                   ),
-                  child: Text('Create Living Vault', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold)),
-                ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Set aside disciplined funds for rent, utility bills, or caution deposits.',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(height: 16),
+
+                  Text('SELECT VAULT CATEGORY', style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w800, color: AppColors.textSecondary, letterSpacing: 0.8)),
+                  const SizedBox(height: 8),
+
+                  // Category Selector Chips
+                  Column(
+                    children: categories.map((cat) {
+                      final isSelected = selectedCategory == cat['name'];
+                      return GestureDetector(
+                        onTap: () => setModalState(() {
+                          selectedCategory = cat['name']!;
+                          if (titleController.text.isEmpty || categories.any((c) => c['name'] == titleController.text)) {
+                            titleController.text = cat['name']!;
+                          }
+                        }),
+                        child: Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: isSelected ? AppColors.primary.withValues(alpha: 0.06) : const Color(0xFFF9FAFB),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: isSelected ? AppColors.primary : AppColors.borderDark, width: isSelected ? 1.5 : 1),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(cat['name']!, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                                  Text(cat['desc']!, style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary)),
+                                ],
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: cat['yield'] == '0.0%' ? const Color(0xFFF1F5F9) : const Color(0xFFECFDF5),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  cat['yieldNote']!,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    color: cat['yield'] == '0.0%' ? AppColors.textSecondary : const Color(0xFF059669),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 12),
+
+                  Text('VAULT NAME / TITLE', style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w800, color: AppColors.textSecondary, letterSpacing: 0.8)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: titleController,
+                    style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+                    decoration: InputDecoration(
+                      hintText: 'e.g. Annual Rent Renewal 2027',
+                      hintStyle: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: AppColors.textMuted),
+                      filled: true,
+                      fillColor: const Color(0xFFF9FAFB),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.borderDark)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  Text('TARGET GOAL AMOUNT (₦)', style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w800, color: AppColors.textSecondary, letterSpacing: 0.8)),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: targetController,
+                    keyboardType: TextInputType.number,
+                    style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w700),
+                    decoration: InputDecoration(
+                      prefixText: '₦ ',
+                      prefixStyle: GoogleFonts.plusJakartaSans(color: AppColors.primary, fontWeight: FontWeight.bold),
+                      hintText: '1,500,000',
+                      hintStyle: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textMuted),
+                      filled: true,
+                      fillColor: const Color(0xFFF9FAFB),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.borderDark)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        final t = titleController.text.trim().isNotEmpty ? titleController.text.trim() : selectedCategory;
+                        final amt = double.tryParse(targetController.text.replaceAll(',', '').trim()) ?? 0;
+                        if (amt > 0) {
+                          setState(() {
+                            _userVaults.add({
+                              'title': t,
+                              'category': selectedCategory,
+                              'target': amt,
+                              'saved': 0.0,
+                              'yieldRate': currentCategoryMeta['yield']!,
+                              'yieldNote': currentCategoryMeta['yieldNote']!,
+                            });
+                          });
+                          _saveVaults();
+                          Navigator.of(ctx).pop();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Living Vault "$t" created successfully!', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold)),
+                              backgroundColor: AppColors.primary,
+                            ),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Please enter a valid target goal amount.'), backgroundColor: AppColors.error),
+                          );
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: Text('Create Living Vault', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
@@ -166,7 +266,7 @@ class _VaultsScreenState extends State<VaultsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final double totalVaultSavings = _userVaults.fold(0.0, (sum, v) => sum + (v['saved'] as num));
+    final double totalVaultSavings = _userVaults.fold(0.0, (sum, v) => sum + ((v['saved'] ?? 0.0) as num));
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
@@ -190,7 +290,7 @@ class _VaultsScreenState extends State<VaultsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Summary Banner Card (Deep Emerald Teal with Amber Accent)
+              // Summary Banner Card
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
@@ -228,13 +328,13 @@ class _VaultsScreenState extends State<VaultsScreen> {
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
                             color: AppColors.accentOrange,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            'UP TO 11.5% YIELD',
+                            '5.0% - 8.0% ANNUAL YIELD',
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 8.5,
                               fontWeight: FontWeight.bold,
@@ -255,7 +355,7 @@ class _VaultsScreenState extends State<VaultsScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Automated living reserves across rent, power, data, and groceries.',
+                      'Disciplined living reserves. Caution deposit protection is strictly interest-free (0%); annual rent stashes earn 5% to 8% yield.',
                       style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: Colors.white.withValues(alpha: 0.8)),
                     ),
                   ],
@@ -263,19 +363,13 @@ class _VaultsScreenState extends State<VaultsScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Salary Splitter Banner
+              // Smart Salary Splitter Banner
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(color: AppColors.borderDark),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.02),
-                      blurRadius: 8,
-                    ),
-                  ],
                 ),
                 child: Row(
                   children: [
@@ -301,7 +395,7 @@ class _VaultsScreenState extends State<VaultsScreen> {
                             ),
                           ),
                           Text(
-                            'Automatically routes a percentage of every deposit towards your annual rent renewal.',
+                            'Automatically allocates a percentage of every wallet top-up into your annual rent renewal vault.',
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 10,
                               color: AppColors.textSecondary,
@@ -315,12 +409,12 @@ class _VaultsScreenState extends State<VaultsScreen> {
               ),
               const SizedBox(height: 22),
 
-              // Active Living Pockets Header
+              // Active Living Vaults Header
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'ACTIVE LIVING POCKETS',
+                    'ACTIVE LIVING VAULTS',
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 10,
                       fontWeight: FontWeight.w800,
@@ -332,7 +426,7 @@ class _VaultsScreenState extends State<VaultsScreen> {
                     onPressed: _showCreateVaultDialog,
                     icon: const Icon(Icons.add_rounded, size: 16, color: AppColors.primary),
                     label: Text(
-                      'New Vault',
+                      'Add New Vault',
                       style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
                     ),
                   ),
@@ -340,7 +434,7 @@ class _VaultsScreenState extends State<VaultsScreen> {
               ),
               const SizedBox(height: 8),
 
-              // Real User Vaults or Clean Empty State
+              // Blank state until user adds a vault
               if (_userVaults.isEmpty)
                 Container(
                   width: double.infinity,
@@ -349,50 +443,44 @@ class _VaultsScreenState extends State<VaultsScreen> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: AppColors.borderDark),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.02),
-                        blurRadius: 10,
-                      ),
-                    ],
                   ),
                   child: Column(
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(14),
+                        padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color: AppColors.backgroundDark,
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(Icons.savings_outlined, size: 36, color: AppColors.textMuted),
                       ),
-                      const SizedBox(height: 12),
+                      const SizedBox(height: 14),
                       Text(
-                        'No Living Vaults Created Yet',
+                        'No Active Living Vaults',
                         style: GoogleFonts.plusJakartaSans(
-                          fontSize: 13,
+                          fontSize: 14,
                           fontWeight: FontWeight.bold,
                           color: AppColors.textPrimary,
                         ),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Create your first vault to save for your annual rent, electricity tokens, data, or foodstuff with up to 11.5% interest yield.',
+                        'You currently have no active living vaults. Tap below to create your customized annual rent stash, utility pocket, or caution deposit vault.',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 11,
                           color: AppColors.textSecondary,
+                          height: 1.4,
                         ),
                       ),
                       const SizedBox(height: 18),
                       ElevatedButton.icon(
                         onPressed: _showCreateVaultDialog,
-                        icon: const Icon(Icons.add_rounded, size: 16),
-                        label: Text('Create Target Vault', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold)),
+                        icon: const Icon(Icons.add_rounded, size: 18, color: Colors.white),
+                        label: Text('Add New Vault', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.white)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                       ),
@@ -406,9 +494,10 @@ class _VaultsScreenState extends State<VaultsScreen> {
                   itemCount: _userVaults.length,
                   itemBuilder: (context, index) {
                     final v = _userVaults[index];
-                    final double saved = (v['saved'] as num).toDouble();
-                    final double target = (v['target'] as num).toDouble();
+                    final double saved = ((v['saved'] ?? 0.0) as num).toDouble();
+                    final double target = ((v['target'] ?? 0.0) as num).toDouble();
                     final double progress = target > 0 ? (saved / target).clamp(0.0, 1.0) : 0.0;
+                    final yieldStr = v['yieldRate'] ?? (v['yieldNote'] ?? '5.0% p.a.');
 
                     return Container(
                       margin: const EdgeInsets.only(bottom: 12),
@@ -433,21 +522,38 @@ class _VaultsScreenState extends State<VaultsScreen> {
                               ),
                               const SizedBox(width: 10),
                               Expanded(
-                                child: Text(
-                                  v['title'],
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.textPrimary,
-                                  ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      v['title'] ?? 'Living Vault',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                    if (v['category'] != null)
+                                      Text(
+                                        v['category'],
+                                        style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary),
+                                      ),
+                                  ],
                                 ),
                               ),
-                              Text(
-                                v['yieldRate'],
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.accentOrange,
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: yieldStr == '0.0%' ? const Color(0xFFF1F5F9) : const Color(0xFFECFDF5),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  yieldStr,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: yieldStr == '0.0%' ? AppColors.textSecondary : const Color(0xFF059669),
+                                  ),
                                 ),
                               ),
                             ],

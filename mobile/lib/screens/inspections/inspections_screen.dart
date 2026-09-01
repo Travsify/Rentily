@@ -19,7 +19,7 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     _loadInspections();
   }
 
@@ -46,7 +46,7 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
       backgroundColor: AppColors.backgroundDark,
       appBar: AppBar(
         title: Text(
-          'Next-Gen Property Inspections',
+          'Property Inspections',
           style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
         ),
         backgroundColor: Colors.white,
@@ -55,13 +55,12 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
           controller: _tabController,
           labelColor: AppColors.primary,
           unselectedLabelColor: AppColors.textSecondary,
-          labelStyle: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold),
+          labelStyle: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold),
           indicatorColor: AppColors.primary,
           indicatorWeight: 3,
           tabs: const [
-            Tab(text: 'Smart Self-Tour 🔑'),
             Tab(text: '4K Live Video 📹'),
-            Tab(text: 'In-Person 🚶'),
+            Tab(text: 'In-Person Tour 🚶'),
           ],
         ),
       ),
@@ -69,11 +68,9 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
         child: TabBarView(
           controller: _tabController,
           children: [
-            // Tab 1: AI-Guided Smart Self-Tour (IoT Smart Lock)
-            _buildSmartSelfTourTab(),
-            // Tab 2: 4K Live Video Tour with Landlord
+            // Tab 1: 4K Live Video Tour with Landlord / Host Scheduled Window
             _buildVideoTourTab(),
-            // Tab 3: Zero-Agent Verified In-Person Inspection
+            // Tab 2: Verified In-Person Inspection Walkthrough
             _buildInPersonTab(),
           ],
         ),
@@ -81,12 +78,13 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
     );
   }
 
-  Widget _buildSmartSelfTourTab() {
+  Widget _buildVideoTourTab() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(18),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Live Video Hero Banner
           Container(
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
@@ -96,6 +94,13 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.18),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
+                ),
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -109,135 +114,157 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
                         color: Colors.white.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: Text('FUTURISTIC INSPECTION', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: Colors.white)),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: const BoxDecoration(color: Color(0xFF22C55E), shape: BoxShape.circle),
+                          ),
+                          const SizedBox(width: 6),
+                          Text('4K LIVE STREAM READY', style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white)),
+                        ],
+                      ),
                     ),
-                    const Icon(Icons.lock_open_rounded, color: Colors.white, size: 22),
+                    const Icon(Icons.videocam_rounded, color: Colors.white, size: 24),
                   ],
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'IoT Smart Lock Self-Tour',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                  'Scheduled 4K Live Video Tour',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Inspect properties at your own pace without agents. Tap to unlock the door when you arrive on site.',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 11, color: Colors.white70, height: 1.4),
+                  'Join during the landlord\'s scheduled broadcast window as they walk through the property live. Ask real-time questions, inspect plumbing, water pressure, and compound security without travelling.',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 11, color: Colors.white.withValues(alpha: 0.85), height: 1.4),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 20),
 
-          Text('HOW SMART SELF-TOUR WORKS', style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: AppColors.textSecondary)),
+          Text(
+            'UPCOMING LANDLORD LIVE BROADCASTS',
+            style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: AppColors.textSecondary),
+          ),
           const SizedBox(height: 10),
 
-          _buildFeatureCard(
-            Icons.schedule_rounded,
-            '1. Book 30-Minute Access Window',
-            'Pick your convenient time slot. The smart lock access token activates automatically.',
+          // Broadcast Card 1
+          _buildBroadcastCard(
+            title: '4-Bedroom Fully Detached Duplex + BQ',
+            location: 'Lekki Phase 1, Lagos',
+            host: 'Engr. Patrick (Direct Owner)',
+            time: 'Today, 4:30 PM (WAT)',
+            isLiveSoon: true,
           ),
-          _buildFeatureCard(
-            Icons.location_on_outlined,
-            '2. GPS & Bluetooth Geofence Check-In',
-            'Arrive at the verified address. Your phone securely pairs with the doorstep smart lock.',
+
+          // Broadcast Card 2
+          _buildBroadcastCard(
+            title: 'Luxury 2-Bedroom Serviced Apartment',
+            location: 'Maitama, Abuja (FCT)',
+            host: 'Alhaji Ibrahim (Direct Landlord)',
+            time: 'Tomorrow, 11:00 AM (WAT)',
+            isLiveSoon: false,
           ),
-          _buildFeatureCard(
-            Icons.phonelink_ring_rounded,
-            '3. Tap-to-Unlock & AI Walkthrough Checklist',
-            'Take a self-guided walkthrough with real-time condition photo capture and zero agent pressure.',
+
+          // Broadcast Card 3
+          _buildBroadcastCard(
+            title: 'Executive 3-Bedroom Flat with Water View',
+            location: 'Peter Odili Road, Port Harcourt',
+            host: 'Barrister Nneka (Verified Manager)',
+            time: 'Thursday, 2:00 PM (WAT)',
+            isLiveSoon: false,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildVideoTourTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(18),
+  Widget _buildBroadcastCard({
+    required String title,
+    required String location,
+    required String host,
+    required String time,
+    required bool isLiveSoon,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.borderDark),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppColors.borderDark),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: isLiveSoon ? const Color(0xFFFEF2F2) : const Color(0xFFF0FDF4),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
                   children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), shape: BoxShape.circle),
-                          child: const Icon(Icons.videocam_rounded, size: 20, color: AppColors.primary),
-                        ),
-                        const SizedBox(width: 10),
-                        Text('4K Live Video Inspection', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                      ],
+                    Icon(
+                      isLiveSoon ? Icons.fiber_manual_record_rounded : Icons.schedule_rounded,
+                      size: 10,
+                      color: isLiveSoon ? const Color(0xFFEF4444) : const Color(0xFF16A34A),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(color: const Color(0xFFECFDF5), borderRadius: BorderRadius.circular(6)),
-                      child: Text('ZERO TRAVEL', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                    const SizedBox(width: 4),
+                    Text(
+                      isLiveSoon ? 'STARTING SOON' : 'SCHEDULED WINDOW',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        color: isLiveSoon ? const Color(0xFFDC2626) : const Color(0xFF15803D),
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
-                Text(
-                  'Join a private 1-on-1 encrypted video call directly with the verified property owner or direct manager.',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary, height: 1.4),
-                ),
-              ],
-            ),
+              ),
+              Text(
+                time,
+                style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
+              ),
+            ],
           ),
-          const SizedBox(height: 20),
-
-          Text('AVAILABLE VIDEO INSPECTION SLOTS', style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: AppColors.textSecondary)),
           const SizedBox(height: 10),
-
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.borderDark),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('Direct Landlord Video Walkthrough', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold)),
-                    Text('Today, 4:00 PM', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text('Lekki Phase 1, Lagos • Verified Direct Owner', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary)),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Video Inspection scheduled! Link sent via SMS & WhatsApp.', style: GoogleFonts.plusJakartaSans(fontSize: 11)), backgroundColor: AppColors.primary),
-                      );
-                    },
-                    icon: const Icon(Icons.video_call_rounded, size: 16, color: Colors.white),
-                    label: Text('Join Scheduled Video Tour', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    ),
+          Text(
+            title,
+            style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            '$location • Host: $host',
+            style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Registered for "$title" 4K live broadcast! You will receive notification before the landlord goes live.', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
+                    backgroundColor: AppColors.primary,
                   ),
-                ),
-              ],
+                );
+              },
+              icon: const Icon(Icons.video_camera_front_rounded, size: 16, color: Colors.white),
+              label: Text(
+                isLiveSoon ? 'Join 4K Live Broadcast' : 'Set Live Reminder',
+                style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isLiveSoon ? AppColors.accentOrange : AppColors.primary,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
             ),
           ),
         ],
@@ -271,7 +298,7 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Browse verified properties on Home to book a free in-person tour with 1 tap.',
+                        'Browse verified properties to book an in-person physical walkthrough directly with the owner.',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
                       ),
@@ -298,7 +325,12 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(insp.propertyTitle, style: GoogleFonts.plusJakartaSans(fontSize: 13.5, fontWeight: FontWeight.bold)),
+                            Expanded(
+                              child: Text(
+                                insp.propertyTitle,
+                                style: GoogleFonts.plusJakartaSans(fontSize: 13.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                              ),
+                            ),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
@@ -338,38 +370,5 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
                   );
                 },
               );
-  }
-
-  Widget _buildFeatureCard(IconData icon, String title, String subtitle) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.borderDark),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
-            child: Icon(icon, size: 18, color: AppColors.primary),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                const SizedBox(height: 2),
-                Text(subtitle, style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary, height: 1.3)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }

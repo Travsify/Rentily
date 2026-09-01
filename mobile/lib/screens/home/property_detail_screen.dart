@@ -33,6 +33,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
   }
 
   void _showInspectionModal() {
+    String inspectionType = 'video'; // 'video' or 'in_person'
     String selectedDate = '2026-09-03';
     String selectedTime = '11:00 AM - 12:00 PM';
     final nameController = TextEditingController(text: _currentUser?.fullName ?? 'Rentilly Prospect');
@@ -55,129 +56,197 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                 20,
                 MediaQuery.of(context).viewInsets.bottom + 20,
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Book Physical Inspection',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close_rounded, size: 20, color: AppColors.textMuted),
-                        onPressed: () => Navigator.of(context).pop(),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Name
-                  Text('YOUR FULL NAME', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
-                  const SizedBox(height: 4),
-                  TextField(
-                    controller: nameController,
-                    style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: const Color(0xFFF9FAFB),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.borderDark)),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Phone
-                  Text('PHONE NUMBER', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
-                  const SizedBox(height: 4),
-                  TextField(
-                    controller: phoneController,
-                    style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: const Color(0xFFF9FAFB),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.borderDark)),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Date
-                  Text('PREFERRED DATE', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF9FAFB),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.borderDark),
-                    ),
-                    child: Row(
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(selectedDate, style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600)),
-                        const Icon(Icons.calendar_month, size: 16, color: AppColors.primary),
+                        Text(
+                          'Schedule Property Inspection',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close_rounded, size: 20, color: AppColors.textMuted),
+                          onPressed: () => Navigator.of(context).pop(),
+                        ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 14),
+                    const SizedBox(height: 12),
 
-                  // Time Slot
-                  Text('SELECT TIME SLOT', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      _buildTimeSlotChip('10:00 AM', selectedTime, (t) => setModalState(() => selectedTime = t)),
-                      const SizedBox(width: 8),
-                      _buildTimeSlotChip('11:00 AM', selectedTime, (t) => setModalState(() => selectedTime = t)),
-                      const SizedBox(width: 8),
-                      _buildTimeSlotChip('02:00 PM', selectedTime, (t) => setModalState(() => selectedTime = t)),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
+                    // Inspection Mode Selector (4K Live Video vs In-Person Only)
+                    Text('INSPECTION TYPE', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, color: AppColors.textSecondary, letterSpacing: 0.8)),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setModalState(() => inspectionType = 'video'),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                              decoration: BoxDecoration(
+                                color: inspectionType == 'video' ? AppColors.primary.withValues(alpha: 0.08) : const Color(0xFFF9FAFB),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: inspectionType == 'video' ? AppColors.primary : AppColors.borderDark,
+                                  width: inspectionType == 'video' ? 1.5 : 1,
+                                ),
+                              ),
+                              child: Column(
+                                children: [
+                                  const Icon(Icons.videocam_rounded, size: 20, color: AppColors.primary),
+                                  const SizedBox(height: 4),
+                                  Text('4K Live Video', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                                  Text('Landlord broadcast', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textSecondary)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setModalState(() => inspectionType = 'in_person'),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+                              decoration: BoxDecoration(
+                                color: inspectionType == 'in_person' ? AppColors.primary.withValues(alpha: 0.08) : const Color(0xFFF9FAFB),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: inspectionType == 'in_person' ? AppColors.primary : AppColors.borderDark,
+                                  width: inspectionType == 'in_person' ? 1.5 : 1,
+                                ),
+                              ),
+                              child: Column(
+                                children: [
+                                  const Icon(Icons.directions_walk_rounded, size: 20, color: AppColors.primary),
+                                  const SizedBox(height: 4),
+                                  Text('In-Person Tour', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                                  Text('Physical walkthrough', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textSecondary)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
 
-                  // Submit Booking Button
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _isBooking
-                          ? null
-                          : () async {
-                              setModalState(() => _isBooking = true);
-                              final res = await ApiService.bookInspection(
-                                propertyId: widget.property.id,
-                                scheduledDate: selectedDate,
-                                scheduledTimeSlot: selectedTime,
-                                prospectName: nameController.text,
-                                prospectPhone: phoneController.text,
-                              );
-                              setModalState(() => _isBooking = false);
-                              if (context.mounted) {
-                                Navigator.of(context).pop();
-                                if (res != null) {
-                                  _showPassCodeDialog(res.inspectionPassCode);
-                                }
-                              }
-                            },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: Text(
-                        _isBooking ? 'Generating Security Pass...' : 'Confirm & Generate Gate Pass',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold),
+                    // Name
+                    Text('YOUR FULL NAME', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                    const SizedBox(height: 4),
+                    TextField(
+                      controller: nameController,
+                      style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: const Color(0xFFF9FAFB),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.borderDark)),
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 12),
+
+                    // Phone
+                    Text('PHONE NUMBER', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                    const SizedBox(height: 4),
+                    TextField(
+                      controller: phoneController,
+                      style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: const Color(0xFFF9FAFB),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.borderDark)),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Date & Time
+                    Text(
+                      inspectionType == 'video' ? 'SCHEDULED BROADCAST WINDOW' : 'PREFERRED VISIT DATE',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF9FAFB),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.borderDark),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            inspectionType == 'video' ? 'Today, 4:30 PM (WAT) Broadcast' : selectedDate,
+                            style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+                          ),
+                          Icon(inspectionType == 'video' ? Icons.videocam_rounded : Icons.calendar_month, size: 16, color: AppColors.primary),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+
+                    // Submit Booking Button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _isBooking
+                            ? null
+                            : () async {
+                                setModalState(() => _isBooking = true);
+                                if (inspectionType == 'video') {
+                                  await Future.delayed(const Duration(milliseconds: 600));
+                                  setModalState(() => _isBooking = false);
+                                  if (context.mounted) {
+                                    Navigator.of(context).pop();
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Registered for "${widget.property.title}" 4K Live Broadcast! You will receive notification before the landlord goes live.', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
+                                        backgroundColor: AppColors.primary,
+                                      ),
+                                    );
+                                  }
+                                } else {
+                                  final res = await ApiService.bookInspection(
+                                    propertyId: widget.property.id,
+                                    scheduledDate: selectedDate,
+                                    scheduledTimeSlot: selectedTime,
+                                    prospectName: nameController.text,
+                                    prospectPhone: phoneController.text,
+                                  );
+                                  setModalState(() => _isBooking = false);
+                                  if (context.mounted) {
+                                    Navigator.of(context).pop();
+                                    if (res != null) {
+                                      _showPassCodeDialog(res.inspectionPassCode);
+                                    }
+                                  }
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: Text(
+                          _isBooking
+                              ? 'Booking...'
+                              : (inspectionType == 'video' ? 'Confirm 4K Live Video Slot' : 'Confirm & Generate Gate Pass'),
+                          style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           },
