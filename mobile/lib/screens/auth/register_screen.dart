@@ -32,6 +32,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _cacNumberController = TextEditingController();
   final TextEditingController _officeStreetController = TextEditingController();
   final TextEditingController _officeLandmarkController = TextEditingController();
+  final TextEditingController _managingPartnerIdController = TextEditingController();
 
   late String _selectedRole; // 'renter', 'partner', 'owner'
   String _selectedState = 'Lagos';
@@ -65,6 +66,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _cacNumberController.dispose();
     _officeStreetController.dispose();
     _officeLandmarkController.dispose();
+    _managingPartnerIdController.dispose();
     super.dispose();
   }
 
@@ -820,6 +822,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
           textCapitalization: TextCapitalization.words,
           style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
           decoration: _buildInputDecoration('e.g. Ring Road / Oluyole Estate or Lekki Phase 1', Icons.location_city_rounded),
+        ),
+        const SizedBox(height: 14),
+
+        // Managing Partner / Accreditation ID (Optional)
+        Text('MANAGING BROKER / ACCREDITATION ID (OPTIONAL)', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+        const SizedBox(height: 6),
+        TextField(
+          controller: _managingPartnerIdController,
+          textCapitalization: TextCapitalization.characters,
+          style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+          decoration: _buildInputDecoration('e.g. RNT-PTR-0042 (If invited by an accredited firm)', Icons.link_rounded),
         ),
       ],
     );

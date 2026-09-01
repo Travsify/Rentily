@@ -79,6 +79,7 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
   UserProfile? _user;
   List<Property> _mandateProperties = [];
   bool _isLoading = true;
+  double _escrowCommission = 0.0;
 
   final List<String> _partnerQuotes = const [
     '“The best time to buy a home is always five years ago.” — Ray Brown',
@@ -111,10 +112,16 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
   void _loadPartnerData() async {
     final user = await AuthService.getCurrentUser();
     final allProps = await ApiService.fetchProperties();
+    double escBal = 0.0;
+    if (user != null) {
+      final comm = await ApiService.fetchPartnerCommissions(user.id, user.email);
+      escBal = (comm['escrowBalance'] as num?)?.toDouble() ?? 0.0;
+    }
 
     if (mounted) {
       setState(() {
         _user = user;
+        _escrowCommission = escBal;
         _mandateProperties = allProps.where((p) => p.listedByRole == 'verified_partner').toList();
         _isLoading = false;
       });
@@ -159,7 +166,7 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
     final bankName = _user?.bankName ?? 'Flutterwave MFB';
     final partnerId = 'RNT-PTR-${(_user?.id ?? "0000").replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0')}';
     final operationalBalance = _user?.walletBalance ?? 0.0;
-    final escrowCommission = 0.00;
+    final escrowCommission = _escrowCommission;
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,

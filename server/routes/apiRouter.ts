@@ -80,6 +80,7 @@ apiRouter.patch('/inspections/:id/status', inspectionController.updateInspection
 
 // 10. Escrow & Transactions
 apiRouter.get('/escrow/transactions', escrowController.getTransactions);
+apiRouter.get('/escrow/partner-commissions', escrowController.getPartnerCommissions);
 apiRouter.post('/escrow/:id/release-payout', escrowController.releaseEscrowPayout);
 
 // 11. Legal Agreements

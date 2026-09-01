@@ -80,3 +80,72 @@ export async function releaseEscrowPayout(req: Request, res: Response) {
     res.status(500).json({ error: err.message });
   }
 }
+
+export async function getPartnerCommissions(req: Request, res: Response) {
+  try {
+    const { partnerId } = req.query;
+
+    if (!supabase) {
+      return res.json({
+        status: true,
+        escrowBalance: 0.00,
+        settledCommissions: 0.00,
+        transactions: []
+      });
+    }
+
+    const { data: txns, error } = await supabase
+      .from('transactions')
+      .select('*, properties(*)')
+      .or(`recipient_owner_id.eq.${partnerId},payer_id.eq.${partnerId}`)
+      .order('created_at', { ascending: false });
+
+    if (error || !txns) {
+      return res.json({
+        status: true,
+        escrowBalance: 0.00,
+        settledCommissions: 0.00,
+        transactions: []
+      });
+    }
+
+    let escrowBalance = 0;
+    let settledCommissions = 0;
+
+    const formattedTxns = txns.map((t: any) => {
+      const base = Number(t.base_price || t.total_amount || 0);
+      const isRent = t.transaction_type === 'rent_deposit' || t.transaction_type === 'rent_renewal';
+      const commissionRate = isRent ? 0.025 : 0.020;
+      const commissionAmount = Math.round(base * commissionRate);
+
+      if (t.escrow_status === 'held_in_escrow') {
+        escrowBalance += commissionAmount;
+      } else if (t.escrow_status === 'released_to_owner' || t.escrow_status === 'settled') {
+        settledCommissions += commissionAmount;
+      }
+
+      return {
+        id: t.id,
+        propertyTitle: t.properties?.title || 'Mandate Listing',
+        commissionAmount: commissionAmount,
+        commissionRate: isRent ? '2.5%' : '2.0%',
+        escrowStatus: t.escrow_status,
+        createdAt: t.created_at
+      };
+    });
+
+    return res.json({
+      status: true,
+      escrowBalance,
+      settledCommissions,
+      transactions: formattedTxns
+    });
+  } catch (err: any) {
+    return res.json({
+      status: true,
+      escrowBalance: 0.00,
+      settledCommissions: 0.00,
+      transactions: []
+    });
+  }
+}

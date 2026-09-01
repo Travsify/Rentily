@@ -26,6 +26,74 @@ class ApiService {
     return [];
   }
 
+  // 1b. Create & Publish New Property Listing
+  static Future<bool> createProperty(Property property) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/properties'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'id': property.id,
+          'title': property.title,
+          'description': property.description,
+          'purpose': property.purpose,
+          'propertyType': property.propertyType,
+          'basePrice': property.basePrice,
+          'cautionFee': property.cautionFee,
+          'serviceCharge': property.serviceCharge,
+          'rentillyFee': property.rentillyFee,
+          'totalInitialPayment': property.totalInitialPayment,
+          'paymentFrequency': property.paymentFrequency,
+          'address': property.address,
+          'state': property.state,
+          'lga': property.lga,
+          'neighborhood': property.neighborhood,
+          'bedrooms': property.bedrooms,
+          'bathrooms': property.bathrooms,
+          'toilets': property.toilets,
+          'furnishing': property.furnishing,
+          'amenities': property.amenities,
+          'images': property.images,
+          'videoWalkthroughUrl': property.videoWalkthroughUrl,
+          'ownerId': property.ownerId,
+          'ownerName': property.ownerName,
+          'ownerPhone': property.ownerPhone,
+          'listedByRole': property.listedByRole,
+          'partnerCommissionRate': property.partnerCommissionRate,
+          'inspectionFee': property.inspectionFee,
+          'propertyAddressHash': property.propertyAddressHash,
+          'status': property.status,
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // 1c. Fetch Partner Commissions and Escrow Payouts
+  static Future<Map<String, dynamic>> fetchPartnerCommissions(String partnerId, String email) async {
+    try {
+      final uri = Uri.parse('$baseUrl/escrow/partner-commissions').replace(
+        queryParameters: {
+          'partnerId': partnerId,
+          'email': email,
+        },
+      );
+      final response = await http.get(uri).timeout(const Duration(seconds: 8));
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      }
+    } catch (_) {}
+    return {
+      'status': true,
+      'escrowBalance': 0.00,
+      'settledCommissions': 0.00,
+      'transactions': [],
+    };
+  }
+
   // 2. Fetch User Inspections from live API
   static Future<List<Inspection>> fetchInspections() async {
     try {

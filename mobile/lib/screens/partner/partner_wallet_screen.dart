@@ -8,6 +8,7 @@ import '../../constants/app_colors.dart';
 import '../../constants/app_constants.dart';
 import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
+import '../../services/api_service.dart';
 import '../../widgets/verification_modal.dart';
 import '../../widgets/add_money_modal.dart';
 import '../../widgets/withdrawal_modal.dart';
@@ -26,6 +27,8 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
   UserProfile? _user;
   bool _isLoading = true;
   bool _isSyncing = false;
+  double _escrowCommission = 0.0;
+  List<dynamic> _commissionTxns = [];
 
   @override
   void initState() {
@@ -51,11 +54,18 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
 
   void _loadUser() async {
     final user = await AuthService.getCurrentUser();
-    if (mounted) {
-      setState(() {
-        _user = user;
-        _isLoading = false;
-      });
+    if (user != null) {
+      final commissions = await ApiService.fetchPartnerCommissions(user.id, user.email);
+      if (mounted) {
+        setState(() {
+          _user = user;
+          _escrowCommission = (commissions['escrowBalance'] as num?)?.toDouble() ?? 0.0;
+          _commissionTxns = commissions['transactions'] ?? [];
+          _isLoading = false;
+        });
+      }
+    } else if (mounted) {
+      setState(() => _isLoading = false);
     }
   }
 
@@ -140,7 +150,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
     final businessName = _user?.businessName ?? _user?.fullName ?? 'Corporate Partner';
     final cacNumber = _user?.cacNumber ?? 'CAC Registered';
     final operationalBalance = _user?.walletBalance ?? 0.0;
-    final escrowCommission = 0.00; // 2.5% rent or 2.0% sales held in escrow before key confirmation
+    final escrowCommission = _escrowCommission; // 2.5% rent or 2.0% sales held in escrow before key confirmation
     final accountNumber = _user?.accountNumber ?? 'Pending KYC';
     final bankName = _user?.bankName ?? 'Flutterwave MFB';
 

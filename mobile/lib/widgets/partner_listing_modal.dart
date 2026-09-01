@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/app_colors.dart';
 import '../models/property.dart';
 import '../models/user_profile.dart';
+import '../services/api_service.dart';
 import '../services/notification_service.dart';
 import '../widgets/verification_modal.dart';
 
@@ -443,6 +444,11 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
       inspectionFee: inspection,
       propertyAddressHash: addressHash,
     );
+
+    // Publish to Live Server Database
+    try {
+      await ApiService.createProperty(newProp);
+    } catch (_) {}
 
     if (_isDirectLandlord) {
       await NotificationService.addNotification(
