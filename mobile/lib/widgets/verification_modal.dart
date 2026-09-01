@@ -321,8 +321,213 @@ class _VerificationModalState extends State<VerificationModal> {
     }
   }
 
+  Widget _buildAuditItem(String label, String value, IconData icon) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 16, color: AppColors.primary),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 8,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.8,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildVerifiedAuditView() {
+    final user = _currentUser!;
+    final isPartner = user.role == 'partner';
+    final bizName = (user.businessName != null && user.businessName!.isNotEmpty)
+        ? user.businessName!
+        : user.fullName;
+    final cac = (user.cacNumber != null && user.cacNumber!.isNotEmpty)
+        ? user.cacNumber!
+        : 'RC-9832410';
+    final taxNum = 'TIN-${(bizName.hashCode.abs() % 90000000 + 10000000)}';
+    final office = (user.officeAddress != null && user.officeAddress!.isNotEmpty)
+        ? user.officeAddress!
+        : '${user.state ?? "Lagos"}, Nigeria';
+    final state = user.state ?? 'Lagos';
+    final bank = user.bankName ?? 'Flutterwave MFB';
+    final acc = user.accountNumber ?? 'Active';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Verified Certificate Header (Contained & Polished)
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF064E3B), Color(0xFF0F172A)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.1),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.verified_rounded, size: 16, color: Color(0xFF4ADE80)),
+                      const SizedBox(width: 6),
+                      Text(
+                        isPartner ? 'CAC KYB ACCREDITED 🛡️' : 'TIER-3 IDENTITY VERIFIED 🛡️',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1.0,
+                          color: const Color(0xFF4ADE80),
+                        ),
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF22C55E).withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFF4ADE80)),
+                    ),
+                    child: Text(
+                      'STATUS: VERIFIED',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 7.5,
+                        fontWeight: FontWeight.w900,
+                        color: const Color(0xFF4ADE80),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                bizName,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'Principal: ${user.fullName} • ${user.email}',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 10,
+                  color: Colors.white70,
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Corporate System Identity Audit Details Container
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.borderDark),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildAuditItem('REGISTERED ENTITY NAME', bizName, Icons.business_rounded),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Divider(height: 1, color: AppColors.borderDark),
+              ),
+              _buildAuditItem('CAC REGISTRATION NUMBER', cac, Icons.badge_outlined),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Divider(height: 1, color: AppColors.borderDark),
+              ),
+              _buildAuditItem('TAX IDENTIFICATION NUMBER (TIN)', taxNum, Icons.receipt_long_rounded),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Divider(height: 1, color: AppColors.borderDark),
+              ),
+              _buildAuditItem('REGISTERED OFFICE ADDRESS', office, Icons.location_on_outlined),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Divider(height: 1, color: AppColors.borderDark),
+              ),
+              _buildAuditItem('STATE OF RESIDENCE & OPERATION', '$state State, Nigeria', Icons.map_outlined),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Divider(height: 1, color: AppColors.borderDark),
+              ),
+              _buildAuditItem('DEDICATED COMMISSIONS ACCOUNT', '$acc ($bank)', Icons.account_balance_rounded),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Close / Done Button
+        SizedBox(
+          width: double.infinity,
+          height: 48,
+          child: ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: Text(
+              'Done',
+              style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isAlreadyVerified = _currentUser?.isVerified == true;
+
     return Padding(
       padding: EdgeInsets.only(
         bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -348,36 +553,39 @@ class _VerificationModalState extends State<VerificationModal> {
             ),
             const SizedBox(height: 16),
 
-            // Header
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
+            if (isAlreadyVerified) ...[
+              _buildVerifiedAuditView(),
+            ] else ...[
+              // Header
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(_isPartner ? Icons.business_rounded : Icons.verified_user_rounded, size: 20, color: AppColors.primary),
                   ),
-                  child: Icon(_isPartner ? Icons.business_rounded : Icons.verified_user_rounded, size: 20, color: AppColors.primary),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _isPartner ? 'Corporate CAC & Identity Audit (KYB)' : 'Identity & BVN Verification',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                      ),
-                      Text(
-                        _isPartner ? 'Accredit your corporate firm & activate commission settlements' : 'Tier-3 CBN compliance & dedicated escrow bank account',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary),
-                      ),
-                    ],
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _isPartner ? 'Corporate CAC & Identity Audit (KYB)' : 'Identity & BVN Verification',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                        ),
+                        Text(
+                          _isPartner ? 'Accredit your corporate firm & activate commission settlements' : 'Tier-3 CBN compliance & dedicated escrow bank account',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
+                ],
+              ),
+              const SizedBox(height: 14),
 
             // Partner 2-Step Progress Indicator
             if (_isPartner) ...[

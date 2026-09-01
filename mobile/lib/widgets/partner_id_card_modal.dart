@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:pdf/pdf.dart';
@@ -510,27 +511,45 @@ class PartnerIdCardModal extends StatelessWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Container(
-                              width: 44,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                gradient: const LinearGradient(
-                                  colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: const Color(0xFFFDE68A), width: 1.2),
-                              ),
-                              child: Center(
-                                child: Container(
-                                  width: 28,
-                                  height: 18,
+                            Row(
+                              children: [
+                                Container(
+                                  width: 44,
+                                  height: 32,
                                   decoration: BoxDecoration(
-                                    border: Border.all(color: const Color(0xFF92400E), width: 0.9),
+                                    gradient: const LinearGradient(
+                                      colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                    ),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: const Color(0xFFFDE68A), width: 1.2),
+                                  ),
+                                  child: Center(
+                                    child: Container(
+                                      width: 28,
+                                      height: 18,
+                                      decoration: BoxDecoration(
+                                        border: Border.all(color: const Color(0xFF92400E), width: 0.9),
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
+                                if (effectiveUser.avatarUrl != null && effectiveUser.avatarUrl!.isNotEmpty) ...[
+                                  const SizedBox(width: 10),
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Container(
+                                      width: 32,
+                                      height: 32,
+                                      color: Colors.white,
+                                      child: effectiveUser.avatarUrl!.startsWith('http')
+                                          ? Image.network(effectiveUser.avatarUrl!, fit: BoxFit.cover)
+                                          : Image.file(File(effectiveUser.avatarUrl!), fit: BoxFit.cover),
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.end,

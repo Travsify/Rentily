@@ -1,5 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../constants/app_colors.dart';
 import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
@@ -48,7 +51,12 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
   }
 
   void _loadProfile() async {
-    final user = await AuthService.getCurrentUser();
+    final prefs = await SharedPreferences.getInstance();
+    var user = await AuthService.getCurrentUser();
+    final savedLogo = prefs.getString('rentilly_persistent_partner_logo');
+    if (user != null && (user.avatarUrl == null || user.avatarUrl!.isEmpty) && savedLogo != null && savedLogo.isNotEmpty) {
+      user = user.copyWith(avatarUrl: savedLogo);
+    }
     final hasPin = await PaymentSecurityService.hasPaymentPin();
     if (mounted) {
       setState(() {
@@ -56,6 +64,38 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
         _hasPaymentPin = hasPin;
         _isLoading = false;
       });
+    }
+  }
+
+  void _pickLogo() async {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+    if (image != null && _user != null) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('rentilly_persistent_partner_logo', image.path);
+      final updated = _user!.copyWith(avatarUrl: image.path);
+      await AuthService.updateUser(updated);
+      setState(() => _user = updated);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle_rounded, color: Colors.white, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Corporate firm logo updated successfully! 🏢📸',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: AppColors.primary,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 
@@ -195,18 +235,52 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
               ),
               child: Row(
                 children: [
-                  Container(
-                    width: 58,
-                    height: 58,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: LinearGradient(colors: [AppColors.primaryLight, AppColors.primary]),
-                    ),
-                    child: Center(
-                      child: Text(
-                        businessName.isNotEmpty ? businessName.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join() : 'PT',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.white),
-                      ),
+                  GestureDetector(
+                    onTap: _pickLogo,
+                    child: Stack(
+                      children: [
+                        Container(
+                          width: 60,
+                          height: 60,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: const Color(0xFFF1F5F9),
+                            border: Border.all(color: AppColors.primary, width: 2),
+                            image: (_user?.avatarUrl != null && _user!.avatarUrl!.isNotEmpty)
+                                ? DecorationImage(
+                                    image: _user!.avatarUrl!.startsWith('http')
+                                        ? NetworkImage(_user!.avatarUrl!) as ImageProvider
+                                        : FileImage(File(_user!.avatarUrl!)),
+                                    fit: BoxFit.cover,
+                                  )
+                                : null,
+                            gradient: (_user?.avatarUrl == null || _user!.avatarUrl!.isEmpty)
+                                ? const LinearGradient(colors: [AppColors.primaryLight, AppColors.primary])
+                                : null,
+                          ),
+                          child: (_user?.avatarUrl == null || _user!.avatarUrl!.isEmpty)
+                              ? Center(
+                                  child: Text(
+                                    businessName.isNotEmpty ? businessName.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join() : 'PT',
+                                    style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.white),
+                                  ),
+                                )
+                              : null,
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 1.5),
+                            ),
+                            child: const Icon(Icons.camera_alt_rounded, size: 11, color: Colors.white),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(width: 14),
@@ -259,6 +333,16 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
               style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 10),
+
+            _buildTile(
+              icon: Icons.add_photo_alternate_rounded,
+              title: 'Upload Corporate Firm Logo 📸',
+              subtitle: (_user?.avatarUrl != null && _user!.avatarUrl!.isNotEmpty)
+                  ? 'Tap to update or change your official company branding logo'
+                  : 'Upload your company logo for ID credentials & client proposals',
+              trailing: const Icon(Icons.upload_rounded, size: 20, color: AppColors.primary),
+              onTap: _pickLogo,
+            ),
 
             _buildTile(
               icon: Icons.badge_outlined,

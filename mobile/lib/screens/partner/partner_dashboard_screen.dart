@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -231,43 +232,79 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 0. Corporate Greeting Header
+                // 0. Corporate Greeting Header with Logo
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Row(
                         children: [
-                          Text(
-                            _getGreeting(),
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.textSecondary,
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: const Color(0xFFF1F5F9),
+                              border: Border.all(color: AppColors.primary, width: 1.5),
+                              image: (_user?.avatarUrl != null && _user!.avatarUrl!.isNotEmpty)
+                                  ? DecorationImage(
+                                      image: _user!.avatarUrl!.startsWith('http')
+                                          ? NetworkImage(_user!.avatarUrl!) as ImageProvider
+                                          : FileImage(File(_user!.avatarUrl!)),
+                                      fit: BoxFit.cover,
+                                    )
+                                  : null,
+                              gradient: (_user?.avatarUrl == null || _user!.avatarUrl!.isEmpty)
+                                  ? const LinearGradient(colors: [AppColors.primaryLight, AppColors.primary])
+                                  : null,
                             ),
+                            child: (_user?.avatarUrl == null || _user!.avatarUrl!.isEmpty)
+                                ? Center(
+                                    child: Text(
+                                      businessName.isNotEmpty ? businessName.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join() : 'PT',
+                                      style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.white),
+                                    ),
+                                  )
+                                : null,
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            businessName,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w900,
-                              color: AppColors.textPrimary,
-                              letterSpacing: -0.2,
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _getGreeting(),
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                ),
+                                const SizedBox(height: 1),
+                                Text(
+                                  businessName,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w900,
+                                    color: AppColors.textPrimary,
+                                    letterSpacing: -0.2,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
                             ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
                     ),
+                    const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: isVerified ? const Color(0xFFECFDF5) : const Color(0xFFFFFBEB),
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(8),
                         border: Border.all(
                           color: isVerified ? const Color(0xFFBBF7D0) : const Color(0xFFFDE68A),
                         ),
@@ -277,14 +314,14 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
                         children: [
                           Icon(
                             isVerified ? Icons.verified_rounded : Icons.pending_actions_rounded,
-                            size: 14,
+                            size: 13,
                             color: isVerified ? const Color(0xFF16A34A) : const Color(0xFFD97706),
                           ),
                           const SizedBox(width: 4),
                           Text(
                             isVerified ? 'VERIFIED' : 'PENDING KYB',
                             style: GoogleFonts.plusJakartaSans(
-                              fontSize: 9.5,
+                              fontSize: 9,
                               fontWeight: FontWeight.w900,
                               color: isVerified ? const Color(0xFF16A34A) : const Color(0xFFD97706),
                             ),
@@ -495,24 +532,54 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('COMMISSIONS SETTLEMENT BANK ACCOUNT', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, color: AppColors.textSecondary)),
+                            Expanded(
+                              child: Text(
+                                'COMMISSIONS SETTLEMENT ACCOUNT',
+                                style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, color: AppColors.textSecondary),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(color: const Color(0xFFF0FDF4), borderRadius: BorderRadius.circular(4)),
-                              child: Text('AUTOMATED SETTLEMENT', style: GoogleFonts.plusJakartaSans(fontSize: 7.5, fontWeight: FontWeight.bold, color: const Color(0xFF16A34A))),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF0FDF4),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: const Color(0xFFBBF7D0)),
+                              ),
+                              child: Text(
+                                'AUTOMATED SETTLEMENT',
+                                style: GoogleFonts.plusJakartaSans(fontSize: 7.5, fontWeight: FontWeight.bold, color: const Color(0xFF16A34A)),
+                              ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 8),
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(accountNumber, style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.textPrimary)),
-                                Text('$bankName • $businessName / Rentilly', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary)),
-                              ],
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(accountNumber, style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.textPrimary)),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '$bankName • $businessName',
+                                    style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                  ),
+                                  if (cacNumber.isNotEmpty)
+                                    Text(
+                                      'CAC: $cacNumber • Rentilly Settlement Rail',
+                                      style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textSecondary),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ),
+                                ],
+                              ),
                             ),
                             IconButton(
                               icon: const Icon(Icons.copy_rounded, size: 18, color: AppColors.primary),

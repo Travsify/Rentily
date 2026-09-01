@@ -268,39 +268,62 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.account_balance_rounded, size: 16, color: AppColors.primary),
-                              const SizedBox(width: 6),
-                              Text(
-                                'DEDICATED COMMISSIONS BANK ACCOUNT',
-                                style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, color: AppColors.textSecondary),
-                              ),
-                            ],
+                          Expanded(
+                            child: Row(
+                              children: [
+                                const Icon(Icons.account_balance_rounded, size: 15, color: AppColors.primary),
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: Text(
+                                    'DEDICATED COMMISSIONS ACCOUNT',
+                                    style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, color: AppColors.textSecondary),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
+                          const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
                             decoration: BoxDecoration(
                               color: const Color(0xFFF0FDF4),
                               borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: const Color(0xFFBBF7D0)),
                             ),
                             child: Text(
-                              'AUTOMATED COMMISSION SETTLEMENT',
-                              style: GoogleFonts.plusJakartaSans(fontSize: 7.5, fontWeight: FontWeight.bold, color: const Color(0xFF16A34A)),
+                              'AUTOMATED SETTLEMENT',
+                              style: GoogleFonts.plusJakartaSans(fontSize: 7.5, fontWeight: FontWeight.w800, color: const Color(0xFF16A34A)),
                             ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 10),
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(accountNumber, style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.textPrimary)),
-                              Text('$bankName • $businessName ($cacNumber) / Rentilly', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary)),
-                            ],
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(accountNumber, style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.textPrimary)),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '$bankName • $businessName',
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                                if (cacNumber.isNotEmpty)
+                                  Text(
+                                    'CAC: $cacNumber • Rentilly Settlement Rail',
+                                    style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textSecondary),
+                                    overflow: TextOverflow.ellipsis,
+                                    maxLines: 1,
+                                  ),
+                              ],
+                            ),
                           ),
                           IconButton(
                             icon: const Icon(Icons.copy_rounded, size: 18, color: AppColors.primary),
