@@ -18,6 +18,9 @@ class AuthService {
     required String password,
     String role = 'renter',
     String state = 'Lagos',
+    String? businessName,
+    String? cacNumber,
+    String? officeAddress,
   }) async {
     final cleanEmail = email.trim().toLowerCase();
     final cleanPhone = phoneNumber.trim();
@@ -34,6 +37,9 @@ class AuthService {
           'password': password,
           'role': role,
           'state': state,
+          'businessName': businessName,
+          'cacNumber': cacNumber,
+          'officeAddress': officeAddress,
         }),
       ).timeout(const Duration(seconds: 15));
 
@@ -85,6 +91,9 @@ class AuthService {
           'role': role,
           'isVerified': false,
           'state': state,
+          'businessName': businessName,
+          'cacNumber': cacNumber,
+          'officeAddress': officeAddress,
           'createdAt': DateTime.now().toIso8601String(),
         };
 
@@ -108,6 +117,9 @@ class AuthService {
       'role': role,
       'isVerified': false,
       'state': state,
+      'businessName': businessName,
+      'cacNumber': cacNumber,
+      'officeAddress': officeAddress,
       'createdAt': DateTime.now().toIso8601String(),
     };
 
