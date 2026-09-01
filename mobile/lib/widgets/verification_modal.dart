@@ -526,7 +526,36 @@ class _VerificationModalState extends State<VerificationModal> {
 
   @override
   Widget build(BuildContext context) {
-    final isAlreadyVerified = _currentUser?.isVerified == true;
+    if (_currentUser?.isVerified == true) {
+      return Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+          left: 20,
+          right: 20,
+          top: 20,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.borderDark,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              _buildVerifiedAuditView(),
+            ],
+          ),
+        ),
+      );
+    }
 
     return Padding(
       padding: EdgeInsets.only(
@@ -553,39 +582,36 @@ class _VerificationModalState extends State<VerificationModal> {
             ),
             const SizedBox(height: 16),
 
-            if (isAlreadyVerified) ...[
-              _buildVerifiedAuditView(),
-            ] else ...[
-              // Header
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(_isPartner ? Icons.business_rounded : Icons.verified_user_rounded, size: 20, color: AppColors.primary),
+            // Header
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _isPartner ? 'Corporate CAC & Identity Audit (KYB)' : 'Identity & BVN Verification',
-                          style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                        ),
-                        Text(
-                          _isPartner ? 'Accredit your corporate firm & activate commission settlements' : 'Tier-3 CBN compliance & dedicated escrow bank account',
-                          style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary),
-                        ),
-                      ],
-                    ),
+                  child: Icon(_isPartner ? Icons.business_rounded : Icons.verified_user_rounded, size: 20, color: AppColors.primary),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _isPartner ? 'Corporate CAC & Identity Audit (KYB)' : 'Identity & BVN Verification',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                      ),
+                      Text(
+                        _isPartner ? 'Accredit your corporate firm & activate commission settlements' : 'Tier-3 CBN compliance & dedicated escrow bank account',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              const SizedBox(height: 14),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
 
             // Partner 2-Step Progress Indicator
             if (_isPartner) ...[
@@ -948,7 +974,6 @@ class _VerificationModalState extends State<VerificationModal> {
                   ),
                 ),
               ],
-            ],
             const SizedBox(height: 24),
           ],
         ),
