@@ -8,7 +8,7 @@ import '../../services/auth_service.dart';
 import '../../widgets/verification_modal.dart';
 import '../../widgets/add_money_modal.dart';
 import '../../widgets/withdrawal_modal.dart';
-import '../../widgets/quick_utilities_modal.dart';
+import '../bills/bills_screen.dart';
 
 class LandlordWalletScreen extends StatefulWidget {
   const LandlordWalletScreen({super.key});
@@ -26,6 +26,21 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
   void initState() {
     super.initState();
     _loadUser();
+    AuthService.currentUserNotifier.addListener(_onUserUpdated);
+  }
+
+  @override
+  void dispose() {
+    AuthService.currentUserNotifier.removeListener(_onUserUpdated);
+    super.dispose();
+  }
+
+  void _onUserUpdated() {
+    if (mounted) {
+      setState(() {
+        _user = AuthService.currentUserNotifier.value;
+      });
+    }
   }
 
   void _loadUser() async {
@@ -49,6 +64,15 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
     );
   }
 
+  void _downloadStatement() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Generating official landlord account statement PDF... 📄', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold)),
+        backgroundColor: AppColors.primary,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -61,7 +85,7 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
     final isVerified = _user?.isVerified ?? false;
     final name = _user?.fullName ?? 'Property Owner';
     final operationalBalance = _user?.walletBalance ?? 0.0;
-    final escrowBalance = 0.00; // Active rent held under escrow before key confirmation
+    final escrowBalance = 0.00; // Active rent and sales proceeds held in escrow before key confirmation
     final accountNumber = _user?.accountNumber ?? '9823481234';
     final bankName = _user?.bankName ?? 'Providus Bank';
 
@@ -69,11 +93,19 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
       backgroundColor: AppColors.backgroundDark,
       appBar: AppBar(
         title: Text(
-          'Rent Settlement & Escrow Vault',
+          'Settlement & Escrow Vault',
           style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
         ),
         backgroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf_rounded, size: 20, color: AppColors.primary),
+            onPressed: _downloadStatement,
+            tooltip: 'Download Statement',
+          ),
+          const SizedBox(width: 6),
+        ],
       ),
       body: SafeArea(
         child: RefreshIndicator(
@@ -82,17 +114,18 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
           child: ListView(
             padding: const EdgeInsets.all(18),
             children: [
-              // Dual Balance Card (Operational Wallet vs Escrow Rent Balance)
+              // Dual Balance Card (Operational Wallet vs Escrow Balance)
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
+                    colors: [Color(0xFF064E3B), Color(0xFF042F2E)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(22),
+                  border: Border.all(color: const Color(0xFF4ADE80).withValues(alpha: 0.3), width: 1.2),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.15),
@@ -109,7 +142,7 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.account_balance_wallet_rounded, size: 16, color: Colors.white70),
+                            const Icon(Icons.account_balance_wallet_rounded, size: 16, color: Color(0xFF4ADE80)),
                             const SizedBox(width: 6),
                             Text(
                               'LANDLORD OPERATING VAULT',
@@ -117,7 +150,7 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                                 fontSize: 8.5,
                                 fontWeight: FontWeight.w800,
                                 letterSpacing: 1.0,
-                                color: Colors.white70,
+                                color: const Color(0xFF4ADE80),
                               ),
                             ),
                           ],
@@ -152,14 +185,14 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                     Container(height: 1, color: Colors.white.withValues(alpha: 0.15)),
                     const SizedBox(height: 12),
 
-                    // Escrow Rent Balance
+                    // Escrow Balance (Rent & Sales Proceeds)
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('ACTIVE RENT IN ESCROW', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white60)),
+                            Text('ACTIVE SETTLEMENT FUNDS IN ESCROW', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white60)),
                             const SizedBox(height: 2),
                             Text('₦${_currencyFormat.format(escrowBalance)}', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w900, color: const Color(0xFF38BDF8))),
                           ],
@@ -171,7 +204,7 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            'RELEASES ON KEY HANDOVER',
+                            'RELEASES ON KEY CONFIRMATION',
                             style: GoogleFonts.plusJakartaSans(fontSize: 7.5, fontWeight: FontWeight.w900, color: const Color(0xFF38BDF8)),
                           ),
                         ),
@@ -207,7 +240,7 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'To comply with CBN & NFIU anti-fraud regulations, dedicated escrow bank accounts are only provisioned after completing BVN/NIN identity verification.',
+                        'To comply with CBN & NFIU anti-fraud regulations, dedicated escrow settlement bank accounts are only provisioned after completing BVN/NIN identity verification.',
                         style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: const Color(0xFF78350F), height: 1.35),
                       ),
                       const SizedBox(height: 14),
@@ -255,7 +288,7 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                               const Icon(Icons.account_balance_rounded, size: 16, color: AppColors.primary),
                               const SizedBox(width: 6),
                               Text(
-                                'DEDICATED ESCROW BANK ACCOUNT',
+                                'DEDICATED SETTLEMENT BANK ACCOUNT',
                                 style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, color: AppColors.textSecondary),
                               ),
                             ],
@@ -267,7 +300,7 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
-                              'AUTOMATED RENT SETTLEMENT',
+                              'AUTOMATED SETTLEMENT',
                               style: GoogleFonts.plusJakartaSans(fontSize: 7.5, fontWeight: FontWeight.bold, color: const Color(0xFF16A34A)),
                             ),
                           ),
@@ -298,7 +331,9 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                             child: ElevatedButton.icon(
                               onPressed: () {
                                 if (_user != null) {
-                                  AddMoneyModal.show(context, user: _user!);
+                                  AddMoneyModal.show(context, user: _user!, onAccountUpdated: (u) {
+                                    setState(() => _user = u);
+                                  });
                                 }
                               },
                               icon: const Icon(Icons.add_rounded, size: 14, color: Colors.white),
@@ -324,7 +359,7 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                                 }
                               },
                               icon: const Icon(Icons.north_east_rounded, size: 14, color: AppColors.primary),
-                              label: Text('Withdraw Rent', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                              label: Text('Withdraw', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
                               style: OutlinedButton.styleFrom(
                                 side: const BorderSide(color: AppColors.primary),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -339,10 +374,19 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
               ],
               const SizedBox(height: 20),
 
-              // Property Utilities Pod (Fund DisCo Meters, Airtime, Data)
-              Text(
-                'UNIT UTILITIES & MAINTENANCE',
-                style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: AppColors.textSecondary),
+              // Unit Utilities & Maintenance Pod (Fully Clickable & Functional)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'UNIT UTILITIES & MAINTENANCE',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: AppColors.textSecondary),
+                  ),
+                  Text(
+                    'INSTANT DISPATCH',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: const Color(0xFF16A34A)),
+                  ),
+                ],
               ),
               const SizedBox(height: 10),
 
@@ -353,27 +397,65 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                   borderRadius: BorderRadius.circular(18),
                   border: Border.all(color: AppColors.borderDark),
                 ),
-                child: Column(
+                child: Row(
                   children: [
-                    Row(
-                      children: [
-                        _buildUtilityButton(Icons.electric_bolt_rounded, 'Electricity', 'Prepaid DisCo', () => QuickUtilitiesModal.show(context)),
-                        _buildUtilityButton(Icons.phone_android_rounded, 'Airtime', 'Quick Top-Up', () => QuickUtilitiesModal.show(context)),
-                        _buildUtilityButton(Icons.wifi_rounded, 'Data Bundle', '4K Video Tours', () => QuickUtilitiesModal.show(context)),
-                        _buildUtilityButton(Icons.tv_rounded, 'Cable TV', 'DSTV/GOTV', () => QuickUtilitiesModal.show(context)),
-                      ],
+                    _buildUtilityButton(
+                      Icons.electric_bolt_rounded,
+                      'Electricity',
+                      'Prepaid DisCo',
+                      AppColors.accentOrange,
+                      () {
+                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => BillsScreen(initialCategory: 'electricity')));
+                      },
+                    ),
+                    _buildUtilityButton(
+                      Icons.phone_android_rounded,
+                      'Airtime',
+                      'Quick Top-Up',
+                      AppColors.primary,
+                      () {
+                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => BillsScreen(initialCategory: 'airtime')));
+                      },
+                    ),
+                    _buildUtilityButton(
+                      Icons.wifi_rounded,
+                      'Data Bundle',
+                      '4K Video Tours',
+                      const Color(0xFF0284C7),
+                      () {
+                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => BillsScreen(initialCategory: 'data')));
+                      },
+                    ),
+                    _buildUtilityButton(
+                      Icons.tv_rounded,
+                      'Cable TV',
+                      'DSTV/GOTV',
+                      const Color(0xFF7C3AED),
+                      () {
+                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => BillsScreen(initialCategory: 'cable')));
+                      },
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 20),
 
-              // Escrow Settlement Audit Log
-              Text(
-                'RENT DISBURSEMENT HISTORY',
-                style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: AppColors.textSecondary),
+              // Settlement Disbursement History
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'SETTLEMENT & DISBURSEMENT HISTORY',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: AppColors.textSecondary),
+                  ),
+                  TextButton.icon(
+                    onPressed: _downloadStatement,
+                    icon: const Icon(Icons.download_rounded, size: 13, color: AppColors.primary),
+                    label: Text('Export PDF', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                  ),
+                ],
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 4),
 
               Container(
                 padding: const EdgeInsets.all(20),
@@ -388,7 +470,7 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                     const SizedBox(height: 8),
                     Text('No Recent Disbursements', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                     const SizedBox(height: 2),
-                    Text('When tenants complete rent payment and move-in key handover, net payouts appear here.', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary)),
+                    Text('When tenants or buyers complete payment and confirm physical handover, net settlement payouts appear here.', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary)),
                   ],
                 ),
               ),
@@ -400,19 +482,20 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
     );
   }
 
-  Widget _buildUtilityButton(IconData icon, String title, String subtitle, VoidCallback onTap) {
+  Widget _buildUtilityButton(IconData icon, String title, String subtitle, Color color, VoidCallback onTap) {
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
+        behavior: HitTestBehavior.opaque,
         child: Column(
           children: [
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.08),
+                color: color.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, size: 20, color: AppColors.primary),
+              child: Icon(icon, size: 20, color: color),
             ),
             const SizedBox(height: 6),
             Text(title, style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),

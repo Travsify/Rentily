@@ -9,6 +9,7 @@ import '../../widgets/verification_modal.dart';
 import '../../widgets/add_money_modal.dart';
 import '../../widgets/withdrawal_modal.dart';
 import '../../widgets/quick_utilities_modal.dart';
+import '../bills/bills_screen.dart';
 
 class PartnerWalletScreen extends StatefulWidget {
   const PartnerWalletScreen({super.key});
@@ -299,7 +300,9 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                             child: ElevatedButton.icon(
                               onPressed: () {
                                 if (_user != null) {
-                                  AddMoneyModal.show(context, user: _user!);
+                                  AddMoneyModal.show(context, user: _user!, onAccountUpdated: (u) {
+                                    setState(() => _user = u);
+                                  });
                                 }
                               },
                               icon: const Icon(Icons.add_rounded, size: 14, color: Colors.white),
@@ -325,7 +328,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                                 }
                               },
                               icon: const Icon(Icons.north_east_rounded, size: 14, color: AppColors.primary),
-                              label: Text('Withdraw Commissions', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                              label: Text('Withdraw', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
                               style: OutlinedButton.styleFrom(
                                 side: const BorderSide(color: AppColors.primary),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -358,10 +361,18 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                   children: [
                     Row(
                       children: [
-                        _buildUtilityButton(Icons.wifi_rounded, 'Data Bundle', '4K Video Tours', () => QuickUtilitiesModal.show(context)),
-                        _buildUtilityButton(Icons.phone_android_rounded, 'Airtime', 'Quick Top-Up', () => QuickUtilitiesModal.show(context)),
-                        _buildUtilityButton(Icons.electric_bolt_rounded, 'Electricity', 'Prepaid DisCo', () => QuickUtilitiesModal.show(context)),
-                        _buildUtilityButton(Icons.tv_rounded, 'Cable TV', 'DSTV/GOTV', () => QuickUtilitiesModal.show(context)),
+                        _buildUtilityButton(Icons.electric_bolt_rounded, 'Electricity', 'Prepaid DisCo', () {
+                          Navigator.of(context).push(MaterialPageRoute(builder: (_) => BillsScreen(initialCategory: 'electricity')));
+                        }),
+                        _buildUtilityButton(Icons.phone_android_rounded, 'Airtime', 'Quick Top-Up', () {
+                          Navigator.of(context).push(MaterialPageRoute(builder: (_) => BillsScreen(initialCategory: 'airtime')));
+                        }),
+                        _buildUtilityButton(Icons.wifi_rounded, 'Data Bundle', '4K Video Tours', () {
+                          Navigator.of(context).push(MaterialPageRoute(builder: (_) => BillsScreen(initialCategory: 'data')));
+                        }),
+                        _buildUtilityButton(Icons.tv_rounded, 'Cable TV', 'DSTV/GOTV', () {
+                          Navigator.of(context).push(MaterialPageRoute(builder: (_) => BillsScreen(initialCategory: 'cable')));
+                        }),
                       ],
                     ),
                   ],

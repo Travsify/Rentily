@@ -41,7 +41,7 @@ class _LandlordDashboardScreenState extends State<LandlordDashboardScreen> {
     final screens = [
       _LandlordPortfolioTab(
         onSwitchToTenant: widget.onSwitchToTenant,
-        onNavigateToWallet: () => setState(() => _currentIndex = 2),
+        onNavigateToTab: (index) => setState(() => _currentIndex = index),
       ),
       const PropertiesScreen(initialPurpose: 'all'),
       const LandlordWalletScreen(),
@@ -65,9 +65,9 @@ class _LandlordDashboardScreenState extends State<LandlordDashboardScreen> {
 
 class _LandlordPortfolioTab extends StatefulWidget {
   final VoidCallback? onSwitchToTenant;
-  final VoidCallback? onNavigateToWallet;
+  final ValueChanged<int>? onNavigateToTab;
 
-  const _LandlordPortfolioTab({this.onSwitchToTenant, this.onNavigateToWallet});
+  const _LandlordPortfolioTab({this.onSwitchToTenant, this.onNavigateToTab});
 
   @override
   State<_LandlordPortfolioTab> createState() => _LandlordPortfolioTabState();
@@ -192,8 +192,8 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
                 // 1. Direct Property Owner Card (Styled in Rentilly Brand Green with Tap-to-Wallet)
                 GestureDetector(
                   onTap: () {
-                    if (widget.onNavigateToWallet != null) {
-                      widget.onNavigateToWallet!();
+                    if (widget.onNavigateToTab != null) {
+                      widget.onNavigateToTab!(2);
                     } else {
                       Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LandlordWalletScreen()));
                     }
@@ -293,7 +293,7 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('ACTIVE ESCROW RENT', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white60)),
+                                    Text('ACTIVE ESCROW FUNDS', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white60)),
                                     const SizedBox(height: 2),
                                     Text('₦${_currencyFormat.format(escrowBalance)}', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w900, color: const Color(0xFF38BDF8))),
                                   ],
@@ -353,7 +353,7 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Activate Rent Bank Account', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                              Text('Activate Settlement Account', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                               const SizedBox(height: 2),
                               Text('Complete BVN/NIN check to unlock your dedicated escrow account.', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary)),
                             ],
@@ -389,7 +389,7 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('RENT SETTLEMENT BANK ACCOUNT', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, color: AppColors.textSecondary)),
+                            Text('SETTLEMENT BANK ACCOUNT', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, color: AppColors.textSecondary)),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(color: const Color(0xFFF0FDF4), borderRadius: BorderRadius.circular(4)),
@@ -449,7 +449,7 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
                                   }
                                 },
                                 icon: const Icon(Icons.north_east_rounded, size: 14, color: AppColors.primary),
-                                label: Text('Withdraw Rent', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                                label: Text('Withdraw', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
                                 style: OutlinedButton.styleFrom(
                                   side: const BorderSide(color: AppColors.primary),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -528,7 +528,11 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
                       badge: 'ACTIVE',
                       color: const Color(0xFF0284C7),
                       onTap: () {
-                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const InspectionsScreen()));
+                        if (widget.onNavigateToTab != null) {
+                          widget.onNavigateToTab!(3);
+                        } else {
+                          Navigator.of(context).push(MaterialPageRoute(builder: (_) => const InspectionsScreen()));
+                        }
                       },
                     ),
                     _buildGridCard(
@@ -538,7 +542,11 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
                       badge: 'SECURE',
                       color: const Color(0xFF16A34A),
                       onTap: () {
-                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LandlordWalletScreen()));
+                        if (widget.onNavigateToTab != null) {
+                          widget.onNavigateToTab!(2);
+                        } else {
+                          Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LandlordWalletScreen()));
+                        }
                       },
                     ),
                   ],
@@ -555,7 +563,11 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
                     ),
                     TextButton(
                       onPressed: () {
-                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PropertiesScreen()));
+                        if (widget.onNavigateToTab != null) {
+                          widget.onNavigateToTab!(1);
+                        } else {
+                          Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PropertiesScreen()));
+                        }
                       },
                       child: Text('View Public Feed', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
                     ),
