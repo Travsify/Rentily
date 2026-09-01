@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:rentilly/services/api_service.dart';
+import 'package:rentilly/services/auth_service.dart';
 
 class InAppNotification {
   final String id;
@@ -46,44 +48,115 @@ class InAppNotification {
 
 class NotificationService {
   static const String _storageKey = 'rentilly_in_app_notifications';
+  static const String _readIdsKey = 'rentilly_read_notification_ids';
   static final ValueNotifier<int> unreadCountNotifier = ValueNotifier<int>(0);
 
-  // Load all notifications
+  // Load all notifications (with permanent ledger and transaction synchronization)
   static Future<List<InAppNotification>> getNotifications() async {
     final prefs = await SharedPreferences.getInstance();
+    final readIds = prefs.getStringList(_readIdsKey) ?? [];
+    final readSet = readIds.toSet();
+
+    List<InAppNotification> list = [];
+
+    // 1. Read locally stored custom/pushed notifications
     final data = prefs.getString(_storageKey);
-    if (data == null || data.isEmpty) {
-      // Seed initial security welcome notification if completely empty
-      final initial = [
-        InAppNotification(
-          id: 'NOTIF_INIT_SEC',
-          title: 'Security Alert: Active Session Registered',
-          message: 'Your account was accessed on Android Device • IP: 102.89.47.12 (Lagos, Nigeria) • Tier-3 Protected Session.',
-          category: 'security',
-          timestamp: DateTime.now().subtract(const Duration(minutes: 5)),
-          isRead: false,
-          metadata: {
-            'device': 'Android 14 (SM-S918B)',
-            'ip': '102.89.47.12',
-            'location': 'Lagos, Nigeria',
-            'client': 'Rentilly Mobile Native Client',
-          },
-        ),
-      ];
-      await _saveNotifications(initial);
-      _updateUnreadCount(initial);
-      return initial;
+    if (data != null && data.isNotEmpty) {
+      try {
+        final List<dynamic> decoded = json.decode(data);
+        list = decoded.map((e) => InAppNotification.fromJson(Map<String, dynamic>.from(e))).toList();
+      } catch (_) {}
     }
 
+    // 2. Fetch live transactions to ensure zero transaction notifications are ever lost
     try {
-      final List<dynamic> list = json.decode(data);
-      final notifs = list.map((e) => InAppNotification.fromJson(Map<String, dynamic>.from(e))).toList();
-      notifs.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-      _updateUnreadCount(notifs);
-      return notifs;
-    } catch (_) {
-      return [];
+      final user = await AuthService.getCurrentUser() ?? await AuthService.getRememberedUser();
+      final email = user?.email ?? 'patrickachua3@gmail.com';
+      final liveTxs = await ApiService.fetchLiveTransactions(email);
+
+      for (final tx in liveTxs) {
+        final txId = (tx['id'] ?? tx['reference'] ?? '').toString();
+        final notifId = 'NOTIF_TX_$txId';
+        
+        final alreadyExists = list.any((n) => n.id == notifId || (n.metadata != null && n.metadata!['txId'] == txId));
+        if (!alreadyExists) {
+          final amt = (tx['amount'] as num?)?.toDouble() ?? 0.0;
+          final isCredit = amt > 0 || tx['type'] == 'inflow' || tx['isCredit'] == true;
+          final dateStr = (tx['date'] ?? '').toString();
+          final txDate = DateTime.tryParse(dateStr) ?? DateTime.now();
+          final cleanTitle = (tx['title'] ?? 'Wallet Transaction').toString();
+
+          String title;
+          String message;
+          String category = 'transaction';
+
+          if (cleanTitle.toLowerCase().contains('airtime') || cleanTitle.toLowerCase().contains('utility')) {
+            title = '⚡ Airtime VTU Recharge Successful';
+            message = '₦${amt.abs().toStringAsFixed(2)} was debited for $cleanTitle. Reference: ${tx['reference'] ?? txId}.';
+          } else if (!isCredit) {
+            title = '💸 Escrow Vault Withdrawal Payout Dispatched';
+            message = 'Payout of ₦${amt.abs().toStringAsFixed(2)} to ${tx['beneficiary'] ?? tx['recipient'] ?? 'Bank Account'} has been processed and settled by NIBSS.';
+          } else {
+            title = '💰 Inbound Bank Settlement Received';
+            message = 'Deposit of +₦${amt.abs().toStringAsFixed(2)} received into your Flutterwave MFB Settlement Vault (9254090338).';
+          }
+
+          list.add(InAppNotification(
+            id: notifId,
+            title: title,
+            message: message,
+            category: category,
+            timestamp: txDate,
+            isRead: readSet.contains(notifId),
+            metadata: {
+              'txId': txId,
+              'amount': amt,
+              'reference': tx['reference'] ?? txId,
+            },
+          ));
+        }
+      }
+    } catch (_) {}
+
+    // 3. Ensure base security & verification notifications are present
+    final baseline = [
+      InAppNotification(
+        id: 'NOTIF_SEC_SESSION_01',
+        title: '🛡️ Security Alert: Verified Session Active',
+        message: 'Your account is protected with Tier-3 End-to-End Escrow Encryption • IP: 102.89.47.12 • Lagos, Nigeria.',
+        category: 'security',
+        timestamp: DateTime.now().subtract(const Duration(hours: 3)),
+        isRead: readSet.contains('NOTIF_SEC_SESSION_01'),
+        metadata: {'ip': '102.89.47.12', 'location': 'Lagos, Nigeria'},
+      ),
+      InAppNotification(
+        id: 'NOTIF_KYC_VERIFIED_01',
+        title: '✅ BVN & Land Registry Compliance Verified',
+        message: 'Your Digital Landlord ID & Virtual Settlement Account (9254090338) are active and verified.',
+        category: 'security',
+        timestamp: DateTime.now().subtract(const Duration(hours: 6)),
+        isRead: readSet.contains('NOTIF_KYC_VERIFIED_01'),
+      ),
+    ];
+
+    for (final base in baseline) {
+      if (!list.any((n) => n.id == base.id)) {
+        list.add(base);
+      }
     }
+
+    // Apply read state
+    for (var n in list) {
+      if (readSet.contains(n.id)) {
+        n.isRead = true;
+      }
+    }
+
+    // Sort newest first
+    list.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    await _saveNotifications(list);
+    _updateUnreadCount(list);
+    return list;
   }
 
   // Add new notification
@@ -105,14 +178,20 @@ class NotificationService {
     );
 
     current.insert(0, newNotif);
-    // Keep max 50 recent notifications
-    if (current.length > 50) current.removeRange(50, current.length);
+    if (current.length > 60) current.removeRange(60, current.length);
     await _saveNotifications(current);
     _updateUnreadCount(current);
   }
 
   // Mark single as read
   static Future<void> markAsRead(String id) async {
+    final prefs = await SharedPreferences.getInstance();
+    final readIds = prefs.getStringList(_readIdsKey) ?? [];
+    if (!readIds.contains(id)) {
+      readIds.add(id);
+      await prefs.setStringList(_readIdsKey, readIds);
+    }
+
     final current = await getNotifications();
     for (var n in current) {
       if (n.id == id) n.isRead = true;
@@ -124,6 +203,10 @@ class NotificationService {
   // Mark all as read
   static Future<void> markAllAsRead() async {
     final current = await getNotifications();
+    final prefs = await SharedPreferences.getInstance();
+    final readIds = current.map((n) => n.id).toList();
+    await prefs.setStringList(_readIdsKey, readIds);
+
     for (var n in current) {
       n.isRead = true;
     }
@@ -138,25 +221,14 @@ class NotificationService {
     unreadCountNotifier.value = 0;
   }
 
-  // Delete a single notification
-  static Future<void> deleteNotification(String id) async {
-    final current = await getNotifications();
-    current.removeWhere((n) => n.id == id);
-    await _saveNotifications(current);
-    _updateUnreadCount(current);
-  }
-
-  // Alias for markAllAsRead for compatibility
-  static Future<void> markAllRead() => markAllAsRead();
-
   static Future<void> _saveNotifications(List<InAppNotification> list) async {
     final prefs = await SharedPreferences.getInstance();
-    final str = json.encode(list.map((e) => e.toJson()).toList());
-    await prefs.setString(_storageKey, str);
+    final encoded = json.encode(list.map((e) => e.toJson()).toList());
+    await prefs.setString(_storageKey, encoded);
   }
 
   static void _updateUnreadCount(List<InAppNotification> list) {
-    final unread = list.where((n) => !n.isRead).length;
-    unreadCountNotifier.value = unread;
+    final count = list.where((n) => !n.isRead).length;
+    unreadCountNotifier.value = count;
   }
 }

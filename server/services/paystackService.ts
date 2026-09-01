@@ -137,4 +137,21 @@ export class PaystackService {
       return { status: false, message: err.message };
     }
   }
+
+  // 5. Fetch Live Outbound Transfers Ledger from Paystack Cloud API
+  static async fetchLiveTransfers(): Promise<any[]> {
+    try {
+      const response = await fetch(`${PAYSTACK_BASE_URL}/transfer?perPage=50`, {
+        headers: this.getHeaders()
+      });
+      const resJson: any = await response.json();
+      if (response.ok && resJson.status && Array.isArray(resJson.data)) {
+        return resJson.data;
+      }
+      return [];
+    } catch (err: any) {
+      console.error('Failed to fetch live Paystack transfers:', err.message);
+      return [];
+    }
+  }
 }

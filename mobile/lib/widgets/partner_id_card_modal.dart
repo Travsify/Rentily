@@ -30,7 +30,13 @@ class PartnerIdCardModal extends StatelessWidget {
         : 'Deed & Land Registry Audited';
     final prefix = isPartner ? 'RNT-PTR' : 'RNT-LLD';
     final digitalId = '$prefix-${user.id.replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0').substring(0, 4)}';
-    final state = user.state ?? 'Lagos';
+    
+    final rawState = (user.state != null && user.state!.trim().isNotEmpty) ? user.state!.trim() : 'Lagos';
+    final cleanState = rawState.toLowerCase().contains('fct') || rawState.toLowerCase().contains('abuja')
+        ? 'Abuja (FCT)'
+        : (rawState.toLowerCase().contains('state') ? rawState : '$rawState State');
+    final jurisdiction = '$cleanState, Nigeria';
+    
     final designation = isPartner ? 'Corporate Brokerage Mandate' : 'Direct Property Owner / Lessor';
 
     try {
@@ -182,7 +188,7 @@ class PartnerIdCardModal extends StatelessWidget {
                                 children: [
                                   pw.Text('JURISDICTION', style: pw.TextStyle(color: PdfColor.fromHex('94A3B8'), fontSize: 6, fontWeight: pw.FontWeight.bold)),
                                   pw.SizedBox(height: 1),
-                                  pw.Text('$state State, Nigeria', style: pw.TextStyle(color: PdfColors.white, fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                                  pw.Text(jurisdiction, style: pw.TextStyle(color: PdfColors.white, fontSize: 8, fontWeight: pw.FontWeight.bold)),
                                 ],
                               ),
                             ),
@@ -334,9 +340,11 @@ class PartnerIdCardModal extends StatelessWidget {
     final cacOrTitle = isPartner
         ? (user.cacNumber ?? 'RC 1928374')
         : 'Deed & Land Registry Audited';
-    final prefix = isPartner ? 'RNT-PTR' : 'RNT-LLD';
-    final digitalId = '$prefix-${user.id.replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0').substring(0, 4)}';
-    final state = user.state ?? 'Lagos';
+    final rawState = (user.state != null && user.state!.trim().isNotEmpty) ? user.state!.trim() : 'Lagos';
+    final cleanState = rawState.toLowerCase().contains('fct') || rawState.toLowerCase().contains('abuja')
+        ? 'Abuja (FCT)'
+        : (rawState.toLowerCase().contains('state') ? rawState : '$rawState State');
+    final jurisdiction = '$cleanState, Nigeria';
     final designation = isPartner ? 'Corporate Brokerage Mandate' : 'Direct Property Owner / Lessor';
 
     return Container(
@@ -562,7 +570,7 @@ class PartnerIdCardModal extends StatelessWidget {
                                     child: _buildDataField('ROLE / DESIGNATION', designation, Colors.white),
                                   ),
                                   Expanded(
-                                    child: _buildDataField('JURISDICTION', '$state State, Nigeria', Colors.white),
+                                    child: _buildDataField('JURISDICTION', jurisdiction, Colors.white),
                                   ),
                                 ],
                               ),

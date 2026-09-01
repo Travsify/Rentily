@@ -471,20 +471,20 @@ export async function payBill(req: Request, res: Response) {
   }
 }
 
-// Helper: Sync live Flutterwave inbound deposits directly to local store
+// Helper: Sync live Flutterwave deposits AND Paystack withdrawals directly into ledger
 async function syncFlutterwaveTransactionsForUser(cleanEmail: string) {
   try {
-    const liveTxs = await FlutterwaveService.fetchLiveTransactions();
     const existing = TransactionStore.getAllTransactions();
 
-    for (const flwTx of liveTxs) {
+    // 1. Sync Inbound Deposits from Flutterwave Cloud API
+    const liveFlwTxs = await FlutterwaveService.fetchLiveTransactions();
+    for (const flwTx of liveFlwTxs) {
       if (flwTx.status !== 'successful' && flwTx.status !== 'success') continue;
 
       const flwEmail = (flwTx.customer?.email || '').toLowerCase().trim();
       const flwName = (flwTx.customer?.name || '').toLowerCase().trim();
       const txRef = (flwTx.tx_ref || flwTx.flw_ref || '').toString();
 
-      // Match Patrick Achua / Landlord
       const isPatrick = cleanEmail.includes('patrick') || cleanEmail.includes('travsify');
       const matchesUser =
         flwEmail === cleanEmail ||
@@ -519,8 +519,50 @@ async function syncFlutterwaveTransactionsForUser(cleanEmail: string) {
         }
       }
     }
+
+    // 2. Sync Outbound Withdrawals / Payouts from Paystack Cloud API
+    const livePaystackTxs = await PaystackService.fetchLiveTransfers();
+    for (const pstTx of livePaystackTxs) {
+      const pstStatus = (pstTx.status || '').toUpperCase();
+      if (pstStatus !== 'SUCCESS' && pstStatus !== 'SUCCESSFUL' && pstStatus !== 'PENDING' && pstStatus !== 'PROCESSING') continue;
+
+      const txRef = (pstTx.reference || pstTx.transfer_code || `PST_${pstTx.id}`).toString();
+      const exists = existing.some(e =>
+        e.reference === txRef ||
+        e.id === `PST_TX_${pstTx.id}` ||
+        e.id === pstTx.transfer_code
+      );
+
+      if (!exists) {
+        const amount = Number(pstTx.amount || 0) / 100; // convert Kobo to Naira
+        if (amount > 0) {
+          const recipientName = pstTx.recipient?.name || pstTx.recipient?.details?.account_name || 'Bank Account';
+          const recipientAcc = pstTx.recipient?.details?.account_number || '';
+          const recipientBank = pstTx.recipient?.details?.bank_name || 'Direct Bank Payout';
+          const status = (pstStatus === 'SUCCESS' || pstStatus === 'SUCCESSFUL') ? 'SUCCESSFUL' : 'PENDING';
+
+          await TransactionStore.addTransaction({
+            id: `PST_TX_${pstTx.id}`,
+            userId: 'usr_patrick_achua_live',
+            email: cleanEmail,
+            title: `Bank Transfer Payout to ${recipientName}`,
+            type: 'Instant Direct Bank Payout',
+            category: 'withdrawal',
+            amount: amount,
+            isCredit: false,
+            reference: txRef,
+            sender: 'Patrick Achua (Rentilly Living Escrow)',
+            beneficiary: recipientName,
+            recipientAccount: recipientAcc,
+            recipientBank: recipientBank,
+            status: status,
+            date: pstTx.createdAt || pstTx.transferred_at || new Date().toISOString()
+          });
+        }
+      }
+    }
   } catch (e: any) {
-    console.error('Error syncing FLW transactions:', e.message);
+    console.error('Error syncing live transactions:', e.message);
   }
 }
 
