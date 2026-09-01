@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../constants/app_colors.dart';
 import '../../models/inspection.dart';
 import '../../services/api_service.dart';
+import '../main_navigation_screen.dart';
 
 class InspectionsScreen extends StatefulWidget {
   const InspectionsScreen({super.key});
@@ -142,129 +143,74 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
 
-          Text(
-            'UPCOMING LANDLORD LIVE BROADCASTS',
-            style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 10),
-
-          // Broadcast Card 1
-          _buildBroadcastCard(
-            title: '4-Bedroom Fully Detached Duplex + BQ',
-            location: 'Lekki Phase 1, Lagos',
-            host: 'Engr. Patrick (Direct Owner)',
-            time: 'Today, 4:30 PM (WAT)',
-            isLiveSoon: true,
-          ),
-
-          // Broadcast Card 2
-          _buildBroadcastCard(
-            title: 'Luxury 2-Bedroom Serviced Apartment',
-            location: 'Maitama, Abuja (FCT)',
-            host: 'Alhaji Ibrahim (Direct Landlord)',
-            time: 'Tomorrow, 11:00 AM (WAT)',
-            isLiveSoon: false,
-          ),
-
-          // Broadcast Card 3
-          _buildBroadcastCard(
-            title: 'Executive 3-Bedroom Flat with Water View',
-            location: 'Peter Odili Road, Port Harcourt',
-            host: 'Barrister Nneka (Verified Manager)',
-            time: 'Thursday, 2:00 PM (WAT)',
-            isLiveSoon: false,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBroadcastCard({
-    required String title,
-    required String location,
-    required String host,
-    required String time,
-    required bool isLiveSoon,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.borderDark),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: isLiveSoon ? const Color(0xFFFEF2F2) : const Color(0xFFF0FDF4),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      isLiveSoon ? Icons.fiber_manual_record_rounded : Icons.schedule_rounded,
-                      size: 10,
-                      color: isLiveSoon ? const Color(0xFFEF4444) : const Color(0xFF16A34A),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      isLiveSoon ? 'STARTING SOON' : 'SCHEDULED WINDOW',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 9,
-                        fontWeight: FontWeight.bold,
-                        color: isLiveSoon ? const Color(0xFFDC2626) : const Color(0xFF15803D),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                time,
-                style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            title,
-            style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            '$location • Host: $host',
-            style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
-          ),
-          const SizedBox(height: 14),
-          SizedBox(
+          // Clean Empty State for 4K Live Video (No dummy data)
+          Container(
             width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Registered for "$title" 4K live broadcast! You will receive notification before the landlord goes live.', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
-                    backgroundColor: AppColors.primary,
+            padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(color: AppColors.borderDark),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.02),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.08),
+                    shape: BoxShape.circle,
                   ),
-                );
-              },
-              icon: const Icon(Icons.video_camera_front_rounded, size: 16, color: Colors.white),
-              label: Text(
-                isLiveSoon ? 'Join 4K Live Broadcast' : 'Set Live Reminder',
-                style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isLiveSoon ? AppColors.accentOrange : AppColors.primary,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
+                  child: const Icon(
+                    Icons.videocam_outlined,
+                    size: 38,
+                    color: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'No Scheduled Live Broadcasts',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'When landlords schedule a 4K live video walkthrough for properties you are inspecting, your live broadcast window, countdown, and real-time Q&A access will appear here.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11,
+                    color: AppColors.textSecondary,
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    MainNavigationScreen.of(context)?.switchTab(1);
+                  },
+                  icon: const Icon(Icons.search_rounded, size: 16, color: Colors.white),
+                  label: Text(
+                    'Explore Properties for Live Video',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ],
             ),
           ),
         ],

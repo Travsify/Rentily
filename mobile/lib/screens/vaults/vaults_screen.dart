@@ -317,16 +317,22 @@ class _VaultsScreenState extends State<VaultsScreen> {
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Text(
-                          'TOTAL LOCKED IN LIVING VAULTS',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.0,
-                            color: Colors.white.withValues(alpha: 0.7),
+                        Flexible(
+                          child: Text(
+                            'TOTAL LOCKED IN LIVING VAULTS',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 8.5,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.8,
+                              color: Colors.white.withValues(alpha: 0.7),
+                            ),
                           ),
                         ),
+                        const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
@@ -336,7 +342,7 @@ class _VaultsScreenState extends State<VaultsScreen> {
                           child: Text(
                             '5.0% - 8.0% ANNUAL YIELD',
                             style: GoogleFonts.plusJakartaSans(
-                              fontSize: 8.5,
+                              fontSize: 8,
                               fontWeight: FontWeight.bold,
                               color: Colors.white,
                             ),
