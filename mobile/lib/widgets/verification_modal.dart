@@ -195,9 +195,11 @@ class _VerificationModalState extends State<VerificationModal> {
     if (res['success'] == true && res['user'] != null) {
       var updatedUser = res['user'] as UserProfile;
       if (_isPartner) {
+        final tin = _tinController.text.trim();
         updatedUser = updatedUser.copyWith(
           businessName: bName,
           cacNumber: cac,
+          taxId: tin.isNotEmpty ? tin : updatedUser.taxId,
           officeAddress: office.isNotEmpty ? office : updatedUser.officeAddress,
           isVerified: true,
           bvnVerified: true,
@@ -368,8 +370,10 @@ class _VerificationModalState extends State<VerificationModal> {
         : user.fullName;
     final cac = (user.cacNumber != null && user.cacNumber!.isNotEmpty)
         ? user.cacNumber!
-        : 'RC-9832410';
-    final taxNum = 'TIN-${(bizName.hashCode.abs() % 90000000 + 10000000)}';
+        : 'RC Verified';
+    final taxNum = (user.taxId != null && user.taxId!.isNotEmpty)
+        ? user.taxId!
+        : 'TIN Verified on JTB';
     final office = (user.officeAddress != null && user.officeAddress!.isNotEmpty)
         ? user.officeAddress!
         : '${user.state ?? "Lagos"}, Nigeria';

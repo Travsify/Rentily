@@ -231,11 +231,11 @@ export async function purchaseElectricityToken(req: Request, res: Response) {
           email: email.toString(),
           title: `Receipt: ₦${Number(amount).toLocaleString()} Electricity Token Purchased`,
           category: 'utilities',
-          message: `Your prepaid electricity token for meter ${customerNumber} has been generated successfully.`,
+          message: `Your prepaid electricity token for meter ${meterNumber} has been generated successfully.`,
           metadata: {
             amount: Number(amount),
             token: result.data?.token || 'TOKEN-GENERATED',
-            meterNumber: customerNumber.toString(),
+            meterNumber: meterNumber.toString(),
             reference: result.data?.txRef || `DISCO-${Date.now()}`
           }
         });

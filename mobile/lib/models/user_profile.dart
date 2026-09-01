@@ -16,6 +16,7 @@ class UserProfile {
   // Partner / Corporate Vetting Fields
   final String? businessName;
   final String? cacNumber;
+  final String? taxId;
   final String? officeAddress;
   final String? officeUtilityBillUrl;
   final String? officeBannerPhotoUrl;
@@ -37,6 +38,7 @@ class UserProfile {
     this.state = 'Lagos',
     this.businessName,
     this.cacNumber,
+    this.taxId,
     this.officeAddress,
     this.officeUtilityBillUrl,
     this.officeBannerPhotoUrl,
@@ -91,6 +93,7 @@ class UserProfile {
       state: json['state']?.toString() ?? 'Lagos',
       businessName: json['businessName']?.toString() ?? json['business_name']?.toString(),
       cacNumber: json['cacNumber']?.toString() ?? json['cac_number']?.toString(),
+      taxId: json['taxId']?.toString() ?? json['tax_id']?.toString() ?? json['tinNumber']?.toString() ?? json['tin_number']?.toString(),
       officeAddress: json['officeAddress']?.toString() ?? json['office_address']?.toString(),
       officeUtilityBillUrl: json['officeUtilityBillUrl']?.toString() ?? json['office_utility_bill_url']?.toString(),
       officeBannerPhotoUrl: json['officeBannerPhotoUrl']?.toString() ?? json['office_banner_photo_url']?.toString(),
@@ -115,6 +118,7 @@ class UserProfile {
       'state': state,
       'businessName': businessName,
       'cacNumber': cacNumber,
+      'taxId': taxId,
       'officeAddress': officeAddress,
       'officeUtilityBillUrl': officeUtilityBillUrl,
       'officeBannerPhotoUrl': officeBannerPhotoUrl,
@@ -138,6 +142,7 @@ class UserProfile {
     String? state,
     String? businessName,
     String? cacNumber,
+    String? taxId,
     String? officeAddress,
     String? officeUtilityBillUrl,
     String? officeBannerPhotoUrl,
@@ -159,6 +164,7 @@ class UserProfile {
       state: state ?? this.state,
       businessName: businessName ?? this.businessName,
       cacNumber: cacNumber ?? this.cacNumber,
+      taxId: taxId ?? this.taxId,
       officeAddress: officeAddress ?? this.officeAddress,
       officeUtilityBillUrl: officeUtilityBillUrl ?? this.officeUtilityBillUrl,
       officeBannerPhotoUrl: officeBannerPhotoUrl ?? this.officeBannerPhotoUrl,
