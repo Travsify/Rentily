@@ -211,7 +211,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     if (!_isPhoneVerified) {
-      setState(() => _errorMessage = 'Please tap "Verify" on your Mobile Phone Number and enter your Twilio SMS code.');
+      setState(() => _errorMessage = 'Please tap "Verify" on your Mobile Phone Number and enter your 6-digit SMS code.');
       return;
     }
 
@@ -1060,9 +1060,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         const SizedBox(height: 14),
 
-        // 2. Phone Verification with Twilio SMS
+        // 2. Phone Verification via SMS
         InlineOtpVerificationWidget(
-          label: 'Mobile Phone Number (Twilio SMS)',
+          label: 'Mobile Phone Number (SMS)',
           hintText: 'e.g. 0812 345 6789',
           prefixIcon: Icons.phone_android_rounded,
           textController: _phoneController,

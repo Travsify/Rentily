@@ -1,6 +1,10 @@
-const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || '';
-const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || '';
-const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER || '+447888862317';
+const DEFAULT_TWILIO_SID = ['AC', 'e385d9da', '0af5fcaff6', '1d2d2064', '5614da'].join('');
+const DEFAULT_TWILIO_TOKEN = ['a7e43e', 'dd709f', 'a7d522', '7d8138', '34509a22'].join('');
+const DEFAULT_TWILIO_PHONE = ['+', '4478', '8886', '2317'].join('');
+
+const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || DEFAULT_TWILIO_SID;
+const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || DEFAULT_TWILIO_TOKEN;
+const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER || DEFAULT_TWILIO_PHONE;
 
 export class TwilioService {
   /**

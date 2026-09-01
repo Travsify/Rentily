@@ -331,7 +331,7 @@ class _InlineOtpVerificationWidgetState extends State<InlineOtpVerificationWidge
                         Text(
                           widget.channel == 'email'
                               ? 'Enter 6-Digit Email Code'
-                              : 'Enter 6-Digit Twilio SMS Code',
+                              : 'Enter 6-Digit SMS Security Code',
                           style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                         ),
                       ],

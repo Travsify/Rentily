@@ -222,12 +222,12 @@ export async function syncNuban(req: Request, res: Response) {
     const bankName = bankResult.data.bankName || 'Flutterwave MFB';
 
     // Update in UserStore
-    const existing = await UserStore.findByEmail(email || '');
-    if (existing) {
+    const userToUpdate = existing || await UserStore.findByEmail(email || '');
+    if (userToUpdate) {
       UserStore.upsertUser({
-        ...existing,
+        ...userToUpdate,
         fullName: cleanName,
-        businessName: isPartner ? (partnerBizName || existing.businessName) : existing.businessName,
+        businessName: isPartner ? (partnerBizName || userToUpdate.businessName) : userToUpdate.businessName,
         isVerified: true,
         accountNumber: accountNumber,
         bankName: bankName,
