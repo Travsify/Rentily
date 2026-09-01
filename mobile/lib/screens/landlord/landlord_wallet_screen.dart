@@ -81,14 +81,14 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
         {
           'id': 'TXN-RNT-9254090338-001',
           'title': 'Wallet Funding (Bank Transfer)',
-          'subtitle': 'Direct deposit into Providus Bank virtual account $acc',
+          'subtitle': 'Direct deposit into Flutterwave with MFB virtual account $acc',
           'amount': 2000.0,
           'type': 'inflow',
           'status': 'Completed',
           'date': '01 Sep 2026, 03:45 AM',
-          'reference': 'PRV-FUND-9254090338-2000',
-          'channel': 'Providus Virtual Inflow / Monnify',
-          'session': 'SES-PRV-984210984712',
+          'reference': 'FLW-FUND-9254090338-2000',
+          'channel': 'Flutterwave with MFB / Core Settlement',
+          'session': 'SES-FLW-984210984712',
         },
       ];
       await prefs.setString('rentilly_landlord_transactions', json.encode(_transactions));
@@ -117,7 +117,7 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
     final ref = txn['reference'] ?? txn['id'] ?? 'REF-9254090338';
     final title = txn['title'] as String;
     final date = txn['date'] as String;
-    final channel = txn['channel'] ?? 'Providus Virtual Settlement';
+    final channel = txn['channel'] ?? 'Flutterwave Settlement Account';
     final session = txn['session'] ?? 'SES-${DateTime.now().millisecondsSinceEpoch}';
 
     final doc = pw.Document();
@@ -179,7 +179,7 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                   child: pw.Column(
                     children: [
                       _buildReceiptRow('Transaction Ref', ref),
-                      _buildReceiptRow('Settlement Account', '$acc (Providus Bank)'),
+                      _buildReceiptRow('Settlement Account', '$acc (Flutterwave with MFB)'),
                       _buildReceiptRow('Account Holder', name),
                       _buildReceiptRow('Payment Channel', channel),
                       _buildReceiptRow('Session Reference', session),
@@ -251,8 +251,8 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
     final ref = txn['reference'] ?? txn['id'] ?? 'REF-9254090338';
     final title = txn['title'] as String;
     final date = txn['date'] as String;
-    final channel = txn['channel'] ?? 'Providus Virtual Settlement';
-    final session = txn['session'] ?? 'SES-PRV-984210984712';
+    final channel = txn['channel'] ?? 'Flutterwave Settlement Account';
+    final session = txn['session'] ?? 'SES-FLW-984210984712';
     final acc = _user?.accountNumber ?? '9254090338';
     final name = _user?.fullName ?? 'Property Owner';
 
@@ -302,7 +302,7 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                   const Divider(height: 14),
                   _buildModalRow('Transaction Ref', ref),
                   const Divider(height: 14),
-                  _buildModalRow('Settlement Account', '$acc (Providus Bank)'),
+                  _buildModalRow('Settlement Account', '$acc (Flutterwave with MFB)'),
                   const Divider(height: 14),
                   _buildModalRow('Account Holder', name),
                   const Divider(height: 14),
@@ -408,7 +408,7 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
                         pw.Text('ACCOUNT HOLDER: $name', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
-                        pw.Text('VIRTUAL SETTLEMENT ACCOUNT: $acc (Providus Bank)', style: const pw.TextStyle(fontSize: 9)),
+                        pw.Text('VIRTUAL SETTLEMENT ACCOUNT: $acc (Flutterwave with MFB)', style: const pw.TextStyle(fontSize: 9)),
                       ],
                     ),
                     pw.Column(
@@ -474,7 +474,7 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
     final operationalBalance = _user?.walletBalance ?? 2000.0;
     final escrowBalance = 0.00;
     final accountNumber = _user?.accountNumber ?? '9254090338';
-    final bankName = _user?.bankName ?? 'Providus Bank';
+    final bankName = _user?.bankName ?? 'Flutterwave with MFB';
 
     final filteredTransactions = _selectedLedgerFilter == 'All'
         ? _transactions

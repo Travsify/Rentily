@@ -120,7 +120,7 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
     final businessName = _user?.businessName ?? 'Apex Realty Partners Ltd';
     final cacNumber = _user?.cacNumber ?? 'RC 1928374';
     final accountNumber = _user?.accountNumber ?? '9834192847';
-    final bankName = _user?.bankName ?? 'Providus Bank';
+    final bankName = _user?.bankName ?? 'Flutterwave with MFB';
     final partnerId = 'RNT-PTR-${_user?.id.replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0').substring(0, 4) ?? "0042"}';
     final operationalBalance = _user?.walletBalance ?? 0.0;
     final escrowCommission = 0.00;

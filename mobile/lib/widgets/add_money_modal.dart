@@ -81,7 +81,7 @@ class _AddMoneyModalState extends State<AddMoneyModal> {
   }
 
   void _copyAllDetails(BuildContext context) {
-    final bank = widget.user.bankName ?? 'Providus Bank';
+    final bank = widget.user.bankName ?? 'Flutterwave with MFB';
     final accNum = widget.user.accountNumber ?? '9823481234';
     final name = widget.user.fullName.isNotEmpty ? widget.user.fullName : 'Patrick Achua';
 
@@ -163,7 +163,7 @@ class _AddMoneyModalState extends State<AddMoneyModal> {
 
   @override
   Widget build(BuildContext context) {
-    final bankName = widget.user.bankName ?? 'Providus Bank';
+    final bankName = widget.user.bankName ?? 'Flutterwave with MFB';
     final accountNumber = widget.user.accountNumber ?? '9823481234';
     final name = widget.user.fullName.isNotEmpty ? widget.user.fullName : 'Property Owner';
 

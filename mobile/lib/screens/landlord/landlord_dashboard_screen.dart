@@ -144,7 +144,7 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
     final operationalBalance = _user?.walletBalance ?? 0.0;
     final escrowBalance = 0.00;
     final accountNumber = _user?.accountNumber ?? '9823481234';
-    final bankName = _user?.bankName ?? 'Providus Bank';
+    final bankName = _user?.bankName ?? 'Flutterwave with MFB';
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
