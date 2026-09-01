@@ -4,6 +4,7 @@ import '../../constants/app_colors.dart';
 import '../../constants/nigerian_states_cities.dart';
 import '../../services/auth_service.dart';
 import '../main_navigation_screen.dart';
+import '../../widgets/inline_otp_verification_widget.dart';
 
 class RegisterScreen extends StatefulWidget {
   final String initialRole;
@@ -40,6 +41,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _obscurePassword = true;
   bool _agreedToTerms = true;
   bool _isLoading = false;
+  bool _isEmailVerified = false;
+  bool _isPhoneVerified = false;
   String? _errorMessage;
 
   @override
@@ -206,12 +209,30 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
+    if (!_isEmailVerified) {
+      setState(() => _errorMessage = 'Please tap "Verify" on your Email Address and enter your 6-digit code.');
+      return;
+    }
+
+    if (!_isPhoneVerified) {
+      setState(() => _errorMessage = 'Please tap "Verify" on your Mobile Phone Number and enter your Twilio SMS code.');
+      return;
+    }
+
+    await _finalizeRegistration();
+  }
+
+  Future<void> _finalizeRegistration() async {
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final phone = _phoneController.text.trim();
+    final password = _passwordController.text;
+    final effectiveRole = _selectedRole;
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
-
-    final effectiveRole = _selectedRole;
 
     // Synthesize structured address
     final street = _officeStreetController.text.trim();
@@ -1008,19 +1029,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  // FINAL STEP: Email, Password, Rules & Terms
+  // FINAL STEP: Email, Phone Verification, Password, Rules & Terms
   Widget _buildCredentialsStep() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Email Address
-        Text('OFFICIAL EMAIL ADDRESS', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
-        const SizedBox(height: 6),
-        TextField(
-          controller: _emailController,
+        // 1. Email Verification with Resend
+        InlineOtpVerificationWidget(
+          label: 'Official Email Address',
+          hintText: _selectedRole == 'partner' ? 'e.g. contact@drivegates.co.uk' : 'e.g. user@example.com',
+          prefixIcon: Icons.email_outlined,
+          textController: _emailController,
           keyboardType: TextInputType.emailAddress,
-          style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-          decoration: _buildInputDecoration('e.g. contact@eomsglobal.com', Icons.email_outlined),
+          channel: 'email',
+          isVerified: _isEmailVerified,
+          onVerifiedChanged: (val) => setState(() => _isEmailVerified = val),
+        ),
+        const SizedBox(height: 14),
+
+        // 2. Phone Verification with Twilio SMS
+        InlineOtpVerificationWidget(
+          label: 'Mobile Phone Number (Twilio SMS)',
+          hintText: 'e.g. 0812 345 6789',
+          prefixIcon: Icons.phone_android_rounded,
+          textController: _phoneController,
+          keyboardType: TextInputType.phone,
+          channel: 'sms',
+          isVerified: _isPhoneVerified,
+          onVerifiedChanged: (val) => setState(() => _isPhoneVerified = val),
         ),
         const SizedBox(height: 14),
 

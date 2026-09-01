@@ -9,6 +9,7 @@ import * as analyticsController from '../controllers/analyticsController';
 import * as verificationController from '../controllers/verificationController';
 import * as paymentController from '../controllers/paymentController';
 import * as fraudController from '../controllers/fraudController';
+import * as otpController from '../controllers/otpController';
 import { isSupabaseConfigured } from '../supabaseClient';
 import { IdentitypassService } from '../services/identitypassService';
 import { FlutterwaveService } from '../services/flutterwaveService';
@@ -28,10 +29,12 @@ apiRouter.get('/health', (_req, res) => {
   });
 });
 
-// 2. Authentication
+// 2. Authentication & Multi-Channel OTP (Resend + Twilio)
 apiRouter.post('/auth/register', authController.register);
 apiRouter.post('/auth/login', authController.login);
 apiRouter.get('/auth/me', authController.getMe);
+apiRouter.post('/auth/send-otp', otpController.sendOtp);
+apiRouter.post('/auth/verify-otp', otpController.verifyOtp);
 
 // 3. Analytics & GMV
 apiRouter.get('/analytics/metrics', analyticsController.getMetrics);
