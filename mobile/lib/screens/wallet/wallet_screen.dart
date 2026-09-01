@@ -10,6 +10,7 @@ import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
 import '../../services/statement_pdf_service.dart';
 import '../vaults/vaults_screen.dart';
+import '../../widgets/add_money_modal.dart';
 import '../../widgets/rentilly_bottom_bar.dart';
 import '../../widgets/verification_modal.dart';
 import '../../widgets/withdrawal_modal.dart';
@@ -376,7 +377,15 @@ class _WalletScreenState extends State<WalletScreen> {
               Row(
                 children: [
                   Expanded(
-                    child: _buildActionButton(Icons.add_rounded, 'Add Money', _copyAccount),
+                    child: _buildActionButton(Icons.add_rounded, 'Add Money', () {
+                      if (_user != null) {
+                        AddMoneyModal.show(
+                          context,
+                          user: _user!,
+                          onAccountUpdated: (u) => setState(() => _user = u),
+                        );
+                      }
+                    }),
                   ),
                   const SizedBox(width: 8),
                   Expanded(

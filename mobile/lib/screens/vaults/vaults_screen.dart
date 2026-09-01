@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../constants/app_colors.dart';
+import '../../services/notification_service.dart';
 
 class VaultsScreen extends StatefulWidget {
   const VaultsScreen({super.key});
@@ -233,6 +234,16 @@ class _VaultsScreenState extends State<VaultsScreen> {
                             });
                           });
                           _saveVaults();
+                          NotificationService.addNotification(
+                            title: 'Living Vault Created: $t 🎯',
+                            message: 'Goal amount of ₦${_currencyFormat.format(amt)} set for $selectedCategory (${currentCategoryMeta['yieldNote']}).',
+                            category: 'vault',
+                            metadata: {
+                              'vault': t,
+                              'target': '₦${_currencyFormat.format(amt)}',
+                              'category': selectedCategory,
+                            },
+                          );
                           Navigator.of(ctx).pop();
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(

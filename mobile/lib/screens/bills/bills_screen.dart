@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../../constants/app_colors.dart';
 import '../../constants/app_constants.dart';
 import '../../services/auth_service.dart';
+import '../../services/notification_service.dart';
 import '../../services/payment_security_service.dart';
 import '../../widgets/rentilly_bottom_bar.dart';
 
@@ -510,10 +511,22 @@ class _BillsScreenState extends State<BillsScreen> {
             _tokenOutput = t;
             _successMessage = 'Electricity token generated successfully!';
           });
+          NotificationService.addNotification(
+            title: 'Prepaid Electricity Token Generated ⚡',
+            message: 'Token $t generated for meter ${_customerController.text} ($_selectedDisco) • Amount: ₦${_amountController.text}',
+            category: 'transaction',
+            metadata: {'token': t, 'meter': _customerController.text, 'amount': '₦${_amountController.text}'},
+          );
         } else {
           setState(() {
             _successMessage = data['message'] ?? 'Transaction completed! Service successfully activated.';
           });
+          NotificationService.addNotification(
+            title: '$_selectedTelco $_appBarTitle Successful 💳',
+            message: 'Payment of ₦${_amountController.text} processed for ${_selectedCategory == "airtime" || _selectedCategory == "data" ? _phoneController.text : _customerController.text}.',
+            category: 'transaction',
+            metadata: {'category': _selectedCategory, 'amount': '₦${_amountController.text}', 'telco': _selectedTelco},
+          );
         }
 
         if (!mounted) return;
@@ -976,7 +989,7 @@ class _BillsScreenState extends State<BillsScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildLabel('2. MOBILE OPERATOR'),
+                _buildLabel('2. SELECT MOBILE OPERATOR'),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
@@ -986,10 +999,10 @@ class _BillsScreenState extends State<BillsScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.auto_awesome, size: 11, color: Color(0xFF0284C7)),
+                      const Icon(Icons.check_circle_rounded, size: 11, color: Color(0xFF0284C7)),
                       const SizedBox(width: 4),
                       Text(
-                        '$_selectedTelco Auto-Detected',
+                        '$_selectedTelco Active',
                         style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.bold, color: const Color(0xFF0284C7)),
                       ),
                     ],
@@ -997,23 +1010,8 @@ class _BillsScreenState extends State<BillsScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 6),
-            DropdownButtonFormField<String>(
-              value: _selectedTelco,
-              dropdownColor: Colors.white,
-              style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-              decoration: _buildInputDeco(),
-              items: _telcos.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
-              onChanged: (v) {
-                if (v != null) {
-                  setState(() {
-                    _selectedTelco = v;
-                    final plans = _getCurrentDataPlans();
-                    _selectedDataPlan = plans.first;
-                  });
-                }
-              },
-            ),
+            const SizedBox(height: 8),
+            _buildTelcoSelectorGrid(),
             const SizedBox(height: 14),
 
             _buildLabel('3. BUNDLE VALIDITY / DURATION'),
@@ -1088,7 +1086,7 @@ class _BillsScreenState extends State<BillsScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildLabel('2. MOBILE NETWORK OPERATOR'),
+                _buildLabel('2. SELECT MOBILE NETWORK OPERATOR'),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
@@ -1098,10 +1096,10 @@ class _BillsScreenState extends State<BillsScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.auto_awesome, size: 11, color: AppColors.primary),
+                      const Icon(Icons.check_circle_rounded, size: 11, color: AppColors.primary),
                       const SizedBox(width: 4),
                       Text(
-                        '$_selectedTelco Auto-Detected',
+                        '$_selectedTelco Active',
                         style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.bold, color: AppColors.primary),
                       ),
                     ],
@@ -1109,15 +1107,8 @@ class _BillsScreenState extends State<BillsScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 6),
-            DropdownButtonFormField<String>(
-              value: _selectedTelco,
-              dropdownColor: Colors.white,
-              style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-              decoration: _buildInputDeco(),
-              items: _telcos.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
-              onChanged: (v) => setState(() => _selectedTelco = v!),
-            ),
+            const SizedBox(height: 8),
+            _buildTelcoSelectorGrid(),
             const SizedBox(height: 14),
 
             _buildLabel('3. SELECT QUICK AMOUNT'),
@@ -1416,6 +1407,80 @@ class _BillsScreenState extends State<BillsScreen> {
         letterSpacing: 0.8,
         color: AppColors.textSecondary,
       ),
+    );
+  }
+
+  Widget _buildTelcoSelectorGrid() {
+    final telcosMeta = [
+      {'name': 'MTN', 'color': const Color(0xFFEAB308), 'labelColor': Colors.black},
+      {'name': 'Airtel', 'color': const Color(0xFFEF4444), 'labelColor': Colors.white},
+      {'name': 'Glo', 'color': const Color(0xFF16A34A), 'labelColor': Colors.white},
+      {'name': '9mobile', 'color': const Color(0xFF0D9488), 'labelColor': Colors.white},
+    ];
+
+    return Row(
+      children: telcosMeta.map((t) {
+        final name = t['name'] as String;
+        final isSelected = _selectedTelco == name;
+        final color = t['color'] as Color;
+
+        return Expanded(
+          child: GestureDetector(
+            onTap: () {
+              setState(() {
+                _selectedTelco = name;
+                final plans = _getCurrentDataPlans();
+                if (!plans.contains(_selectedDataPlan)) {
+                  _selectedDataPlan = plans.first;
+                }
+              });
+            },
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 3),
+              padding: const EdgeInsets.symmetric(vertical: 9),
+              decoration: BoxDecoration(
+                color: isSelected ? color : const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isSelected ? color : AppColors.borderDark,
+                  width: isSelected ? 2 : 1,
+                ),
+                boxShadow: isSelected
+                    ? [
+                        BoxShadow(
+                          color: color.withValues(alpha: 0.35),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 7,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      color: isSelected ? (t['labelColor'] as Color) : color,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    name,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 11.5,
+                      fontWeight: isSelected ? FontWeight.w900 : FontWeight.bold,
+                      color: isSelected ? (t['labelColor'] as Color) : AppColors.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 

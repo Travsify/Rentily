@@ -270,23 +270,29 @@ export async function payBill(req: Request, res: Response) {
     let tokenOutput: string | undefined;
     let unitsOutput: string | undefined;
 
+    const opRaw = (operator || '').toString().trim();
+    const opClean = opRaw.toUpperCase().includes('AIRTEL') ? 'Airtel' :
+                    opRaw.toUpperCase().includes('GLO') ? 'Glo' :
+                    opRaw.toUpperCase().includes('9MOBILE') || opRaw.toUpperCase().includes('ETISALAT') ? '9mobile' :
+                    opRaw.toUpperCase().includes('MTN') ? 'MTN' : (opRaw || 'MTN');
+
     if (category === 'airtime') {
-      title = `${operator || 'MTN'} Airtime Top-Up (₦${numAmount.toLocaleString()})`;
-      type = 'Airtime VTU Recharge';
+      title = `${opClean} Airtime Top-Up (₦${numAmount.toLocaleString()})`;
+      type = `${opClean} Airtime Recharge`;
       serviceResult = await FlutterwaveBillsService.purchaseAirtime({
         phoneNumber: customerNumber,
         amount: numAmount,
-        operator: operator || 'MTN',
+        operator: opClean,
         email: cleanEmail,
       });
     } else if (category === 'data') {
-      title = `${operator || 'MTN'} Data Bundle (${plan || 'Data'})`;
-      type = 'Mobile Data Bundle';
+      title = `${opClean} Data Bundle (${plan || 'Data'})`;
+      type = `${opClean} Mobile Data`;
       serviceResult = await FlutterwaveBillsService.purchaseData({
         phoneNumber: customerNumber,
         amount: numAmount,
         plan: plan || 'Data Bundle',
-        operator: operator || 'MTN',
+        operator: opClean,
         email: cleanEmail,
       });
     } else if (category === 'electricity') {

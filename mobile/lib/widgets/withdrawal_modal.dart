@@ -8,6 +8,7 @@ import '../constants/app_constants.dart';
 import '../models/user_profile.dart';
 import '../services/auth_service.dart';
 import '../services/biometric_service.dart';
+import '../services/notification_service.dart';
 import '../services/payment_security_service.dart';
 
 class WithdrawalModal extends StatefulWidget {
@@ -316,6 +317,17 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
         final updatedUser = widget.user.copyWith(walletBalance: newBal);
         await AuthService.updateUser(updatedUser);
         widget.onWithdrawalSuccess(newBal);
+
+        NotificationService.addNotification(
+          title: 'Bank Withdrawal Dispatched 💳',
+          message: 'Payout of ₦${NumberFormat('#,###.00').format(amount)} to $_selectedBankName ($accNum - ${_resolvedAccountName ?? widget.user.fullName}) was processed.',
+          category: 'transaction',
+          metadata: {
+            'amount': '₦${NumberFormat('#,###.00').format(amount)}',
+            'bank': _selectedBankName,
+            'account': accNum,
+          },
+        );
 
         if (!mounted) return;
         Navigator.of(context).pop();

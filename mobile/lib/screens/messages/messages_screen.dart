@@ -83,116 +83,158 @@ class _MessagesScreenState extends State<MessagesScreen> {
         ),
       ),
       body: SafeArea(
-        child: ListView.separated(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-          itemCount: _threads.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 10),
-          itemBuilder: (context, idx) {
-            final t = _threads[idx];
-            final unread = (t['unread'] as num?)?.toInt() ?? 0;
-
-            return InkWell(
-              onTap: () => _openChat(t),
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.borderDark),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.02),
-                      blurRadius: 10,
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: LinearGradient(
-                          colors: [AppColors.primary, AppColors.primaryLight],
-                        ),
-                      ),
-                      child: Center(
-                        child: Text(
-                          t['avatar'] ?? 'DL',
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                t['name'] ?? 'Direct Owner',
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.textPrimary,
-                                ),
-                              ),
-                              Text(
-                                t['time'] ?? '',
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 10,
-                                  color: unread > 0 ? AppColors.accentOrange : AppColors.textSecondary,
-                                  fontWeight: unread > 0 ? FontWeight.bold : FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            t['propertyTitle'] ?? '',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            t['lastMessage'] ?? '',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 11.5,
-                              color: unread > 0 ? AppColors.textPrimary : AppColors.textSecondary,
-                              fontWeight: unread > 0 ? FontWeight.w700 : FontWeight.w400,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (unread > 0) ...[
-                      const SizedBox(width: 8),
+        child: _threads.isEmpty
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
                       Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                          color: AppColors.accentOrange,
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.08),
                           shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.chat_bubble_outline_rounded,
+                          size: 42,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 18),
+                      Text(
+                        'No Active Conversations',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'You can initiate direct, encrypted enquiries with verified property owners and managers from any property listing on Rentilly. Only direct landlords and verified business parties you connect with can chat.',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11.5,
+                          color: AppColors.textSecondary,
+                          height: 1.45,
                         ),
                       ),
                     ],
-                  ],
+                  ),
                 ),
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                itemCount: _threads.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                itemBuilder: (context, idx) {
+                  final t = _threads[idx];
+                  final unread = (t['unread'] as num?)?.toInt() ?? 0;
+
+                  return InkWell(
+                    onTap: () => _openChat(t),
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.borderDark),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.02),
+                            blurRadius: 10,
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: LinearGradient(
+                                colors: [AppColors.primary, AppColors.primaryLight],
+                              ),
+                            ),
+                            child: Center(
+                              child: Text(
+                                t['avatar'] ?? 'DL',
+                                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 16),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      t['name'] ?? 'Direct Owner',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 13.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                    Text(
+                                      t['time'] ?? '',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 10,
+                                        color: unread > 0 ? AppColors.accentOrange : AppColors.textSecondary,
+                                        fontWeight: unread > 0 ? FontWeight.bold : FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  t['propertyTitle'] ?? '',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 10.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  t['lastMessage'] ?? '',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 11.5,
+                                    color: unread > 0 ? AppColors.textPrimary : AppColors.textSecondary,
+                                    fontWeight: unread > 0 ? FontWeight.w700 : FontWeight.w400,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (unread > 0) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                color: AppColors.accentOrange,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  );
+                },
               ),
-            );
-          },
-        ),
       ),
     );
   }

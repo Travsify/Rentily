@@ -9,7 +9,10 @@ import '../wallet/wallet_screen.dart';
 import '../my_spaces/my_spaces_screen.dart';
 import '../bills/bills_screen.dart';
 import '../messages/messages_screen.dart';
+import '../notifications/notifications_screen.dart';
 import '../main_navigation_screen.dart';
+import '../../services/notification_service.dart';
+import '../../widgets/add_money_modal.dart';
 import '../../widgets/verification_modal.dart';
 import '../../widgets/biometric_prompt_modal.dart';
 import '../../widgets/withdrawal_modal.dart';
@@ -108,6 +111,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _loadUser() async {
     final u = await AuthService.getCurrentUser();
+    await NotificationService.getNotifications();
     if (mounted) {
       setState(() {
         _user = u;
@@ -125,24 +129,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _copyAccount() {
-    if (_user?.accountNumber == null) {
-      VerificationModal.show(context, onSuccess: (updated) {
-        setState(() => _user = updated);
-      });
-      return;
+    if (_user != null) {
+      AddMoneyModal.show(
+        context,
+        user: _user!,
+        onAccountUpdated: (u) => setState(() => _user = u),
+      );
     }
-    Clipboard.setData(ClipboardData(text: _user!.accountNumber!));
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Account Copied! (${_user!.accountNumber})',
-          style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: AppColors.primary,
-        behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 2),
-      ),
-    );
   }
 
   @override
@@ -318,13 +311,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       // Notification Bell Button with Indicator
                       GestureDetector(
                         onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('No new notifications right now.', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
-                              backgroundColor: AppColors.primary,
-                              behavior: SnackBarBehavior.floating,
-                              duration: const Duration(seconds: 2),
-                            ),
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const NotificationsScreen()),
                           );
                         },
                         child: Container(
@@ -345,17 +333,23 @@ class _HomeScreenState extends State<HomeScreen> {
                             alignment: Alignment.center,
                             children: [
                               const Icon(Icons.notifications_none_rounded, size: 18, color: AppColors.textPrimary),
-                              Positioned(
-                                top: 9,
-                                right: 9,
-                                child: Container(
-                                  width: 6,
-                                  height: 6,
-                                  decoration: const BoxDecoration(
-                                    color: AppColors.accentOrange,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
+                              ValueListenableBuilder<int>(
+                                valueListenable: NotificationService.unreadCountNotifier,
+                                builder: (context, count, _) {
+                                  if (count <= 0) return const SizedBox.shrink();
+                                  return Positioned(
+                                    top: 7,
+                                    right: 7,
+                                    child: Container(
+                                      width: 7,
+                                      height: 7,
+                                      decoration: const BoxDecoration(
+                                        color: AppColors.accentOrange,
+                                        shape: BoxShape.circle,
+                                      ),
+                                    ),
+                                  );
+                                },
                               ),
                             ],
                           ),
