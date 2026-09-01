@@ -475,79 +475,62 @@ export async function payBill(req: Request, res: Response) {
 async function syncFlutterwaveTransactionsForUser(cleanEmail: string) {
   try {
     const existing = TransactionStore.getAllTransactions();
+    const user = await UserStore.findByEmail(cleanEmail);
 
-    // 1. Sync Inbound Deposits from Flutterwave Cloud API (ONLY Rentilly virtual accounts & transactions)
-    const liveFlwTxs = await FlutterwaveService.fetchLiveTransactions();
+    // 1. Sync Inbound Deposits from Flutterwave Cloud API (ONLY exact email match for this verified user)
+    const liveFlwTxs = await FlutterwaveService.fetchLiveTransactions(cleanEmail);
     for (const flwTx of liveFlwTxs) {
       if (flwTx.status !== 'successful' && flwTx.status !== 'success') continue;
 
       const flwEmail = (flwTx.customer?.email || '').toLowerCase().trim();
-      const flwName = (flwTx.customer?.name || '').toLowerCase().trim();
       const txRef = (flwTx.tx_ref || flwTx.flw_ref || '').toString();
-      const narration = (flwTx.narration || '').toString().toLowerCase();
 
-      // STRICT FILTER: Only capture transactions initiated by or for Rentilly
-      const isRentillyTx = txRef.toUpperCase().includes('RENTILLY') || 
-                           txRef.toUpperCase().includes('RENTILY') || 
-                           narration.includes('rentilly') || 
-                           narration.includes('rentily');
-
-      if (!isRentillyTx) {
-        continue; // Ignore transactions from OnTrust, Hometrust, or other apps sharing this Flutterwave merchant account
+      // STRICT FILTER: Exact email match only
+      if (flwEmail !== cleanEmail) {
+        continue;
       }
 
-      const isPatrick = cleanEmail.includes('patrick') || cleanEmail.includes('travsify');
-      const matchesUser =
-        flwEmail === cleanEmail ||
-        (isPatrick && (flwEmail.includes('travsify') || flwEmail.includes('patrick') || flwName.includes('patrick') || flwName.includes('achua')));
+      const exists = existing.some(e =>
+        e.reference === flwTx.flw_ref ||
+        e.reference === txRef ||
+        e.id === `FLW_TX_${flwTx.id}`
+      );
 
-      if (matchesUser) {
-        const exists = existing.some(e =>
-          e.reference === flwTx.flw_ref ||
-          e.reference === txRef ||
-          e.id === `FLW_TX_${flwTx.id}`
-        );
-
-        if (!exists) {
-          const amount = Number(flwTx.amount || 0);
-          if (amount > 0) {
-            await TransactionStore.addTransaction({
-              id: `FLW_TX_${flwTx.id}`,
-              userId: 'usr_patrick_achua_live',
-              email: cleanEmail,
-              title: `Direct Inbound Transfer — ₦${amount.toLocaleString()}`,
-              type: 'Electronic Bank Inbound Deposit',
-              category: 'deposit',
-              amount: amount,
-              isCredit: true,
-              reference: flwTx.flw_ref || txRef,
-              sender: flwTx.narration || flwTx.customer?.name || 'Flutterwave Bank Transfer',
-              beneficiary: 'Patrick Achua (9254090338)',
-              status: 'SUCCESSFUL',
-              date: flwTx.created_at || new Date().toISOString()
-            });
-          }
+      if (!exists) {
+        const amount = Number(flwTx.amount || 0);
+        if (amount > 0) {
+          const effectiveBeneficiary = user?.businessName || user?.fullName || cleanEmail;
+          await TransactionStore.addTransaction({
+            id: `FLW_TX_${flwTx.id}`,
+            userId: user?.id || `usr_${cleanEmail}`,
+            email: cleanEmail,
+            title: `Direct Inbound Transfer — ₦${amount.toLocaleString()}`,
+            type: 'Electronic Bank Inbound Deposit',
+            category: 'deposit',
+            amount: amount,
+            isCredit: true,
+            reference: flwTx.flw_ref || txRef,
+            sender: flwTx.narration || flwTx.customer?.name || 'Inbound Bank Transfer',
+            beneficiary: effectiveBeneficiary,
+            status: 'SUCCESSFUL',
+            date: flwTx.created_at || new Date().toISOString()
+          });
         }
       }
     }
 
-    // 2. Sync Outbound Withdrawals / Payouts from Paystack Cloud API (ONLY Rentilly initiated payouts)
+    // 2. Sync Outbound Withdrawals / Payouts (ONLY exact matches initiated by this user)
     const livePaystackTxs = await PaystackService.fetchLiveTransfers();
     for (const pstTx of livePaystackTxs) {
       const pstStatus = (pstTx.status || '').toUpperCase();
       if (pstStatus !== 'SUCCESS' && pstStatus !== 'SUCCESSFUL' && pstStatus !== 'PENDING' && pstStatus !== 'PROCESSING') continue;
 
       const txRef = (pstTx.reference || pstTx.transfer_code || '').toString();
-      const reason = (pstTx.reason || '').toString().toLowerCase();
 
-      // STRICT FILTER: Only capture payouts with RENTILLY_ prefix or Rentilly reason
-      const isRentillyPayout = txRef.toUpperCase().startsWith('RENTILLY_') || 
-                               txRef.toUpperCase().startsWith('RENTILY_') || 
-                               reason.includes('rentilly') || 
-                               reason.includes('rentily');
-
-      if (!isRentillyPayout) {
-        continue; // Ignore payouts from OnTrust, Hometrust, or other external apps!
+      // Must be a transfer tied specifically to this user ID or email in the reference
+      const userRefPrefix = `RENTILLY_WD_${user?.id || ''}`;
+      if (!txRef.includes(user?.id || 'NO_MATCH_ID') && !txRef.includes(cleanEmail)) {
+        continue;
       }
 
       const exists = existing.some(e =>
@@ -566,7 +549,7 @@ async function syncFlutterwaveTransactionsForUser(cleanEmail: string) {
 
           await TransactionStore.addTransaction({
             id: `PST_TX_${pstTx.id}`,
-            userId: 'usr_patrick_achua_live',
+            userId: user?.id || `usr_${cleanEmail}`,
             email: cleanEmail,
             title: `Bank Transfer Payout to ${recipientName}`,
             type: 'Instant Direct Bank Payout',
@@ -574,7 +557,7 @@ async function syncFlutterwaveTransactionsForUser(cleanEmail: string) {
             amount: amount,
             isCredit: false,
             reference: txRef,
-            sender: 'Patrick Achua (Rentilly Living Escrow)',
+            sender: user?.businessName || user?.fullName || cleanEmail,
             beneficiary: recipientName,
             recipientAccount: recipientAcc,
             recipientBank: recipientBank,

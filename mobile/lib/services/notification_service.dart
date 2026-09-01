@@ -78,6 +78,20 @@ class NotificationService {
       try {
         final List<dynamic> decoded = json.decode(data);
         list = decoded.map((e) => InAppNotification.fromJson(Map<String, dynamic>.from(e))).toList();
+        
+        // Remove any legacy mock notifications or hardcoded numbers
+        list.removeWhere((n) =>
+          n.title.contains('9254090338') ||
+          n.message.contains('9254090338') ||
+          n.message.contains('Patrick Achua') ||
+          n.id.startsWith('MOCK_') ||
+          n.id.startsWith('DUMMY_') ||
+          (n.metadata != null && (
+            n.metadata!['txId']?.toString().contains('2086819478') == true ||
+            n.metadata!['txId']?.toString().contains('2086772538') == true ||
+            n.metadata!['txId']?.toString().contains('1028202500') == true
+          ))
+        );
       } catch (_) {}
     }
 
