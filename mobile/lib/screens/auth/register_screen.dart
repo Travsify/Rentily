@@ -17,20 +17,23 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
+  int _step = 0; // Current wizard step index
+
+  // User input controllers
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   
-  bool _obscurePassword = true;
-  bool _agreedToTerms = true;
-  late String _selectedRole; // 'renter', 'partner', 'owner'
-  String _selectedState = 'Lagos';
+  // Corporate controllers
   final TextEditingController _businessNameController = TextEditingController();
   final TextEditingController _cacNumberController = TextEditingController();
   final TextEditingController _officeAddressController = TextEditingController();
-  bool _uploadedUtilityBill = true;
-  bool _uploadedOfficeBanner = true;
+
+  late String _selectedRole; // 'renter', 'partner', 'owner'
+  String _selectedState = 'Lagos';
+  bool _obscurePassword = true;
+  bool _agreedToTerms = true;
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -48,10 +51,121 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   @override
   void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _passwordController.dispose();
     _businessNameController.dispose();
     _cacNumberController.dispose();
     _officeAddressController.dispose();
     super.dispose();
+  }
+
+  int get _totalSteps => _selectedRole == 'partner' ? 4 : 3;
+
+  String get _stepTitle {
+    if (_step == 0) return 'Choose Account Type';
+    if (_selectedRole == 'partner') {
+      if (_step == 1) return 'Corporate Entity';
+      if (_step == 2) return 'Director & Region';
+      return 'Security & Credentials';
+    } else if (_selectedRole == 'owner') {
+      if (_step == 1) return 'Landlord Details';
+      return 'Security & Credentials';
+    } else {
+      if (_step == 1) return 'Personal Details';
+      return 'Security & Credentials';
+    }
+  }
+
+  String get _stepSubtitle {
+    if (_step == 0) return 'Select your role to configure your Rentilly portal';
+    if (_selectedRole == 'partner') {
+      if (_step == 1) return 'Provide your registered corporate firm details';
+      if (_step == 2) return 'Enter principal director / broker information';
+      return 'Set your corporate password and review partner rules';
+    } else if (_selectedRole == 'owner') {
+      if (_step == 1) return 'Enter your property owner name & region';
+      return 'Set your login credentials and secure password';
+    } else {
+      if (_step == 1) return 'Enter your legal name, phone number, and state';
+      return 'Set your password and login credentials';
+    }
+  }
+
+  void _goToNextStep() {
+    setState(() => _errorMessage = null);
+
+    // Validation for Step 0
+    if (_step == 0) {
+      setState(() => _step = 1);
+      return;
+    }
+
+    // Validation for Step 1
+    if (_selectedRole == 'partner') {
+      if (_step == 1) {
+        if (_businessNameController.text.trim().isEmpty) {
+          setState(() => _errorMessage = 'Please enter your Registered Business Name (CAC).');
+          return;
+        }
+        if (_cacNumberController.text.trim().isEmpty) {
+          setState(() => _errorMessage = 'Please enter your CAC Registration Number (RC / BN).');
+          return;
+        }
+        if (_officeAddressController.text.trim().isEmpty) {
+          setState(() => _errorMessage = 'Please enter your physical office address.');
+          return;
+        }
+        setState(() => _step = 2);
+        return;
+      }
+      if (_step == 2) {
+        if (_nameController.text.trim().isEmpty) {
+          setState(() => _errorMessage = 'Please enter Director / Representative Full Legal Name.');
+          return;
+        }
+        if (_phoneController.text.trim().isEmpty) {
+          setState(() => _errorMessage = 'Please enter a valid phone number.');
+          return;
+        }
+        setState(() => _step = 3);
+        return;
+      }
+    } else {
+      if (_step == 1) {
+        if (_nameController.text.trim().isEmpty) {
+          setState(() => _errorMessage = 'Please enter your Full Legal Name.');
+          return;
+        }
+        if (_phoneController.text.trim().isEmpty) {
+          setState(() => _errorMessage = 'Please enter your phone number.');
+          return;
+        }
+        setState(() => _step = 2);
+        return;
+      }
+    }
+
+    // Final Step -> Trigger Registration
+    _handleRegister();
+  }
+
+  void _goToPreviousStep() {
+    if (_step > 0) {
+      setState(() {
+        _errorMessage = null;
+        _step--;
+      });
+    } else {
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      } else {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+        );
+      }
+    }
   }
 
   void _handleRegister() async {
@@ -60,29 +174,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final phone = _phoneController.text.trim();
     final password = _passwordController.text.trim();
 
-    if (name.isEmpty || email.isEmpty || password.isEmpty) {
-      setState(() => _errorMessage = 'Please fill in all required fields.');
+    if (email.isEmpty || password.isEmpty) {
+      setState(() => _errorMessage = 'Please enter your email and password.');
       return;
     }
 
     if (password.length < 6) {
       setState(() => _errorMessage = 'Password must be at least 6 characters.');
       return;
-    }
-
-    if (_selectedRole == 'partner') {
-      if (_businessNameController.text.trim().isEmpty) {
-        setState(() => _errorMessage = 'Please provide your Registered Business Name (CAC).');
-        return;
-      }
-      if (_cacNumberController.text.trim().isEmpty) {
-        setState(() => _errorMessage = 'Please provide your CAC Registration Number (RC/BN).');
-        return;
-      }
-      if (_officeAddressController.text.trim().isEmpty) {
-        setState(() => _errorMessage = 'Please provide your physical office address.');
-        return;
-      }
     }
 
     if (!_agreedToTerms) {
@@ -98,7 +197,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final effectiveRole = _selectedRole;
 
     final result = await AuthService.register(
-      fullName: name,
+      fullName: name.isNotEmpty ? name : (_businessNameController.text.trim().isNotEmpty ? _businessNameController.text.trim() : 'User'),
       email: email,
       phoneNumber: phone.startsWith('0') ? '+234${phone.substring(1)}' : phone,
       password: password,
@@ -127,13 +226,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
       );
     } else {
       setState(() {
-        _errorMessage = result['message'] ?? 'Sign up failed.';
+        _errorMessage = result['message'] ?? 'Sign up failed. Please try again.';
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isFinalStep = _step == (_totalSteps - 1);
+
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
       appBar: AppBar(
@@ -141,41 +242,72 @@ class _RegisterScreenState extends State<RegisterScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded, size: 22, color: AppColors.textPrimary),
-          onPressed: () {
-            if (Navigator.of(context).canPop()) {
-              Navigator.of(context).pop();
-            } else {
-              Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
-              );
-            }
-          },
+          onPressed: _goToPreviousStep,
         ),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (int i = 0; i < _totalSteps; i++) ...[
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                width: i == _step ? 24 : 8,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: i == _step ? AppColors.primary : (i < _step ? const Color(0xFF10B981) : const Color(0xFFE2E8F0)),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+              if (i < _totalSteps - 1) const SizedBox(width: 4),
+            ],
+          ],
+        ),
+        centerTitle: true,
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Headline
+              // Step Counter Badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'STEP ${_step + 1} OF $_totalSteps',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.9,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+
+              // Step Title & Subtitle
               Text(
-                'Create Your Account 🚀',
+                _stepTitle,
                 style: GoogleFonts.plusJakartaSans(
-                  fontSize: 24,
+                  fontSize: 22,
                   fontWeight: FontWeight.w800,
                   color: AppColors.textPrimary,
+                  letterSpacing: -0.3,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
-                'Zero agent fees. Direct Nigerian landlords & living vault.',
+                _stepSubtitle,
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 12,
                   color: AppColors.textSecondary,
+                  height: 1.35,
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
 
               // Error Box
               if (_errorMessage != null) ...[
@@ -206,9 +338,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 14),
               ],
 
-              // Form Container Card
+              // Card Container for Current Step Content
               Container(
-                padding: const EdgeInsets.all(22),
+                padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(22),
@@ -216,403 +348,53 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.04),
-                      blurRadius: 20,
+                      blurRadius: 18,
                       offset: const Offset(0, 6),
                     ),
                   ],
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Full Legal Name
-                    Text(
-                      'FULL LEGAL NAME (As on Bank Account)',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 8.5,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.9,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: _nameController,
-                      textCapitalization: TextCapitalization.words,
-                      style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-                      decoration: _buildInputDecoration('e.g. Femi Adesanya', Icons.person_outline_rounded),
-                    ),
-                    const SizedBox(height: 14),
+                child: _buildStepContent(),
+              ),
+              const SizedBox(height: 18),
 
-                    // Email Address
-                    Text(
-                      'EMAIL ADDRESS',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 8.5,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.9,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-                      decoration: _buildInputDecoration('e.g. femi@example.com', Icons.email_outlined),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Phone Number
-                    Text(
-                      'PHONE NUMBER (NIGERIA)',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 8.5,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.9,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: _phoneController,
-                      keyboardType: TextInputType.phone,
-                      style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-                      decoration: _buildInputDecoration('0812 345 6789', Icons.phone_android_rounded),
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Primary State of Residence
-                    Text(
-                      'PRIMARY STATE OF RESIDENCE',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 8.5,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.9,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    DropdownButtonFormField<String>(
-                      value: _selectedState,
-                      dropdownColor: Colors.white,
-                      style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: const Color(0xFFF9FAFB),
-                        prefixIcon: const Icon(Icons.location_city_rounded, size: 18, color: AppColors.primary),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.borderDark)),
-                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.borderDark)),
-                      ),
-                      items: const [
-                        'Lagos', 'Abuja FCT', 'Rivers', 'Oyo', 'Ogun', 'Enugu', 'Kano', 'Delta', 'Edo', 'Anambra', 'Kaduna', 'Akwa Ibom', 'Kwara', 'Ondo', 'Plateau', 'Imo', 'Abia'
-                      ].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-                      onChanged: (val) {
-                        if (val != null) setState(() => _selectedState = val);
-                      },
-                    ),
-                    const SizedBox(height: 14),
-
-                    // Password
-                    Text(
-                      'PASSWORD (6+ characters)',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 8.5,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.9,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    TextField(
-                      controller: _passwordController,
-                      obscureText: _obscurePassword,
-                      style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: const Color(0xFFF8FAFC),
-                        prefixIcon: const Icon(Icons.lock_outline_rounded, size: 18, color: AppColors.primary),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-                            size: 18,
-                            color: AppColors.textMuted,
-                          ),
-                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                        ),
-                        hintText: '••••••••••••',
-                        hintStyle: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textMuted),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: AppColors.borderDark),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: AppColors.borderDark),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Primary Intent Selector (3 Distinct 1-Tap Cards)
-                    Text(
-                      'I AM REGISTERING AS:',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 8.5,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.9,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildRoleCard(
-                            id: 'renter',
-                            title: 'Renter / Buyer',
-                            subtitle: 'Find & rent homes',
-                            icon: Icons.home_rounded,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _buildRoleCard(
-                            id: 'partner',
-                            title: 'Corporate Partner',
-                            subtitle: '2.5% Escrow Vault',
-                            icon: Icons.business_center_rounded,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _buildRoleCard(
-                            id: 'owner',
-                            title: 'Direct Landlord',
-                            subtitle: 'List properties',
-                            icon: Icons.real_estate_agent_rounded,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    if (_selectedRole == 'partner') ...[
-                      const SizedBox(height: 14),
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF8FAFC),
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+              // Primary Action Button (Next or Submit)
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : (isFinalStep ? _handleRegister : _goToNextStep),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isFinalStep ? AppColors.accentOrange : AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    elevation: 2,
+                    shadowColor: (isFinalStep ? AppColors.accentOrange : AppColors.primary).withValues(alpha: 0.35),
+                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primary.withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: const Icon(Icons.verified_rounded, size: 16, color: AppColors.primary),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'CORPORATE ENTITY DETAILS',
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 0.8,
-                                    color: AppColors.primary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-
-                            // CAC Business Name
-                            Text('REGISTERED BUSINESS NAME (CAC)', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.w800, color: AppColors.textSecondary)),
-                            const SizedBox(height: 4),
-                            TextField(
-                              controller: _businessNameController,
-                              style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600),
-                              decoration: _buildInputDecoration('e.g. Eoms Global Inclusive Limited', Icons.business_rounded),
-                            ),
-                            const SizedBox(height: 10),
-
-                            // CAC Number
-                            Text('CAC REGISTRATION NUMBER (RC / BN)', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.w800, color: AppColors.textSecondary)),
-                            const SizedBox(height: 4),
-                            TextField(
-                              controller: _cacNumberController,
-                              style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600),
-                              decoration: _buildInputDecoration('e.g. RC 1928374 or BN 483920', Icons.badge_outlined),
-                            ),
-                            const SizedBox(height: 10),
-
-                            // Office Address
-                            Text('PHYSICAL OFFICE ADDRESS', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.w800, color: AppColors.textSecondary)),
-                            const SizedBox(height: 4),
-                            TextField(
-                              controller: _officeAddressController,
-                              style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600),
-                              decoration: _buildInputDecoration('e.g. Suite 4, Plot 12 Admiralty Way, Lekki', Icons.storefront_rounded),
-                            ),
-                            const SizedBox(height: 12),
-
-                            // Upload Indicators (Address Utility Bill & Office Front Photo)
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF0FDF4),
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: const Color(0xFFBBF7D0)),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        const Icon(Icons.check_circle_rounded, size: 14, color: Color(0xFF16A34A)),
-                                        const SizedBox(width: 4),
-                                        Expanded(
-                                          child: Text('Address Verified', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.bold, color: const Color(0xFF16A34A))),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Container(
-                                    padding: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF0FDF4),
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(color: const Color(0xFFBBF7D0)),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        const Icon(Icons.verified_rounded, size: 14, color: Color(0xFF16A34A)),
-                                        const SizedBox(width: 4),
-                                        Expanded(
-                                          child: Text('Escrow Enabled', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.bold, color: const Color(0xFF16A34A))),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-
-                            // Rentilly Partner Rules Contained Box
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFF0FDF4),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: const Color(0xFF86EFAC)),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: [
-                                      const Icon(Icons.gavel_rounded, size: 14, color: AppColors.primary),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        'RENTILLY PARTNER RULES',
-                                        style: GoogleFonts.plusJakartaSans(
-                                          fontSize: 9,
-                                          fontWeight: FontWeight.w900,
-                                          letterSpacing: 0.8,
-                                          color: AppColors.primary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    '• Earn 2.5% on rent and 2.0% on sales, paid directly by Rentilly upon confirmed move-in.\n'
-                                    '• Zero agency fees charged to tenant or buyer.\n'
-                                    '• Caution is 100% locked in Rentilly Living Escrow (0% to landlord or partner).\n'
-                                    '• Mandatory presentation of Digital Partner ID Card at every field inspection.',
-                                    style: GoogleFonts.plusJakartaSans(
-                                      fontSize: 9.5,
-                                      color: const Color(0xFF166534),
-                                      fontWeight: FontWeight.w600,
-                                      height: 1.4,
-                                    ),
-                                  ),
-                                ],
+                            Text(
+                              isFinalStep
+                                  ? (_selectedRole == 'partner'
+                                      ? 'Create Corporate Account 🏢'
+                                      : (_selectedRole == 'owner' ? 'Create Landlord Account 🔑' : 'Create Free Account 🚀'))
+                                  : 'Continue to Step ${_step + 2} ➔',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
                           ],
                         ),
-                      ),
-                    ],
-                    const SizedBox(height: 16),
-
-                    // Terms Checkbox
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Checkbox(
-                          value: _agreedToTerms,
-                          activeColor: AppColors.primary,
-                          onChanged: (val) => setState(() => _agreedToTerms = val ?? true),
-                        ),
-                        Expanded(
-                          child: Text(
-                            'I accept Rentilly Terms of Service & Privacy Policy',
-                            style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Submit Button (Sunset Orange)
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : _handleRegister,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.accentOrange,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 15),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                          elevation: 2,
-                          shadowColor: AppColors.accentOrange.withValues(alpha: 0.35),
-                        ),
-                        child: _isLoading
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                              )
-                            : Text(
-                                'Create Free Account',
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                      ),
-                    ),
-                  ],
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
 
               // Switch to Login
               Row(
@@ -635,11 +417,472 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildStepContent() {
+    if (_step == 0) {
+      return _buildRoleSelectionStep();
+    }
+
+    if (_selectedRole == 'partner') {
+      if (_step == 1) return _buildPartnerCorporateStep();
+      if (_step == 2) return _buildPartnerDirectorStep();
+      return _buildCredentialsStep();
+    } else if (_selectedRole == 'owner') {
+      if (_step == 1) return _buildLandlordDetailsStep();
+      return _buildCredentialsStep();
+    } else {
+      if (_step == 1) return _buildRenterDetailsStep();
+      return _buildCredentialsStep();
+    }
+  }
+
+  // STEP 0: Role Selection (3 Big 1-Tap Cards)
+  Widget _buildRoleSelectionStep() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'SELECT YOUR PRIMARY PROFILE',
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 8.5,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.9,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 12),
+        _buildRoleSelectionCard(
+          id: 'renter',
+          title: 'Renter / Home Buyer 🏠',
+          subtitle: 'Find and rent verified homes with zero agent fees & smart salary utility splitter.',
+          icon: Icons.home_rounded,
+          badgeText: 'POPULAR',
+          badgeColor: const Color(0xFF10B981),
+        ),
+        const SizedBox(height: 12),
+        _buildRoleSelectionCard(
+          id: 'partner',
+          title: 'Corporate Partner / Broker 🏢',
+          subtitle: 'Lock 2.5% rent / 2.0% sales escrow commissions with verified CAC accreditation.',
+          icon: Icons.business_center_rounded,
+          badgeText: '2.5% ESCROW',
+          badgeColor: AppColors.primary,
+        ),
+        const SizedBox(height: 12),
+        _buildRoleSelectionCard(
+          id: 'owner',
+          title: 'Direct Landlord / Property Owner 🔑',
+          subtitle: 'List apartments, screen tenants, and collect rent straight to your bank account.',
+          icon: Icons.real_estate_agent_rounded,
+          badgeText: 'DIRECT PAYOUTS',
+          badgeColor: AppColors.accentOrange,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRoleSelectionCard({
+    required String id,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required String badgeText,
+    required Color badgeColor,
+  }) {
+    final isSelected = _selectedRole == id;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedRole = id),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected ? badgeColor.withValues(alpha: 0.05) : const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? badgeColor : AppColors.borderDark,
+            width: isSelected ? 2.0 : 1.0,
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: isSelected ? badgeColor : Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(color: isSelected ? badgeColor : AppColors.borderDark),
+              ),
+              child: Icon(
+                icon,
+                size: 20,
+                color: isSelected ? Colors.white : AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        title,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: badgeColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          badgeText,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 7.5,
+                            fontWeight: FontWeight.w900,
+                            color: badgeColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 10.5,
+                      color: AppColors.textSecondary,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // STEP 1 FOR RENTER: Personal Details
+  Widget _buildRenterDetailsStep() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Full Legal Name
+        Text('FULL LEGAL NAME (As on Bank Account)', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+        const SizedBox(height: 6),
+        TextField(
+          controller: _nameController,
+          textCapitalization: TextCapitalization.words,
+          style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+          decoration: _buildInputDecoration('e.g. Femi Adesanya', Icons.person_outline_rounded),
+        ),
+        const SizedBox(height: 14),
+
+        // Phone Number
+        Text('PHONE NUMBER (NIGERIA)', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+        const SizedBox(height: 6),
+        TextField(
+          controller: _phoneController,
+          keyboardType: TextInputType.phone,
+          style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+          decoration: _buildInputDecoration('0812 345 6789', Icons.phone_android_rounded),
+        ),
+        const SizedBox(height: 14),
+
+        // Primary State of Residence
+        Text('PRIMARY STATE OF RESIDENCE', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+        const SizedBox(height: 6),
+        DropdownButtonFormField<String>(
+          value: _selectedState,
+          dropdownColor: Colors.white,
+          style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: const Color(0xFFF8FAFC),
+            prefixIcon: const Icon(Icons.location_on_outlined, size: 18, color: AppColors.primary),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.borderDark)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.borderDark)),
+          ),
+          items: const [
+            'Lagos', 'Abuja FCT', 'Rivers', 'Oyo', 'Ogun', 'Enugu', 'Kano', 'Delta', 'Edo', 'Anambra', 'Kaduna', 'Akwa Ibom', 'Kwara', 'Ondo', 'Plateau', 'Imo', 'Abia'
+          ].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+          onChanged: (val) {
+            if (val != null) setState(() => _selectedState = val);
+          },
+        ),
+      ],
+    );
+  }
+
+  // STEP 1 FOR LANDLORD: Landlord Details
+  Widget _buildLandlordDetailsStep() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Full Legal Name
+        Text('FULL LEGAL NAME (As on Property Title / Bank)', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+        const SizedBox(height: 6),
+        TextField(
+          controller: _nameController,
+          textCapitalization: TextCapitalization.words,
+          style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+          decoration: _buildInputDecoration('e.g. Chief Patrick Achua', Icons.real_estate_agent_rounded),
+        ),
+        const SizedBox(height: 14),
+
+        // Phone Number
+        Text('DIRECT CONTACT PHONE NUMBER', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+        const SizedBox(height: 6),
+        TextField(
+          controller: _phoneController,
+          keyboardType: TextInputType.phone,
+          style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+          decoration: _buildInputDecoration('0812 345 6789', Icons.phone_android_rounded),
+        ),
+        const SizedBox(height: 14),
+
+        // Primary State of Property Residence
+        Text('PRIMARY PROPERTY STATE', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+        const SizedBox(height: 6),
+        DropdownButtonFormField<String>(
+          value: _selectedState,
+          dropdownColor: Colors.white,
+          style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: const Color(0xFFF8FAFC),
+            prefixIcon: const Icon(Icons.location_city_rounded, size: 18, color: AppColors.primary),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.borderDark)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.borderDark)),
+          ),
+          items: const [
+            'Lagos', 'Abuja FCT', 'Rivers', 'Oyo', 'Ogun', 'Enugu', 'Kano', 'Delta', 'Edo', 'Anambra', 'Kaduna', 'Akwa Ibom', 'Kwara', 'Ondo', 'Plateau', 'Imo', 'Abia'
+          ].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+          onChanged: (val) {
+            if (val != null) setState(() => _selectedState = val);
+          },
+        ),
+      ],
+    );
+  }
+
+  // STEP 1 FOR PARTNER: Corporate Entity Details
+  Widget _buildPartnerCorporateStep() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // CAC Business Name
+        Text('REGISTERED BUSINESS NAME (CAC)', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+        const SizedBox(height: 6),
+        TextField(
+          controller: _businessNameController,
+          textCapitalization: TextCapitalization.words,
+          style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600),
+          decoration: _buildInputDecoration('e.g. Eoms Global Inclusive Limited', Icons.business_rounded),
+        ),
+        const SizedBox(height: 14),
+
+        // CAC Registration Number
+        Text('CAC REGISTRATION NUMBER (RC / BN)', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+        const SizedBox(height: 6),
+        TextField(
+          controller: _cacNumberController,
+          style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600),
+          decoration: _buildInputDecoration('e.g. RC 1928374 or BN 483920', Icons.badge_outlined),
+        ),
+        const SizedBox(height: 14),
+
+        // Physical Office Address
+        Text('PHYSICAL OFFICE ADDRESS', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+        const SizedBox(height: 6),
+        TextField(
+          controller: _officeAddressController,
+          style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600),
+          decoration: _buildInputDecoration('e.g. Suite 4, Plot 12 Admiralty Way, Lekki', Icons.storefront_rounded),
+        ),
+      ],
+    );
+  }
+
+  // STEP 2 FOR PARTNER: Director & Regional Operations
+  Widget _buildPartnerDirectorStep() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Director / Representative Legal Name
+        Text('PRINCIPAL DIRECTOR / REPRESENTATIVE NAME', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+        const SizedBox(height: 6),
+        TextField(
+          controller: _nameController,
+          textCapitalization: TextCapitalization.words,
+          style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600),
+          decoration: _buildInputDecoration('e.g. Patrick Achua (Managing Director)', Icons.person_outline_rounded),
+        ),
+        const SizedBox(height: 14),
+
+        // Phone Number
+        Text('DIRECT CORPORATE PHONE NUMBER', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+        const SizedBox(height: 6),
+        TextField(
+          controller: _phoneController,
+          keyboardType: TextInputType.phone,
+          style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600),
+          decoration: _buildInputDecoration('0812 345 6789', Icons.phone_android_rounded),
+        ),
+        const SizedBox(height: 14),
+
+        // Primary State of Operation
+        Text('PRIMARY STATE OF OPERATION', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+        const SizedBox(height: 6),
+        DropdownButtonFormField<String>(
+          value: _selectedState,
+          dropdownColor: Colors.white,
+          style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: const Color(0xFFF8FAFC),
+            prefixIcon: const Icon(Icons.location_on_outlined, size: 18, color: AppColors.primary),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.borderDark)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.borderDark)),
+          ),
+          items: const [
+            'Lagos', 'Abuja FCT', 'Rivers', 'Oyo', 'Ogun', 'Enugu', 'Kano', 'Delta', 'Edo', 'Anambra', 'Kaduna', 'Akwa Ibom', 'Kwara', 'Ondo', 'Plateau', 'Imo', 'Abia'
+          ].map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+          onChanged: (val) {
+            if (val != null) setState(() => _selectedState = val);
+          },
+        ),
+      ],
+    );
+  }
+
+  // FINAL STEP: Email, Password, Rules & Terms
+  Widget _buildCredentialsStep() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Email Address
+        Text('OFFICIAL EMAIL ADDRESS', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+        const SizedBox(height: 6),
+        TextField(
+          controller: _emailController,
+          keyboardType: TextInputType.emailAddress,
+          style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+          decoration: _buildInputDecoration('e.g. contact@eomsglobal.com', Icons.email_outlined),
+        ),
+        const SizedBox(height: 14),
+
+        // Password
+        Text('PASSWORD (6+ characters)', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+        const SizedBox(height: 6),
+        TextField(
+          controller: _passwordController,
+          obscureText: _obscurePassword,
+          style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: const Color(0xFFF8FAFC),
+            prefixIcon: const Icon(Icons.lock_outline_rounded, size: 18, color: AppColors.primary),
+            suffixIcon: IconButton(
+              icon: Icon(
+                _obscurePassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                size: 18,
+                color: AppColors.textMuted,
+              ),
+              onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+            ),
+            hintText: '••••••••••••',
+            hintStyle: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textMuted),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.borderDark)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.borderDark)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+          ),
+        ),
+        const SizedBox(height: 14),
+
+        if (_selectedRole == 'partner') ...[
+          // Partner Rules Box
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0FDF4),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFF86EFAC)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.gavel_rounded, size: 14, color: AppColors.primary),
+                    const SizedBox(width: 6),
+                    Text(
+                      'RENTILLY PARTNER ESCROW COVENANT',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.8,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '• 2.5% rent and 2.0% sales escrow commissions guaranteed on verified move-ins.\n'
+                  '• Zero agency fees charged to prospective tenants.\n'
+                  '• Caution deposit 100% safeguarded in Rentilly Living Escrow.\n'
+                  '• Digital Accreditation ID Card required for all field viewings.',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 9.5,
+                    color: const Color(0xFF166534),
+                    fontWeight: FontWeight.w600,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+        ],
+
+        // Terms Checkbox
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Checkbox(
+              value: _agreedToTerms,
+              activeColor: AppColors.primary,
+              onChanged: (val) => setState(() => _agreedToTerms = val ?? true),
+            ),
+            Expanded(
+              child: Text(
+                'I accept Rentilly Terms of Service & Privacy Policy',
+                style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -662,76 +905,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
-      ),
-    );
-  }
-
-  Widget _buildRoleCard({
-    required String id,
-    required String title,
-    required String subtitle,
-    required IconData icon,
-  }) {
-    final isSelected = _selectedRole == id;
-    return GestureDetector(
-      onTap: () => setState(() => _selectedRole = id),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary.withValues(alpha: 0.08) : Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.borderDark,
-            width: isSelected ? 2.0 : 1.0,
-          ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.12),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ]
-              : null,
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: isSelected ? AppColors.primary : const Color(0xFFF1F5F9),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                icon,
-                size: 16,
-                color: isSelected ? Colors.white : AppColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 10,
-                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
-                color: isSelected ? AppColors.primary : AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 8,
-                color: isSelected ? AppColors.primary.withValues(alpha: 0.8) : AppColors.textMuted,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
