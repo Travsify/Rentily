@@ -29,57 +29,8 @@ function ensureStorage() {
   if (!fs.existsSync(DATA_DIR)) {
     fs.mkdirSync(DATA_DIR, { recursive: true });
   }
-  if (!fs.existsSync(TX_FILE) || fs.readFileSync(TX_FILE, 'utf-8').trim() === '[]') {
-    const defaultSeed: WalletTransaction[] = [
-      {
-        id: 'TX_DEP_100004260831215927',
-        userId: 'usr_patrick_achua_live',
-        email: 'patrickachua3@gmail.com',
-        title: 'Direct Bank Transfer Deposit #1',
-        type: 'Electronic Bank Inbound Deposit',
-        category: 'deposit',
-        amount: 1000.0,
-        isCredit: true,
-        reference: '100004260831215927169930701067',
-        sender: 'TOMISIN OLAMIPO KOLAWOLE',
-        beneficiary: 'Patrick Achua',
-        status: 'SUCCESSFUL',
-        date: '2026-08-31T21:59:27.000Z',
-      },
-      {
-        id: 'TX_DEP_100004260831224203',
-        userId: 'usr_patrick_achua_live',
-        email: 'patrickachua3@gmail.com',
-        title: 'Direct Bank Transfer Deposit #2',
-        type: 'Electronic Bank Inbound Deposit',
-        category: 'deposit',
-        amount: 1000.0,
-        isCredit: true,
-        reference: '100004260831224203169930903410',
-        sender: 'TOMISIN OLAMIPO KOLAWOLE',
-        beneficiary: 'Patrick Achua',
-        status: 'SUCCESSFUL',
-        date: '2026-08-31T22:42:03.000Z',
-      },
-      {
-        id: 'TX_WD_0254127724_OPAY',
-        userId: 'usr_patrick_achua_live',
-        email: 'patrickachua3@gmail.com',
-        title: 'Bank Transfer Payout to OPay',
-        type: 'Instant Direct Bank Payout',
-        category: 'withdrawal',
-        amount: 1000.0,
-        isCredit: false,
-        reference: 'TRF_PAYSTACK_938172948',
-        sender: 'Patrick Achua (Rentilly Living Escrow)',
-        beneficiary: 'Patrick Achua',
-        recipientAccount: '0254127724',
-        recipientBank: 'OPay',
-        status: 'SUCCESSFUL',
-        date: new Date().toISOString(),
-      },
-    ];
-    fs.writeFileSync(TX_FILE, JSON.stringify(defaultSeed, null, 2), 'utf-8');
+  if (!fs.existsSync(TX_FILE)) {
+    fs.writeFileSync(TX_FILE, '[]', 'utf-8');
   }
 }
 

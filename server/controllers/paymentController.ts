@@ -471,12 +471,12 @@ export async function payBill(req: Request, res: Response) {
   }
 }
 
-// Helper: Sync live Flutterwave deposits AND Paystack withdrawals directly into ledger
+// Helper: Sync ONLY Rentilly-initiated live Flutterwave deposits AND Paystack withdrawals into ledger
 async function syncFlutterwaveTransactionsForUser(cleanEmail: string) {
   try {
     const existing = TransactionStore.getAllTransactions();
 
-    // 1. Sync Inbound Deposits from Flutterwave Cloud API
+    // 1. Sync Inbound Deposits from Flutterwave Cloud API (ONLY Rentilly virtual accounts & transactions)
     const liveFlwTxs = await FlutterwaveService.fetchLiveTransactions();
     for (const flwTx of liveFlwTxs) {
       if (flwTx.status !== 'successful' && flwTx.status !== 'success') continue;
@@ -484,6 +484,17 @@ async function syncFlutterwaveTransactionsForUser(cleanEmail: string) {
       const flwEmail = (flwTx.customer?.email || '').toLowerCase().trim();
       const flwName = (flwTx.customer?.name || '').toLowerCase().trim();
       const txRef = (flwTx.tx_ref || flwTx.flw_ref || '').toString();
+      const narration = (flwTx.narration || '').toString().toLowerCase();
+
+      // STRICT FILTER: Only capture transactions initiated by or for Rentilly
+      const isRentillyTx = txRef.toUpperCase().includes('RENTILLY') || 
+                           txRef.toUpperCase().includes('RENTILY') || 
+                           narration.includes('rentilly') || 
+                           narration.includes('rentily');
+
+      if (!isRentillyTx) {
+        continue; // Ignore transactions from OnTrust, Hometrust, or other apps sharing this Flutterwave merchant account
+      }
 
       const isPatrick = cleanEmail.includes('patrick') || cleanEmail.includes('travsify');
       const matchesUser =
@@ -520,13 +531,25 @@ async function syncFlutterwaveTransactionsForUser(cleanEmail: string) {
       }
     }
 
-    // 2. Sync Outbound Withdrawals / Payouts from Paystack Cloud API
+    // 2. Sync Outbound Withdrawals / Payouts from Paystack Cloud API (ONLY Rentilly initiated payouts)
     const livePaystackTxs = await PaystackService.fetchLiveTransfers();
     for (const pstTx of livePaystackTxs) {
       const pstStatus = (pstTx.status || '').toUpperCase();
       if (pstStatus !== 'SUCCESS' && pstStatus !== 'SUCCESSFUL' && pstStatus !== 'PENDING' && pstStatus !== 'PROCESSING') continue;
 
-      const txRef = (pstTx.reference || pstTx.transfer_code || `PST_${pstTx.id}`).toString();
+      const txRef = (pstTx.reference || pstTx.transfer_code || '').toString();
+      const reason = (pstTx.reason || '').toString().toLowerCase();
+
+      // STRICT FILTER: Only capture payouts with RENTILLY_ prefix or Rentilly reason
+      const isRentillyPayout = txRef.toUpperCase().startsWith('RENTILLY_') || 
+                               txRef.toUpperCase().startsWith('RENTILY_') || 
+                               reason.includes('rentilly') || 
+                               reason.includes('rentily');
+
+      if (!isRentillyPayout) {
+        continue; // Ignore payouts from OnTrust, Hometrust, or other external apps!
+      }
+
       const exists = existing.some(e =>
         e.reference === txRef ||
         e.id === `PST_TX_${pstTx.id}` ||

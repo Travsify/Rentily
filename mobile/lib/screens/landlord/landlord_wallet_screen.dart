@@ -176,36 +176,6 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
       }
     } catch (_) {}
 
-    // Default verified funding transactions for 9254090338 (both ₦2,000 transfers) if empty
-    if (_transactions.isEmpty) {
-      _transactions = [
-        {
-          'id': 'TXN-RNT-9254090338-002',
-          'title': 'Direct Bank Deposit #2 (₦2,000)',
-          'subtitle': 'Direct deposit into Flutterwave MFB virtual account $acc',
-          'amount': 2000.0,
-          'type': 'inflow',
-          'status': 'Completed',
-          'date': '01 Sep 2026, 01:22 PM',
-          'reference': 'FLW-FUND-9254090338-002',
-          'channel': 'Flutterwave MFB / Core Settlement',
-          'session': 'SES-FLW-100004260901122230',
-        },
-        {
-          'id': 'TXN-RNT-9254090338-001',
-          'title': 'Direct Bank Deposit #1 (₦2,000)',
-          'subtitle': 'Direct deposit into Flutterwave MFB virtual account $acc',
-          'amount': 2000.0,
-          'type': 'inflow',
-          'status': 'Completed',
-          'date': '01 Sep 2026, 11:30 AM',
-          'reference': 'FLW-FUND-9254090338-001',
-          'channel': 'Flutterwave MFB / Core Settlement',
-          'session': 'SES-FLW-100004260901103010',
-        },
-      ];
-      await prefs.setString('rentilly_landlord_transactions', json.encode(_transactions));
-    }
     if (mounted) setState(() {});
   }
 
@@ -475,6 +445,10 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
 
   // --- 3. DOWNLOAD FULL ACCOUNT STATEMENT PDF ---
   void _downloadStatement() async {
+    if (_transactions.isEmpty) {
+      await _loadTransactions();
+    }
+
     final name = _user?.fullName ?? 'Property Owner';
     final acc = _user?.accountNumber ?? '9254090338';
 
@@ -484,7 +458,7 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
       final amt = (t['amount'] as num?)?.toDouble() ?? 0.0;
       computedNet += amt;
     }
-    final balance = computedNet < 0 ? 0.0 : computedNet;
+    final balance = _transactions.isNotEmpty ? (computedNet < 0 ? 0.0 : computedNet) : (_user?.walletBalance ?? 0.0);
 
     final doc = pw.Document();
     doc.addPage(

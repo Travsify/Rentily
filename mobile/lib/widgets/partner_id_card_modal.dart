@@ -340,6 +340,8 @@ class PartnerIdCardModal extends StatelessWidget {
     final cacOrTitle = isPartner
         ? (user.cacNumber ?? 'RC 1928374')
         : 'Deed & Land Registry Audited';
+    final prefix = isPartner ? 'RNT-PTR' : 'RNT-LLD';
+    final digitalId = '$prefix-${user.id.replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0').substring(0, 4)}';
     final rawState = (user.state != null && user.state!.trim().isNotEmpty) ? user.state!.trim() : 'Lagos';
     final cleanState = rawState.toLowerCase().contains('fct') || rawState.toLowerCase().contains('abuja')
         ? 'Abuja (FCT)'

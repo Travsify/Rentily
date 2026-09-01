@@ -118,33 +118,6 @@ class NotificationService {
       }
     } catch (_) {}
 
-    // 3. Ensure base security & verification notifications are present
-    final baseline = [
-      InAppNotification(
-        id: 'NOTIF_SEC_SESSION_01',
-        title: '🛡️ Security Alert: Verified Session Active',
-        message: 'Your account is protected with Tier-3 End-to-End Escrow Encryption • IP: 102.89.47.12 • Lagos, Nigeria.',
-        category: 'security',
-        timestamp: DateTime.now().subtract(const Duration(hours: 3)),
-        isRead: readSet.contains('NOTIF_SEC_SESSION_01'),
-        metadata: {'ip': '102.89.47.12', 'location': 'Lagos, Nigeria'},
-      ),
-      InAppNotification(
-        id: 'NOTIF_KYC_VERIFIED_01',
-        title: '✅ BVN & Land Registry Compliance Verified',
-        message: 'Your Digital Landlord ID & Virtual Settlement Account (9254090338) are active and verified.',
-        category: 'security',
-        timestamp: DateTime.now().subtract(const Duration(hours: 6)),
-        isRead: readSet.contains('NOTIF_KYC_VERIFIED_01'),
-      ),
-    ];
-
-    for (final base in baseline) {
-      if (!list.any((n) => n.id == base.id)) {
-        list.add(base);
-      }
-    }
-
     // Apply read state
     for (var n in list) {
       if (readSet.contains(n.id)) {
@@ -210,6 +183,17 @@ class NotificationService {
     for (var n in current) {
       n.isRead = true;
     }
+    await _saveNotifications(current);
+    _updateUnreadCount(current);
+  }
+
+  // Alias for markAllAsRead
+  static Future<void> markAllRead() => markAllAsRead();
+
+  // Delete notification
+  static Future<void> deleteNotification(String id) async {
+    final current = await getNotifications();
+    current.removeWhere((n) => n.id == id);
     await _saveNotifications(current);
     _updateUnreadCount(current);
   }
