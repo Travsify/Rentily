@@ -20,11 +20,17 @@ class PartnerIdCardModal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final businessName = user.businessName ?? 'Apex Realty Partners Ltd';
-    final cacNumber = user.cacNumber ?? 'RC 1928374';
-    final partnerId = 'RNT-PTR-${user.id.replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0').substring(0, 4)}';
+    final isPartner = user.role == 'partner';
+    final businessName = isPartner
+        ? (user.businessName ?? 'Apex Realty Partners Ltd')
+        : user.fullName;
+    final cacNumber = user.cacNumber ?? (isPartner ? 'RC 1928374' : 'Verified Property Owner');
+    final prefix = isPartner ? 'RNT-PTR' : 'RNT-LLD';
+    final digitalId = '$prefix-${user.id.replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0').substring(0, 4)}';
     final state = user.state ?? 'Lagos';
-    final officeAddress = user.officeAddress ?? 'Admiralty Way, Lekki Phase 1';
+    final officeAddress = isPartner
+        ? (user.officeAddress ?? 'Admiralty Way, Lekki Phase 1')
+        : 'Direct Property Owner (Title Audited)';
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.85,
@@ -58,7 +64,7 @@ class PartnerIdCardModal extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Rentilly Partner Accreditation ID',
+                          isPartner ? 'Rentilly Corporate Partner ID' : 'Rentilly Verified Landlord ID',
                           style: GoogleFonts.plusJakartaSans(fontSize: 14.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                         ),
                         Text(
@@ -86,13 +92,20 @@ class PartnerIdCardModal extends StatelessWidget {
                 Container(
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF064E3B), Color(0xFF0F172A)],
+                    gradient: LinearGradient(
+                      colors: isPartner
+                          ? [const Color(0xFF064E3B), const Color(0xFF0F172A)]
+                          : [const Color(0xFF1E293B), const Color(0xFF0F172A)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(22),
-                    border: Border.all(color: AppColors.primaryLight.withValues(alpha: 0.4), width: 1.5),
+                    border: Border.all(
+                      color: isPartner
+                          ? AppColors.primaryLight.withValues(alpha: 0.4)
+                          : const Color(0xFF38BDF8).withValues(alpha: 0.4),
+                      width: 1.5,
+                    ),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.25),
@@ -108,7 +121,7 @@ class PartnerIdCardModal extends StatelessWidget {
                         right: -20,
                         bottom: -20,
                         child: Icon(
-                          Icons.verified_user_rounded,
+                          isPartner ? Icons.verified_user_rounded : Icons.vpn_key_rounded,
                           size: 180,
                           color: Colors.white.withValues(alpha: 0.04),
                         ),
@@ -143,7 +156,7 @@ class PartnerIdCardModal extends StatelessWidget {
                                     ),
                                     const SizedBox(width: 6),
                                     Text(
-                                      'CORPORATE PARTNER',
+                                      isPartner ? 'CORPORATE PARTNER' : 'DIRECT LANDLORD',
                                       style: GoogleFonts.plusJakartaSans(
                                         fontSize: 9,
                                         fontWeight: FontWeight.w800,
@@ -165,7 +178,7 @@ class PartnerIdCardModal extends StatelessWidget {
                                       const Icon(Icons.check_circle_rounded, size: 11, color: Color(0xFF4ADE80)),
                                       const SizedBox(width: 4),
                                       Text(
-                                        'ACCREDITED',
+                                        isPartner ? 'ACCREDITED' : 'TITLE VERIFIED',
                                         style: GoogleFonts.plusJakartaSans(
                                           fontSize: 8.5,
                                           fontWeight: FontWeight.w900,
@@ -179,18 +192,20 @@ class PartnerIdCardModal extends StatelessWidget {
                             ),
                             const SizedBox(height: 20),
 
-                            // Partner Business Identity
+                            // Identity Section
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // Partner Avatar / Seal
+                                // Avatar / Seal
                                 Container(
                                   width: 64,
                                   height: 64,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    gradient: const LinearGradient(
-                                      colors: [AppColors.primaryLight, AppColors.primary],
+                                    gradient: LinearGradient(
+                                      colors: isPartner
+                                          ? [AppColors.primaryLight, AppColors.primary]
+                                          : [const Color(0xFF38BDF8), const Color(0xFF0284C7)],
                                     ),
                                     border: Border.all(color: Colors.white, width: 2),
                                   ),
@@ -198,7 +213,7 @@ class PartnerIdCardModal extends StatelessWidget {
                                     child: Text(
                                       businessName.isNotEmpty
                                           ? businessName.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join()
-                                          : 'AP',
+                                          : 'RN',
                                       style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white),
                                     ),
                                   ),
@@ -214,12 +229,18 @@ class PartnerIdCardModal extends StatelessWidget {
                                       ),
                                       const SizedBox(height: 3),
                                       Text(
-                                        'CAC REGISTRATION: $cacNumber',
-                                        style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: const Color(0xFF38BDF8)),
+                                        isPartner ? 'CAC REGISTRATION: $cacNumber' : 'TITLE HOLDER & DIRECT OWNER',
+                                        style: GoogleFonts.plusJakartaSans(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: isPartner ? const Color(0xFF38BDF8) : const Color(0xFF4ADE80),
+                                        ),
                                       ),
                                       const SizedBox(height: 3),
                                       Text(
-                                        'Rep: ${user.fullName.isNotEmpty ? user.fullName : "Principal Director"}',
+                                        isPartner
+                                            ? 'Rep: ${user.fullName.isNotEmpty ? user.fullName : "Principal Director"}'
+                                            : 'Verified via BVN & Deed of Ownership',
                                         style: GoogleFonts.plusJakartaSans(fontSize: 10, color: Colors.white70),
                                       ),
                                     ],
@@ -241,11 +262,11 @@ class PartnerIdCardModal extends StatelessWidget {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      _buildMetaItem('PARTNER ACCREDITATION ID', partnerId),
+                                      _buildMetaItem(isPartner ? 'PARTNER ACCREDITATION ID' : 'LANDLORD DIGITAL ID', digitalId),
                                       const SizedBox(height: 8),
                                       _buildMetaItem('STATE OF OPERATION', state),
                                       const SizedBox(height: 8),
-                                      _buildMetaItem('VERIFIED OFFICE', officeAddress),
+                                      _buildMetaItem(isPartner ? 'VERIFIED OFFICE' : 'VERIFICATION STATUS', officeAddress),
                                     ],
                                   ),
                                 ),
@@ -266,7 +287,7 @@ class PartnerIdCardModal extends StatelessWidget {
                                       const SizedBox(height: 2),
                                       Text(
                                         'SCAN TO VERIFY',
-                                        style: GoogleFonts.plusJakartaSans(fontSize: 6.5, fontWeight: FontWeight.w900, color: Color(0xFF0F172A)),
+                                        style: GoogleFonts.plusJakartaSans(fontSize: 6.5, fontWeight: FontWeight.w900, color: const Color(0xFF0F172A)),
                                       ),
                                     ],
                                   ),
@@ -281,7 +302,7 @@ class PartnerIdCardModal extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
 
-                // Gate & Landlord Inspection Notice
+                // Gate & Inspection Notice
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
@@ -295,7 +316,9 @@ class PartnerIdCardModal extends StatelessWidget {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          'Show this Digital ID to Estate Security and prospective tenants during in-person property walkthroughs to confirm Rentilly official accreditation.',
+                          isPartner
+                              ? 'Present this Digital ID to Estate Security and prospective tenants during in-person property walkthroughs to confirm Rentilly official accreditation.'
+                              : 'Present this Digital Landlord ID to prospective tenants during inspections so they can verify authentic property ownership before entering the premises.',
                           style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary, height: 1.35),
                         ),
                       ),
@@ -308,16 +331,15 @@ class PartnerIdCardModal extends StatelessWidget {
                 ElevatedButton.icon(
                   onPressed: () {
                     Share.share(
-                      'Official Rentilly Corporate Partner Credential:\n\n'
-                      'Business: $businessName\n'
-                      'CAC Registration: $cacNumber\n'
-                      'Partner ID: $partnerId\n'
-                      'Representative: ${user.fullName}\n'
-                      'Accreditation Verification: https://rentilly.ng/verify/partner/$partnerId',
+                      'Official Rentilly ${isPartner ? "Corporate Partner" : "Landlord"} Credential:\n\n'
+                      'Name/Business: $businessName\n'
+                      '${isPartner ? "CAC Registration: $cacNumber\n" : ""}'
+                      'Digital ID: $digitalId\n'
+                      'Accreditation Verification: https://rentilly.ng/verify/${isPartner ? "partner" : "landlord"}/$digitalId',
                     );
                   },
                   icon: const Icon(Icons.share_rounded, size: 18),
-                  label: Text('Share / Present Accreditation Card', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold)),
+                  label: Text('Share / Present Digital ID Card', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../constants/app_colors.dart';
 import '../../models/property.dart';
 import '../../models/user_profile.dart';
@@ -311,7 +312,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                 textAlign: TextAlign.center,
                 style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                 decoration: BoxDecoration(
@@ -329,7 +330,56 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 14),
+
+              // Mandatory Host Digital ID Directive Box
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFFCD34D)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.shield_rounded, size: 16, color: Color(0xFFB45309)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Safety Directive: Always demand to see the host\'s official Rentilly Digital ID upon arrival. If they cannot produce their matching Digital ID, do NOT enter.',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: const Color(0xFF78350F), fontWeight: FontWeight.w600, height: 1.3),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Share Itinerary Button
+              OutlinedButton.icon(
+                onPressed: () {
+                  Share.share(
+                    '🛡️ RENTILLY PROPERTY INSPECTION SAFETY ITINERARY\n\n'
+                    'I am currently going for a verified in-person property inspection. Details for safety tracking:\n\n'
+                    '📍 Property: ${widget.property.title}\n'
+                    '🏢 Address: ${widget.property.address}, ${widget.property.state}\n'
+                    '🔑 Gate Pass Code: $code\n'
+                    '👤 Listed By: ${widget.property.listedByRole == "verified_partner" ? "Corporate Partner (" + (widget.property.partnerBusinessName ?? "Verified Partner") + " • " + (widget.property.partnerCacNumber ?? "CAC Verified") + ")" : "Direct Landlord"}\n'
+                    '🛡️ Safety Rule: I will demand the host presents their official Rentilly Digital ID before entry.\n\n'
+                    'Live Verification: https://rentilly.ng/safety/inspection/$code',
+                  );
+                },
+                icon: const Icon(Icons.share_location_rounded, size: 16, color: AppColors.primary),
+                label: Text('Share Itinerary with Family / Friends 🛡️', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: AppColors.primary),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+              const SizedBox(height: 8),
+
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -337,6 +387,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                   child: Text('Done', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, color: Colors.white)),
                 ),

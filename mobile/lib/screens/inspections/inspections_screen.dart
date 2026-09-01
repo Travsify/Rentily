@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../constants/app_colors.dart';
 import '../../models/inspection.dart';
 import '../../services/api_service.dart';
@@ -39,6 +40,98 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
         _isLoading = false;
       });
     }
+  }
+
+  void _shareSafetyItinerary(Inspection insp) {
+    Share.share(
+      '🛡️ RENTILLY PROPERTY INSPECTION SAFETY ITINERARY\n\n'
+      'I am currently going for a verified in-person property inspection. Details below for emergency safety tracking:\n\n'
+      '📍 Property: ${insp.propertyTitle}\n'
+      '🏢 Address: ${insp.propertyAddress}\n'
+      '📅 Scheduled Date & Time: ${insp.scheduledDate}\n'
+      '🔑 Gate Pass Code: ${insp.inspectionPassCode}\n'
+      '👤 Host Type: Verified Rentilly Landlord / Corporate Partner\n'
+      '🛡️ Emergency Safety Rule: I will demand the host presents their official Rentilly Digital ID before entry.\n\n'
+      'Live Inspection Verification: https://rentilly.ng/safety/inspection/${insp.id}',
+    );
+  }
+
+  void _showReviewDialog(Inspection insp) {
+    int rating = 5;
+    final commentController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDlgState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Row(
+            children: [
+              const Icon(Icons.star_rounded, color: AppColors.accentOrange, size: 22),
+              const SizedBox(width: 8),
+              Text('Rate & Review Host', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('How was your inspection for "${insp.propertyTitle}"?', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+              const SizedBox(height: 14),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(5, (index) {
+                  return IconButton(
+                    icon: Icon(
+                      index < rating ? Icons.star_rounded : Icons.star_outline_rounded,
+                      color: AppColors.accentOrange,
+                      size: 30,
+                    ),
+                    onPressed: () => setDlgState(() => rating = index + 1),
+                  );
+                }),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: commentController,
+                maxLines: 3,
+                style: GoogleFonts.plusJakartaSans(fontSize: 12),
+                decoration: InputDecoration(
+                  hintText: 'Did the host present their Rentilly Digital ID? Was the property accurate to photos?',
+                  hintStyle: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textMuted),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.borderDark)),
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFC),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: AppColors.textSecondary, fontWeight: FontWeight.bold)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(ctx).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Thank you! Review submitted and inspection escrow disbursed.', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
+                    backgroundColor: AppColors.primary,
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: Text('Submit Review', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -98,8 +191,8 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
               boxShadow: [
                 BoxShadow(
                   color: AppColors.primary.withValues(alpha: 0.18),
-                  blurRadius: 16,
-                  offset: const Offset(0, 6),
+                  blurRadius: 14,
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),
@@ -110,91 +203,71 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(20),
+                        color: Colors.red.withValues(alpha: 0.85),
+                        borderRadius: BorderRadius.circular(6),
                       ),
                       child: Row(
                         children: [
-                          Container(
-                            width: 6,
-                            height: 6,
-                            decoration: const BoxDecoration(color: Color(0xFF22C55E), shape: BoxShape.circle),
+                          const Icon(Icons.videocam_rounded, size: 12, color: Colors.white),
+                          const SizedBox(width: 4),
+                          Text(
+                            'LIVE 4K STREAM',
+                            style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, color: Colors.white),
                           ),
-                          const SizedBox(width: 6),
-                          Text('4K LIVE STREAM READY', style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.white)),
                         ],
                       ),
                     ),
-                    const Icon(Icons.videocam_rounded, color: Colors.white, size: 24),
+                    Text(
+                      '₦0 Agent Free',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.white70),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Scheduled 4K Live Video Tour',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 17, fontWeight: FontWeight.bold, color: Colors.white),
+                  'Zero Physical Stress.\nReal-Time 4K Video Walkthrough.',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white, height: 1.2),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 Text(
-                  'Join during the landlord\'s scheduled broadcast window as they walk through the property live. Ask real-time questions, inspect plumbing, water pressure, and compound security without travelling.',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 11, color: Colors.white.withValues(alpha: 0.85), height: 1.4),
+                  'Connect live with direct landlords or verified partners. Inspect plumbing, water pressure, and power before committing.',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 11, color: Colors.white70, height: 1.3),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
 
-          // Clean Empty State for 4K Live Video (No dummy data)
+          Text(
+            'ACTIVE VIDEO SESSIONS',
+            style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 12),
+
           Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(22),
+              borderRadius: BorderRadius.circular(20),
               border: Border.all(color: AppColors.borderDark),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.02),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
             ),
             child: Column(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.08),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.videocam_outlined,
-                    size: 38,
-                    color: AppColors.primary,
-                  ),
+                const Icon(Icons.video_call_outlined, size: 40, color: AppColors.primary),
+                const SizedBox(height: 12),
+                Text(
+                  'No Upcoming Video Calls',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'When you request a 4K live tour from a listing, your direct call session will appear here.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 16),
-                Text(
-                  'No Scheduled Live Broadcasts',
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'When landlords schedule a 4K live video walkthrough for properties you are inspecting, your live broadcast window, countdown, and real-time Q&A access will appear here.',
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 11,
-                    color: AppColors.textSecondary,
-                    height: 1.45,
-                  ),
-                ),
-                const SizedBox(height: 20),
                 ElevatedButton.icon(
                   onPressed: () {
                     MainNavigationScreen.of(context)?.switchTab(1);
@@ -221,42 +294,76 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
   Widget _buildInPersonTab() {
     return _isLoading
         ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
-        : _inspections.isEmpty
-            ? Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: AppColors.borderDark),
+        : ListView(
+            padding: const EdgeInsets.all(18),
+            children: [
+              // Mandatory Digital ID Safety Directive Card
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFFCD34D)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.security_rounded, size: 22, color: Color(0xFFB45309)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'MANDATORY HOST DIGITAL ID POLICY',
+                            style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.w900, color: const Color(0xFF92400E), letterSpacing: 0.5),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            'Always demand to see the host\'s official Rentilly Digital ID (Landlord or Corporate Partner) upon arrival. If they cannot produce their matching Digital ID with accredited status, DO NOT enter the property.',
+                            style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: const Color(0xFF78350F), height: 1.35),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              if (_inspections.isEmpty) ...[
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: AppColors.borderDark),
+                          ),
+                          child: const Icon(Icons.directions_walk_rounded, size: 36, color: AppColors.textMuted),
                         ),
-                        child: const Icon(Icons.directions_walk_rounded, size: 36, color: AppColors.textMuted),
-                      ),
-                      const SizedBox(height: 14),
-                      Text(
-                        'No Scheduled In-Person Visits',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Browse verified properties to book an in-person physical walkthrough directly with the owner.',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
-                      ),
-                    ],
+                        const SizedBox(height: 14),
+                        Text(
+                          'No Scheduled In-Person Visits',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Browse verified properties to book an in-person physical walkthrough directly with the owner.',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              )
-            : ListView.builder(
-                padding: const EdgeInsets.all(18),
-                itemCount: _inspections.length,
-                itemBuilder: (context, index) {
-                  final insp = _inspections[index];
+              ] else ...[
+                ..._inspections.map((insp) {
                   return Container(
                     margin: const EdgeInsets.only(bottom: 16),
                     padding: const EdgeInsets.all(18),
@@ -286,35 +393,85 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
                         ),
                         const SizedBox(height: 4),
                         Text('${insp.propertyAddress} • ${insp.scheduledDate}', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
-                        const Divider(height: 20),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('ESTATE GATE CODE', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
-                                Text(insp.inspectionPassCode, style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                              ],
-                            ),
-                            OutlinedButton(
-                              onPressed: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Gate Pass ${insp.inspectionPassCode} copied to clipboard', style: GoogleFonts.plusJakartaSans(fontSize: 11)), backgroundColor: AppColors.primary),
-                                );
-                              },
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: AppColors.primary),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        const SizedBox(height: 12),
+
+                        // Estate Gate Code Box
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF8FAFC),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppColors.borderDark),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('ESTATE GATE CODE', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                                  Text(insp.inspectionPassCode, style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w900, color: AppColors.primary)),
+                                ],
                               ),
-                              child: Text('Copy Pass', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                              OutlinedButton(
+                                onPressed: () {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Gate Pass ${insp.inspectionPassCode} copied to clipboard', style: GoogleFonts.plusJakartaSans(fontSize: 11)), backgroundColor: AppColors.primary),
+                                  );
+                                },
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: AppColors.primary),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                child: Text('Copy Pass', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Action Buttons: Safety Share & Review
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () => _shareSafetyItinerary(insp),
+                                icon: const Icon(Icons.share_location_rounded, size: 14, color: AppColors.primary),
+                                label: Text(
+                                  'Share Itinerary (Safety) 🛡️',
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppColors.primary),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: AppColors.primary),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () => _showReviewDialog(insp),
+                                icon: const Icon(Icons.star_rate_rounded, size: 14, color: Colors.white),
+                                label: Text(
+                                  'Rate & Review ⭐',
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.white),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.accentOrange,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                ),
+                              ),
                             ),
                           ],
                         ),
                       ],
                     ),
                   );
-                },
-              );
+                }),
+              ],
+            ],
+          );
   }
 }

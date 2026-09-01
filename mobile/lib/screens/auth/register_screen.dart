@@ -511,16 +511,46 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                               const SizedBox(height: 8),
 
-                              // Partner Guarantee Notice
+                              // Rentilly Partner Rules Contained Box
                               Container(
-                                padding: const EdgeInsets.all(10),
+                                padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
-                                  color: AppColors.primary.withValues(alpha: 0.08),
-                                  borderRadius: BorderRadius.circular(10),
+                                  color: const Color(0xFFF0FDF4),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: const Color(0xFF86EFAC)),
                                 ),
-                                child: Text(
-                                  '⚖️ Rentilly Partner Rules: You earn 2.5% on rent and 1.0% on sales paid by Rentilly. ₦0 agency fee is charged to tenants. Caution is 100% locked in escrow.',
-                                  style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.primary, fontWeight: FontWeight.w600, height: 1.3),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.gavel_rounded, size: 14, color: AppColors.primary),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'RENTILLY PARTNER RULES',
+                                          style: GoogleFonts.plusJakartaSans(
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w900,
+                                            letterSpacing: 0.8,
+                                            color: AppColors.primary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      '• Earn 2.5% on rent and 2.0% on sales, paid directly by Rentilly upon confirmed move-in.\n'
+                                      '• Zero agency fees charged to tenant or buyer.\n'
+                                      '• Caution is 100% locked in Rentilly Living Escrow (0% to landlord or partner).\n'
+                                      '• Mandatory presentation of Digital Partner ID Card at every field inspection.',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 9.5,
+                                        color: const Color(0xFF166534),
+                                        fontWeight: FontWeight.w600,
+                                        height: 1.4,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
