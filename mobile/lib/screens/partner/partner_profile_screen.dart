@@ -294,11 +294,9 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
                 color: isVerified ? const Color(0xFF16A34A) : AppColors.accentOrange,
               ),
               onTap: () {
-                if (!isVerified) {
-                  VerificationModal.show(context, onSuccess: (updated) {
-                    setState(() => _user = updated);
-                  });
-                }
+                VerificationModal.show(context, onSuccess: (updated) {
+                  setState(() => _user = updated);
+                });
               },
             ),
             const SizedBox(height: 20),

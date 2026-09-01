@@ -17,6 +17,10 @@ export interface StoredUser {
   bankName?: string | null;
   state?: string;
   walletBalance?: number;
+  businessName?: string | null;
+  cacNumber?: string | null;
+  officeAddress?: string | null;
+  partnerStatus?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -143,6 +147,10 @@ export class UserStore {
     password?: string;
     role?: string;
     state?: string;
+    businessName?: string;
+    cacNumber?: string;
+    officeAddress?: string;
+    partnerStatus?: string;
   }): Promise<StoredUser> {
     const id = `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const now = new Date().toISOString();
@@ -159,6 +167,10 @@ export class UserStore {
       isVerified: false,
       state: data.state || 'Lagos',
       walletBalance: 0,
+      businessName: data.businessName || (data.role === 'partner' ? cleanName : null),
+      cacNumber: data.cacNumber || null,
+      officeAddress: data.officeAddress || null,
+      partnerStatus: data.partnerStatus || (data.role === 'partner' ? 'unverified' : undefined),
       createdAt: now,
       updatedAt: now,
     };
@@ -177,6 +189,10 @@ export class UserStore {
           is_verified: false,
           state: data.state || 'Lagos',
           wallet_balance: 0,
+          business_name: data.businessName || null,
+          cac_number: data.cacNumber || null,
+          office_address: data.officeAddress || null,
+          partner_status: data.partnerStatus || (data.role === 'partner' ? 'unverified' : null),
           created_at: now,
         });
       } catch (_) {}
