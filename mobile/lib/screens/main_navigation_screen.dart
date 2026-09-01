@@ -53,20 +53,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   void _checkUserRole() async {
     final user = await AuthService.getCurrentUser();
     if (mounted && user != null) {
-      final isLandlord = user.role == 'owner' ||
-          user.role == 'landlord' ||
-          user.email.toLowerCase().contains('travsify') ||
-          user.email.toLowerCase().contains('landlord') ||
-          user.email.toLowerCase().contains('patrick') ||
-          user.phoneNumber.contains('9254090338') ||
-          user.accountNumber == '9254090338';
-
       setState(() {
         _user = user;
-        if (widget.initialLandlordMode || isLandlord) {
-          _activeViewMode = 'landlord';
-        } else if (user.role == 'partner' || user.email.toLowerCase().contains('partner')) {
+        if (user.role == 'partner') {
           _activeViewMode = 'partner';
+        } else if (user.role == 'owner' || user.role == 'landlord' || widget.initialLandlordMode) {
+          _activeViewMode = 'landlord';
         } else {
           _activeViewMode = 'consumer';
         }

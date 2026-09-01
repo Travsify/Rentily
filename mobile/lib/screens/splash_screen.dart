@@ -51,13 +51,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     if (!mounted) return;
 
     if (loggedIn) {
-      final isLandlord = user != null && (user.role == 'owner' ||
-          user.role == 'landlord' ||
-          user.email.toLowerCase().contains('travsify') ||
-          user.email.toLowerCase().contains('landlord') ||
-          user.email.toLowerCase().contains('patrick') ||
-          user.phoneNumber.contains('9254090338') ||
-          user.accountNumber == '9254090338');
+      final isLandlord = user != null && (user.role == 'owner' || user.role == 'landlord');
 
       // User is authenticated -> Grant access to Home
       Navigator.of(context).pushReplacement(
