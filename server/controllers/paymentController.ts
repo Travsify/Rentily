@@ -808,25 +808,24 @@ export async function adminRegisterAndCreditUser(req: Request, res: Response) {
       }, { onConflict: 'email' });
     }
 
-    // Now run reconcile to credit any missed transactions
-    const FLW_SECRET = [
-      'FLWSECK-', 'e7dafb7e', '22bd7d3d', '6c041947',
-      '75bdafbd', '-1a052a90db6vt-X'
-    ].join('');
-
-    const today = new Date().toISOString().slice(0, 10);
-    const flwRes = await fetch(
-      `https://api.flutterwave.com/v3/transactions?from=2026-01-01&to=${today}&status=successful`,
-      { headers: { Authorization: `Bearer ${FLW_SECRET}`, 'Content-Type': 'application/json' } }
-    );
-    const flwJson = await flwRes.json() as any;
-    const allTxs: any[] = flwJson?.data || [];
+    // Now run reconcile using the established FlutterwaveService (uses env key, no date range issues)
+    // Fetch by email first (exact match), then merge with all-transactions fetch for acc/txRef matching
+    const [byEmail, allTxs] = await Promise.all([
+      FlutterwaveService.fetchLiveTransactions(cleanEmail),
+      FlutterwaveService.fetchLiveTransactions()   // no filter = all merchant transactions
+    ]);
+    // Combine and deduplicate
+    const seenIds = new Set<number>();
+    const combinedTxs: any[] = [];
+    for (const tx of [...byEmail, ...allTxs]) {
+      if (!seenIds.has(tx.id)) { seenIds.add(tx.id); combinedTxs.push(tx); }
+    }
 
     const existing = TransactionStore.getAllTransactions();
     let credited = 0;
     let totalAmount = 0;
 
-    for (const flwTx of allTxs) {
+    for (const flwTx of combinedTxs) {
       const virtualAccNo = (flwTx.meta?.virtualaccountnumber || '').toString().replace(/\s/g, '');
       const flwEmail = (flwTx.customer?.email || '').toLowerCase().trim();
       const flwTxRef = (flwTx.tx_ref || '').toString();
