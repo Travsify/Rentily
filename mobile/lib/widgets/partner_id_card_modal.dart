@@ -22,12 +22,20 @@ class PartnerIdCardModal extends StatelessWidget {
 
   Future<void> _generateAndShareIdPdf(BuildContext context) async {
     final isPartner = user.role == 'partner';
+    final isVerified = user.isVerified || user.bvnVerified;
+
     final holderName = isPartner
-        ? (user.businessName ?? 'Apex Realty Partners Ltd')
-        : (user.fullName.isNotEmpty ? user.fullName : 'Verified Property Owner');
+        ? (user.businessName != null && user.businessName!.trim().isNotEmpty
+            ? user.businessName!.trim()
+            : (user.fullName.trim().isNotEmpty ? user.fullName.trim() : 'Partner Enterprise'))
+        : (user.fullName.trim().isNotEmpty ? user.fullName.trim() : 'Property Owner');
+
     final cacOrTitle = isPartner
-        ? (user.cacNumber ?? 'RC 1928374')
-        : 'Deed & Land Registry Audited';
+        ? (user.cacNumber != null && user.cacNumber!.trim().isNotEmpty
+            ? user.cacNumber!.trim()
+            : (isVerified ? 'CAC Registered' : 'Pending CAC KYB'))
+        : (isVerified ? 'Deed & Land Registry Audited' : 'Pending Land Registry Audit');
+
     final prefix = isPartner ? 'RNT-PTR' : 'RNT-LLD';
     final digitalId = '$prefix-${user.id.replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0').substring(0, 4)}';
     
@@ -51,7 +59,7 @@ class PartnerIdCardModal extends StatelessWidget {
               decoration: pw.BoxDecoration(
                 color: PdfColor.fromHex('064E3B'),
                 borderRadius: pw.BorderRadius.circular(14),
-                border: pw.Border.all(color: PdfColor.fromHex('4ADE80'), width: 1.8),
+                border: pw.Border.all(color: PdfColor.fromHex(isVerified ? '4ADE80' : 'FBBF24'), width: 1.8),
               ),
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -75,7 +83,7 @@ class PartnerIdCardModal extends StatelessWidget {
                             pw.Text(
                               'RENTILLY ESCROW NETWORK',
                               style: pw.TextStyle(
-                                color: PdfColor.fromHex('4ADE80'),
+                                color: PdfColor.fromHex(isVerified ? '4ADE80' : 'FBBF24'),
                                 fontSize: 8,
                                 fontWeight: pw.FontWeight.bold,
                                 letterSpacing: 0.8,
@@ -95,11 +103,13 @@ class PartnerIdCardModal extends StatelessWidget {
                         pw.Container(
                           padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                           decoration: pw.BoxDecoration(
-                            color: PdfColor.fromHex('16A34A'),
+                            color: PdfColor.fromHex(isVerified ? '16A34A' : 'D97706'),
                             borderRadius: pw.BorderRadius.circular(4),
                           ),
                           child: pw.Text(
-                            isPartner ? 'CAC AUDITED' : 'TITLE VERIFIED',
+                            isVerified
+                                ? (isPartner ? 'CAC AUDITED' : 'TITLE VERIFIED')
+                                : (isPartner ? 'PENDING KYB' : 'PENDING KYC'),
                             style: pw.TextStyle(
                               color: PdfColors.white,
                               fontSize: 7,
@@ -140,7 +150,7 @@ class PartnerIdCardModal extends StatelessWidget {
                         children: [
                           pw.Text(
                             'ACCREDITATION ID NUMBER',
-                            style: pw.TextStyle(color: PdfColor.fromHex('86EFAC'), fontSize: 6.5, fontWeight: pw.FontWeight.bold),
+                            style: pw.TextStyle(color: PdfColor.fromHex(isVerified ? '86EFAC' : 'FDE68A'), fontSize: 6.5, fontWeight: pw.FontWeight.bold),
                           ),
                           pw.Text(
                             digitalId,
@@ -164,7 +174,7 @@ class PartnerIdCardModal extends StatelessWidget {
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
                         // Legal Name
-                        pw.Text('LEGAL TITLE HOLDER / ENTITY', style: pw.TextStyle(color: PdfColor.fromHex('4ADE80'), fontSize: 6.5, fontWeight: pw.FontWeight.bold)),
+                        pw.Text('LEGAL TITLE HOLDER / ENTITY', style: pw.TextStyle(color: PdfColor.fromHex(isVerified ? '4ADE80' : 'FBBF24'), fontSize: 6.5, fontWeight: pw.FontWeight.bold)),
                         pw.SizedBox(height: 1),
                         pw.Text(holderName.toUpperCase(), style: pw.TextStyle(color: PdfColors.white, fontSize: 12.5, fontWeight: pw.FontWeight.bold)),
                         pw.SizedBox(height: 6),
@@ -204,7 +214,7 @@ class PartnerIdCardModal extends StatelessWidget {
                                 children: [
                                   pw.Text('TITLE / COMPLIANCE AUDIT', style: pw.TextStyle(color: PdfColor.fromHex('94A3B8'), fontSize: 6, fontWeight: pw.FontWeight.bold)),
                                   pw.SizedBox(height: 1),
-                                  pw.Text(cacOrTitle, style: pw.TextStyle(color: PdfColor.fromHex('FBBF24'), fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                                  pw.Text(cacOrTitle, style: pw.TextStyle(color: PdfColor.fromHex(isVerified ? 'FBBF24' : 'F87171'), fontSize: 8, fontWeight: pw.FontWeight.bold)),
                                 ],
                               ),
                             ),
@@ -214,7 +224,12 @@ class PartnerIdCardModal extends StatelessWidget {
                                 children: [
                                   pw.Text('ESCROW SECURITY TIER', style: pw.TextStyle(color: PdfColor.fromHex('94A3B8'), fontSize: 6, fontWeight: pw.FontWeight.bold)),
                                   pw.SizedBox(height: 1),
-                                  pw.Text('Class-A Verified Owner', style: pw.TextStyle(color: PdfColor.fromHex('4ADE80'), fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                                  pw.Text(
+                                    isVerified
+                                        ? (isPartner ? 'Accredited Corporate Partner' : 'Class-A Verified Owner')
+                                        : 'Tier-1 Pending Verification',
+                                    style: pw.TextStyle(color: PdfColor.fromHex(isVerified ? '4ADE80' : 'FBBF24'), fontSize: 8, fontWeight: pw.FontWeight.bold),
+                                  ),
                                 ],
                               ),
                             ),
@@ -251,16 +266,15 @@ class PartnerIdCardModal extends StatelessWidget {
                   ),
                   pw.SizedBox(height: 8),
 
-                  // 4. Security Barcode & Digital Verification QR Code
+                  // 4. Barcode & Security Strip
                   pw.Container(
-                    padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                    padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: pw.BoxDecoration(
                       color: PdfColors.white,
-                      borderRadius: pw.BorderRadius.circular(8),
+                      borderRadius: pw.BorderRadius.circular(6),
                     ),
                     child: pw.Row(
                       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: pw.CrossAxisAlignment.center,
                       children: [
                         pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -269,44 +283,18 @@ class PartnerIdCardModal extends StatelessWidget {
                               barcode: pw.Barcode.code128(),
                               data: digitalId,
                               width: 140,
-                              height: 24,
+                              height: 18,
                               drawText: false,
-                              color: PdfColors.black,
                             ),
                             pw.SizedBox(height: 2),
-                            pw.Text(
-                              'SECURITY SERIAL: 8947-1928-LLD-SEC',
-                              style: const pw.TextStyle(color: PdfColors.black, fontSize: 5.5, letterSpacing: 0.6),
-                            ),
+                            pw.Text('SECURITY ENCRYPTION: SHA-256 COMPLIANT', style: const pw.TextStyle(fontSize: 5.5, color: PdfColors.black)),
                           ],
                         ),
                         pw.BarcodeWidget(
                           barcode: pw.Barcode.qrCode(),
-                          data: 'https://rentilly.ng/verify/credential/$digitalId',
-                          width: 32,
-                          height: 32,
-                          color: PdfColors.black,
-                        ),
-                      ],
-                    ),
-                  ),
-                  pw.SizedBox(height: 6),
-
-                  // 5. Legal & Escrow Guarantee Footer
-                  pw.Container(
-                    alignment: pw.Alignment.center,
-                    child: pw.Column(
-                      children: [
-                        pw.Text(
-                          'ZERO-AGENT ESCROW GUARANTEED  |  100% CAUTION PROTECTION',
-                          style: pw.TextStyle(color: PdfColor.fromHex('4ADE80'), fontSize: 6, fontWeight: pw.FontWeight.bold),
-                          textAlign: pw.TextAlign.center,
-                        ),
-                        pw.SizedBox(height: 1),
-                        pw.Text(
-                          'Digitally certified by Rentilly Trust & Title Desk under Lagos Tenancy Law 2011.',
-                          style: pw.TextStyle(color: PdfColor.fromHex('94A3B8'), fontSize: 5.5),
-                          textAlign: pw.TextAlign.center,
+                          data: 'https://rentilly.ng/verify/$digitalId',
+                          width: 28,
+                          height: 28,
                         ),
                       ],
                     ),
@@ -318,14 +306,17 @@ class PartnerIdCardModal extends StatelessWidget {
         ),
       );
 
-      await Printing.sharePdf(
-        bytes: await doc.save(),
-        filename: 'Rentilly_Accredited_ID_$digitalId.pdf',
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) async => doc.save(),
+        name: 'Rentilly_Credential_${user.id}.pdf',
       );
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error generating PDF ID: $e', style: GoogleFonts.plusJakartaSans(fontSize: 11)), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Could not generate PDF: $e', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -334,19 +325,29 @@ class PartnerIdCardModal extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isPartner = user.role == 'partner';
+    final isVerified = user.isVerified || user.bvnVerified;
+
     final holderName = isPartner
-        ? (user.businessName ?? 'Apex Realty Partners Ltd')
-        : (user.fullName.isNotEmpty ? user.fullName : 'Verified Property Owner');
+        ? (user.businessName != null && user.businessName!.trim().isNotEmpty
+            ? user.businessName!.trim()
+            : (user.fullName.trim().isNotEmpty ? user.fullName.trim() : 'Partner Enterprise'))
+        : (user.fullName.trim().isNotEmpty ? user.fullName.trim() : 'Property Owner');
+
     final cacOrTitle = isPartner
-        ? (user.cacNumber ?? 'RC 1928374')
-        : 'Deed & Land Registry Audited';
+        ? (user.cacNumber != null && user.cacNumber!.trim().isNotEmpty
+            ? user.cacNumber!.trim()
+            : (isVerified ? 'CAC Registered' : 'Pending CAC KYB'))
+        : (isVerified ? 'Deed & Land Registry Audited' : 'Pending Land Registry Audit');
+
     final prefix = isPartner ? 'RNT-PTR' : 'RNT-LLD';
     final digitalId = '$prefix-${user.id.replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0').substring(0, 4)}';
+    
     final rawState = (user.state != null && user.state!.trim().isNotEmpty) ? user.state!.trim() : 'Lagos';
     final cleanState = rawState.toLowerCase().contains('fct') || rawState.toLowerCase().contains('abuja')
         ? 'Abuja (FCT)'
         : (rawState.toLowerCase().contains('state') ? rawState : '$rawState State');
     final jurisdiction = '$cleanState, Nigeria';
+    
     final designation = isPartner ? 'Corporate Brokerage Mandate' : 'Direct Property Owner / Lessor';
 
     return Container(
@@ -381,7 +382,7 @@ class PartnerIdCardModal extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          isPartner ? 'Rentilly Corporate Partner ID' : 'Rentilly Verified Landlord ID',
+                          isPartner ? 'Rentilly Partner ID Card' : 'Rentilly Landlord ID Card',
                           style: GoogleFonts.plusJakartaSans(fontSize: 14.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                         ),
                         Text(
@@ -405,7 +406,7 @@ class PartnerIdCardModal extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.all(20),
               children: [
-                // The Official Digital Badge Card (Styled like a real security credential)
+                // The Official Digital Badge Card
                 Container(
                   width: double.infinity,
                   decoration: BoxDecoration(
@@ -416,7 +417,7 @@ class PartnerIdCardModal extends StatelessWidget {
                     ),
                     borderRadius: BorderRadius.circular(22),
                     border: Border.all(
-                      color: const Color(0xFF4ADE80),
+                      color: isVerified ? const Color(0xFF4ADE80) : const Color(0xFFFBBF24),
                       width: 1.8,
                     ),
                     boxShadow: [
@@ -449,10 +450,10 @@ class PartnerIdCardModal extends StatelessWidget {
                                     Container(
                                       padding: const EdgeInsets.all(5),
                                       decoration: BoxDecoration(
-                                        color: const Color(0xFF4ADE80).withValues(alpha: 0.2),
+                                        color: (isVerified ? const Color(0xFF4ADE80) : const Color(0xFFFBBF24)).withValues(alpha: 0.2),
                                         shape: BoxShape.circle,
                                       ),
-                                      child: const Icon(Icons.shield_rounded, size: 14, color: Color(0xFF4ADE80)),
+                                      child: Icon(Icons.shield_rounded, size: 14, color: isVerified ? const Color(0xFF4ADE80) : const Color(0xFFFBBF24)),
                                     ),
                                     const SizedBox(width: 8),
                                     Expanded(
@@ -465,7 +466,7 @@ class PartnerIdCardModal extends StatelessWidget {
                                               fontSize: 7.5,
                                               fontWeight: FontWeight.w900,
                                               letterSpacing: 0.8,
-                                              color: const Color(0xFF4ADE80),
+                                              color: isVerified ? const Color(0xFF4ADE80) : const Color(0xFFFBBF24),
                                             ),
                                           ),
                                           Text(
@@ -484,45 +485,46 @@ class PartnerIdCardModal extends StatelessWidget {
                                   ],
                                 ),
                               ),
-                              const SizedBox(width: 6),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFF16A34A),
+                                  color: isVerified ? const Color(0xFF16A34A) : const Color(0xFFD97706),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
-                                  isPartner ? 'CAC AUDITED' : 'TITLE VERIFIED',
-                                  style: GoogleFonts.plusJakartaSans(fontSize: 7.5, fontWeight: FontWeight.w900, color: Colors.white),
+                                  isVerified
+                                      ? (isPartner ? 'CAC AUDITED' : 'TITLE VERIFIED')
+                                      : (isPartner ? 'PENDING KYB' : 'PENDING KYC'),
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.w900, color: Colors.white),
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 16),
 
-                        // Metallic Smart Chip & ID Number
+                        // Smart EMV Chip & ID
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Container(
-                              width: 38,
-                              height: 28,
+                              width: 44,
+                              height: 32,
                               decoration: BoxDecoration(
                                 gradient: const LinearGradient(
                                   colors: [Color(0xFFF59E0B), Color(0xFFD97706)],
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                 ),
-                                borderRadius: BorderRadius.circular(5),
+                                borderRadius: BorderRadius.circular(6),
                                 border: Border.all(color: const Color(0xFFFDE68A), width: 1.2),
                               ),
                               child: Center(
                                 child: Container(
-                                  width: 24,
-                                  height: 16,
+                                  width: 28,
+                                  height: 18,
                                   decoration: BoxDecoration(
-                                    border: Border.all(color: const Color(0xFF92400E), width: 0.8),
+                                    border: Border.all(color: const Color(0xFF92400E), width: 0.9),
                                   ),
                                 ),
                               ),
@@ -536,15 +538,15 @@ class PartnerIdCardModal extends StatelessWidget {
                                 ),
                                 Text(
                                   digitalId,
-                                  style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1.2),
+                                  style: GoogleFonts.sourceCodePro(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white, letterSpacing: 1.5),
                                 ),
                               ],
                             ),
                           ],
                         ),
-                        const SizedBox(height: 14),
+                        const SizedBox(height: 16),
 
-                        // Structured Credential Data Container
+                        // Credential Data Box
                         Container(
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
@@ -557,12 +559,12 @@ class PartnerIdCardModal extends StatelessWidget {
                             children: [
                               Text(
                                 'LEGAL TITLE HOLDER / ENTITY',
-                                style: GoogleFonts.plusJakartaSans(fontSize: 7.5, fontWeight: FontWeight.w800, color: const Color(0xFF4ADE80)),
+                                style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: isVerified ? const Color(0xFF4ADE80) : const Color(0xFFFBBF24)),
                               ),
                               const SizedBox(height: 2),
                               Text(
                                 holderName.toUpperCase(),
-                                style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.white),
+                                style: GoogleFonts.plusJakartaSans(fontSize: 14.5, fontWeight: FontWeight.w900, color: Colors.white),
                               ),
                               const SizedBox(height: 10),
 
@@ -584,7 +586,13 @@ class PartnerIdCardModal extends StatelessWidget {
                                     child: _buildDataField('TITLE / COMPLIANCE AUDIT', cacOrTitle, const Color(0xFFFBBF24)),
                                   ),
                                   Expanded(
-                                    child: _buildDataField('ESCROW SECURITY TIER', 'Class-A Verified Owner', const Color(0xFF4ADE80)),
+                                    child: _buildDataField(
+                                      'ESCROW SECURITY TIER',
+                                      isVerified
+                                          ? (isPartner ? 'Class-A Accredited Partner' : 'Class-A Verified Owner')
+                                          : 'Tier-1 Pending Verification',
+                                      isVerified ? const Color(0xFF4ADE80) : const Color(0xFFFBBF24),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -618,7 +626,6 @@ class PartnerIdCardModal extends StatelessWidget {
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  // Visual Barcode Simulation
                                   Row(
                                     children: List.generate(
                                       28,
@@ -648,71 +655,29 @@ class PartnerIdCardModal extends StatelessWidget {
                             ],
                           ),
                         ),
-                        const SizedBox(height: 12),
-
-                        // Escrow Guarantee Footer
-                        Center(
-                          child: Column(
-                            children: [
-                              Text(
-                                'ZERO-AGENT ESCROW GUARANTEED  •  100% CAUTION PROTECTION',
-                                style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.w900, color: const Color(0xFF4ADE80)),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Digitally certified by Rentilly Trust & Title Desk under Lagos Tenancy Law 2011.',
-                                style: GoogleFonts.plusJakartaSans(fontSize: 7.5, color: Colors.white60),
-                              ),
-                            ],
-                          ),
-                        ),
                       ],
                     ),
                   ),
                 ),
                 const SizedBox(height: 20),
 
-                // Share / Present Official PDF Button
+                // Download & Share PDF Button
                 SizedBox(
                   width: double.infinity,
-                  height: 50,
                   child: ElevatedButton.icon(
                     onPressed: () => _generateAndShareIdPdf(context),
                     icon: const Icon(Icons.picture_as_pdf_rounded, size: 18, color: Colors.white),
                     label: Text(
-                      'Share / Present Official Digital ID (PDF)',
+                      'Download Printable Credential (PDF)',
                       style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(vertical: 15),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
-
-                // Notice Box
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.borderDark),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.info_outline_rounded, size: 16, color: AppColors.textSecondary),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Present this official credential during in-person property walkthroughs to establish verified ownership authority.',
-                          style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary, height: 1.3),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 30),
               ],
             ),
           ),
@@ -725,9 +690,17 @@ class PartnerIdCardModal extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 7, fontWeight: FontWeight.w800, color: const Color(0xFF94A3B8))),
-        const SizedBox(height: 1),
-        Text(value, style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.bold, color: valueColor)),
+        Text(
+          label,
+          style: GoogleFonts.plusJakartaSans(fontSize: 7.5, fontWeight: FontWeight.bold, color: const Color(0xFF94A3B8)),
+        ),
+        const SizedBox(height: 1.5),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: valueColor),
+        ),
       ],
     );
   }

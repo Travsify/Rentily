@@ -10,6 +10,7 @@ import '../constants/app_colors.dart';
 import '../models/property.dart';
 import '../models/user_profile.dart';
 import '../services/notification_service.dart';
+import '../widgets/verification_modal.dart';
 
 class PartnerListingModal extends StatefulWidget {
   final UserProfile user;
@@ -86,9 +87,11 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
   bool _hasUploadedElectricityBill = true;
   bool _agreedToTitleWarranty = true;
 
-  // Partner Mandate Fields
-  bool _hasUploadedPresencePhoto = true;
-  bool _hasUploadedPowerOfAttorney = true;
+  // Partner Mandate & Presence Fields
+  String? _presencePhotoPath;
+  String? _presencePhotoName;
+  String? _powerOfAttorneyPath;
+  String? _powerOfAttorneyName;
   bool _isSubmitting = false;
 
   final NumberFormat _currencyFormat = NumberFormat('#,###');
@@ -129,6 +132,51 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Recent Meter Bill Attached (≤ 3 months): ${file.name} ⚡', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+              backgroundColor: const Color(0xFF16A34A),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    } catch (_) {}
+  }
+
+  void _pickPresencePhoto() async {
+    try {
+      final XFile? file = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85) ??
+                          await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+      if (file != null) {
+        setState(() {
+          _presencePhotoPath = file.path;
+          _presencePhotoName = file.name;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Selfie in Front of Property Attached 🤳✓', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+              backgroundColor: const Color(0xFF16A34A),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    } catch (_) {}
+  }
+
+  void _pickPowerOfAttorney() async {
+    try {
+      final XFile? file = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+      if (file != null) {
+        setState(() {
+          _powerOfAttorneyPath = file.path;
+          _powerOfAttorneyName = file.name;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Signed Power of Attorney Attached 📄✓', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
               backgroundColor: const Color(0xFF16A34A),
               behavior: SnackBarBehavior.floating,
               duration: const Duration(seconds: 3),
@@ -271,6 +319,15 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
     final price = _basePrice;
     final inspection = _inspectionFee;
 
+    // 1. Mandatory Identity Verification Gate (Both Landlord & Partner)
+    if (!widget.user.isVerified && !widget.user.bvnVerified) {
+      _showToast('Verification Required: Please verify your identity before submitting a listing.');
+      VerificationModal.show(context, onSuccess: (updated) {
+        _showToast('Identity verified! You can now proceed to submit your listing.');
+      });
+      return;
+    }
+
     if (title.isEmpty || address.isEmpty || price <= 0) {
       _showToast('Please fill in property title, full address, and price.');
       return;
@@ -283,6 +340,18 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
     if (_isDirectLandlord && !_agreedToTitleWarranty) {
       _showToast('Please accept the Landlord Ownership & Title Warranty declaration.');
       return;
+    }
+
+    // 2. Mandatory Corporate Partner Ghost Shield Gate
+    if (!_isDirectLandlord) {
+      if (_presencePhotoPath == null || _presencePhotoPath!.isEmpty) {
+        _showToast('Ghost Shield: Please take or upload a selfie in front of the property.');
+        return;
+      }
+      if (_powerOfAttorneyPath == null || _powerOfAttorneyPath!.isEmpty) {
+        _showToast('Mandate Required: Please upload the signed Power of Attorney from the property owner.');
+        return;
+      }
     }
 
     if (inspection > 5000) {
@@ -1078,45 +1147,99 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
                           'To eliminate ghost listings and protect renters, corporate partners must upload an in-property selfie and signed Power of Attorney from the owner.',
                           style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary, height: 1.35),
                         ),
-                        const SizedBox(height: 10),
+                        const SizedBox(height: 12),
                         Row(
                           children: [
+                            // 1. Partner in Property Photo (Clickable)
                             Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF0FDF4),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: const Color(0xFFBBF7D0)),
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.camera_alt_rounded, size: 14, color: Color(0xFF16A34A)),
-                                    const SizedBox(width: 4),
-                                    Expanded(
-                                      child: Text('Partner in Property Photo', style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.bold, color: const Color(0xFF16A34A))),
+                              child: InkWell(
+                                onTap: _pickPresencePhoto,
+                                borderRadius: BorderRadius.circular(10),
+                                child: Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: _presencePhotoPath != null ? const Color(0xFFDCFCE7) : const Color(0xFFF0FDF4),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: _presencePhotoPath != null ? const Color(0xFF16A34A) : const Color(0xFFBBF7D0),
+                                      width: _presencePhotoPath != null ? 1.5 : 1,
                                     ),
-                                  ],
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            _presencePhotoPath != null ? Icons.check_circle_rounded : Icons.camera_alt_rounded,
+                                            size: 16,
+                                            color: const Color(0xFF16A34A),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Expanded(
+                                            child: Text(
+                                              _presencePhotoPath != null ? 'Selfie Attached ✓' : 'Selfie in Front of Property 🤳',
+                                              style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.bold, color: const Color(0xFF166534)),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        _presencePhotoName ?? 'Tap to take/upload selfie in front of property',
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.plusJakartaSans(fontSize: 8, color: const Color(0xFF15803D)),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
                             const SizedBox(width: 8),
+                            // 2. Power of Attorney / Mandate (Clickable)
                             Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFFF0FDF4),
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: const Color(0xFFBBF7D0)),
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.assignment_turned_in_rounded, size: 14, color: Color(0xFF16A34A)),
-                                    const SizedBox(width: 4),
-                                    Expanded(
-                                      child: Text('Power of Attorney / Mandate', style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.bold, color: const Color(0xFF16A34A))),
+                              child: InkWell(
+                                onTap: _pickPowerOfAttorney,
+                                borderRadius: BorderRadius.circular(10),
+                                child: Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: _powerOfAttorneyPath != null ? const Color(0xFFDCFCE7) : const Color(0xFFF0FDF4),
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: _powerOfAttorneyPath != null ? const Color(0xFF16A34A) : const Color(0xFFBBF7D0),
+                                      width: _powerOfAttorneyPath != null ? 1.5 : 1,
                                     ),
-                                  ],
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            _powerOfAttorneyPath != null ? Icons.check_circle_rounded : Icons.assignment_turned_in_rounded,
+                                            size: 16,
+                                            color: const Color(0xFF16A34A),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Expanded(
+                                            child: Text(
+                                              _powerOfAttorneyPath != null ? 'Mandate Attached ✓' : 'Power of Attorney / Mandate 📄',
+                                              style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.bold, color: const Color(0xFF166534)),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        _powerOfAttorneyName ?? 'Tap to attach signed Power of Attorney',
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.plusJakartaSans(fontSize: 8, color: const Color(0xFF15803D)),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),

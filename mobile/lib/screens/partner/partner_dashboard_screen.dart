@@ -38,10 +38,13 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final screens = [
-      _PartnerHubTab(onSwitchToTenant: widget.onSwitchToTenant),
+      _PartnerHubTab(
+        onSwitchToTenant: widget.onSwitchToTenant,
+        onGoToWallet: () => setState(() => _currentIndex = 2),
+        onGoToMandates: () => setState(() => _currentIndex = 1),
+      ),
       const PropertiesScreen(initialPurpose: 'all'),
       const PartnerWalletScreen(),
-      const InspectionsScreen(),
       PartnerProfileScreen(onSwitchToTenant: widget.onSwitchToTenant),
     ];
 
@@ -61,8 +64,10 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
 
 class _PartnerHubTab extends StatefulWidget {
   final VoidCallback? onSwitchToTenant;
+  final VoidCallback? onGoToWallet;
+  final VoidCallback? onGoToMandates;
 
-  const _PartnerHubTab({this.onSwitchToTenant});
+  const _PartnerHubTab({this.onSwitchToTenant, this.onGoToWallet, this.onGoToMandates});
 
   @override
   State<_PartnerHubTab> createState() => _PartnerHubTabState();
@@ -120,9 +125,9 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
     }
 
     final isVerified = _user?.isVerified ?? false;
-    final businessName = _user?.businessName ?? 'Apex Realty Partners Ltd';
-    final cacNumber = _user?.cacNumber ?? 'RC 1928374';
-    final accountNumber = _user?.accountNumber ?? '9834192847';
+    final businessName = _user?.businessName ?? _user?.fullName ?? 'Corporate Partner';
+    final cacNumber = _user?.cacNumber ?? 'CAC Registered';
+    final accountNumber = _user?.accountNumber ?? 'Pending KYC';
     final bankName = _user?.bankName ?? 'Flutterwave MFB';
     final partnerId = 'RNT-PTR-${_user?.id.replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0').substring(0, 4) ?? "0042"}';
     final operationalBalance = _user?.walletBalance ?? 0.0;
@@ -203,107 +208,121 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 1. Corporate Identity Hero Card with Dual Balance
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF064E3B), Color(0xFF0F172A)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(22),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.15),
-                        blurRadius: 16,
-                        offset: const Offset(0, 6),
+                // 1. Corporate Identity Hero Card with Dual Balance (Tap to Commissions Vault)
+                InkWell(
+                  onTap: () => widget.onGoToWallet?.call(),
+                  borderRadius: BorderRadius.circular(22),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF064E3B), Color(0xFF0F172A)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.business_rounded, size: 18, color: Colors.white70),
-                              const SizedBox(width: 6),
-                              Text(
-                                'ACCREDITED CORPORATE FIRM',
+                      borderRadius: BorderRadius.circular(22),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.15),
+                          blurRadius: 16,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.business_rounded, size: 18, color: Colors.white70),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'ACCREDITED CORPORATE FIRM',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 8.5,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 1.1,
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: isVerified ? const Color(0xFF22C55E).withValues(alpha: 0.2) : AppColors.accentOrange.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: isVerified ? const Color(0xFF4ADE80) : AppColors.accentOrange),
+                              ),
+                              child: Text(
+                                isVerified ? 'CAC VERIFIED 🛡️' : 'TIER 1 (UNVERIFIED)',
                                 style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 8.5,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 1.1,
-                                  color: Colors.white70,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.w900,
+                                  color: isVerified ? const Color(0xFF4ADE80) : AppColors.accentOrange,
                                 ),
                               ),
-                            ],
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: isVerified ? const Color(0xFF22C55E).withValues(alpha: 0.2) : AppColors.accentOrange.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: isVerified ? const Color(0xFF4ADE80) : AppColors.accentOrange),
                             ),
-                            child: Text(
-                              isVerified ? 'CAC VERIFIED 🛡️' : 'TIER 1 (UNVERIFIED)',
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 8,
-                                fontWeight: FontWeight.w900,
-                                color: isVerified ? const Color(0xFF4ADE80) : AppColors.accentOrange,
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          businessName,
+                          style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          'CAC: $cacNumber • Partner ID: $partnerId',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: const Color(0xFFFBBF24)),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Rep: ${_user?.fullName ?? "Principal Broker"} • ${_user?.email ?? ""}',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 10, color: Colors.white60),
+                        ),
+                        const SizedBox(height: 18),
+
+                        // Metrics Dual Balances
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('OPERATING FUNDS', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white60)),
+                                  const SizedBox(height: 2),
+                                  Text('₦${_currencyFormat.format(operationalBalance)}', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white)),
+                                ],
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                      Text(
-                        businessName,
-                        style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w900, color: Colors.white),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        'CAC: $cacNumber • Partner ID: $partnerId',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: const Color(0xFFFBBF24)),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Rep: ${_user?.fullName ?? "Principal Broker"} • ${_user?.email ?? ""}',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 10, color: Colors.white60),
-                      ),
-                      const SizedBox(height: 18),
-
-                      // Metrics Dual Balances
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('OPERATING FUNDS', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white60)),
-                                const SizedBox(height: 2),
-                                Text('₦${_currencyFormat.format(operationalBalance)}', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white)),
-                              ],
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('COMMISSIONS IN ESCROW', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white60)),
+                                  const SizedBox(height: 2),
+                                  Text('₦${_currencyFormat.format(escrowCommission)}', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w900, color: const Color(0xFFFBBF24))),
+                                ],
+                              ),
                             ),
-                          ),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('COMMISSIONS IN ESCROW', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white60)),
-                                const SizedBox(height: 2),
-                                Text('₦${_currencyFormat.format(escrowCommission)}', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w900, color: const Color(0xFFFBBF24))),
-                              ],
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Text(
+                              'Open Commissions Vault ➔',
+                              style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.bold, color: const Color(0xFF86EFAC)),
                             ),
-                          ),
-                        ],
-                      ),
-                    ],
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),

@@ -35,7 +35,9 @@ class _PartnerLandlordOnboardModalState extends State<PartnerLandlordOnboardModa
   }
 
   void _shareViaWhatsApp() {
-    final businessName = widget.user.businessName ?? 'Apex Realty Partners Ltd';
+    final businessName = widget.user.businessName != null && widget.user.businessName!.trim().isNotEmpty
+        ? widget.user.businessName!.trim()
+        : (widget.user.fullName.trim().isNotEmpty ? widget.user.fullName.trim() : 'Accredited Partner Enterprise');
     final partnerId = 'RNT-PTR-${widget.user.id.replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0').substring(0, 4)}';
     final inviteLink = 'https://rentilly.ng/invite/landlord?partner_id=$partnerId&firm=${Uri.encodeComponent(businessName)}';
 
@@ -53,7 +55,9 @@ class _PartnerLandlordOnboardModalState extends State<PartnerLandlordOnboardModa
   }
 
   void _copyLink() {
-    final businessName = widget.user.businessName ?? 'Apex Realty Partners Ltd';
+    final businessName = widget.user.businessName != null && widget.user.businessName!.trim().isNotEmpty
+        ? widget.user.businessName!.trim()
+        : (widget.user.fullName.trim().isNotEmpty ? widget.user.fullName.trim() : 'Accredited Partner Enterprise');
     final partnerId = 'RNT-PTR-${widget.user.id.replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0').substring(0, 4)}';
     final inviteLink = 'https://rentilly.ng/invite/landlord?partner_id=$partnerId&firm=${Uri.encodeComponent(businessName)}';
 
@@ -68,7 +72,9 @@ class _PartnerLandlordOnboardModalState extends State<PartnerLandlordOnboardModa
 
   @override
   Widget build(BuildContext context) {
-    final businessName = widget.user.businessName ?? 'Apex Realty Partners Ltd';
+    final businessName = widget.user.businessName != null && widget.user.businessName!.trim().isNotEmpty
+        ? widget.user.businessName!.trim()
+        : (widget.user.fullName.trim().isNotEmpty ? widget.user.fullName.trim() : 'Accredited Partner Enterprise');
     final partnerId = 'RNT-PTR-${widget.user.id.replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0').substring(0, 4)}';
     final inviteLink = 'https://rentilly.ng/invite/landlord?partner_id=$partnerId';
 

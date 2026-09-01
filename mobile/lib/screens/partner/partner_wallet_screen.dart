@@ -60,11 +60,11 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
     }
 
     final isVerified = _user?.isVerified ?? false;
-    final businessName = _user?.businessName ?? 'Apex Realty Partners Ltd';
-    final cacNumber = _user?.cacNumber ?? 'RC 1928374';
+    final businessName = _user?.businessName ?? _user?.fullName ?? 'Corporate Partner';
+    final cacNumber = _user?.cacNumber ?? 'CAC Registered';
     final operationalBalance = _user?.walletBalance ?? 0.0;
     final escrowCommission = 0.00; // 2.5% rent or 2.0% sales held in escrow before key confirmation
-    final accountNumber = _user?.accountNumber ?? '9834192847';
+    final accountNumber = _user?.accountNumber ?? 'Pending KYC';
     final bankName = _user?.bankName ?? 'Flutterwave MFB';
 
     return Scaffold(

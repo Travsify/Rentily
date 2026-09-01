@@ -4,10 +4,11 @@ import '../../constants/app_colors.dart';
 import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
 import '../../services/payment_security_service.dart';
-import '../../widgets/verification_modal.dart';
 import '../../widgets/payment_pin_modal.dart';
+import '../../widgets/verification_modal.dart';
 import '../../widgets/partner_id_card_modal.dart';
 import '../../widgets/partner_landlord_onboard_modal.dart';
+import '../../widgets/partner_legal_modal.dart';
 import '../auth/login_screen.dart';
 
 class PartnerProfileScreen extends StatefulWidget {
@@ -27,10 +28,10 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _loadUser();
+    _loadProfile();
   }
 
-  void _loadUser() async {
+  void _loadProfile() async {
     final user = await AuthService.getCurrentUser();
     final hasPin = await PaymentSecurityService.hasPaymentPin();
     if (mounted) {
@@ -98,19 +99,21 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: AppColors.textSecondary, fontWeight: FontWeight.bold)),
+            child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: AppColors.textSecondary)),
           ),
           ElevatedButton(
             onPressed: () {
-              if (newPassController.text.length < 6) {
+              final newP = newPassController.text.trim();
+              final confP = confirmPassController.text.trim();
+              if (newP.length < 6) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('New password must be at least 6 characters.', style: GoogleFonts.plusJakartaSans(fontSize: 11)), backgroundColor: Colors.red),
+                  SnackBar(content: Text('Password must be at least 6 characters.', style: GoogleFonts.plusJakartaSans(fontSize: 11)), backgroundColor: Colors.red),
                 );
                 return;
               }
-              if (newPassController.text != confirmPassController.text) {
+              if (newP != confP) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Passwords do not match.', style: GoogleFonts.plusJakartaSans(fontSize: 11)), backgroundColor: Colors.red),
+                  SnackBar(content: Text('New passwords do not match.', style: GoogleFonts.plusJakartaSans(fontSize: 11)), backgroundColor: Colors.red),
                 );
                 return;
               }
@@ -140,16 +143,23 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
     }
 
     final isVerified = _user?.isVerified ?? false;
-    final businessName = _user?.businessName ?? 'Apex Realty Partners Ltd';
-    final cacNumber = _user?.cacNumber ?? 'RC 1928374';
+    final businessName = _user?.businessName != null && _user!.businessName!.trim().isNotEmpty
+        ? _user!.businessName!.trim()
+        : (_user?.fullName.trim().isNotEmpty == true ? _user!.fullName.trim() : 'Partner Enterprise');
+    final cacNumber = _user?.cacNumber != null && _user!.cacNumber!.trim().isNotEmpty
+        ? _user!.cacNumber!.trim()
+        : (isVerified ? 'CAC Verified' : 'Pending CAC KYB');
     final partnerId = 'RNT-PTR-${_user?.id.replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0').substring(0, 4) ?? "0042"}';
-    final officeAddress = _user?.officeAddress ?? 'Admiralty Way, Lekki Phase 1';
+    final rawState = _user?.state ?? 'Lagos';
+    final officeAddress = _user?.officeAddress != null && _user!.officeAddress!.trim().isNotEmpty
+        ? _user!.officeAddress!.trim()
+        : '$rawState, Nigeria';
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
       appBar: AppBar(
         title: Text(
-          'Corporate Partner Profile',
+          'Partner Profile',
           style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
         ),
         backgroundColor: Colors.white,
@@ -178,7 +188,7 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
                     ),
                     child: Center(
                       child: Text(
-                        businessName.isNotEmpty ? businessName.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join() : 'AP',
+                        businessName.isNotEmpty ? businessName.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join() : 'PT',
                         style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.white),
                       ),
                     ),
@@ -211,7 +221,7 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
                             border: Border.all(color: isVerified ? const Color(0xFF86EFAC) : const Color(0xFFFCD34D)),
                           ),
                           child: Text(
-                            isVerified ? 'CAC & TIER-3 ACCREDITED 🛡️' : 'TIER-1 (UNVERIFIED)',
+                            isVerified ? 'CAC & TIER-3 ACCREDITED 🛡️' : 'TIER-1 (PENDING KYB/KYC)',
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 8.5,
                               fontWeight: FontWeight.w900,
@@ -227,18 +237,18 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
             ),
             const SizedBox(height: 20),
 
-            // 2. Corporate Credentials & Digital ID
+            // 2. Accreditation & Badges
             Text(
-              'ACCREDITATION & CLIENT TOOLS',
+              'ACCREDITATION & MANDATES',
               style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 10),
 
             _buildTile(
-              icon: Icons.badge_rounded,
-              title: 'My Partner Accreditation ID Card 🪪',
-              subtitle: 'Official digital CAC credential with scannable QR verification for estate gates',
-              trailing: const Icon(Icons.qr_code_2_rounded, size: 22, color: AppColors.primary),
+              icon: Icons.badge_outlined,
+              title: 'Partner Accreditation ID Card 🪪',
+              subtitle: 'Official field credential for landlord pitching and tenant viewings',
+              trailing: const Icon(Icons.qr_code_2_rounded, size: 20, color: AppColors.primary),
               onTap: () {
                 if (_user != null) {
                   PartnerIdCardModal.show(context, user: _user!);
@@ -260,8 +270,8 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
 
             _buildTile(
               icon: Icons.verified_user_rounded,
-              title: 'Corporate CAC & Identity Audit',
-              subtitle: isVerified ? 'CAC RC/BN and Director BVN Verified' : 'Tap to complete verification and activate commissions account',
+              title: 'Corporate CAC & Identity Audit (KYB)',
+              subtitle: isVerified ? 'CAC RC/BN and Director BVN/NIN Verified ✓' : 'Tap to complete KYB verification and activate settlement account',
               trailing: Icon(
                 isVerified ? Icons.check_circle_rounded : Icons.arrow_forward_ios_rounded,
                 size: isVerified ? 20 : 14,
@@ -314,7 +324,7 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
             ),
             const SizedBox(height: 20),
 
-            // 4. Legal Desk & Privacy Policy
+            // 4. Legal Desk & Privacy Policy (FULLY FUNCTIONAL)
             Text(
               'LEGAL & DISPUTES',
               style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: AppColors.textSecondary),
@@ -323,24 +333,16 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
 
             _buildTile(
               icon: Icons.gavel_rounded,
-              title: 'Rentilly Tenancy Legal Desk',
-              subtitle: 'Zero-Agent Dispute Protocol & Lagos State Tenancy Law arbitration',
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Legal desk is active. Zero open disputes on your listings.', style: GoogleFonts.plusJakartaSans(fontSize: 11)), backgroundColor: AppColors.primary),
-                );
-              },
+              title: 'Partner Legal Desk',
+              subtitle: 'Brokerage mandate, commission escrow rules & arbitration protocol',
+              onTap: () => PartnerLegalModal.showLegalDesk(context),
             ),
 
             _buildTile(
               icon: Icons.privacy_tip_outlined,
               title: 'Privacy Policy & Escrow Terms',
-              subtitle: 'Strict title confidentiality & 256-bit financial encryption',
-              onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('All partner mandate documents are 256-bit encrypted and confidential.', style: GoogleFonts.plusJakartaSans(fontSize: 11)), backgroundColor: AppColors.primary),
-                );
-              },
+              subtitle: 'Corporate NDPR data compliance & milestone settlement protection',
+              onTap: () => PartnerLegalModal.showPrivacyAndEscrow(context),
             ),
             if (widget.onSwitchToTenant != null) ...[
               const SizedBox(height: 4),

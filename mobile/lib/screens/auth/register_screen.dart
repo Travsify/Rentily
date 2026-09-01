@@ -96,6 +96,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       password: password,
       role: effectiveRole,
       state: _selectedState,
+      businessName: effectiveRole == 'partner' ? _businessNameController.text.trim() : null,
+      cacNumber: effectiveRole == 'partner' ? _cacNumberController.text.trim() : null,
+      officeAddress: effectiveRole == 'partner' ? _officeAddressController.text.trim() : null,
     );
 
     setState(() => _isLoading = false);

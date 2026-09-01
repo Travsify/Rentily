@@ -111,7 +111,7 @@ class QuickUtilitiesModal extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Quick Utilities & Bill Pay',
+                        'Bill Payment',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 16.5,
                           fontWeight: FontWeight.w800,
@@ -119,7 +119,7 @@ class QuickUtilitiesModal extends StatelessWidget {
                         ),
                       ),
                       Text(
-                        'Instant zero-fee utility fulfillment & prepaid tokens',
+                        'Instant zero-fee utility bills, electricity, airtime & data',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 10.5,
                           color: AppColors.textSecondary,

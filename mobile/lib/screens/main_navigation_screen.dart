@@ -112,7 +112,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           foregroundColor: Colors.white,
           elevation: 3,
           shape: const CircleBorder(),
-          tooltip: 'Quick Utilities',
+          tooltip: 'Bill Payment',
           child: const Icon(Icons.bolt_rounded, size: 22),
         ),
       ),
