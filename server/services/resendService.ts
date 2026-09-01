@@ -38,7 +38,7 @@ export class ResendService {
                   <td align="center">
                     <div style="display: inline-block; background-color: #10B981; color: #FFFFFF; font-weight: 900; font-size: 20px; width: 44px; height: 44px; line-height: 44px; border-radius: 12px; margin-bottom: 8px;">R</div>
                     <h1 style="margin: 0; color: #FFFFFF; font-size: 22px; font-weight: 800; letter-spacing: -0.5px;">RENTILLY</h1>
-                    <p style="margin: 4px 0 0 0; color: #A7F3D0; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px;">Zero Agency Rent & Escrow Platform</p>
+                    <p style="margin: 4px 0 0 0; color: #A7F3D0; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Rentily, built by a landlord for every tenant/landlord</p>
                   </td>
                 </tr>
               </table>
@@ -79,10 +79,15 @@ export class ResendService {
 
           <!-- Footer -->
           <tr>
-            <td style="padding: 20px 32px; background-color: #090E17; border-top: 1px solid #1E293B; text-align: center;">
-              <p style="margin: 0; color: #475569; font-size: 11px;">
-                © ${new Date().getFullYear()} Rentilly Technologies Ltd. Lagos, Nigeria.<br>
-                Secure Real Estate Escrow & Automated Direct Tenancy.
+            <td style="padding: 24px 32px; background-color: #090E17; border-top: 1px solid #1E293B; text-align: center;">
+              <p style="margin: 0 0 6px 0; color: #CBD5E1; font-size: 11.5px; font-weight: 700;">
+                Rentily is a product of E-Homes Global Inclusive Limited
+              </p>
+              <p style="margin: 0 0 8px 0; color: #64748B; font-size: 11px; line-height: 1.4;">
+                ✉️ Support: <a href="mailto:info@myrentilly.com" style="color: #10B981; text-decoration: none;">info@myrentilly.com</a> | 🌐 <a href="https://myrentilly.com" style="color: #10B981; text-decoration: none;">www.myrentilly.com</a>
+              </p>
+              <p style="margin: 0; color: #475569; font-size: 10px;">
+                © ${new Date().getFullYear()} E-Homes Global Inclusive Limited. All rights reserved.
               </p>
             </td>
           </tr>

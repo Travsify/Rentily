@@ -1,4 +1,4 @@
-﻿import { ResendService } from './resendService';
+import { ResendService } from './resendService';
 import { supabase } from '../supabaseClient';
 import { UserStore } from './userStore';
 
@@ -144,7 +144,7 @@ export class NotificationDispatcher {
                   <td align="center">
                     <div style="display: inline-block; background-color: #10B981; color: #FFFFFF; font-weight: 900; font-size: 20px; width: 42px; height: 42px; line-height: 42px; border-radius: 12px; margin-bottom: 8px;">R</div>
                     <h1 style="margin: 0; color: #FFFFFF; font-size: 22px; font-weight: 800; letter-spacing: -0.5px;">RENTILLY</h1>
-                    <p style="margin: 4px 0 0 0; color: #A7F3D0; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">A Product of E-Homes Global Inclusive Limited</p>
+                    <p style="margin: 4px 0 0 0; color: #A7F3D0; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Rentily, built by a landlord for every tenant/landlord</p>
                   </td>
                 </tr>
               </table>
@@ -193,10 +193,9 @@ export class NotificationDispatcher {
           <tr>
             <td style="padding: 24px 32px; background-color: #070B14; border-top: 1px solid #1E293B; text-align: center;">
               <p style="margin: 0 0 6px 0; color: #CBD5E1; font-size: 11.5px; font-weight: 700;">
-                Rentilly is a product of E-Homes Global Inclusive Limited
+                Rentily is a product of E-Homes Global Inclusive Limited
               </p>
               <p style="margin: 0 0 8px 0; color: #64748B; font-size: 11px; line-height: 1.4;">
-                📍 Headquarters: No. 4 Ehommes Close, Zatech Area, Oluyole, Ibadan, Oyo State, Nigeria.<br>
                 ✉️ Support: <a href="mailto:info@myrentilly.com" style="color: #10B981; text-decoration: none;">info@myrentilly.com</a> | 🌐 <a href="https://myrentilly.com" style="color: #10B981; text-decoration: none;">www.myrentilly.com</a>
               </p>
               <p style="margin: 0; color: #475569; font-size: 10px;">
