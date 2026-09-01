@@ -7,13 +7,18 @@ import '../../models/user_profile.dart';
 import '../../models/property.dart';
 import '../../services/auth_service.dart';
 import '../../services/api_service.dart';
+import '../../widgets/partner_bottom_bar.dart';
+import '../../widgets/verification_modal.dart';
 import '../../widgets/partner_listing_modal.dart';
 import '../../widgets/partner_id_card_modal.dart';
 import '../../widgets/partner_landlord_onboard_modal.dart';
 import '../../widgets/quick_utilities_modal.dart';
+import '../../widgets/add_money_modal.dart';
 import '../../widgets/withdrawal_modal.dart';
-import '../inspections/inspections_screen.dart';
 import '../properties/properties_screen.dart';
+import '../inspections/inspections_screen.dart';
+import 'partner_wallet_screen.dart';
+import 'partner_profile_screen.dart';
 
 class PartnerDashboardScreen extends StatefulWidget {
   final VoidCallback? onSwitchToTenant;
@@ -25,10 +30,52 @@ class PartnerDashboardScreen extends StatefulWidget {
 }
 
 class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
+  int _currentIndex = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final screens = [
+      _PartnerHubTab(onSwitchToTenant: widget.onSwitchToTenant),
+      const PropertiesScreen(initialPurpose: 'all'),
+      const PartnerWalletScreen(),
+      const InspectionsScreen(),
+      PartnerProfileScreen(onSwitchToTenant: widget.onSwitchToTenant),
+    ];
+
+    return Scaffold(
+      backgroundColor: AppColors.backgroundDark,
+      body: IndexedStack(
+        index: _currentIndex,
+        children: screens,
+      ),
+      bottomNavigationBar: PartnerBottomBar(
+        currentIndex: _currentIndex,
+        onTap: (index) => setState(() => _currentIndex = index),
+      ),
+    );
+  }
+}
+
+class _PartnerHubTab extends StatefulWidget {
+  final VoidCallback? onSwitchToTenant;
+
+  const _PartnerHubTab({this.onSwitchToTenant});
+
+  @override
+  State<_PartnerHubTab> createState() => _PartnerHubTabState();
+}
+
+class _PartnerHubTabState extends State<_PartnerHubTab> {
   final NumberFormat _currencyFormat = NumberFormat('#,###.00', 'en_US');
   UserProfile? _user;
   List<Property> _mandateProperties = [];
   bool _isLoading = true;
+
+  final List<String> _partnerQuotes = const [
+    '“The best time to buy a home is always five years ago.” — Ray Brown',
+    '“In real estate, you make 10% of your money because you\'re a genius and 90% because you caught a great wave.” — Jeff Greene',
+    '“Don\'t wait to buy real estate. Buy real estate and wait.” — Will Rogers',
+  ];
 
   @override
   void initState() {
@@ -37,7 +84,6 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
   }
 
   void _loadPartnerData() async {
-    setState(() => _isLoading = true);
     final user = await AuthService.getCurrentUser();
     final allProps = await ApiService.fetchProperties();
 
@@ -70,11 +116,14 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
       );
     }
 
+    final isVerified = _user?.isVerified ?? false;
     final businessName = _user?.businessName ?? 'Apex Realty Partners Ltd';
     final cacNumber = _user?.cacNumber ?? 'RC 1928374';
     final accountNumber = _user?.accountNumber ?? '9834192847';
     final bankName = _user?.bankName ?? 'Providus Bank';
     final partnerId = 'RNT-PTR-${_user?.id.replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0').substring(0, 4) ?? "0042"}';
+    final operationalBalance = _user?.walletBalance ?? 0.0;
+    final escrowCommission = 0.00;
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
@@ -119,7 +168,7 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 1. Corporate Identity Hero Card
+                // 1. Corporate Identity Hero Card with Dual Balance
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(20),
@@ -162,16 +211,16 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF22C55E).withValues(alpha: 0.2),
+                              color: isVerified ? const Color(0xFF22C55E).withValues(alpha: 0.2) : AppColors.accentOrange.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: const Color(0xFF4ADE80)),
+                              border: Border.all(color: isVerified ? const Color(0xFF4ADE80) : AppColors.accentOrange),
                             ),
                             child: Text(
-                              'VERIFIED 🛡️',
+                              isVerified ? 'CAC VERIFIED 🛡️' : 'TIER 1 (UNVERIFIED)',
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 8,
                                 fontWeight: FontWeight.w900,
-                                color: const Color(0xFF4ADE80),
+                                color: isVerified ? const Color(0xFF4ADE80) : AppColors.accentOrange,
                               ),
                             ),
                           ),
@@ -192,18 +241,18 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
                         'Rep: ${_user?.fullName ?? "Principal Broker"} • ${_user?.email ?? ""}',
                         style: GoogleFonts.plusJakartaSans(fontSize: 10, color: Colors.white60),
                       ),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 18),
 
-                      // Metrics Row
+                      // Metrics Dual Balances
                       Row(
                         children: [
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('COMMISSION EARNINGS', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white60)),
+                                Text('OPERATING FUNDS', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white60)),
                                 const SizedBox(height: 2),
-                                Text('₦${_currencyFormat.format(_user?.walletBalance ?? 0.0)}', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white)),
+                                Text('₦${_currencyFormat.format(operationalBalance)}', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white)),
                               ],
                             ),
                           ),
@@ -211,9 +260,9 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('ACTIVE MANDATES', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white60)),
+                                Text('COMMISSIONS IN ESCROW', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white60)),
                                 const SizedBox(height: 2),
-                                Text('${_mandateProperties.length} Units', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w900, color: AppColors.accentOrange)),
+                                Text('₦${_currencyFormat.format(escrowCommission)}', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w900, color: const Color(0xFF38BDF8))),
                               ],
                             ),
                           ),
@@ -222,176 +271,243 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 16),
 
-                // 2. Dedicated Escrow Settlement Virtual Bank Account Card
+                // 2. Real Estate Quote Banner
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: AppColors.borderDark),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.02),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
+                    color: const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFFCD34D)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.format_quote_rounded, size: 18, color: Color(0xFFB45309)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _partnerQuotes[DateTime.now().second % _partnerQuotes.length],
+                          style: GoogleFonts.plusJakartaSans(fontSize: 10, color: const Color(0xFF78350F), fontStyle: FontStyle.italic, height: 1.3),
+                        ),
                       ),
                     ],
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.account_balance_wallet_rounded, size: 16, color: AppColors.primary),
-                              const SizedBox(width: 6),
-                              Text(
-                                'ESCROW SETTLEMENT BANK ACCOUNT',
-                                style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, color: AppColors.textSecondary),
-                              ),
-                            ],
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF0FDF4),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              'AUTOMATED PAYOUTS',
-                              style: GoogleFonts.plusJakartaSans(fontSize: 7.5, fontWeight: FontWeight.bold, color: const Color(0xFF16A34A)),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
+                ),
+                const SizedBox(height: 16),
+
+                // 3. Dedicated Settlement Bank Account Card (Strict KYC Gated)
+                if (!isVerified) ...[
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: AppColors.borderDark),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(color: AppColors.accentOrange.withValues(alpha: 0.1), shape: BoxShape.circle),
+                          child: const Icon(Icons.shield_outlined, size: 20, color: AppColors.accentOrange),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(accountNumber, style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.textPrimary)),
-                              Text('$bankName • $businessName / Rentilly', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary)),
+                              Text('Activate Commissions Account', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                              const SizedBox(height: 2),
+                              Text('Complete CAC & BVN check to unlock your automated commission account.', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary)),
                             ],
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.copy_rounded, size: 18, color: AppColors.primary),
-                            onPressed: () => _copyAccount(accountNumber, bankName),
-                            tooltip: 'Copy Account Number',
+                        ),
+                        ElevatedButton(
+                          onPressed: () {
+                            VerificationModal.show(context, onSuccess: (updated) {
+                              setState(() => _user = updated);
+                            });
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.accentOrange,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () {
-                                if (_user != null) {
-                                  WithdrawalModal.show(
-                                    context,
-                                    user: _user!,
-                                    onWithdrawalSuccess: (newBal) {
-                                      setState(() => _user = _user!.copyWith(walletBalance: newBal));
-                                    },
-                                  );
-                                }
-                              },
-                              icon: const Icon(Icons.north_east_rounded, size: 14, color: AppColors.primary),
-                              label: Text('Withdraw Funds', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: AppColors.primary),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: () => QuickUtilitiesModal.show(context),
-                              icon: const Icon(Icons.bolt_rounded, size: 14, color: Colors.white),
-                              label: Text('Buy Utilities', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.accentOrange,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                          child: Text('Verify 🛡️', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                ] else ...[
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: AppColors.borderDark),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('COMMISSIONS SETTLEMENT BANK ACCOUNT', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, color: AppColors.textSecondary)),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(color: const Color(0xFFF0FDF4), borderRadius: BorderRadius.circular(4)),
+                              child: Text('AUTOMATED SETTLEMENT', style: GoogleFonts.plusJakartaSans(fontSize: 7.5, fontWeight: FontWeight.bold, color: const Color(0xFF16A34A))),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(accountNumber, style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.textPrimary)),
+                                Text('$bankName • $businessName / Rentilly', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary)),
+                              ],
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.copy_rounded, size: 18, color: AppColors.primary),
+                              onPressed: () => _copyAccount(accountNumber, bankName),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () {
+                                  if (_user != null) AddMoneyModal.show(context, user: _user!);
+                                },
+                                icon: const Icon(Icons.add_rounded, size: 14, color: Colors.white),
+                                label: Text('Fund Wallet', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.primary,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () {
+                                  if (_user != null) {
+                                    WithdrawalModal.show(
+                                      context,
+                                      user: _user!,
+                                      onWithdrawalSuccess: (newBal) {
+                                        setState(() => _user = _user!.copyWith(walletBalance: newBal));
+                                      },
+                                    );
+                                  }
+                                },
+                                icon: const Icon(Icons.north_east_rounded, size: 14, color: AppColors.primary),
+                                label: Text('Withdraw Funds', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: AppColors.primary),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 22),
 
-                // 3. Partner Core Operations Suite
+                // 4. Partner Brokerage Suite Grid Layout
                 Text(
-                  'PARTNER BROKERAGE SUITE',
+                  'PARTNER BROKERAGE SUITE (GRID)',
                   style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 12),
 
-                // 1. Onboard My Landlords (New Supercharged Link & Mandate Lock)
-                _buildActionCard(
-                  icon: Icons.link_rounded,
-                  title: 'Onboard My Landlord (Auto-Lock Commissions) 🔗',
-                  subtitle: 'Share your WhatsApp invite link. All client listings are auto-linked with guaranteed 2.5% rent / 2.0% sales payout.',
-                  tag: 'MANDATE LOCK',
-                  color: const Color(0xFF16A34A),
-                  onTap: () {
-                    if (_user != null) {
-                      PartnerLandlordOnboardModal.show(context, user: _user!);
-                    }
-                  },
-                ),
-
-                // 2. List Property Under Mandate (Anti-Ghost Physical Presence)
-                _buildActionCard(
-                  icon: Icons.add_home_work_rounded,
-                  title: 'Add Property Under Mandate (Anti-Ghost Shield)',
-                  subtitle: 'In-property presence verification + signed owner Power of Attorney. ₦5,000 max inspection fee.',
-                  tag: 'NEW LISTING',
-                  color: AppColors.primary,
-                  onTap: () {
-                    if (_user != null) {
-                      PartnerListingModal.show(context, user: _user!, onListingCreated: _loadPartnerData);
-                    }
-                  },
-                ),
-
-                // 3. Partner Accreditation Digital ID Card
-                _buildActionCard(
-                  icon: Icons.badge_rounded,
-                  title: 'My Partner Accreditation ID Card 🪪',
-                  subtitle: 'Digital Rentilly CAC accreditation credential & scannable QR verification for estate gates.',
-                  tag: 'OFFICIAL ID',
-                  color: const Color(0xFF0D9488),
-                  onTap: () {
-                    if (_user != null) {
-                      PartnerIdCardModal.show(context, user: _user!);
-                    }
-                  },
-                ),
-
-                // 4. Field Inspection Bookings & Gate Passes
-                _buildActionCard(
-                  icon: Icons.qr_code_scanner_rounded,
-                  title: 'Field Inspections & Estate Security Passes',
-                  subtitle: 'Manage upcoming physical walkthroughs, generate 6-digit estate passes, and share safety itineraries.',
-                  tag: 'ACTIVE',
-                  color: const Color(0xFF0284C7),
-                  onTap: () {
-                    Navigator.of(context).push(MaterialPageRoute(builder: (_) => const InspectionsScreen()));
-                  },
+                GridView.count(
+                  crossAxisCount: 2,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 1.25,
+                  children: [
+                    _buildGridCard(
+                      icon: Icons.link_rounded,
+                      title: 'Onboard Landlord',
+                      subtitle: 'Auto-Lock Commissions 🔗',
+                      badge: 'MANDATE',
+                      color: const Color(0xFF16A34A),
+                      onTap: () {
+                        if (_user != null) {
+                          PartnerLandlordOnboardModal.show(context, user: _user!);
+                        }
+                      },
+                    ),
+                    _buildGridCard(
+                      icon: Icons.add_home_work_rounded,
+                      title: 'Add Mandate Listing',
+                      subtitle: 'Anti-Ghost Physical Proof',
+                      badge: 'NEW',
+                      color: AppColors.primary,
+                      onTap: () {
+                        if (_user != null) {
+                          PartnerListingModal.show(context, user: _user!, onListingCreated: _loadPartnerData);
+                        }
+                      },
+                    ),
+                    _buildGridCard(
+                      icon: Icons.badge_rounded,
+                      title: 'Partner Digital ID',
+                      subtitle: 'CAC Accredited Credential',
+                      badge: 'OFFICIAL',
+                      color: const Color(0xFF0D9488),
+                      onTap: () {
+                        if (_user != null) {
+                          PartnerIdCardModal.show(context, user: _user!);
+                        }
+                      },
+                    ),
+                    _buildGridCard(
+                      icon: Icons.qr_code_scanner_rounded,
+                      title: 'Field Inspections',
+                      subtitle: '6-Digit Gate Passes',
+                      badge: 'ACTIVE',
+                      color: const Color(0xFF0284C7),
+                      onTap: () {
+                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const InspectionsScreen()));
+                      },
+                    ),
+                    _buildGridCard(
+                      icon: Icons.wifi_rounded,
+                      title: 'Field Utilities',
+                      subtitle: '4K Data, Airtime & Power',
+                      badge: 'TOP-UP',
+                      color: AppColors.accentOrange,
+                      onTap: () => QuickUtilitiesModal.show(context),
+                    ),
+                    _buildGridCard(
+                      icon: Icons.account_balance_wallet_rounded,
+                      title: 'Commissions Vault',
+                      subtitle: '2.5% Rent / 2.0% Sale',
+                      badge: 'ESCROW',
+                      color: const Color(0xFF7C3AED),
+                      onTap: () {
+                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PartnerWalletScreen()));
+                      },
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 22),
 
-                // 4. Active Listings Under Mandate
+                // 5. Mandate Inventory List
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -495,19 +611,18 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
     );
   }
 
-  Widget _buildActionCard({
+  Widget _buildGridCard({
     required IconData icon,
     required String title,
     required String subtitle,
-    required String tag,
+    required String badge,
     required Color color,
     required VoidCallback onTap,
   }) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.borderDark),
         boxShadow: [
           BoxShadow(
@@ -520,57 +635,43 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(18),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(icon, size: 22, color: color),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              title,
-                              style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: color.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              tag,
-                              style: GoogleFonts.plusJakartaSans(fontSize: 7.5, fontWeight: FontWeight.w800, color: color),
-                            ),
-                          ),
-                        ],
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        subtitle,
-                        style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary, height: 1.3),
+                      child: Icon(icon, size: 20, color: color),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: color.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(4),
                       ),
-                    ],
-                  ),
+                      child: Text(badge, style: GoogleFonts.plusJakartaSans(fontSize: 7.5, fontWeight: FontWeight.w900, color: color)),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.textMuted),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                    const SizedBox(height: 1),
+                    Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.plusJakartaSans(fontSize: 9, color: AppColors.textSecondary)),
+                  ],
+                ),
               ],
             ),
           ),
