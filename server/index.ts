@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 import { apiRouter } from './routes/apiRouter';
+import { renderShippingPortal } from './controllers/shippingController';
 import { isSupabaseConfigured } from './supabaseClient';
 
 dotenv.config();
@@ -15,8 +16,12 @@ const PORT = process.env.PORT || 4000;
 app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '10mb' }));
 
-// 1. Mount API Router under /api
+// 1. Mount Interactive Shipping Portal
+app.get('/shipping', renderShippingPortal);
+
+// 2. Mount API Router under /api
 app.use('/api', apiRouter);
+
 
 // 2. Serve Frontend Static Production Assets & SPA Fallback
 const distPath = path.join(process.cwd(), 'dist');

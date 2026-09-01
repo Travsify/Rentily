@@ -10,6 +10,7 @@ import * as verificationController from '../controllers/verificationController';
 import * as paymentController from '../controllers/paymentController';
 import * as fraudController from '../controllers/fraudController';
 import * as otpController from '../controllers/otpController';
+import { shippingRouter } from './shippingRouter';
 import { isSupabaseConfigured } from '../supabaseClient';
 import { IdentitypassService } from '../services/identitypassService';
 import { FlutterwaveService } from '../services/flutterwaveService';
@@ -89,3 +90,7 @@ apiRouter.post('/escrow/:id/release-payout', escrowController.releaseEscrowPayou
 // 11. Legal Agreements
 apiRouter.get('/legal/agreements', legalController.getLegalAgreements);
 apiRouter.post('/legal/generate-agreement', legalController.generateAgreement);
+
+// 12. Cross-Border Multi-Carrier Shipping & Toy Manifest Engine (UK -> Dubai)
+apiRouter.use('/shipping', shippingRouter);
+
