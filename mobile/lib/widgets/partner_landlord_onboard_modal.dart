@@ -46,7 +46,7 @@ class _PartnerLandlordOnboardModalState extends State<PartnerLandlordOnboardModa
         '🔗 $inviteLink\n\n'
         'Why list on Rentilly with $businessName?\n'
         '• 100% verified & audited tenants\n'
-        '• Lagos Tenancy Law compliant digital agreements\n'
+        '• Nigerian Tenancy Law compliant digital agreements\n'
         '• Direct rent escrow payout to your bank account\n'
         '• Zero agency disputes — $businessName remains your official accredited managing partner.\n\n'
         'Accreditation ID: $partnerId';

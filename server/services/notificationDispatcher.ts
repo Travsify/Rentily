@@ -182,7 +182,7 @@ export class NotificationDispatcher {
               <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #0B1120; border-left: 3px solid #10B981; border-radius: 4px 8px 8px 4px; padding: 12px 14px; margin-bottom: 12px;">
                 <tr>
                   <td style="color: #64748B; font-size: 11.5px; line-height: 1.5;">
-                    🛡️ <strong>Escrow & Regulatory Warranty:</strong> All transactions and direct tenancy payouts on Rentilly are backed by Lagos Tenancy Law compliant escrow protocols and verified banking rails.
+                    🛡️ <strong>Escrow & Regulatory Warranty:</strong> All transactions and direct tenancy payouts on Rentily are backed by the laws of the Federal Republic of Nigeria, compliant tenancy escrow protocols, and verified banking rails.
                   </td>
                 </tr>
               </table>

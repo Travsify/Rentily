@@ -56,7 +56,7 @@ class _LandlordDigitalLeasesScreenState extends State<LandlordDigitalLeasesScree
                     children: [
                       const Icon(Icons.verified_rounded, size: 20, color: Color(0xFF16A34A)),
                       const SizedBox(width: 8),
-                      Text('Lagos Tenancy Law Digital Lease', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold)),
+                      Text('Nigerian Tenancy Law Digital Lease', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold)),
                     ],
                   ),
                   IconButton(icon: const Icon(Icons.close_rounded), onPressed: () => Navigator.of(ctx).pop()),
