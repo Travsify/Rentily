@@ -25,6 +25,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _cityAreaController = TextEditingController();
   
   // Corporate controllers
   final TextEditingController _businessNameController = TextEditingController();
@@ -34,7 +35,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   late String _selectedRole; // 'renter', 'partner', 'owner'
   String _selectedState = 'Lagos';
-  String _selectedCity = 'Lekki Phase 1';
+  String _selectedLga = 'Eti-Osa';
   bool _obscurePassword = true;
   bool _agreedToTerms = true;
   bool _isLoading = false;
@@ -50,7 +51,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     } else {
       _selectedRole = 'renter';
     }
-    _selectedCity = NigerianStatesCities.getCitiesForState(_selectedState).first;
+    _selectedLga = NigerianStatesLgas.getLgasForState(_selectedState).first;
   }
 
   @override
@@ -59,6 +60,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _emailController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
+    _cityAreaController.dispose();
     _businessNameController.dispose();
     _cacNumberController.dispose();
     _officeStreetController.dispose();
@@ -118,6 +120,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
           setState(() => _errorMessage = 'Please enter your CAC Registration Number (RC / BN).');
           return;
         }
+        if (_cityAreaController.text.trim().isEmpty) {
+          setState(() => _errorMessage = 'Please enter your City, Town, or Commercial Area.');
+          return;
+        }
         if (_officeStreetController.text.trim().isEmpty) {
           setState(() => _errorMessage = 'Please enter your office street address (e.g. Suite/Plot/Street).');
           return;
@@ -145,6 +151,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         }
         if (_phoneController.text.trim().isEmpty) {
           setState(() => _errorMessage = 'Please enter your phone number.');
+          return;
+        }
+        if (_cityAreaController.text.trim().isEmpty) {
+          setState(() => _errorMessage = 'Please enter your City, Town, or Area.');
           return;
         }
         setState(() => _step = 2);
@@ -204,11 +214,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
     // Synthesize structured address
     final street = _officeStreetController.text.trim();
     final landmark = _officeLandmarkController.text.trim();
+    final area = _cityAreaController.text.trim();
     
     String? fullOfficeAddress;
     if (effectiveRole == 'partner') {
-      fullOfficeAddress = '$street${landmark.isNotEmpty ? ", Near $landmark" : ""}, $_selectedCity, $_selectedState State';
+      fullOfficeAddress = '$street${landmark.isNotEmpty ? ", Near $landmark" : ""}${area.isNotEmpty ? ", $area" : ""}, $_selectedLga LGA, $_selectedState State';
     }
+
+    final locationState = '${area.isNotEmpty ? "$area, " : ""}$_selectedLga LGA, $_selectedState State';
 
     final result = await AuthService.register(
       fullName: name.isNotEmpty ? name : (_businessNameController.text.trim().isNotEmpty ? _businessNameController.text.trim() : 'User'),
@@ -216,7 +229,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       phoneNumber: phone.startsWith('0') ? '+234${phone.substring(1)}' : phone,
       password: password,
       role: effectiveRole,
-      state: '$_selectedCity, $_selectedState',
+      state: locationState,
       businessName: effectiveRole == 'partner' ? _businessNameController.text.trim() : null,
       cacNumber: effectiveRole == 'partner' ? _cacNumberController.text.trim() : null,
       officeAddress: fullOfficeAddress,
@@ -684,36 +697,47 @@ class _RegisterScreenState extends State<RegisterScreen> {
           dropdownColor: Colors.white,
           style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
           decoration: _buildInputDecoration('Select State', Icons.location_on_outlined),
-          items: NigerianStatesCities.states.map((s) => DropdownMenuItem(value: s, child: Text(s, overflow: TextOverflow.ellipsis, maxLines: 1))).toList(),
+          items: NigerianStatesLgas.states.map((s) => DropdownMenuItem(value: s, child: Text(s, overflow: TextOverflow.ellipsis, maxLines: 1))).toList(),
           onChanged: (val) {
             if (val != null) {
               setState(() {
                 _selectedState = val;
-                final cities = NigerianStatesCities.getCitiesForState(val);
-                _selectedCity = cities.contains(_selectedCity) ? _selectedCity : cities.first;
+                final lgas = NigerianStatesLgas.getLgasForState(val);
+                _selectedLga = lgas.contains(_selectedLga) ? _selectedLga : lgas.first;
               });
             }
           },
         ),
         const SizedBox(height: 14),
 
-        // City / District (Full Width & Cascading)
-        Text('CITY / DISTRICT / AREA', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+        // Local Government Area (LGA) (Full Width)
+        Text('LOCAL GOVERNMENT AREA (LGA)', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
           isExpanded: true,
-          value: NigerianStatesCities.getCitiesForState(_selectedState).contains(_selectedCity)
-              ? _selectedCity
-              : NigerianStatesCities.getCitiesForState(_selectedState).first,
+          value: NigerianStatesLgas.getLgasForState(_selectedState).contains(_selectedLga)
+              ? _selectedLga
+              : NigerianStatesLgas.getLgasForState(_selectedState).first,
           dropdownColor: Colors.white,
           style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-          decoration: _buildInputDecoration('Select City / District', Icons.location_city_rounded),
-          items: NigerianStatesCities.getCitiesForState(_selectedState)
-              .map((c) => DropdownMenuItem(value: c, child: Text(c, overflow: TextOverflow.ellipsis, maxLines: 1)))
+          decoration: _buildInputDecoration('Select LGA', Icons.account_balance_rounded),
+          items: NigerianStatesLgas.getLgasForState(_selectedState)
+              .map((l) => DropdownMenuItem(value: l, child: Text(l, overflow: TextOverflow.ellipsis, maxLines: 1)))
               .toList(),
           onChanged: (val) {
-            if (val != null) setState(() => _selectedCity = val);
+            if (val != null) setState(() => _selectedLga = val);
           },
+        ),
+        const SizedBox(height: 14),
+
+        // City / Town / Area / Estate (Typed)
+        Text('CITY / TOWN / AREA / ESTATE', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+        const SizedBox(height: 6),
+        TextField(
+          controller: _cityAreaController,
+          textCapitalization: TextCapitalization.words,
+          style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+          decoration: _buildInputDecoration('e.g. Lekki Phase 1 or Bodija or Maitama', Icons.location_city_rounded),
         ),
       ],
     );
@@ -755,36 +779,47 @@ class _RegisterScreenState extends State<RegisterScreen> {
           dropdownColor: Colors.white,
           style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
           decoration: _buildInputDecoration('Select State', Icons.location_on_outlined),
-          items: NigerianStatesCities.states.map((s) => DropdownMenuItem(value: s, child: Text(s, overflow: TextOverflow.ellipsis, maxLines: 1))).toList(),
+          items: NigerianStatesLgas.states.map((s) => DropdownMenuItem(value: s, child: Text(s, overflow: TextOverflow.ellipsis, maxLines: 1))).toList(),
           onChanged: (val) {
             if (val != null) {
               setState(() {
                 _selectedState = val;
-                final cities = NigerianStatesCities.getCitiesForState(val);
-                _selectedCity = cities.contains(_selectedCity) ? _selectedCity : cities.first;
+                final lgas = NigerianStatesLgas.getLgasForState(val);
+                _selectedLga = lgas.contains(_selectedLga) ? _selectedLga : lgas.first;
               });
             }
           },
         ),
         const SizedBox(height: 14),
 
-        // City / District (Full Width)
-        Text('CITY / DISTRICT / AREA', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+        // Property LGA (Full Width)
+        Text('PROPERTY LOCAL GOVERNMENT AREA (LGA)', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
           isExpanded: true,
-          value: NigerianStatesCities.getCitiesForState(_selectedState).contains(_selectedCity)
-              ? _selectedCity
-              : NigerianStatesCities.getCitiesForState(_selectedState).first,
+          value: NigerianStatesLgas.getLgasForState(_selectedState).contains(_selectedLga)
+              ? _selectedLga
+              : NigerianStatesLgas.getLgasForState(_selectedState).first,
           dropdownColor: Colors.white,
           style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-          decoration: _buildInputDecoration('Select City / District', Icons.location_city_rounded),
-          items: NigerianStatesCities.getCitiesForState(_selectedState)
-              .map((c) => DropdownMenuItem(value: c, child: Text(c, overflow: TextOverflow.ellipsis, maxLines: 1)))
+          decoration: _buildInputDecoration('Select LGA', Icons.account_balance_rounded),
+          items: NigerianStatesLgas.getLgasForState(_selectedState)
+              .map((l) => DropdownMenuItem(value: l, child: Text(l, overflow: TextOverflow.ellipsis, maxLines: 1)))
               .toList(),
           onChanged: (val) {
-            if (val != null) setState(() => _selectedCity = val);
+            if (val != null) setState(() => _selectedLga = val);
           },
+        ),
+        const SizedBox(height: 14),
+
+        // City / Town / Area / Estate (Typed)
+        Text('CITY / TOWN / AREA / ESTATE', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+        const SizedBox(height: 6),
+        TextField(
+          controller: _cityAreaController,
+          textCapitalization: TextCapitalization.words,
+          style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+          decoration: _buildInputDecoration('e.g. Ring Road / Oluyole Estate or Lekki Phase 1', Icons.location_city_rounded),
         ),
       ],
     );
@@ -792,8 +827,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   // STEP 1 FOR PARTNER: Corporate Entity Details
   Widget _buildPartnerCorporateStep() {
-    final currentCities = NigerianStatesCities.getCitiesForState(_selectedState);
-    final effectiveCity = currentCities.contains(_selectedCity) ? _selectedCity : currentCities.first;
+    final currentLgas = NigerianStatesLgas.getLgasForState(_selectedState);
+    final effectiveLga = currentLgas.contains(_selectedLga) ? _selectedLga : currentLgas.first;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -828,34 +863,45 @@ class _RegisterScreenState extends State<RegisterScreen> {
           dropdownColor: Colors.white,
           style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
           decoration: _buildInputDecoration('Select State', Icons.location_on_outlined),
-          items: NigerianStatesCities.states.map((s) => DropdownMenuItem(value: s, child: Text(s, overflow: TextOverflow.ellipsis, maxLines: 1))).toList(),
+          items: NigerianStatesLgas.states.map((s) => DropdownMenuItem(value: s, child: Text(s, overflow: TextOverflow.ellipsis, maxLines: 1))).toList(),
           onChanged: (val) {
             if (val != null) {
               setState(() {
                 _selectedState = val;
-                final cities = NigerianStatesCities.getCitiesForState(val);
-                _selectedCity = cities.contains(_selectedCity) ? _selectedCity : cities.first;
+                final lgas = NigerianStatesLgas.getLgasForState(val);
+                _selectedLga = lgas.contains(_selectedLga) ? _selectedLga : lgas.first;
               });
             }
           },
         ),
         const SizedBox(height: 14),
 
-        // City / Commercial District (Full Width)
-        Text('CITY / COMMERCIAL DISTRICT', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+        // Local Government Area (LGA) (Full Width)
+        Text('LOCAL GOVERNMENT AREA (LGA)', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
         const SizedBox(height: 6),
         DropdownButtonFormField<String>(
           isExpanded: true,
-          value: effectiveCity,
+          value: effectiveLga,
           dropdownColor: Colors.white,
           style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-          decoration: _buildInputDecoration('Select Commercial District', Icons.location_city_rounded),
-          items: currentCities
-              .map((c) => DropdownMenuItem(value: c, child: Text(c, overflow: TextOverflow.ellipsis, maxLines: 1)))
+          decoration: _buildInputDecoration('Select LGA', Icons.account_balance_rounded),
+          items: currentLgas
+              .map((l) => DropdownMenuItem(value: l, child: Text(l, overflow: TextOverflow.ellipsis, maxLines: 1)))
               .toList(),
           onChanged: (val) {
-            if (val != null) setState(() => _selectedCity = val);
+            if (val != null) setState(() => _selectedLga = val);
           },
+        ),
+        const SizedBox(height: 14),
+
+        // City / Commercial Area / District (Typed)
+        Text('CITY / COMMERCIAL AREA / DISTRICT', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+        const SizedBox(height: 6),
+        TextField(
+          controller: _cityAreaController,
+          textCapitalization: TextCapitalization.words,
+          style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600),
+          decoration: _buildInputDecoration('e.g. Lekki Phase 1 or Ring Road, Oluyole', Icons.location_city_rounded),
         ),
         const SizedBox(height: 14),
 
@@ -885,7 +931,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget _buildPartnerDirectorStep() {
     final street = _officeStreetController.text.trim();
     final landmark = _officeLandmarkController.text.trim();
-    final synthesizedAddress = '$street${landmark.isNotEmpty ? ", Near $landmark" : ""}, $_selectedCity, $_selectedState State';
+    final area = _cityAreaController.text.trim();
+    final synthesizedAddress = '$street${landmark.isNotEmpty ? ", Near $landmark" : ""}${area.isNotEmpty ? ", $area" : ""}, $_selectedLga LGA, $_selectedState State';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
