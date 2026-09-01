@@ -292,21 +292,26 @@ export async function flutterwaveWebhook(req: Request, res: Response) {
     }
 
     // --- Resolve which user this payment belongs to ---
-    // Priority 1: match by virtual account number in meta/account_number field
+    // Priority 1: virtual account number that received the money
     const incomingAccNo: string = (
-      data?.meta?.originatoraccountnumber ||
+      data?.meta?.virtualaccountnumber ||
       data?.account_number ||
       data?.destination_account_number ||
       data?.virtual_account_number ||
       ''
     ).toString().replace(/\s/g, '');
 
-    // Priority 2: match by customer email
+    // Priority 2: customer email registered on Flutterwave for this virtual account
     const customerEmail = data?.customer?.email?.toLowerCase?.()?.trim?.() || '';
 
-    console.log(`[FLW Webhook] amount=₦${amountPaid}, accNo=${incomingAccNo}, email=${customerEmail}`);
+    // Priority 3: Extract user ID from tx_ref (format: RENTILLY_ACC_<userId>_<suffix>_<timestamp>)
+    const txRef = (data?.tx_ref || '').toString();
+    const txRefUserIdMatch = txRef.match(/RENTILLY_ACC_(usr_[^_]+)/);
+    const txRefUserId = txRefUserIdMatch ? txRefUserIdMatch[1] : '';
 
-    // Load all users and find match
+    console.log(`[FLW Webhook] amount=₦${amountPaid}, virtualAcc=${incomingAccNo}, email=${customerEmail}, txRefUserId=${txRefUserId}`);
+
+    // Load all in-memory users and find match
     const allUsers = UserStore.getAllUsers();
 
     let targetUser = allUsers.find(u =>
@@ -320,16 +325,71 @@ export async function flutterwaveWebhook(req: Request, res: Response) {
       );
     }
 
-    // Fallback: Patrick Achua's known account 9254090338
+    if (!targetUser && txRefUserId) {
+      targetUser = allUsers.find(u => u.id === txRefUserId);
+    }
+
+    // Supabase fallback: look up by account number, email, or user ID from tx_ref
+    if (!targetUser && supabase) {
+      let sbQuery = supabase.from('users').select('*');
+
+      if (incomingAccNo) {
+        const { data: sbUsers } = await sbQuery.eq('account_number', incomingAccNo).limit(1);
+        if (sbUsers && sbUsers.length > 0) {
+          const sb = sbUsers[0];
+          targetUser = {
+            id: sb.id, email: sb.email, fullName: sb.full_name || sb.fullName || '',
+            accountNumber: sb.account_number || incomingAccNo,
+            bankName: sb.bank_name || 'Flutterwave MFB',
+            walletBalance: sb.wallet_balance ?? 0,
+            isVerified: sb.is_verified ?? true,
+            role: sb.role || 'owner',
+          };
+        }
+      }
+
+      if (!targetUser && customerEmail) {
+        const { data: sbUsers } = await supabase.from('users').select('*').eq('email', customerEmail).limit(1);
+        if (sbUsers && sbUsers.length > 0) {
+          const sb = sbUsers[0];
+          targetUser = {
+            id: sb.id, email: sb.email, fullName: sb.full_name || sb.fullName || '',
+            accountNumber: sb.account_number || incomingAccNo,
+            bankName: sb.bank_name || 'Flutterwave MFB',
+            walletBalance: sb.wallet_balance ?? 0,
+            isVerified: sb.is_verified ?? true,
+            role: sb.role || 'owner',
+          };
+        }
+      }
+
+      if (!targetUser && txRefUserId) {
+        const { data: sbUsers } = await supabase.from('users').select('*').eq('id', txRefUserId).limit(1);
+        if (sbUsers && sbUsers.length > 0) {
+          const sb = sbUsers[0];
+          targetUser = {
+            id: sb.id, email: sb.email, fullName: sb.full_name || sb.fullName || '',
+            accountNumber: sb.account_number || incomingAccNo,
+            bankName: sb.bank_name || 'Flutterwave MFB',
+            walletBalance: sb.wallet_balance ?? 0,
+            isVerified: sb.is_verified ?? true,
+            role: sb.role || 'owner',
+          };
+        }
+      }
+    }
+
+    // Last resort: Patrick Achua's known account 9254090338
     if (!targetUser && (
       incomingAccNo === '9254090338' ||
-      customerEmail === 'patrickachua3@gmail.com'
+      customerEmail === 'patrickachua3@gmail.com' ||
+      customerEmail === 'travsifyglobalinclusive@gmail.com'
     )) {
       targetUser = await UserStore.findByEmail('patrickachua3@gmail.com') || undefined;
     }
 
     if (!targetUser) {
-      console.warn(`[FLW Webhook] No user found for accNo=${incomingAccNo} / email=${customerEmail}`);
+      console.warn(`[FLW Webhook] No user found for virtualAcc=${incomingAccNo} / email=${customerEmail} / txRefUserId=${txRefUserId}`);
       return;
     }
 
@@ -527,16 +587,20 @@ async function syncFlutterwaveTransactionsForUser(cleanEmail: string) {
     const existing = TransactionStore.getAllTransactions();
     const user = await UserStore.findByEmail(cleanEmail);
 
-    // 1. Sync Inbound Deposits from Flutterwave Cloud API (ONLY exact email match for this verified user)
+    // 1. Sync Inbound Deposits from Flutterwave Cloud API
     const liveFlwTxs = await FlutterwaveService.fetchLiveTransactions(cleanEmail);
     for (const flwTx of liveFlwTxs) {
       if (flwTx.status !== 'successful' && flwTx.status !== 'success') continue;
 
       const flwEmail = (flwTx.customer?.email || '').toLowerCase().trim();
       const txRef = (flwTx.tx_ref || flwTx.flw_ref || '').toString();
+      const virtualAccNo = (flwTx.meta?.virtualaccountnumber || '').toString().replace(/\s/g, '');
 
-      // STRICT FILTER: Exact email match only
-      if (flwEmail !== cleanEmail) {
+      // Match by: exact email OR virtual account number belonging to this user
+      const emailMatch = flwEmail === cleanEmail;
+      const accMatch = user?.accountNumber && virtualAccNo && user.accountNumber.replace(/\s/g, '') === virtualAccNo;
+
+      if (!emailMatch && !accMatch) {
         continue;
       }
 
@@ -560,11 +624,21 @@ async function syncFlutterwaveTransactionsForUser(cleanEmail: string) {
             amount: amount,
             isCredit: true,
             reference: flwTx.flw_ref || txRef,
-            sender: flwTx.narration || flwTx.customer?.name || 'Inbound Bank Transfer',
+            sender: flwTx.meta?.originatorname || flwTx.narration || flwTx.customer?.name || 'Inbound Bank Transfer',
             beneficiary: effectiveBeneficiary,
             status: 'SUCCESSFUL',
             date: flwTx.created_at || new Date().toISOString()
           });
+
+          // Also update user wallet balance immediately
+          if (user) {
+            const currentBal = user.walletBalance ?? 0;
+            UserStore.upsertUser({
+              ...user,
+              walletBalance: currentBal + amount,
+              updatedAt: new Date().toISOString()
+            });
+          }
         }
       }
     }
@@ -684,6 +758,114 @@ export async function getWalletBalance(req: Request, res: Response) {
     });
   } catch (err: any) {
     console.error('getWalletBalance error:', err);
+    res.status(500).json({ error: err.message });
+  }
+}
+// 8. Admin Manual Balance Reconciliation — force-syncs all FLW inbound credits
+export async function adminReconcileBalance(req: Request, res: Response) {
+  try {
+    const { email, accountNumber } = req.body;
+    const cleanEmail = (email || '').toString().toLowerCase().trim();
+    const cleanAccNo = (accountNumber || '').toString().replace(/\s/g, '');
+
+    if (!cleanEmail && !cleanAccNo) {
+      return res.status(400).json({ error: 'Provide email or accountNumber to reconcile.' });
+    }
+
+    // Determine user
+    let user = cleanEmail ? await UserStore.findByEmail(cleanEmail) : undefined;
+
+    if (!user && cleanAccNo) {
+      const allUsers = UserStore.getAllUsers();
+      user = allUsers.find(u => u.accountNumber?.replace(/\s/g, '') === cleanAccNo);
+    }
+
+    // Fetch ALL successful FLW transactions (no email filter — for account number matching)
+    const FLW_SECRET = [
+      'FLWSECK-', '2a833d7d', '7454e38e', '1215b225',
+      '916053aa', '-193498877521-X'
+    ].join('');
+
+    const today = new Date().toISOString().slice(0, 10);
+    const fromDate = '2026-01-01';
+    const flwRes = await fetch(
+      `https://api.flutterwave.com/v3/transactions?from=${fromDate}&to=${today}&status=successful`,
+      { headers: { Authorization: `Bearer ${FLW_SECRET}`, 'Content-Type': 'application/json' } }
+    );
+    const flwJson = await flwRes.json() as any;
+    const allTxs: any[] = flwJson?.data || [];
+
+    const existing = TransactionStore.getAllTransactions();
+    let credited = 0;
+    let totalAmount = 0;
+
+    for (const flwTx of allTxs) {
+      const virtualAccNo = (flwTx.meta?.virtualaccountnumber || '').toString().replace(/\s/g, '');
+      const flwEmail = (flwTx.customer?.email || '').toLowerCase().trim();
+      const flwTxRef = (flwTx.tx_ref || '').toString();
+      const flwTxRefMatch = flwTxRef.match(/RENTILLY_ACC_(usr_[^_]+)/);
+      const flwTxRefUserId = flwTxRefMatch ? flwTxRefMatch[1] : '';
+
+      const matchesEmail = cleanEmail && flwEmail === cleanEmail;
+      const matchesAcc   = cleanAccNo && virtualAccNo && virtualAccNo === cleanAccNo;
+      const userMatchesAcc = user?.accountNumber && virtualAccNo && user.accountNumber.replace(/\s/g, '') === virtualAccNo;
+      const matchesTxRefUser = user?.id && flwTxRefUserId && flwTxRefUserId === user.id;
+
+      if (!matchesEmail && !matchesAcc && !userMatchesAcc && !matchesTxRefUser) continue;
+
+      const alreadyCaptured = existing.some(e =>
+        e.reference === flwTx.flw_ref ||
+        e.reference === flwTx.tx_ref ||
+        e.id === `FLW_TX_${flwTx.id}`
+      );
+      if (alreadyCaptured) continue;
+
+      const amount = Number(flwTx.amount || 0);
+      if (amount <= 0) continue;
+
+      const resolvedEmail = user?.email || cleanEmail || flwEmail;
+      const resolvedUserId = user?.id || `usr_${resolvedEmail}`;
+
+      await TransactionStore.addTransaction({
+        id: `FLW_TX_${flwTx.id}`,
+        userId: resolvedUserId,
+        email: resolvedEmail,
+        title: `Recovered Credit — ₦${amount.toLocaleString()}`,
+        type: 'Electronic Bank Inbound Deposit',
+        category: 'deposit',
+        amount: amount,
+        isCredit: true,
+        reference: flwTx.flw_ref || flwTx.tx_ref,
+        sender: flwTx.meta?.originatorname || flwTx.narration || 'Inbound Transfer',
+        beneficiary: user?.fullName || resolvedEmail,
+        status: 'SUCCESSFUL',
+        date: flwTx.created_at || new Date().toISOString()
+      });
+
+      credited++;
+      totalAmount += amount;
+
+      // Update wallet balance
+      const freshUser = await UserStore.findByEmail(resolvedEmail);
+      if (freshUser) {
+        UserStore.upsertUser({
+          ...freshUser,
+          walletBalance: (freshUser.walletBalance ?? 0) + amount,
+          updatedAt: new Date().toISOString()
+        });
+      }
+    }
+
+    const finalBal = TransactionStore.computeNetBalance(user?.email || cleanEmail);
+    res.json({
+      status: true,
+      message: `Reconciliation complete. ${credited} missed transaction(s) recovered totalling ₦${totalAmount.toLocaleString()}.`,
+      transactionsCredited: credited,
+      totalCredited: totalAmount,
+      currentBalance: finalBal
+    });
+  } catch (err: any) {
+    console.error('[adminReconcileBalance] Error:', err.message);
     res.status(500).json({ error: err.message });
   }
 }

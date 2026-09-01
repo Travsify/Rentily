@@ -70,6 +70,7 @@ apiRouter.get('/wallet/balance', paymentController.getWalletBalance);
 apiRouter.get('/payments/paystack-banks', paymentController.getPaystackBanks);
 apiRouter.get('/payments/resolve-account', paymentController.resolvePaystackAccount);
 apiRouter.post('/payments/withdraw-paystack', paymentController.withdrawWithPaystack);
+apiRouter.post('/payments/reconcile', paymentController.adminReconcileBalance);
 
 // 8. Fraud Blacklist & Rogue Agent Registry
 apiRouter.get('/fraud/blacklist', fraudController.getBlacklist);
