@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import '../../constants/app_colors.dart';
 import '../../constants/app_constants.dart';
 import '../../services/auth_service.dart';
+import '../../services/payment_security_service.dart';
 import '../../widgets/rentilly_bottom_bar.dart';
 
 class BillsScreen extends StatefulWidget {
@@ -454,6 +455,19 @@ class _BillsScreenState extends State<BillsScreen> {
         } else {
           numAmount = 8500;
         }
+      }
+
+      // Security Authorization (Biometric / 4-Digit Payment PIN)
+      final authorized = await PaymentSecurityService.authorizeTransaction(
+        context,
+        title: _appBarTitle,
+        amount: numAmount,
+        recipient: _selectedCategory == 'airtime' || _selectedCategory == 'data' ? phone : customer,
+      );
+
+      if (!authorized) {
+        setState(() => _isProcessing = false);
+        return;
       }
 
       final user = await AuthService.getCurrentUser();
