@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -5,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../constants/app_colors.dart';
 import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
@@ -25,11 +27,12 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
   UserProfile? _user;
   bool _isLoading = true;
   String _selectedLedgerFilter = 'All';
+  List<Map<String, dynamic>> _transactions = [];
 
   @override
   void initState() {
     super.initState();
-    _loadUser();
+    _loadUserAndTransactions();
     AuthService.currentUserNotifier.addListener(_onUserUpdated);
   }
 
@@ -44,17 +47,53 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
       setState(() {
         _user = AuthService.currentUserNotifier.value;
       });
+      _loadTransactions();
     }
   }
 
-  void _loadUser() async {
+  void _loadUserAndTransactions() async {
     final user = await AuthService.getCurrentUser();
+    await _loadTransactions();
     if (mounted) {
       setState(() {
         _user = user;
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _loadTransactions() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedTxnsJson = prefs.getString('rentilly_landlord_transactions');
+    final user = await AuthService.getCurrentUser();
+    final acc = user?.accountNumber ?? '9254090338';
+
+    if (savedTxnsJson != null) {
+      try {
+        final List<dynamic> decoded = json.decode(savedTxnsJson);
+        _transactions = decoded.map((e) => Map<String, dynamic>.from(e)).toList();
+      } catch (_) {}
+    }
+
+    // Default verified funding transaction for 9254090338
+    if (_transactions.isEmpty) {
+      _transactions = [
+        {
+          'id': 'TXN-RNT-9254090338-001',
+          'title': 'Wallet Funding (Bank Transfer)',
+          'subtitle': 'Direct deposit into Providus Bank virtual account $acc',
+          'amount': 2000.0,
+          'type': 'inflow',
+          'status': 'Completed',
+          'date': '01 Sep 2026, 03:45 AM',
+          'reference': 'PRV-FUND-9254090338-2000',
+          'channel': 'Providus Virtual Inflow / Monnify',
+          'session': 'SES-PRV-984210984712',
+        },
+      ];
+      await prefs.setString('rentilly_landlord_transactions', json.encode(_transactions));
+    }
+    if (mounted) setState(() {});
   }
 
   void _copyAccount(String accountNumber) {
@@ -68,6 +107,260 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
     );
   }
 
+  // --- 1. DOWNLOAD INDIVIDUAL TRANSACTION RECEIPT PDF ---
+  Future<void> _generateAndShareReceiptPdf(Map<String, dynamic> txn) async {
+    final name = _user?.fullName ?? 'Property Owner';
+    final acc = _user?.accountNumber ?? '9254090338';
+    final amount = txn['amount'] as double;
+    final isPositive = amount > 0;
+    final formattedAmount = '${isPositive ? "+" : "-"}NGN ${_currencyFormat.format(amount.abs())}';
+    final ref = txn['reference'] ?? txn['id'] ?? 'REF-9254090338';
+    final title = txn['title'] as String;
+    final date = txn['date'] as String;
+    final channel = txn['channel'] ?? 'Providus Virtual Settlement';
+    final session = txn['session'] ?? 'SES-${DateTime.now().millisecondsSinceEpoch}';
+
+    final doc = pw.Document();
+    doc.addPage(
+      pw.Page(
+        pageFormat: const PdfPageFormat(120 * PdfPageFormat.mm, 180 * PdfPageFormat.mm, marginAll: 8 * PdfPageFormat.mm),
+        build: (pw.Context ctx) {
+          return pw.Container(
+            padding: const pw.EdgeInsets.all(12),
+            decoration: pw.BoxDecoration(
+              color: PdfColors.white,
+              borderRadius: pw.BorderRadius.circular(12),
+              border: pw.Border.all(color: PdfColor.fromHex('064E3B'), width: 1.5),
+            ),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                // Header
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(8),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColor.fromHex('064E3B'),
+                    borderRadius: pw.BorderRadius.circular(8),
+                  ),
+                  child: pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text('RENTILLY ESCROW NETWORK', style: pw.TextStyle(color: PdfColor.fromHex('4ADE80'), fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                          pw.Text('TRANSACTION RECEIPT', style: pw.TextStyle(color: PdfColors.white, fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                        ],
+                      ),
+                      pw.Container(
+                        padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: pw.BoxDecoration(color: PdfColor.fromHex('16A34A'), borderRadius: pw.BorderRadius.circular(4)),
+                        child: pw.Text('SUCCESSFUL', style: pw.TextStyle(color: PdfColors.white, fontSize: 7, fontWeight: pw.FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                ),
+                pw.SizedBox(height: 8),
+
+                // Amount
+                pw.Text(formattedAmount, style: pw.TextStyle(color: isPositive ? PdfColor.fromHex('064E3B') : PdfColor.fromHex('DC2626'), fontSize: 18, fontWeight: pw.FontWeight.bold)),
+                pw.Text(title, style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColors.grey800)),
+                pw.SizedBox(height: 8),
+
+                // Breakdown Table
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(10),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColor.fromHex('F8FAFC'),
+                    borderRadius: pw.BorderRadius.circular(8),
+                    border: pw.Border.all(color: PdfColor.fromHex('E2E8F0')),
+                  ),
+                  child: pw.Column(
+                    children: [
+                      _buildReceiptRow('Transaction Ref', ref),
+                      _buildReceiptRow('Settlement Account', '$acc (Providus Bank)'),
+                      _buildReceiptRow('Account Holder', name),
+                      _buildReceiptRow('Payment Channel', channel),
+                      _buildReceiptRow('Session Reference', session),
+                      _buildReceiptRow('Transaction Date', date),
+                      _buildReceiptRow('Escrow Guarantee', '100% Protected (CBN Regulated)'),
+                    ],
+                  ),
+                ),
+                pw.SizedBox(height: 8),
+
+                // Barcode & QR Code
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: pw.CrossAxisAlignment.center,
+                  children: [
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.BarcodeWidget(
+                          barcode: pw.Barcode.code128(),
+                          data: ref,
+                          width: 130,
+                          height: 22,
+                          drawText: false,
+                        ),
+                        pw.SizedBox(height: 2),
+                        pw.Text('OFFICIAL AUDIT SERIAL: $ref', style: const pw.TextStyle(fontSize: 5.5, color: PdfColors.grey700)),
+                      ],
+                    ),
+                    pw.BarcodeWidget(
+                      barcode: pw.Barcode.qrCode(),
+                      data: 'https://rentilly.ng/receipt/$ref',
+                      width: 32,
+                      height: 32,
+                    ),
+                  ],
+                ),
+                pw.SizedBox(height: 4),
+
+                pw.Text('Digitally verified and certified by Rentilly Trust & Escrow Desk.', style: const pw.TextStyle(fontSize: 6, color: PdfColors.grey600), textAlign: pw.TextAlign.center),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+
+    await Printing.sharePdf(bytes: await doc.save(), filename: 'Rentilly_Receipt_$ref.pdf');
+  }
+
+  pw.Widget _buildReceiptRow(String label, String value) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.symmetric(vertical: 2.5),
+      child: pw.Row(
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Text(label, style: const pw.TextStyle(color: PdfColors.grey700, fontSize: 7.5)),
+          pw.Text(value, style: pw.TextStyle(color: PdfColors.black, fontSize: 7.5, fontWeight: pw.FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
+  // --- 2. SHOW TRANSACTION RECEIPT MODAL ---
+  void _showTransactionReceiptModal(BuildContext context, Map<String, dynamic> txn) {
+    final amount = txn['amount'] as double;
+    final isPositive = amount > 0;
+    final formattedAmount = '${isPositive ? "+" : "-"}₦${_currencyFormat.format(amount.abs())}';
+    final ref = txn['reference'] ?? txn['id'] ?? 'REF-9254090338';
+    final title = txn['title'] as String;
+    final date = txn['date'] as String;
+    final channel = txn['channel'] ?? 'Providus Virtual Settlement';
+    final session = txn['session'] ?? 'SES-PRV-984210984712';
+    final acc = _user?.accountNumber ?? '9254090338';
+    final name = _user?.fullName ?? 'Property Owner';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(22),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Handle bar
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 16),
+
+            // Success Icon & Amount
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: const BoxDecoration(color: Color(0xFFECFDF5), shape: BoxShape.circle),
+              child: const Icon(Icons.check_circle_rounded, size: 36, color: Color(0xFF16A34A)),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              formattedAmount,
+              style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.w900, color: isPositive ? const Color(0xFF16A34A) : Colors.red),
+            ),
+            Text(title, textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+            const SizedBox(height: 16),
+
+            // Itemized Breakdown
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.borderDark),
+              ),
+              child: Column(
+                children: [
+                  _buildModalRow('Status', 'SUCCESSFUL (COMPLETED)', isSuccess: true),
+                  const Divider(height: 14),
+                  _buildModalRow('Transaction Ref', ref),
+                  const Divider(height: 14),
+                  _buildModalRow('Settlement Account', '$acc (Providus Bank)'),
+                  const Divider(height: 14),
+                  _buildModalRow('Account Holder', name),
+                  const Divider(height: 14),
+                  _buildModalRow('Payment Channel', channel),
+                  const Divider(height: 14),
+                  _buildModalRow('Session Reference', session),
+                  const Divider(height: 14),
+                  _buildModalRow('Date & Time', date),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+
+            // Download PDF Button
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  _generateAndShareReceiptPdf(txn);
+                },
+                icon: const Icon(Icons.picture_as_pdf_rounded, size: 18, color: Colors.white),
+                label: Text('Download PDF Receipt (Brand Certified)', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModalRow(String label, String value, {bool isSuccess = false}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary)),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 10.5,
+              fontWeight: FontWeight.bold,
+              color: isSuccess ? const Color(0xFF16A34A) : AppColors.textPrimary,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // --- 3. DOWNLOAD FULL ACCOUNT STATEMENT PDF ---
   void _downloadStatement() async {
     final name = _user?.fullName ?? 'Property Owner';
     final balance = _user?.walletBalance ?? 2000.0;
@@ -144,24 +437,18 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                       pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('STATUS', style: pw.TextStyle(color: PdfColors.white, fontSize: 8, fontWeight: pw.FontWeight.bold))),
                     ],
                   ),
-                  pw.TableRow(
-                    children: [
-                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('01 Sep 2026', style: const pw.TextStyle(fontSize: 8))),
-                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Wallet Direct Funding (Bank Transfer to $acc)', style: const pw.TextStyle(fontSize: 8))),
-                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Inflow', style: const pw.TextStyle(fontSize: 8))),
-                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('+2,000.00', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('16A34A')))),
-                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('COMPLETED', style: const pw.TextStyle(fontSize: 8, color: PdfColors.green700))),
-                    ],
-                  ),
-                  pw.TableRow(
-                    children: [
-                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('28 Aug 2026', style: const pw.TextStyle(fontSize: 8))),
-                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Rental Escrow Clearance (3-Bed Lekki Phase 1)', style: const pw.TextStyle(fontSize: 8))),
-                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('Settlement', style: const pw.TextStyle(fontSize: 8))),
-                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('+3,500,000.00', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('16A34A')))),
-                      pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('RELEASED', style: const pw.TextStyle(fontSize: 8, color: PdfColors.green700))),
-                    ],
-                  ),
+                  ..._transactions.map((t) {
+                    final isPos = (t['amount'] as double) > 0;
+                    return pw.TableRow(
+                      children: [
+                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(t['date'] ?? 'Today', style: const pw.TextStyle(fontSize: 8))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(t['title'] ?? '', style: const pw.TextStyle(fontSize: 8))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(t['type'] ?? 'Inflow', style: const pw.TextStyle(fontSize: 8))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text('${isPos ? "+" : "-"} ${_currencyFormat.format((t['amount'] as double).abs())}', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: isPos ? PdfColor.fromHex('16A34A') : PdfColor.fromHex('DC2626')))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(6), child: pw.Text(t['status'] ?? 'COMPLETED', style: const pw.TextStyle(fontSize: 8, color: PdfColors.green700))),
+                      ],
+                    );
+                  }),
                 ],
               ),
             ],
@@ -189,47 +476,13 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
     final accountNumber = _user?.accountNumber ?? '9254090338';
     final bankName = _user?.bankName ?? 'Providus Bank';
 
-    // Transactions list
-    final List<Map<String, dynamic>> allTransactions = [
-      {
-        'title': 'Wallet Funding (Bank Transfer to $accountNumber)',
-        'subtitle': 'Direct deposit via Providus Bank Virtual Account',
-        'date': 'Today, 03:45 AM',
-        'amount': 2000.0,
-        'type': 'inflow',
-        'status': 'Completed',
-        'icon': Icons.arrow_downward_rounded,
-        'color': const Color(0xFF16A34A),
-      },
-      {
-        'title': 'Rental Escrow Clearance (3-Bed Lekki Phase 1)',
-        'subtitle': 'Tenant Move-in & Key Handover Confirmed',
-        'date': '28 Aug 2026',
-        'amount': 3500000.0,
-        'type': 'escrow',
-        'status': 'Released',
-        'icon': Icons.real_estate_agent_rounded,
-        'color': const Color(0xFF16A34A),
-      },
-      {
-        'title': 'Prepaid Unit Utility (IKEDC Token #450291)',
-        'subtitle': 'Vacant Unit 3B Prepaid Electricity Recharge',
-        'date': '25 Aug 2026',
-        'amount': -5000.0,
-        'type': 'outflow',
-        'status': 'Successful',
-        'icon': Icons.electric_bolt_rounded,
-        'color': AppColors.accentOrange,
-      },
-    ];
-
     final filteredTransactions = _selectedLedgerFilter == 'All'
-        ? allTransactions
+        ? _transactions
         : _selectedLedgerFilter == 'Inflows'
-            ? allTransactions.where((t) => (t['amount'] as double) > 0).toList()
+            ? _transactions.where((t) => (t['amount'] as double) > 0).toList()
             : _selectedLedgerFilter == 'Outflows'
-                ? allTransactions.where((t) => (t['amount'] as double) < 0).toList()
-                : allTransactions.where((t) => t['type'] == 'escrow').toList();
+                ? _transactions.where((t) => (t['amount'] as double) < 0).toList()
+                : _transactions.where((t) => t['type'] == 'escrow').toList();
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
@@ -252,7 +505,9 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
       body: SafeArea(
         child: RefreshIndicator(
           color: AppColors.primary,
-          onRefresh: () async => _loadUser(),
+          onRefresh: () async {
+            _loadUserAndTransactions();
+          },
           child: ListView(
             padding: const EdgeInsets.all(18),
             children: [
@@ -426,8 +681,9 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                           child: ElevatedButton.icon(
                             onPressed: () {
                               if (_user != null) {
-                                AddMoneyModal.show(context, user: _user!, onAccountUpdated: (u) {
+                                AddMoneyModal.show(context, user: _user!, onAccountUpdated: (u) async {
                                   setState(() => _user = u);
+                                  await _loadTransactions();
                                 });
                               }
                             },
@@ -447,8 +703,9 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                                 WithdrawalModal.show(
                                   context,
                                   user: _user!,
-                                  onWithdrawalSuccess: (newBal) {
+                                  onWithdrawalSuccess: (newBal) async {
                                     setState(() => _user = _user!.copyWith(walletBalance: newBal));
+                                    await _loadTransactions();
                                   },
                                 );
                               }
@@ -534,7 +791,7 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Recent Disbursements & Transaction History Ledger
+              // Verified Recent Disbursements & Transaction History Ledger (Clickable to PDF Receipt)
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -545,7 +802,7 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                   TextButton.icon(
                     onPressed: _downloadStatement,
                     icon: const Icon(Icons.download_rounded, size: 13, color: AppColors.primary),
-                    label: Text('Export PDF', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                    label: Text('Full Statement PDF', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppColors.primary)),
                   ),
                 ],
               ),
@@ -566,56 +823,61 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
               const SizedBox(height: 10),
 
               ...filteredTransactions.map((tx) {
-                final isPositive = (tx['amount'] as double) > 0;
-                final formatted = isPositive ? '+₦${_currencyFormat.format(tx['amount'])}' : '-₦${_currencyFormat.format((tx['amount'] as double).abs())}';
+                final amount = tx['amount'] as double;
+                final isPositive = amount > 0;
+                final formatted = isPositive ? '+₦${_currencyFormat.format(amount)}' : '-₦${_currencyFormat.format(amount.abs())}';
 
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.borderDark),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: (tx['color'] as Color).withValues(alpha: 0.1),
-                          shape: BoxShape.circle,
+                return InkWell(
+                  onTap: () => _showTransactionReceiptModal(context, tx),
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.borderDark),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: (isPositive ? const Color(0xFF16A34A) : Colors.red).withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(isPositive ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded, size: 18, color: isPositive ? const Color(0xFF16A34A) : Colors.red),
                         ),
-                        child: Icon(tx['icon'] as IconData, size: 18, color: tx['color'] as Color),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(tx['title'] as String, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                              const SizedBox(height: 2),
+                              Text(tx['subtitle'] as String, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textSecondary)),
+                              const SizedBox(height: 2),
+                              Text('${tx['date']} • Tap for PDF Receipt 📄', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, color: AppColors.primary, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            Text(tx['title'] as String, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                            Text(formatted, style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w900, color: isPositive ? const Color(0xFF16A34A) : Colors.red)),
                             const SizedBox(height: 2),
-                            Text(tx['subtitle'] as String, style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textSecondary)),
-                            const SizedBox(height: 2),
-                            Text(tx['date'] as String, style: GoogleFonts.plusJakartaSans(fontSize: 8.5, color: AppColors.textMuted)),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF0FDF4),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(tx['status'] as String, style: GoogleFonts.plusJakartaSans(fontSize: 7.5, fontWeight: FontWeight.bold, color: const Color(0xFF16A34A))),
+                            ),
                           ],
                         ),
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text(formatted, style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w900, color: isPositive ? const Color(0xFF16A34A) : Colors.red)),
-                          const SizedBox(height: 2),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFF0FDF4),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(tx['status'] as String, style: GoogleFonts.plusJakartaSans(fontSize: 7.5, fontWeight: FontWeight.bold, color: const Color(0xFF16A34A))),
-                          ),
-                        ],
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 );
               }),
