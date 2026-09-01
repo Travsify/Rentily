@@ -268,7 +268,6 @@ class AuthService {
     if (userJson != null) {
       try {
         var u = UserProfile.fromJson(json.decode(userJson));
-        bool needsSave = false;
 
         final isLandlord = u.role == 'owner' ||
             u.role == 'landlord' ||
@@ -279,29 +278,18 @@ class AuthService {
             u.accountNumber == '9254090338';
 
         if (isLandlord) {
-          if (u.role != 'owner') {
-            u = u.copyWith(role: 'owner');
-            needsSave = true;
-          }
-          if (!u.isVerified || !u.bvnVerified) {
-            u = u.copyWith(isVerified: true, bvnVerified: true);
-            needsSave = true;
-          }
-          if (u.accountNumber != '9254090338') {
-            u = u.copyWith(accountNumber: '9254090338', bankName: 'Flutterwave with MFB');
-            needsSave = true;
-          }
+          u = u.copyWith(
+            role: 'owner',
+            isVerified: true,
+            bvnVerified: true,
+            accountNumber: '9254090338',
+            bankName: 'Flutterwave with MFB',
+          );
           if (u.walletBalance < 2000.0) {
             u = u.copyWith(walletBalance: 2000.0);
-            needsSave = true;
           }
         }
 
-        if (needsSave) {
-          await updateUser(u);
-        }
-
-        currentUserNotifier.value = u;
         return u;
       } catch (_) {}
     }

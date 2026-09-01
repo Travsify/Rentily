@@ -64,10 +64,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           _isBiometricMode = true;
         });
       }
-      // Automatically prompt biometric scan on startup
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _handleBiometricAuth();
-      });
     } else {
       if (mounted) {
         setState(() {
@@ -90,12 +86,12 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
     try {
       final authenticated = await BiometricService.authenticate(
-        reason: 'Verify your fingerprint to securely unlock your Rentilly Living Escrow',
+        reason: 'Scan your fingerprint to unlock your Rentilly account',
       );
 
       if (authenticated) {
-        await AuthService.loginWithBiometrics();
-        final user = await AuthService.getCurrentUser();
+        final result = await AuthService.loginWithBiometrics();
+        final user = result['user'] as UserProfile? ?? await AuthService.getCurrentUser();
         final isLandlord = user != null && (user.role == 'owner' ||
             user.role == 'landlord' ||
             user.email.toLowerCase().contains('travsify') ||
@@ -105,14 +101,15 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             user.accountNumber == '9254090338');
 
         if (!mounted) return;
-        Navigator.of(context).pushReplacement(
+        Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(builder: (_) => MainNavigationScreen(initialLandlordMode: isLandlord)),
+          (route) => false,
         );
       } else {
         if (mounted) {
           setState(() {
             _isLoading = false;
-            _errorMessage = 'Fingerprint not recognized. Tap the fingerprint button below to try again or switch to password.';
+            _errorMessage = 'Biometric scan was not completed. Tap the fingerprint icon to try again or switch to password.';
           });
         }
       }
@@ -120,7 +117,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _errorMessage = 'Biometric scanner unavailable. Tap below to retry or switch to password.';
+          _errorMessage = 'Biometric service temporarily unavailable. Please use password to sign in.';
         });
       }
     }
@@ -158,8 +155,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           user.accountNumber == '9254090338');
 
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(
+      Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => MainNavigationScreen(initialLandlordMode: isLandlord)),
+        (route) => false,
       );
     } else {
       setState(() {
