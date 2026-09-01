@@ -129,6 +129,8 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
         behavior: SnackBarBehavior.floating,
       ),
     );
+  }
+
   String _getGreeting() {
     final hour = DateTime.now().hour;
     if (hour < 12) return 'Good morning 👋';
