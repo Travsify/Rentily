@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { supabase } from '../supabaseClient';
 import type { Inspection } from '../types';
+import { NotificationDispatcher } from '../services/notificationDispatcher';
 
 export async function getInspections(_req: Request, res: Response) {
   try {
@@ -63,6 +64,24 @@ export async function bookInspection(req: Request, res: Response) {
       .single();
 
     if (error) throw new Error(error.message);
+
+    // Dispatch In-App Alert & Resend HTML Email with 6-Digit Gate Code
+    if (body.email || body.prospectEmail) {
+      NotificationDispatcher.dispatch({
+        userId: body.prospectId,
+        email: body.email || body.prospectEmail,
+        userName: body.prospectName,
+        title: `Gate Pass: 6-Digit Code for Inspection (${body.scheduledDate})`,
+        category: 'inspection',
+        message: `Your property walkthrough inspection has been registered. Present this 6-digit gate code at the estate security gate.`,
+        metadata: {
+          gateCode: passCode,
+          propertyTitle: body.propertyTitle || 'Inspected Property',
+          date: `${body.scheduledDate} (${body.scheduledTimeSlot || '11:00 AM'})`
+        }
+      });
+    }
+
     res.status(201).json(data);
   } catch (err: any) {
     res.status(500).json({ error: err.message });

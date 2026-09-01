@@ -5,6 +5,7 @@ import { FlutterwaveBillsService } from '../services/flutterwaveBillsService';
 import { supabase } from '../supabaseClient';
 import { UserStore } from '../services/userStore';
 import { TransactionStore, type WalletTransaction } from '../services/transactionStore';
+import { NotificationDispatcher } from '../services/notificationDispatcher';
 
 export async function createVirtualAccount(req: Request, res: Response) {
   try {
@@ -144,6 +145,22 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
         });
       }
 
+      // Dispatch In-App Alert & Resend HTML Email
+      NotificationDispatcher.dispatch({
+        userId: userId || memUser?.id,
+        email: cleanEmail,
+        userName: memUser?.fullName || accountName,
+        title: `Debit Alert: ₦${numAmount.toLocaleString()} Withdrawn`,
+        category: 'wallet',
+        message: `A payout of ₦${numAmount.toLocaleString()} has been processed and sent to your bank account (${accountNumber}).`,
+        metadata: {
+          amount: numAmount,
+          reference: txRef,
+          bankName: 'NIBSS Instant Transfer',
+          accountNumber: accountNumber.toString()
+        }
+      });
+
       return res.json({
         status: true,
         message: 'Withdrawal processed successfully via Paystack!',
@@ -197,14 +214,32 @@ export async function purchaseElectricityToken(req: Request, res: Response) {
       email,
     });
 
-    if (result.status && supabase && userId) {
-      await supabase.from('transactions').insert({
-        user_id: userId,
-        total_amount: Number(amount),
-        escrow_status: 'bill_paid',
-        payment_gateway: 'flutterwave_bills',
-        payment_reference: result.data?.txRef,
-      });
+    if (result.status) {
+      if (supabase && userId) {
+        await supabase.from('transactions').insert({
+          user_id: userId,
+          total_amount: Number(amount),
+          escrow_status: 'bill_paid',
+          payment_gateway: 'flutterwave_bills',
+          payment_reference: result.data?.txRef,
+        });
+      }
+
+      if (email) {
+        NotificationDispatcher.dispatch({
+          userId: userId?.toString(),
+          email: email.toString(),
+          title: `Receipt: ₦${Number(amount).toLocaleString()} Electricity Token Purchased`,
+          category: 'utilities',
+          message: `Your prepaid electricity token for meter ${customerNumber} has been generated successfully.`,
+          metadata: {
+            amount: Number(amount),
+            token: result.data?.token || 'TOKEN-GENERATED',
+            meterNumber: customerNumber.toString(),
+            reference: result.data?.txRef || `DISCO-${Date.now()}`
+          }
+        });
+      }
     }
 
     res.json(result);
@@ -326,6 +361,21 @@ export async function flutterwaveWebhook(req: Request, res: Response) {
       beneficiary: targetUser.accountNumber || '',
       status: 'SUCCESSFUL',
       date: new Date().toISOString(),
+    });
+
+    // Dispatch In-App Alert & Resend HTML Email
+    NotificationDispatcher.dispatch({
+      userId: targetUser.id,
+      email: targetUser.email,
+      userName: targetUser.fullName,
+      title: `Credit Alert: ₦${amountPaid.toLocaleString()} Received in Wallet`,
+      category: 'wallet',
+      message: `Your dedicated Flutterwave MFB bank account received an inflow of ₦${amountPaid.toLocaleString()} from ${senderName}.`,
+      metadata: {
+        amount: amountPaid,
+        reference: txRef,
+        bankName: 'Flutterwave MFB Dedicated Bank Transfer'
+      }
     });
 
     console.log(`[FLW Webhook] ✅ Balance updated to ₦${newBal} for ${targetUser.email}`);
