@@ -84,16 +84,9 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
     // Auto-sync real inbound transactions from Flutterwave Cloud API
     await syncFlutterwaveTransactionsForUser(cleanEmail);
 
-    // Check user net balance from TransactionStore & UserStore
-    const userNetBal = TransactionStore.computeNetBalance(cleanEmail);
-    const memUser = await UserStore.findByEmail(cleanEmail);
-    const isLandlordOrVerified = cleanEmail.includes('patrick') || cleanEmail.includes('travsify') || cleanEmail.includes('landlord') || cleanEmail.includes('owner');
-    let currentBal = Math.max(userNetBal, memUser?.walletBalance || 0);
-    if (isLandlordOrVerified && currentBal < 4000) {
-      currentBal = 4000;
-    }
-
-    console.log(`[Withdrawal] Verifying user ${cleanEmail} balance: ₦${currentBal} vs requested: ₦${numAmount}`);
+    // Check user true net balance from TransactionStore
+    const currentBal = TransactionStore.computeNetBalance(cleanEmail);
+    console.log(`[Withdrawal] Verifying user ${cleanEmail} true balance: ₦${currentBal} vs requested: ₦${numAmount}`);
 
     if (currentBal < numAmount) {
       return res.status(400).json({
@@ -355,14 +348,8 @@ export async function payBill(req: Request, res: Response) {
     // Auto-sync real inbound transactions from Flutterwave Cloud API
     await syncFlutterwaveTransactionsForUser(cleanEmail);
 
-    // Check user balance
-    const userNetBal = TransactionStore.computeNetBalance(cleanEmail);
-    const memUser = await UserStore.findByEmail(cleanEmail);
-    const isLandlordOrVerified = cleanEmail.includes('patrick') || cleanEmail.includes('travsify') || cleanEmail.includes('landlord') || cleanEmail.includes('owner');
-    let currentBal = Math.max(userNetBal, memUser?.walletBalance || 0);
-    if (isLandlordOrVerified && currentBal < 4000) {
-      currentBal = 4000;
-    }
+    // Check user true net balance from TransactionStore
+    const currentBal = TransactionStore.computeNetBalance(cleanEmail);
 
     if (currentBal < numAmount) {
       return res.status(400).json({
@@ -572,15 +559,6 @@ export async function getWalletBalance(req: Request, res: Response) {
       memUser?.walletBalance ?? 0,
       netBal
     );
-
-    // Apply landlord/owner minimum floor for the 2 x ₦2,000 Flutterwave inbound transfers
-    const isLandlordOrVerified = cleanEmail.includes('patrick') ||
-      cleanEmail.includes('travsify') ||
-      memUser?.role === 'owner' ||
-      memUser?.role === 'landlord';
-    if (isLandlordOrVerified && balance < 4000) {
-      balance = 4000;
-    }
 
     if (memUser && memUser.walletBalance !== balance) {
       UserStore.upsertUser({

@@ -68,8 +68,9 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
       if (live == null || !mounted) return;
       final liveBalance = (live['walletBalance'] as num?)?.toDouble() ?? 0.0;
       final liveAccNo = live['accountNumber']?.toString() ?? _user!.accountNumber;
-      if (liveBalance > _lastKnownBalance) {
-        final gained = liveBalance - _lastKnownBalance;
+      if (liveBalance != _lastKnownBalance) {
+        final isGain = liveBalance > _lastKnownBalance;
+        final diff = (liveBalance - _lastKnownBalance).abs();
         _lastKnownBalance = liveBalance;
         final updated = _user!.copyWith(
           walletBalance: liveBalance,
@@ -79,7 +80,7 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
         if (mounted) {
           setState(() => _user = updated);
           await _loadTransactions();
-          if (mounted) {
+          if (mounted && isGain && diff > 0) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Row(
@@ -88,7 +89,7 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        '💰 +₦${_currencyFormat.format(gained)} received! Balance updated.',
+                        '💰 +₦${_currencyFormat.format(diff)} received! Balance updated.',
                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                       ),
                     ),
@@ -102,8 +103,6 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
             );
           }
         }
-      } else if (liveBalance != _lastKnownBalance && liveBalance > 0) {
-        _lastKnownBalance = liveBalance;
       }
     } catch (_) {}
   }

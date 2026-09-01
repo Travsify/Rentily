@@ -293,9 +293,6 @@ class AuthService {
             accountNumber: '9254090338',
             bankName: 'Flutterwave MFB',
           );
-          if (u.walletBalance < 4000.0) {
-            u = u.copyWith(walletBalance: 4000.0);
-          }
         }
 
         return u;
@@ -336,9 +333,6 @@ class AuthService {
             accountNumber: '9254090338',
             bankName: 'Flutterwave MFB',
           );
-          if (u.walletBalance < 4000.0) {
-            u = u.copyWith(walletBalance: 4000.0);
-          }
         }
         return u;
       } catch (_) {}
@@ -412,9 +406,6 @@ class AuthService {
       userMap['isVerified'] = true;
       userMap['bvnVerified'] = true;
       userMap['role'] = 'owner';
-      if ((userMap['walletBalance'] as num? ?? 0) < 4000) {
-        userMap['walletBalance'] = 4000.0;
-      }
     }
 
     final encoded = json.encode(userMap);
