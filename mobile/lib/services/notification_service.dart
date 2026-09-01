@@ -47,20 +47,33 @@ class InAppNotification {
 }
 
 class NotificationService {
-  static const String _storageKey = 'rentilly_in_app_notifications';
-  static const String _readIdsKey = 'rentilly_read_notification_ids';
   static final ValueNotifier<int> unreadCountNotifier = ValueNotifier<int>(0);
 
-  // Load all notifications (with permanent ledger and transaction synchronization)
+  static Future<String> _getStorageKey() async {
+    final user = await AuthService.getCurrentUser();
+    final uid = (user != null && user.id.isNotEmpty) ? user.id : 'guest';
+    return 'rentilly_notifs_$uid';
+  }
+
+  static Future<String> _getReadIdsKey() async {
+    final user = await AuthService.getCurrentUser();
+    final uid = (user != null && user.id.isNotEmpty) ? user.id : 'guest';
+    return 'rentilly_read_notifs_$uid';
+  }
+
+  // Load notifications for the CURRENT authenticated user only
   static Future<List<InAppNotification>> getNotifications() async {
     final prefs = await SharedPreferences.getInstance();
-    final readIds = prefs.getStringList(_readIdsKey) ?? [];
+    final storageKey = await _getStorageKey();
+    final readIdsKey = await _getReadIdsKey();
+
+    final readIds = prefs.getStringList(readIdsKey) ?? [];
     final readSet = readIds.toSet();
 
     List<InAppNotification> list = [];
 
-    // 1. Read locally stored custom/pushed notifications
-    final data = prefs.getString(_storageKey);
+    // 1. Read locally stored notifications for this specific user
+    final data = prefs.getString(storageKey);
     if (data != null && data.isNotEmpty) {
       try {
         final List<dynamic> decoded = json.decode(data);
@@ -68,52 +81,58 @@ class NotificationService {
       } catch (_) {}
     }
 
-    // 2. Fetch live transactions to ensure zero transaction notifications are ever lost
+    // 2. Only fetch live payment notifications if the user is VERIFIED and has an active email
     try {
-      final user = await AuthService.getCurrentUser() ?? await AuthService.getRememberedUser();
-      final email = user?.email ?? 'patrickachua3@gmail.com';
-      final liveTxs = await ApiService.fetchLiveTransactions(email);
+      final user = await AuthService.getCurrentUser();
+      final isVerified = user != null && (user.isVerified || user.bvnVerified);
+      
+      if (user != null && isVerified && user.email.trim().isNotEmpty) {
+        final liveTxs = await ApiService.fetchLiveTransactions(user.email.trim());
 
-      for (final tx in liveTxs) {
-        final txId = (tx['id'] ?? tx['reference'] ?? '').toString();
-        final notifId = 'NOTIF_TX_$txId';
-        
-        final alreadyExists = list.any((n) => n.id == notifId || (n.metadata != null && n.metadata!['txId'] == txId));
-        if (!alreadyExists) {
-          final amt = (tx['amount'] as num?)?.toDouble() ?? 0.0;
-          final isCredit = amt > 0 || tx['type'] == 'inflow' || tx['isCredit'] == true;
-          final dateStr = (tx['date'] ?? '').toString();
-          final txDate = DateTime.tryParse(dateStr) ?? DateTime.now();
-          final cleanTitle = (tx['title'] ?? 'Wallet Transaction').toString();
+        for (final tx in liveTxs) {
+          final txId = (tx['id'] ?? tx['reference'] ?? '').toString();
+          if (txId.isEmpty) continue;
+          final notifId = 'NOTIF_TX_$txId';
 
-          String title;
-          String message;
-          String category = 'transaction';
+          final alreadyExists = list.any((n) => n.id == notifId || (n.metadata != null && n.metadata!['txId'] == txId));
+          if (!alreadyExists) {
+            final amt = (tx['amount'] as num?)?.toDouble() ?? 0.0;
+            final isCredit = amt > 0 || tx['type'] == 'inflow' || tx['isCredit'] == true;
+            final dateStr = (tx['date'] ?? '').toString();
+            final txDate = DateTime.tryParse(dateStr) ?? DateTime.now();
+            final cleanTitle = (tx['title'] ?? 'Wallet Transaction').toString();
 
-          if (cleanTitle.toLowerCase().contains('airtime') || cleanTitle.toLowerCase().contains('utility')) {
-            title = '⚡ Airtime VTU Recharge Successful';
-            message = '₦${amt.abs().toStringAsFixed(2)} was debited for $cleanTitle. Reference: ${tx['reference'] ?? txId}.';
-          } else if (!isCredit) {
-            title = '💸 Escrow Vault Withdrawal Payout Dispatched';
-            message = 'Payout of ₦${amt.abs().toStringAsFixed(2)} to ${tx['beneficiary'] ?? tx['recipient'] ?? 'Bank Account'} has been processed and settled by NIBSS.';
-          } else {
-            title = '💰 Inbound Bank Settlement Received';
-            message = 'Deposit of +₦${amt.abs().toStringAsFixed(2)} received into your Flutterwave MFB Settlement Vault (9254090338).';
+            String title;
+            String message;
+            String category = 'transaction';
+
+            if (cleanTitle.toLowerCase().contains('airtime') || cleanTitle.toLowerCase().contains('utility') || cleanTitle.toLowerCase().contains('electricity')) {
+              title = '⚡ Bill Payment Successful';
+              message = '₦${amt.abs().toStringAsFixed(2)} was debited for $cleanTitle. Reference: ${tx['reference'] ?? txId}.';
+            } else if (!isCredit) {
+              title = '💸 Withdrawal Payout Dispatched';
+              message = 'Payout of ₦${amt.abs().toStringAsFixed(2)} to ${tx['beneficiary'] ?? tx['recipient'] ?? 'Bank Account'} has been processed.';
+            } else {
+              final bankName = user.bankName ?? 'Settlement Bank';
+              final accNo = user.accountNumber != null && user.accountNumber!.isNotEmpty ? ' (${user.accountNumber})' : '';
+              title = '💰 Inbound Bank Settlement Received';
+              message = 'Deposit of +₦${amt.abs().toStringAsFixed(2)} received into your $bankName Settlement Vault$accNo.';
+            }
+
+            list.add(InAppNotification(
+              id: notifId,
+              title: title,
+              message: message,
+              category: category,
+              timestamp: txDate,
+              isRead: readSet.contains(notifId),
+              metadata: {
+                'txId': txId,
+                'amount': amt,
+                'reference': tx['reference'] ?? txId,
+              },
+            ));
           }
-
-          list.add(InAppNotification(
-            id: notifId,
-            title: title,
-            message: message,
-            category: category,
-            timestamp: txDate,
-            isRead: readSet.contains(notifId),
-            metadata: {
-              'txId': txId,
-              'amount': amt,
-              'reference': tx['reference'] ?? txId,
-            },
-          ));
         }
       }
     } catch (_) {}
@@ -132,7 +151,7 @@ class NotificationService {
     return list;
   }
 
-  // Add new notification
+  // Add new notification for current user
   static Future<void> addNotification({
     required String title,
     required String message,
@@ -151,34 +170,38 @@ class NotificationService {
     );
 
     current.insert(0, newNotif);
-    if (current.length > 60) current.removeRange(60, current.length);
     await _saveNotifications(current);
     _updateUnreadCount(current);
   }
 
-  // Mark single as read
+  // Mark single notification as read
   static Future<void> markAsRead(String id) async {
     final prefs = await SharedPreferences.getInstance();
-    final readIds = prefs.getStringList(_readIdsKey) ?? [];
+    final readIdsKey = await _getReadIdsKey();
+    final readIds = prefs.getStringList(readIdsKey) ?? [];
     if (!readIds.contains(id)) {
       readIds.add(id);
-      await prefs.setStringList(_readIdsKey, readIds);
+      await prefs.setStringList(readIdsKey, readIds);
     }
 
     final current = await getNotifications();
     for (var n in current) {
-      if (n.id == id) n.isRead = true;
+      if (n.id == id) {
+        n.isRead = true;
+      }
     }
     await _saveNotifications(current);
     _updateUnreadCount(current);
   }
 
-  // Mark all as read
+  // Mark all notifications as read
   static Future<void> markAllAsRead() async {
     final current = await getNotifications();
+    final readIds = current.map((e) => e.id).toList();
+
     final prefs = await SharedPreferences.getInstance();
-    final readIds = current.map((n) => n.id).toList();
-    await prefs.setStringList(_readIdsKey, readIds);
+    final readIdsKey = await _getReadIdsKey();
+    await prefs.setStringList(readIdsKey, readIds);
 
     for (var n in current) {
       n.isRead = true;
@@ -187,10 +210,10 @@ class NotificationService {
     _updateUnreadCount(current);
   }
 
-  // Alias for markAllAsRead
+  // Alias for backward compatibility
   static Future<void> markAllRead() => markAllAsRead();
 
-  // Delete notification
+  // Delete single notification
   static Future<void> deleteNotification(String id) async {
     final current = await getNotifications();
     current.removeWhere((n) => n.id == id);
@@ -198,21 +221,25 @@ class NotificationService {
     _updateUnreadCount(current);
   }
 
-  // Clear all
+  // Clear all notifications for current user
   static Future<void> clearAll() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_storageKey);
+    final storageKey = await _getStorageKey();
+    final readIdsKey = await _getReadIdsKey();
+    await prefs.remove(storageKey);
+    await prefs.remove(readIdsKey);
     unreadCountNotifier.value = 0;
   }
 
   static Future<void> _saveNotifications(List<InAppNotification> list) async {
     final prefs = await SharedPreferences.getInstance();
+    final storageKey = await _getStorageKey();
     final encoded = json.encode(list.map((e) => e.toJson()).toList());
-    await prefs.setString(_storageKey, encoded);
+    await prefs.setString(storageKey, encoded);
   }
 
   static void _updateUnreadCount(List<InAppNotification> list) {
-    final count = list.where((n) => !n.isRead).length;
-    unreadCountNotifier.value = count;
+    final unread = list.where((n) => !n.isRead).length;
+    unreadCountNotifier.value = unread;
   }
 }

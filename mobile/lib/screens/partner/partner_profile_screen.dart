@@ -339,10 +339,10 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
             ),
 
             _buildTile(
-              icon: Icons.privacy_tip_outlined,
-              title: 'Privacy Policy & Escrow Terms',
-              subtitle: 'Corporate NDPR data compliance & milestone settlement protection',
-              onTap: () => PartnerLegalModal.showPrivacyAndEscrow(context),
+              icon: Icons.support_agent_rounded,
+              title: 'Partner Inquiries, Complaints & Submissions',
+              subtitle: 'Formal dispute submissions, commission queries & arbitration desk',
+              onTap: () => PartnerLegalModal.showInquiriesAndComplaints(context),
             ),
             if (widget.onSwitchToTenant != null) ...[
               const SizedBox(height: 4),
