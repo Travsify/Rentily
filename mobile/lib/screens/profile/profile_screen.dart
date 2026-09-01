@@ -507,15 +507,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             ),
-                            onPressed: () async {
+                            onPressed: () {
                               Navigator.of(ctx).pop();
-                              await AuthService.logout();
-                              if (context.mounted) {
-                                Navigator.of(context).pushAndRemoveUntil(
-                                  MaterialPageRoute(builder: (_) => const RegisterScreen()),
-                                  (route) => false,
-                                );
-                              }
+                              Navigator.of(context).push(
+                                MaterialPageRoute(builder: (_) => const RegisterScreen(initialRole: 'owner')),
+                              );
                             },
                             child: Text(
                               'Create Landlord Account',

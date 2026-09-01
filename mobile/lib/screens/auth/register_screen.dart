@@ -5,7 +5,12 @@ import '../../services/auth_service.dart';
 import '../main_navigation_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  final String initialRole;
+
+  const RegisterScreen({
+    super.key,
+    this.initialRole = 'renter',
+  });
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -19,10 +24,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
   
   bool _obscurePassword = true;
   bool _agreedToTerms = true;
-  String _selectedRole = 'renter';
+  late String _selectedRole;
   String _selectedState = 'Lagos';
   bool _isLoading = false;
   String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedRole = widget.initialRole;
+  }
 
   void _handleRegister() async {
     final name = _nameController.text.trim();
@@ -83,7 +94,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded, size: 22, color: AppColors.textPrimary),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+              );
+            }
+          },
         ),
       ),
       body: SafeArea(
