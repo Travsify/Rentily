@@ -310,10 +310,58 @@ class _BillsScreenState extends State<BillsScreen> {
   void initState() {
     super.initState();
     _selectedCategory = widget.initialCategory;
+    _phoneController.addListener(_onPhoneChanged);
+  }
+
+  void _onPhoneChanged() {
+    _detectTelcoFromPhone(_phoneController.text);
+  }
+
+  void _detectTelcoFromPhone(String phone) {
+    String clean = phone.replaceAll(RegExp(r'[^0-9]'), '');
+    if (clean.startsWith('234') && clean.length > 3) {
+      clean = '0${clean.substring(3)}';
+    }
+    if (clean.length < 4) return;
+
+    final prefix4 = clean.substring(0, 4);
+    final prefix5 = clean.length >= 5 ? clean.substring(0, 5) : '';
+
+    String? detected;
+
+    // MTN Prefixes
+    const mtn = ['0803', '0806', '0703', '0706', '0813', '0816', '0810', '0814', '0903', '0906', '0913', '0916', '0704', '07025', '07026'];
+    // Airtel Prefixes
+    const airtel = ['0802', '0808', '0708', '0812', '0701', '0902', '0901', '0904', '0907', '0912', '0911'];
+    // Glo Prefixes
+    const glo = ['0805', '0807', '0705', '0815', '0811', '0905', '0915'];
+    // 9mobile Prefixes
+    const etisalat = ['0809', '0818', '0817', '0909', '0908'];
+
+    if (mtn.contains(prefix4) || mtn.contains(prefix5)) {
+      detected = 'MTN';
+    } else if (airtel.contains(prefix4)) {
+      detected = 'Airtel';
+    } else if (glo.contains(prefix4)) {
+      detected = 'Glo';
+    } else if (etisalat.contains(prefix4)) {
+      detected = '9mobile';
+    }
+
+    if (detected != null && detected != _selectedTelco) {
+      setState(() {
+        _selectedTelco = detected!;
+        final plans = _getCurrentDataPlans();
+        if (!plans.contains(_selectedDataPlan)) {
+          _selectedDataPlan = plans.first;
+        }
+      });
+    }
   }
 
   @override
   void dispose() {
+    _phoneController.removeListener(_onPhoneChanged);
     _customerController.dispose();
     _phoneController.dispose();
     _amountController.dispose();
@@ -901,7 +949,40 @@ class _BillsScreenState extends State<BillsScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildLabel('1. SELECT MOBILE NETWORK'),
+            _buildLabel('1. RECIPIENT PHONE NUMBER (AUTO-DETECTS OPERATOR)'),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _phoneController,
+              keyboardType: TextInputType.phone,
+              style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+              decoration: _buildInputDeco(hint: 'e.g. 0803 123 4567'),
+            ),
+            const SizedBox(height: 14),
+
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildLabel('2. MOBILE OPERATOR'),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0284C7).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF0284C7).withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.auto_awesome, size: 11, color: Color(0xFF0284C7)),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$_selectedTelco Auto-Detected',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.bold, color: const Color(0xFF0284C7)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 6),
             DropdownButtonFormField<String>(
               value: _selectedTelco,
@@ -921,7 +1002,7 @@ class _BillsScreenState extends State<BillsScreen> {
             ),
             const SizedBox(height: 14),
 
-            _buildLabel('2. BUNDLE VALIDITY / DURATION'),
+            _buildLabel('3. BUNDLE VALIDITY / DURATION'),
             const SizedBox(height: 8),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -961,7 +1042,7 @@ class _BillsScreenState extends State<BillsScreen> {
             ),
             const SizedBox(height: 14),
 
-            _buildLabel('3. SELECT DATA PLAN (${currentDataPlans.length} AVAILABLE)'),
+            _buildLabel('4. SELECT DATA PLAN (${currentDataPlans.length} AVAILABLE FOR $_selectedTelco)'),
             const SizedBox(height: 6),
             DropdownButtonFormField<String>(
               value: currentDataPlans.contains(_selectedDataPlan) ? _selectedDataPlan : currentDataPlans.first,
@@ -972,16 +1053,6 @@ class _BillsScreenState extends State<BillsScreen> {
               items: currentDataPlans.map((p) => DropdownMenuItem(value: p, child: Text(p, overflow: TextOverflow.ellipsis))).toList(),
               onChanged: (v) => setState(() => _selectedDataPlan = v!),
             ),
-            const SizedBox(height: 14),
-
-            _buildLabel('4. RECIPIENT PHONE NUMBER'),
-            const SizedBox(height: 6),
-            TextField(
-              controller: _phoneController,
-              keyboardType: TextInputType.phone,
-              style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-              decoration: _buildInputDeco(hint: '0812 345 6789'),
-            ),
           ],
         );
 
@@ -990,7 +1061,40 @@ class _BillsScreenState extends State<BillsScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildLabel('1. SELECT MOBILE NETWORK'),
+            _buildLabel('1. RECIPIENT PHONE NUMBER (AUTO-DETECTS OPERATOR)'),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _phoneController,
+              keyboardType: TextInputType.phone,
+              style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+              decoration: _buildInputDeco(hint: 'e.g. 0803 123 4567'),
+            ),
+            const SizedBox(height: 14),
+
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildLabel('2. MOBILE NETWORK OPERATOR'),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.auto_awesome, size: 11, color: AppColors.primary),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$_selectedTelco Auto-Detected',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.bold, color: AppColors.primary),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 6),
             DropdownButtonFormField<String>(
               value: _selectedTelco,
@@ -999,16 +1103,6 @@ class _BillsScreenState extends State<BillsScreen> {
               decoration: _buildInputDeco(),
               items: _telcos.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
               onChanged: (v) => setState(() => _selectedTelco = v!),
-            ),
-            const SizedBox(height: 14),
-
-            _buildLabel('2. RECIPIENT PHONE NUMBER'),
-            const SizedBox(height: 6),
-            TextField(
-              controller: _phoneController,
-              keyboardType: TextInputType.phone,
-              style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-              decoration: _buildInputDeco(hint: '0812 345 6789'),
             ),
             const SizedBox(height: 14),
 
