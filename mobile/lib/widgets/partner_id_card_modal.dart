@@ -5,6 +5,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import '../constants/app_colors.dart';
 import '../models/user_profile.dart';
+import '../services/auth_service.dart';
 
 class PartnerIdCardModal extends StatelessWidget {
   final UserProfile user;
@@ -21,25 +22,26 @@ class PartnerIdCardModal extends StatelessWidget {
   }
 
   Future<void> _generateAndShareIdPdf(BuildContext context) async {
-    final isPartner = user.role == 'partner';
-    final isVerified = user.isVerified || user.bvnVerified;
+    final effectiveUser = AuthService.currentUserNotifier.value ?? user;
+    final isPartner = effectiveUser.role == 'partner';
+    final isVerified = effectiveUser.isVerified || effectiveUser.bvnVerified;
 
     final holderName = isPartner
-        ? (user.businessName != null && user.businessName!.trim().isNotEmpty
-            ? user.businessName!.trim()
-            : (user.fullName.trim().isNotEmpty ? user.fullName.trim() : 'Partner Enterprise'))
-        : (user.fullName.trim().isNotEmpty ? user.fullName.trim() : 'Property Owner');
+        ? (effectiveUser.businessName != null && effectiveUser.businessName!.trim().isNotEmpty
+            ? effectiveUser.businessName!.trim()
+            : (effectiveUser.fullName.trim().isNotEmpty ? effectiveUser.fullName.trim() : 'Partner Enterprise'))
+        : (effectiveUser.fullName.trim().isNotEmpty ? effectiveUser.fullName.trim() : 'Property Owner');
 
     final cacOrTitle = isPartner
-        ? (user.cacNumber != null && user.cacNumber!.trim().isNotEmpty
-            ? user.cacNumber!.trim()
+        ? (effectiveUser.cacNumber != null && effectiveUser.cacNumber!.trim().isNotEmpty
+            ? effectiveUser.cacNumber!.trim()
             : (isVerified ? 'CAC Registered' : 'Pending CAC KYB'))
         : (isVerified ? 'Deed & Land Registry Audited' : 'Pending Land Registry Audit');
 
     final prefix = isPartner ? 'RNT-PTR' : 'RNT-LLD';
-    final digitalId = '$prefix-${user.id.replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0').substring(0, 4)}';
+    final digitalId = '$prefix-${effectiveUser.id.replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0').substring(0, 4)}';
     
-    final rawState = (user.state != null && user.state!.trim().isNotEmpty) ? user.state!.trim() : 'Lagos';
+    final rawState = (effectiveUser.state != null && effectiveUser.state!.trim().isNotEmpty) ? effectiveUser.state!.trim() : 'Lagos';
     final cleanState = rawState.toLowerCase().contains('fct') || rawState.toLowerCase().contains('abuja')
         ? 'Abuja (FCT)'
         : (rawState.toLowerCase().contains('state') ? rawState : '$rawState State');
@@ -324,25 +326,26 @@ class PartnerIdCardModal extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isPartner = user.role == 'partner';
-    final isVerified = user.isVerified || user.bvnVerified;
+    final effectiveUser = AuthService.currentUserNotifier.value ?? user;
+    final isPartner = effectiveUser.role == 'partner';
+    final isVerified = effectiveUser.isVerified || effectiveUser.bvnVerified;
 
     final holderName = isPartner
-        ? (user.businessName != null && user.businessName!.trim().isNotEmpty
-            ? user.businessName!.trim()
-            : (user.fullName.trim().isNotEmpty ? user.fullName.trim() : 'Partner Enterprise'))
-        : (user.fullName.trim().isNotEmpty ? user.fullName.trim() : 'Property Owner');
+        ? (effectiveUser.businessName != null && effectiveUser.businessName!.trim().isNotEmpty
+            ? effectiveUser.businessName!.trim()
+            : (effectiveUser.fullName.trim().isNotEmpty ? effectiveUser.fullName.trim() : 'Partner Enterprise'))
+        : (effectiveUser.fullName.trim().isNotEmpty ? effectiveUser.fullName.trim() : 'Property Owner');
 
     final cacOrTitle = isPartner
-        ? (user.cacNumber != null && user.cacNumber!.trim().isNotEmpty
-            ? user.cacNumber!.trim()
+        ? (effectiveUser.cacNumber != null && effectiveUser.cacNumber!.trim().isNotEmpty
+            ? effectiveUser.cacNumber!.trim()
             : (isVerified ? 'CAC Registered' : 'Pending CAC KYB'))
         : (isVerified ? 'Deed & Land Registry Audited' : 'Pending Land Registry Audit');
 
     final prefix = isPartner ? 'RNT-PTR' : 'RNT-LLD';
-    final digitalId = '$prefix-${user.id.replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0').substring(0, 4)}';
+    final digitalId = '$prefix-${effectiveUser.id.replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0').substring(0, 4)}';
     
-    final rawState = (user.state != null && user.state!.trim().isNotEmpty) ? user.state!.trim() : 'Lagos';
+    final rawState = (effectiveUser.state != null && effectiveUser.state!.trim().isNotEmpty) ? effectiveUser.state!.trim() : 'Lagos';
     final cleanState = rawState.toLowerCase().contains('fct') || rawState.toLowerCase().contains('abuja')
         ? 'Abuja (FCT)'
         : (rawState.toLowerCase().contains('state') ? rawState : '$rawState State');

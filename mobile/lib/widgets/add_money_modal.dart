@@ -83,7 +83,12 @@ class _AddMoneyModalState extends State<AddMoneyModal> {
   void _copyAllDetails(BuildContext context) {
     final bank = widget.user.bankName ?? 'Flutterwave MFB';
     final accNum = widget.user.accountNumber ?? '9823481234';
-    final name = widget.user.fullName.isNotEmpty ? widget.user.fullName : 'Patrick Achua';
+    final isPartner = widget.user.role == 'partner';
+    final name = isPartner
+        ? (widget.user.businessName != null && widget.user.businessName!.trim().isNotEmpty
+            ? widget.user.businessName!.trim()
+            : (widget.user.fullName.trim().isNotEmpty ? widget.user.fullName.trim() : 'Corporate Partner'))
+        : (widget.user.fullName.trim().isNotEmpty ? widget.user.fullName.trim() : 'Property Owner');
 
     final text = 'Bank: $bank\nAccount Number: $accNum\nBeneficiary: $name / Rentilly Escrow';
     Clipboard.setData(ClipboardData(text: text));
@@ -165,7 +170,12 @@ class _AddMoneyModalState extends State<AddMoneyModal> {
   Widget build(BuildContext context) {
     final bankName = widget.user.bankName ?? 'Flutterwave MFB';
     final accountNumber = widget.user.accountNumber ?? '9823481234';
-    final name = widget.user.fullName.isNotEmpty ? widget.user.fullName : 'Property Owner';
+    final isPartner = widget.user.role == 'partner';
+    final name = isPartner
+        ? (widget.user.businessName != null && widget.user.businessName!.trim().isNotEmpty
+            ? widget.user.businessName!.trim()
+            : (widget.user.fullName.trim().isNotEmpty ? widget.user.fullName.trim() : 'Corporate Partner'))
+        : (widget.user.fullName.trim().isNotEmpty ? widget.user.fullName.trim() : 'Property Owner');
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.88,

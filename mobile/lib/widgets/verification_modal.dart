@@ -290,6 +290,37 @@ class _VerificationModalState extends State<VerificationModal> {
     );
   }
 
+  DateTime _selectedDob = DateTime(1994, 8, 14);
+
+  Future<void> _pickDateOfBirth() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDob,
+      firstDate: DateTime(1940),
+      lastDate: DateTime(DateTime.now().year - 18, 12, 31),
+      helpText: 'SELECT DATE OF BIRTH',
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppColors.primary,
+              onPrimary: Colors.white,
+              onSurface: AppColors.textPrimary,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        _selectedDob = picked;
+        _dobController.text = "${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}";
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -633,13 +664,15 @@ class _VerificationModalState extends State<VerificationModal> {
                     flex: 2,
                     child: TextField(
                       controller: _dobController,
-                      keyboardType: TextInputType.datetime,
+                      readOnly: true,
+                      onTap: _pickDateOfBirth,
                       style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
                       decoration: InputDecoration(
-                        labelText: 'DOB (DD/MM/YYYY)',
-                        hintText: '14/08/1994',
+                        labelText: 'Date of Birth',
+                        hintText: 'Select Date',
+                        prefixIcon: const Icon(Icons.calendar_month_rounded, size: 18, color: AppColors.primary),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                       ),
                     ),
                   ),

@@ -89,6 +89,22 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
   void initState() {
     super.initState();
     _loadPartnerData();
+    AuthService.currentUserNotifier.addListener(_onUserChanged);
+  }
+
+  void _onUserChanged() {
+    if (mounted) {
+      final updated = AuthService.currentUserNotifier.value;
+      if (updated != null) {
+        setState(() => _user = updated);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    AuthService.currentUserNotifier.removeListener(_onUserChanged);
+    super.dispose();
   }
 
   void _loadPartnerData() async {

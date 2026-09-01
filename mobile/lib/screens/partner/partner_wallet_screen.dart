@@ -27,6 +27,22 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
   void initState() {
     super.initState();
     _loadUser();
+    AuthService.currentUserNotifier.addListener(_onUserChanged);
+  }
+
+  void _onUserChanged() {
+    if (mounted) {
+      final updated = AuthService.currentUserNotifier.value;
+      if (updated != null) {
+        setState(() => _user = updated);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    AuthService.currentUserNotifier.removeListener(_onUserChanged);
+    super.dispose();
   }
 
   void _loadUser() async {

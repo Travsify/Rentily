@@ -29,6 +29,22 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
   void initState() {
     super.initState();
     _loadProfile();
+    AuthService.currentUserNotifier.addListener(_onUserChanged);
+  }
+
+  void _onUserChanged() {
+    if (mounted) {
+      final updated = AuthService.currentUserNotifier.value;
+      if (updated != null) {
+        setState(() => _user = updated);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    AuthService.currentUserNotifier.removeListener(_onUserChanged);
+    super.dispose();
   }
 
   void _loadProfile() async {
