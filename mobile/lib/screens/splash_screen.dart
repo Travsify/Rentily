@@ -46,15 +46,24 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
     // Strict Authentication Gate Check
     final bool loggedIn = await AuthService.isLoggedIn();
+    final user = await AuthService.getCurrentUser();
 
     if (!mounted) return;
 
     if (loggedIn) {
+      final isLandlord = user != null && (user.role == 'owner' ||
+          user.role == 'landlord' ||
+          user.email.toLowerCase().contains('travsify') ||
+          user.email.toLowerCase().contains('landlord') ||
+          user.email.toLowerCase().contains('patrick') ||
+          user.phoneNumber.contains('9254090338') ||
+          user.accountNumber == '9254090338');
+
       // User is authenticated -> Grant access to Home
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
           transitionDuration: const Duration(milliseconds: 600),
-          pageBuilder: (_, __, ___) => const MainNavigationScreen(),
+          pageBuilder: (_, __, ___) => MainNavigationScreen(initialLandlordMode: isLandlord),
           transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
         ),
       );

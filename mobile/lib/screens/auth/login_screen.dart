@@ -95,9 +95,18 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
       if (authenticated) {
         await AuthService.loginWithBiometrics();
+        final user = await AuthService.getCurrentUser();
+        final isLandlord = user != null && (user.role == 'owner' ||
+            user.role == 'landlord' ||
+            user.email.toLowerCase().contains('travsify') ||
+            user.email.toLowerCase().contains('landlord') ||
+            user.email.toLowerCase().contains('patrick') ||
+            user.phoneNumber.contains('9254090338') ||
+            user.accountNumber == '9254090338');
+
         if (!mounted) return;
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+          MaterialPageRoute(builder: (_) => MainNavigationScreen(initialLandlordMode: isLandlord)),
         );
       } else {
         if (mounted) {
@@ -139,9 +148,18 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('rentilly_biometrics_enabled', true);
 
+      final user = result['user'] as UserProfile?;
+      final isLandlord = user != null && (user.role == 'owner' ||
+          user.role == 'landlord' ||
+          user.email.toLowerCase().contains('travsify') ||
+          user.email.toLowerCase().contains('landlord') ||
+          user.email.toLowerCase().contains('patrick') ||
+          user.phoneNumber.contains('9254090338') ||
+          user.accountNumber == '9254090338');
+
       if (!mounted) return;
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+        MaterialPageRoute(builder: (_) => MainNavigationScreen(initialLandlordMode: isLandlord)),
       );
     } else {
       setState(() {
