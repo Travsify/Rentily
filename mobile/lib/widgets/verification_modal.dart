@@ -28,13 +28,20 @@ class VerificationModal extends StatefulWidget {
 
 class _VerificationModalState extends State<VerificationModal> {
   UserProfile? _currentUser;
-  String _selectedIdType = 'nin'; // 'nin', 'voters_card', 'drivers_license', 'passport'
+  int _currentStep = 0; // 0: Business Info, 1: Director Info (for Partners)
+
+  // Step 1: Corporate Fields
   final TextEditingController _businessNameController = TextEditingController();
   final TextEditingController _cacNumberController = TextEditingController();
   final TextEditingController _tinController = TextEditingController();
+  final TextEditingController _officeAddressController = TextEditingController();
+
+  // Step 2: Director KYC Fields
+  String _selectedIdType = 'nin'; // 'nin', 'voters_card', 'drivers_license', 'passport'
   final TextEditingController _idController = TextEditingController();
   final TextEditingController _bvnController = TextEditingController();
   final TextEditingController _dobController = TextEditingController(text: '14/08/1994');
+
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -57,6 +64,11 @@ class _VerificationModalState extends State<VerificationModal> {
         if (u.cacNumber != null && u.cacNumber!.isNotEmpty) {
           _cacNumberController.text = u.cacNumber!;
         }
+        if (u.officeAddress != null && u.officeAddress!.isNotEmpty) {
+          _officeAddressController.text = u.officeAddress!;
+        } else {
+          _officeAddressController.text = '${u.state ?? "Lagos"}, Nigeria';
+        }
         if (u.ninNumber != null && u.ninNumber!.isNotEmpty) {
           _idController.text = u.ninNumber!;
         }
@@ -69,6 +81,7 @@ class _VerificationModalState extends State<VerificationModal> {
     _businessNameController.dispose();
     _cacNumberController.dispose();
     _tinController.dispose();
+    _officeAddressController.dispose();
     _idController.dispose();
     _bvnController.dispose();
     _dobController.dispose();
@@ -107,20 +120,39 @@ class _VerificationModalState extends State<VerificationModal> {
     }
   }
 
+  void _goToStep2() {
+    final bName = _businessNameController.text.trim();
+    final cac = _cacNumberController.text.trim();
+
+    if (bName.isEmpty) {
+      setState(() => _errorMessage = 'Please enter your registered Business / Company Name.');
+      return;
+    }
+    if (cac.isEmpty) {
+      setState(() => _errorMessage = 'Please enter your CAC RC or Business Number (BN).');
+      return;
+    }
+
+    setState(() {
+      _errorMessage = null;
+      _currentStep = 1;
+    });
+  }
+
   void _handleVerify() async {
     final idNum = _idController.text.trim();
     final bvn = _bvnController.text.trim();
     final dob = _dobController.text.trim();
     final bName = _businessNameController.text.trim();
     final cac = _cacNumberController.text.trim();
+    final office = _officeAddressController.text.trim();
 
     if (_isPartner) {
-      if (bName.isEmpty) {
-        setState(() => _errorMessage = 'Please enter your registered Business / Company Name.');
-        return;
-      }
-      if (cac.isEmpty) {
-        setState(() => _errorMessage = 'Please enter your CAC RC or Business Number (BN).');
+      if (bName.isEmpty || cac.isEmpty) {
+        setState(() {
+          _currentStep = 0;
+          _errorMessage = 'Please complete the business information first.';
+        });
         return;
       }
     }
@@ -160,6 +192,7 @@ class _VerificationModalState extends State<VerificationModal> {
         updatedUser = updatedUser.copyWith(
           businessName: bName,
           cacNumber: cac,
+          officeAddress: office.isNotEmpty ? office : updatedUser.officeAddress,
           isVerified: true,
           bvnVerified: true,
         );
@@ -311,7 +344,103 @@ class _VerificationModalState extends State<VerificationModal> {
                 ),
               ],
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 14),
+
+            // Partner 2-Step Progress Indicator
+            if (_isPartner) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Row(
+                  children: [
+                    // Step 1 Pill
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setState(() => _currentStep = 0),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 22,
+                              height: 22,
+                              decoration: BoxDecoration(
+                                color: _currentStep == 0 ? AppColors.primary : const Color(0xFF16A34A),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Center(
+                                child: _currentStep > 0
+                                    ? const Icon(Icons.check, size: 13, color: Colors.white)
+                                    : Text('1', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Business Info',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 11,
+                                  fontWeight: _currentStep == 0 ? FontWeight.bold : FontWeight.w500,
+                                  color: _currentStep == 0 ? AppColors.primary : AppColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // Divider
+                    Container(
+                      width: 20,
+                      height: 1.5,
+                      color: const Color(0xFFCBD5E1),
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                    ),
+
+                    // Step 2 Pill
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          if (_businessNameController.text.trim().isNotEmpty && _cacNumberController.text.trim().isNotEmpty) {
+                            setState(() => _currentStep = 1);
+                          }
+                        },
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 22,
+                              height: 22,
+                              decoration: BoxDecoration(
+                                color: _currentStep == 1 ? AppColors.primary : const Color(0xFFE2E8F0),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Center(
+                                child: Text('2', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: _currentStep == 1 ? Colors.white : AppColors.textMuted)),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                'Director Identity',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 11,
+                                  fontWeight: _currentStep == 1 ? FontWeight.bold : FontWeight.w500,
+                                  color: _currentStep == 1 ? AppColors.primary : AppColors.textMuted,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+            ],
 
             // Error Banner
             if (_errorMessage != null) ...[
@@ -338,18 +467,20 @@ class _VerificationModalState extends State<VerificationModal> {
               const SizedBox(height: 14),
             ],
 
-            // PARTNER CORPORATE KYB FIELDS
-            if (_isPartner) ...[
+            // ==========================================
+            // STEP 0: BUSINESS INFORMATION (PARTNERS)
+            // ==========================================
+            if (_isPartner && _currentStep == 0) ...[
               Text(
-                '1. CORPORATE CAC REGISTRATION',
-                style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.w900, color: AppColors.primary, letterSpacing: 0.8),
+                'STEP 1: CORPORATE CAC REGISTRATION',
+                style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w900, color: AppColors.primary, letterSpacing: 0.8),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
 
               // Business Name
               TextField(
                 controller: _businessNameController,
-                style: GoogleFonts.plusJakartaSans(fontSize: 12),
+                style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
                 decoration: InputDecoration(
                   labelText: 'Registered Business / Entity Name',
                   hintText: 'e.g. Eoms Global Inclusive Limited',
@@ -358,7 +489,7 @@ class _VerificationModalState extends State<VerificationModal> {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
 
               // CAC Number & TIN
               Row(
@@ -366,7 +497,7 @@ class _VerificationModalState extends State<VerificationModal> {
                   Expanded(
                     child: TextField(
                       controller: _cacNumberController,
-                      style: GoogleFonts.plusJakartaSans(fontSize: 12),
+                      style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
                       decoration: InputDecoration(
                         labelText: 'CAC RC / BN Number',
                         hintText: 'e.g. RC 1928374',
@@ -380,9 +511,9 @@ class _VerificationModalState extends State<VerificationModal> {
                   Expanded(
                     child: TextField(
                       controller: _tinController,
-                      style: GoogleFonts.plusJakartaSans(fontSize: 12),
+                      style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
                       decoration: InputDecoration(
-                        labelText: 'Tax Number (TIN) - Optional',
+                        labelText: 'Tax Number (TIN)',
                         hintText: 'e.g. 23819284-0001',
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -391,116 +522,190 @@ class _VerificationModalState extends State<VerificationModal> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
 
-              Text(
-                '2. PRINCIPAL DIRECTOR / BROKER IDENTITY',
-                style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.w900, color: AppColors.primary, letterSpacing: 0.8),
-              ),
-              const SizedBox(height: 8),
-            ],
-
-            // ID Type Selector
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.borderDark),
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: _selectedIdType,
-                  isExpanded: true,
-                  items: const [
-                    DropdownMenuItem(value: 'nin', child: Text('National Identity Number (NIN)')),
-                    DropdownMenuItem(value: 'voters_card', child: Text("Voter's Card (VIN)")),
-                    DropdownMenuItem(value: 'drivers_license', child: Text("Driver's License (FRSC)")),
-                    DropdownMenuItem(value: 'passport', child: Text('International Passport')),
-                  ],
-                  onChanged: (val) {
-                    if (val != null) setState(() => _selectedIdType = val);
-                  },
+              // Physical Office Address
+              TextField(
+                controller: _officeAddressController,
+                style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
+                decoration: InputDecoration(
+                  labelText: 'Physical Office / Operational Address',
+                  hintText: 'e.g. 14 Admiralty Way, Lekki Phase 1, Lagos',
+                  prefixIcon: const Icon(Icons.location_on_outlined, size: 18, color: AppColors.textMuted),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                 ),
               ),
-            ),
-            const SizedBox(height: 10),
+              const SizedBox(height: 20),
 
-            // ID Number Field
-            TextField(
-              controller: _idController,
-              keyboardType: TextInputType.text,
-              style: GoogleFonts.plusJakartaSans(fontSize: 12),
-              decoration: InputDecoration(
-                labelText: _idTypeLabel,
-                hintText: _idInputHint,
-                prefixIcon: const Icon(Icons.credit_card_rounded, size: 18, color: AppColors.textMuted),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-              ),
-            ),
-            const SizedBox(height: 10),
-
-            // BVN & DOB Row
-            Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: TextField(
-                    controller: _bvnController,
-                    keyboardType: TextInputType.number,
-                    maxLength: 11,
-                    style: GoogleFonts.plusJakartaSans(fontSize: 12),
-                    decoration: InputDecoration(
-                      labelText: _isPartner ? 'Director BVN (11 digits)' : 'Bank Verification No. (BVN)',
-                      hintText: '22XXXXXXXXX',
-                      counterText: '',
-                      prefixIcon: const Icon(Icons.fingerprint_rounded, size: 18, color: AppColors.textMuted),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                    ),
+              // Next Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _goToStep2,
+                  icon: const Icon(Icons.arrow_forward_rounded, size: 16, color: Colors.white),
+                  label: Text('Next: Director Identity', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  flex: 2,
-                  child: TextField(
-                    controller: _dobController,
-                    keyboardType: TextInputType.datetime,
-                    style: GoogleFonts.plusJakartaSans(fontSize: 12),
-                    decoration: InputDecoration(
-                      labelText: 'DOB (DD/MM/YYYY)',
-                      hintText: '14/08/1994',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              ),
+            ]
+
+            // ==========================================
+            // STEP 1: DIRECTOR IDENTITY (PARTNERS) OR STANDARD KYC
+            // ==========================================
+            else ...[
+              if (_isPartner) ...[
+                Text(
+                  'STEP 2: PRINCIPAL DIRECTOR / BROKER IDENTITY',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w900, color: AppColors.primary, letterSpacing: 0.8),
+                ),
+                const SizedBox(height: 10),
+              ],
+
+              // ID Type Selector
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.borderDark),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _selectedIdType,
+                    isExpanded: true,
+                    items: const [
+                      DropdownMenuItem(value: 'nin', child: Text('National Identity Number (NIN)')),
+                      DropdownMenuItem(value: 'voters_card', child: Text("Voter's Card (VIN)")),
+                      DropdownMenuItem(value: 'drivers_license', child: Text("Driver's License (FRSC)")),
+                      DropdownMenuItem(value: 'passport', child: Text('International Passport')),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) setState(() => _selectedIdType = val);
+                    },
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // ID Number Field
+              TextField(
+                controller: _idController,
+                keyboardType: TextInputType.text,
+                style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
+                decoration: InputDecoration(
+                  labelText: _idTypeLabel,
+                  hintText: _idInputHint,
+                  prefixIcon: const Icon(Icons.credit_card_rounded, size: 18, color: AppColors.textMuted),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // BVN & DOB Row
+              Row(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: TextField(
+                      controller: _bvnController,
+                      keyboardType: TextInputType.number,
+                      maxLength: 11,
+                      style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
+                      decoration: InputDecoration(
+                        labelText: _isPartner ? 'Director BVN (11 digits)' : 'Bank Verification No. (BVN)',
+                        hintText: '22XXXXXXXXX',
+                        counterText: '',
+                        prefixIcon: const Icon(Icons.fingerprint_rounded, size: 18, color: AppColors.textMuted),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      ),
                     ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 2,
+                    child: TextField(
+                      controller: _dobController,
+                      keyboardType: TextInputType.datetime,
+                      style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
+                      decoration: InputDecoration(
+                        labelText: 'DOB (DD/MM/YYYY)',
+                        hintText: '14/08/1994',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // Actions (Back + Submit)
+              if (_isPartner) ...[
+                Row(
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () => setState(() => _currentStep = 0),
+                      icon: const Icon(Icons.arrow_back_rounded, size: 16, color: AppColors.textSecondary),
+                      label: Text('Back', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        side: const BorderSide(color: AppColors.borderDark),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _handleVerify,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                height: 18,
+                                width: 18,
+                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                              )
+                            : Text(
+                                'Submit Corporate KYB',
+                                style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+              ] else ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _handleVerify,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 18,
+                            width: 18,
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          )
+                        : Text(
+                            'Verify Identity & Provision Account',
+                            style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                          ),
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 18),
-
-            // Submit Button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isLoading ? null : _handleVerify,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 18,
-                        width: 18,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                      )
-                    : Text(
-                        _isPartner ? 'Submit Corporate KYB Verification' : 'Verify Identity & Provision Account',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
-                      ),
-              ),
-            ),
+            ],
             const SizedBox(height: 24),
           ],
         ),
