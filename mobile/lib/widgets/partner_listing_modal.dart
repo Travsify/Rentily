@@ -801,15 +801,15 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: _selectedState,
+                        value: NigerianStatesLgas.states.contains(_selectedState) ? _selectedState : NigerianStatesLgas.states.first,
                         decoration: _inputDeco(hint: 'State'),
                         style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textPrimary),
-                        items: nigerianStatesAndCities.keys.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                        items: NigerianStatesLgas.states.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
                         onChanged: (val) {
                           if (val != null) {
                             setState(() {
                               _selectedState = val;
-                              final lgas = nigerianStatesAndCities[val] ?? ['Central'];
+                              final lgas = NigerianStatesLgas.stateToLgas[val] ?? ['Central'];
                               _selectedLga = lgas.first;
                             });
                           }
@@ -819,12 +819,12 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: (nigerianStatesAndCities[_selectedState] ?? []).contains(_selectedLga)
+                        value: (NigerianStatesLgas.stateToLgas[_selectedState] ?? []).contains(_selectedLga)
                             ? _selectedLga
-                            : (nigerianStatesAndCities[_selectedState]?.first ?? 'Central'),
+                            : (NigerianStatesLgas.stateToLgas[_selectedState]?.first ?? 'Central'),
                         decoration: _inputDeco(hint: 'LGA'),
                         style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textPrimary),
-                        items: (nigerianStatesAndCities[_selectedState] ?? ['Central'])
+                        items: (NigerianStatesLgas.stateToLgas[_selectedState] ?? ['Central'])
                             .map((lga) => DropdownMenuItem(value: lga, child: Text(lga, overflow: TextOverflow.ellipsis)))
                             .toList(),
                         onChanged: (val) {
