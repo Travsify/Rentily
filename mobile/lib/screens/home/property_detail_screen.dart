@@ -452,6 +452,90 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 14),
+
+                  // Listed By Attribution Card (Landlord vs Corporate Partner)
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: prop.listedByRole == 'verified_partner' ? const Color(0xFFBAE6FD) : const Color(0xFFBBF7D0),
+                        width: 1.5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.02),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: prop.listedByRole == 'verified_partner' ? const Color(0xFF0284C7).withValues(alpha: 0.1) : const Color(0xFF16A34A).withValues(alpha: 0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            prop.listedByRole == 'verified_partner' ? Icons.business_rounded : Icons.vpn_key_rounded,
+                            size: 20,
+                            color: prop.listedByRole == 'verified_partner' ? const Color(0xFF0284C7) : const Color(0xFF16A34A),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    prop.listedByRole == 'verified_partner' ? 'Listed by Corporate Partner' : 'Listed by Landlord',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: prop.listedByRole == 'verified_partner' ? const Color(0xFFE0F2FE) : const Color(0xFFDCFCE7),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      prop.listedByRole == 'verified_partner' ? 'VERIFIED PARTNER 🏢' : 'DIRECT OWNER 🔑',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 8.5,
+                                        fontWeight: FontWeight.w900,
+                                        color: prop.listedByRole == 'verified_partner' ? const Color(0xFF0369A1) : const Color(0xFF15803D),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                prop.listedByRole == 'verified_partner'
+                                    ? '${prop.partnerBusinessName ?? "Rentilly Verified Corporate Partner"} • CAC: ${prop.partnerCacNumber ?? "RC 1928374"}'
+                                    : 'Direct property owner verified via title audit and physical GPS inspection.',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 10.5,
+                                  color: AppColors.textSecondary,
+                                  height: 1.3,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 16),
 
                   // Specs Grid

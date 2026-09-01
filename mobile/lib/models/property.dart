@@ -31,7 +31,9 @@ class Property {
   final String listedByRole; // 'direct_landlord' | 'verified_partner'
   final String? partnerId;
   final String? partnerName;
-  final double partnerCommissionRate; // 0.025 (2.5%) for rent, 0.01 (1.0%) for sale
+  final String? partnerBusinessName; // Corporate Registered Name (e.g. Apex Realty Partners Ltd)
+  final String? partnerCacNumber; // Corporate CAC Registration Number (e.g. RC 1928374)
+  final double partnerCommissionRate; // 0.025 (2.5%) for rent, 0.02 (2.0%) for sale
   final String? partnerPresencePhotoUrl; // Partner selfie inside property (Admin-only)
   final String? powerOfAttorneyUrl; // Mandate document from landlord (Admin-only)
   final double inspectionFee; // System max: ₦5,000
@@ -70,6 +72,8 @@ class Property {
     this.listedByRole = 'direct_landlord',
     this.partnerId,
     this.partnerName,
+    this.partnerBusinessName,
+    this.partnerCacNumber,
     this.partnerCommissionRate = 0.025,
     this.partnerPresencePhotoUrl,
     this.powerOfAttorneyUrl,
@@ -150,7 +154,9 @@ class Property {
       listedByRole: json['listedByRole']?.toString() ?? json['listed_by_role']?.toString() ?? 'direct_landlord',
       partnerId: json['partnerId']?.toString() ?? json['partner_id']?.toString(),
       partnerName: json['partnerName']?.toString() ?? json['partner_name']?.toString(),
-      partnerCommissionRate: (json['partnerCommissionRate'] ?? (purpose == 'rent' ? 0.025 : 0.01)).toDouble(),
+      partnerBusinessName: json['partnerBusinessName']?.toString() ?? json['partner_business_name']?.toString() ?? (json['listedByRole'] == 'verified_partner' ? 'Rentilly Verified Corporate Partner' : null),
+      partnerCacNumber: json['partnerCacNumber']?.toString() ?? json['partner_cac_number']?.toString() ?? (json['listedByRole'] == 'verified_partner' ? 'RC 1928374' : null),
+      partnerCommissionRate: (json['partnerCommissionRate'] ?? (purpose == 'rent' ? 0.025 : 0.02)).toDouble(),
       partnerPresencePhotoUrl: json['partnerPresencePhotoUrl']?.toString() ?? json['partner_presence_photo_url']?.toString(),
       powerOfAttorneyUrl: json['powerOfAttorneyUrl']?.toString() ?? json['power_of_attorney_url']?.toString(),
       inspectionFee: inspection > 5000.0 ? 5000.0 : inspection, // Capped strictly at ₦5,000
@@ -191,6 +197,8 @@ class Property {
       'listedByRole': listedByRole,
       'partnerId': partnerId,
       'partnerName': partnerName,
+      'partnerBusinessName': partnerBusinessName,
+      'partnerCacNumber': partnerCacNumber,
       'partnerCommissionRate': partnerCommissionRate,
       'partnerPresencePhotoUrl': partnerPresencePhotoUrl,
       'powerOfAttorneyUrl': powerOfAttorneyUrl,

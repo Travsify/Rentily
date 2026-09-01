@@ -714,23 +714,31 @@ class _PropertiesScreenState extends State<PropertiesScreen> {
                     ),
                   ),
                 ),
-                // Verified Direct Owner Badge
+                // Attribution Badge (Listed by Landlord vs Listed by Corporate Partner)
                 Positioned(
                   top: 12,
                   right: 12,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.65),
+                      color: prop.listedByRole == 'verified_partner' ? const Color(0xFF0F172A).withValues(alpha: 0.85) : Colors.black.withValues(alpha: 0.75),
                       borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: prop.listedByRole == 'verified_partner' ? const Color(0xFF38BDF8) : const Color(0xFF22C55E),
+                        width: 1,
+                      ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.shield_rounded, size: 10, color: Color(0xFF22C55E)),
+                        Icon(
+                          prop.listedByRole == 'verified_partner' ? Icons.business_rounded : Icons.vpn_key_rounded,
+                          size: 11,
+                          color: prop.listedByRole == 'verified_partner' ? const Color(0xFF38BDF8) : const Color(0xFF22C55E),
+                        ),
                         const SizedBox(width: 4),
                         Text(
-                          'DIRECT OWNER',
+                          prop.listedByRole == 'verified_partner' ? 'CORPORATE PARTNER' : 'DIRECT LANDLORD',
                           style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: Colors.white),
                         ),
                       ],
@@ -763,6 +771,31 @@ class _PropertiesScreenState extends State<PropertiesScreen> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  Row(
+                    children: [
+                      Icon(
+                        prop.listedByRole == 'verified_partner' ? Icons.business_rounded : Icons.vpn_key_rounded,
+                        size: 11,
+                        color: prop.listedByRole == 'verified_partner' ? AppColors.primary : const Color(0xFF16A34A),
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          prop.listedByRole == 'verified_partner'
+                              ? 'Listed by Corporate Partner: ${prop.partnerBusinessName ?? "Verified Partner"} (${prop.partnerCacNumber ?? "CAC Verified"})'
+                              : 'Listed by Landlord • Direct Owner Verified',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.bold,
+                            color: prop.listedByRole == 'verified_partner' ? AppColors.primary : const Color(0xFF16A34A),
+                          ),
                         ),
                       ),
                     ],
