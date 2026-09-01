@@ -628,105 +628,240 @@ class _WalletScreenState extends State<WalletScreen> {
 
   void _showStatementDialog() {
     if (_user == null) return;
+    
+    String selectedDuration = 'all_time';
+    DateTime? fromDate;
+    DateTime? toDate = DateTime.now();
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          final now = DateTime.now();
+          if (selectedDuration == '7_days') {
+            fromDate = now.subtract(const Duration(days: 7));
+          } else if (selectedDuration == '30_days') {
+            fromDate = now.subtract(const Duration(days: 30));
+          } else if (selectedDuration == '90_days') {
+            fromDate = now.subtract(const Duration(days: 90));
+          } else if (selectedDuration == 'all_time') {
+            fromDate = null;
+          }
+
+          final filteredTxs = _transactions.where((tx) {
+            if (fromDate == null) return true;
+            if (tx['date'] == null) return true;
+            final d = DateTime.tryParse(tx['date'].toString());
+            if (d == null) return true;
+            if (fromDate != null && d.isBefore(fromDate!.subtract(const Duration(seconds: 1)))) return false;
+            if (toDate != null && d.isAfter(toDate!.add(const Duration(days: 1)))) return false;
+            return true;
+          }).toList();
+
+          final dateDisplay = fromDate != null
+              ? '${DateFormat('dd MMM yyyy').format(fromDate!)} - ${DateFormat('dd MMM yyyy').format(toDate ?? now)}'
+              : 'All Time (Full Account History)';
+
+          return Container(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Icon(Icons.description_rounded, size: 20, color: AppColors.primary),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Account Statement',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                    Row(
+                      children: [
+                        const Icon(Icons.description_rounded, size: 20, color: AppColors.primary),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Account Statement',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                        ),
+                      ],
+                    ),
+                    IconButton(icon: const Icon(Icons.close_rounded, size: 20), onPressed: () => Navigator.of(ctx).pop()),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Select statement timeframe and download certified PDF ledger with all transactions.',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: 16),
+
+                Text(
+                  'SELECT STATEMENT DURATION',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.w800, color: AppColors.textSecondary, letterSpacing: 0.8),
+                ),
+                const SizedBox(height: 8),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _buildDurationChip('All Time', 'all_time', selectedDuration, () {
+                        setModalState(() {
+                          selectedDuration = 'all_time';
+                          fromDate = null;
+                        });
+                      }),
+                      const SizedBox(width: 6),
+                      _buildDurationChip('Last 7 Days', '7_days', selectedDuration, () {
+                        setModalState(() {
+                          selectedDuration = '7_days';
+                        });
+                      }),
+                      const SizedBox(width: 6),
+                      _buildDurationChip('Last 30 Days', '30_days', selectedDuration, () {
+                        setModalState(() {
+                          selectedDuration = '30_days';
+                        });
+                      }),
+                      const SizedBox(width: 6),
+                      _buildDurationChip('Last 90 Days', '90_days', selectedDuration, () {
+                        setModalState(() {
+                          selectedDuration = '90_days';
+                        });
+                      }),
+                      const SizedBox(width: 6),
+                      _buildDurationChip('Custom Range', 'custom', selectedDuration, () async {
+                        final picked = await showDateRangePicker(
+                          context: context,
+                          firstDate: DateTime(2025, 1, 1),
+                          lastDate: DateTime.now().add(const Duration(days: 1)),
+                          initialDateRange: DateTimeRange(
+                            start: now.subtract(const Duration(days: 30)),
+                            end: now,
+                          ),
+                        );
+                        if (picked != null) {
+                          setModalState(() {
+                            selectedDuration = 'custom';
+                            fromDate = picked.start;
+                            toDate = picked.end;
+                          });
+                        }
+                      }),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF9FAFB),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.borderDark),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('STATEMENT TIMEFRAME', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                          Text(dateDisplay, style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('MATCHED TRANSACTIONS', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                          Text('${filteredTxs.length} Transaction${filteredTxs.length == 1 ? '' : 's'} included', style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('CURRENT CLOSING BALANCE', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                          Text('₦${_currencyFormat.format(_user!.walletBalance)}', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          Navigator.of(ctx).pop();
+                          await StatementPdfService.shareStatement(
+                            user: _user!,
+                            transactions: filteredTxs,
+                            fromDate: fromDate,
+                            toDate: toDate,
+                          );
+                        },
+                        icon: const Icon(Icons.share_rounded, size: 16, color: AppColors.primary),
+                        label: Text('Share Statement', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: AppColors.primary),
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          Navigator.of(ctx).pop();
+                          await StatementPdfService.downloadOrPrintStatement(
+                            context,
+                            user: _user!,
+                            transactions: filteredTxs,
+                            fromDate: fromDate,
+                            toDate: toDate,
+                          );
+                        },
+                        icon: const Icon(Icons.download_rounded, size: 16, color: Colors.white),
+                        label: Text('Download PDF', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
                     ),
                   ],
                 ),
-                IconButton(icon: const Icon(Icons.close_rounded, size: 20), onPressed: () => Navigator.of(ctx).pop()),
+                const SizedBox(height: 10),
               ],
             ),
-            const SizedBox(height: 6),
-            Text(
-              'Download an official certified PDF statement of your Rentilly Living Escrow account.',
-              style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 20),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF9FAFB),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.borderDark),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('ACCOUNT HOLDER', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
-                      Text(_user!.fullName, style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('ACCOUNT NUMBER', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
-                      Text('${_user!.accountNumber ?? "9955394366"} (${_user!.bankName ?? "Flutterwave MFB"})', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () async {
-                      Navigator.of(ctx).pop();
-                      await StatementPdfService.shareStatement(user: _user!, transactions: []);
-                    },
-                    icon: const Icon(Icons.share_rounded, size: 16, color: AppColors.primary),
-                    label: Text('Share Statement', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.primary),
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () async {
-                      Navigator.of(ctx).pop();
-                      await StatementPdfService.downloadOrPrintStatement(context, user: _user!, transactions: []);
-                    },
-                    icon: const Icon(Icons.download_rounded, size: 16, color: Colors.white),
-                    label: Text('Download PDF', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-          ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildDurationChip(String label, String key, String selectedKey, VoidCallback onTap) {
+    final isSel = selectedKey == key;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: isSel ? AppColors.primary : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: isSel ? AppColors.primary : AppColors.borderDark),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 10.5,
+            fontWeight: isSel ? FontWeight.bold : FontWeight.w600,
+            color: isSel ? Colors.white : AppColors.textPrimary,
+          ),
         ),
       ),
     );

@@ -219,26 +219,62 @@ class StatementPdfService {
     final pdf = pw.Document();
     final primaryColor = PdfColor.fromHex('#0B4F3F');
     final accentGold = PdfColor.fromHex('#D97706');
-    final start = fromDate != null ? DateFormat('dd MMM yyyy').format(fromDate) : '01 Jan 2026';
+    final start = fromDate != null ? DateFormat('dd MMM yyyy').format(fromDate) : '01 Aug 2026';
     final end = toDate != null ? DateFormat('dd MMM yyyy').format(toDate) : DateFormat('dd MMM yyyy').format(DateTime.now());
 
     double totalInflow = 0;
     double totalOutflow = 0;
-    for (var tx in transactions) {
+
+    // Filter transactions within range if specified
+    final filtered = transactions.where((tx) {
+      if (tx['date'] == null) return true;
+      final d = DateTime.tryParse(tx['date'].toString());
+      if (d == null) return true;
+      if (fromDate != null && d.isBefore(fromDate.subtract(const Duration(seconds: 1)))) return false;
+      if (toDate != null && d.isAfter(toDate.add(const Duration(days: 1)))) return false;
+      return true;
+    }).toList();
+
+    // Sort chronological to build true running ledger
+    filtered.sort((a, b) {
+      final da = DateTime.tryParse(a['date']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final db = DateTime.tryParse(b['date']?.toString() ?? '') ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return da.compareTo(db);
+    });
+
+    double runningBalance = 0.0;
+    final List<List<String>> tableData = [];
+
+    for (var tx in filtered) {
       final amt = (tx['amount'] as num?)?.toDouble() ?? 0.0;
       final isCredit = tx['isCredit'] == true || (tx['type']?.toString().toLowerCase().contains('deposit') ?? false);
       if (isCredit) {
         totalInflow += amt;
+        runningBalance += amt;
       } else {
         totalOutflow += amt;
+        runningBalance = (runningBalance - amt).clamp(0.0, double.infinity);
       }
-    }
-    if (totalInflow == 0 && user.walletBalance > 0) {
-      totalInflow = user.walletBalance;
+
+      final dateStr = tx['date'] != null
+          ? DateFormat('dd/MM/yyyy\nhh:mm a').format(DateTime.tryParse(tx['date'].toString()) ?? DateTime.now())
+          : DateFormat('dd/MM/yyyy\nhh:mm a').format(DateTime.now());
+
+      final ref = (tx['reference'] ?? tx['id'] ?? 'REF').toString();
+      final shortRef = ref.length > 12 ? '${ref.substring(0, 12)}...' : ref;
+
+      tableData.add([
+        dateStr,
+        tx['title'] ?? tx['type'] ?? 'Escrow Settlement',
+        shortRef,
+        isCredit ? 'CR' : 'DR',
+        !isCredit ? _currencyFormat.format(amt) : '-',
+        isCredit ? _currencyFormat.format(amt) : '-',
+        _currencyFormat.format(runningBalance),
+      ]);
     }
 
-    final openingBal = 0.00;
-    final closingBal = user.walletBalance;
+    final closingBal = runningBalance > 0 ? runningBalance : user.walletBalance;
 
     pdf.addPage(
       pw.MultiPage(
@@ -323,7 +359,6 @@ class StatementPdfService {
                     child: pw.Column(
                       crossAxisAlignment: pw.CrossAxisAlignment.start,
                       children: [
-                        _buildSummaryItem('Opening Balance', 'NGN ${_currencyFormat.format(openingBal)}', PdfColors.black),
                         _buildSummaryItem('Total Inflows (Cr)', 'NGN ${_currencyFormat.format(totalInflow)}', PdfColors.green800),
                         _buildSummaryItem('Total Outflows (Dr)', 'NGN ${_currencyFormat.format(totalOutflow)}', PdfColors.red800),
                         pw.Divider(thickness: 0.8, color: PdfColors.grey300, height: 10),
@@ -338,27 +373,15 @@ class StatementPdfService {
 
             // Ledger Transactions Table
             pw.Text(
-              'ACCOUNT TRANSACTIONS LEDGER',
+              'ACCOUNT TRANSACTIONS LEDGER (${tableData.length} TRANSACTIONS)',
               style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold, color: primaryColor, letterSpacing: 0.8),
             ),
             pw.SizedBox(height: 8),
 
             pw.TableHelper.fromTextArray(
-              headers: ['Date', 'Transaction Description', 'Reference', 'Type', 'Debit (NGN)', 'Credit (NGN)', 'Balance (NGN)'],
-              data: transactions.isNotEmpty
-                  ? transactions.map((tx) {
-                      final isCredit = tx['isCredit'] == true || (tx['type']?.toString().toLowerCase().contains('deposit') ?? false);
-                      final amt = (tx['amount'] as num?)?.toDouble() ?? 0.0;
-                      return [
-                        tx['date'] != null ? DateFormat('dd/MM/yy').format(DateTime.tryParse(tx['date'].toString()) ?? DateTime.now()) : DateFormat('dd/MM/yy').format(DateTime.now()),
-                        tx['title'] ?? tx['type'] ?? 'Escrow Settlement',
-                        (tx['reference'] ?? tx['id'] ?? 'REF').toString().substring(0, 8),
-                        isCredit ? 'CR' : 'DR',
-                        !isCredit ? _currencyFormat.format(amt) : '-',
-                        isCredit ? _currencyFormat.format(amt) : '-',
-                        _currencyFormat.format(user.walletBalance),
-                      ];
-                    }).toList()
+              headers: ['Date & Time', 'Transaction Description', 'Reference', 'Type', 'Debit (NGN)', 'Credit (NGN)', 'Balance (NGN)'],
+              data: tableData.isNotEmpty
+                  ? tableData
                   : [
                       [
                         DateFormat('dd/MM/yy').format(DateTime.now()),
@@ -366,8 +389,8 @@ class StatementPdfService {
                         '10000426',
                         'CR',
                         '-',
-                        _currencyFormat.format(user.walletBalance > 0 ? user.walletBalance : 1000.00),
-                        _currencyFormat.format(user.walletBalance > 0 ? user.walletBalance : 1000.00),
+                        _currencyFormat.format(user.walletBalance),
+                        _currencyFormat.format(user.walletBalance),
                       ],
                     ],
               headerStyle: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.white),
@@ -473,8 +496,19 @@ class StatementPdfService {
     );
   }
 
-  static Future<void> downloadOrPrintStatement(BuildContext context, {required UserProfile user, required List<Map<String, dynamic>> transactions}) async {
-    final pdfBytes = await generateStatementPdf(user: user, transactions: transactions);
+  static Future<void> downloadOrPrintStatement(
+    BuildContext context, {
+    required UserProfile user,
+    required List<Map<String, dynamic>> transactions,
+    DateTime? fromDate,
+    DateTime? toDate,
+  }) async {
+    final pdfBytes = await generateStatementPdf(
+      user: user,
+      transactions: transactions,
+      fromDate: fromDate,
+      toDate: toDate,
+    );
     await Printing.layoutPdf(
       onLayout: (PdfPageFormat format) async => pdfBytes,
       name: 'Rentilly_Statement_${user.fullName.replaceAll(' ', '_')}.pdf',
@@ -501,8 +535,15 @@ class StatementPdfService {
   static Future<void> shareStatement({
     required UserProfile user,
     required List<Map<String, dynamic>> transactions,
+    DateTime? fromDate,
+    DateTime? toDate,
   }) async {
-    final pdfBytes = await generateStatementPdf(user: user, transactions: transactions);
+    final pdfBytes = await generateStatementPdf(
+      user: user,
+      transactions: transactions,
+      fromDate: fromDate,
+      toDate: toDate,
+    );
     final tempDir = await getTemporaryDirectory();
     final file = File('${tempDir.path}/Rentilly_Statement_${user.fullName.replaceAll(' ', '_')}.pdf');
     await file.writeAsBytes(pdfBytes);

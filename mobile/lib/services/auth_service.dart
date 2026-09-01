@@ -262,7 +262,6 @@ class AuthService {
             bankName: u.bankName ?? 'Flutterwave MFB',
             isVerified: true,
             bvnVerified: true,
-            walletBalance: u.walletBalance > 0 ? u.walletBalance : 2000.00,
           );
         }
         currentUserNotifier.value = u;
@@ -287,7 +286,6 @@ class AuthService {
             bankName: u.bankName ?? 'Flutterwave MFB',
             isVerified: true,
             bvnVerified: true,
-            walletBalance: u.walletBalance > 0 ? u.walletBalance : 2000.00,
           );
         }
         return u;
@@ -303,7 +301,7 @@ class AuthService {
       bvnVerified: true,
       accountNumber: '9955394366',
       bankName: 'Flutterwave MFB',
-      walletBalance: 2000.00,
+      walletBalance: 800.00,
       state: 'Lagos',
     );
   }
@@ -360,7 +358,6 @@ class AuthService {
       userMap['bankName'] = 'Flutterwave MFB';
       userMap['isVerified'] = true;
       userMap['bvnVerified'] = true;
-      userMap['walletBalance'] = (userMap['walletBalance'] as num?)?.toDouble() ?? 2000.00;
     }
 
     final encoded = json.encode(userMap);

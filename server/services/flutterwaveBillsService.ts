@@ -65,25 +65,34 @@ export class FlutterwaveBillsService {
     email?: string;
   }): Promise<{ status: boolean; data?: any; message?: string }> {
     const txRef = `RENTILLY_AIRTIME_${params.phoneNumber.slice(-4)}_${Date.now()}`;
-    const cleanPhone = params.phoneNumber.replace(/[^0-9]/g, '');
+    let cleanPhone = params.phoneNumber.replace(/[^0-9]/g, '');
+    if (cleanPhone.startsWith('234') && cleanPhone.length > 10) {
+      cleanPhone = '0' + cleanPhone.substring(3);
+    }
+
+    const op = (params.operator || 'MTN').toUpperCase().trim();
 
     try {
+      const payload = {
+        country: 'NG',
+        customer: cleanPhone,
+        amount: params.amount,
+        recurrence: 'ONCE',
+        type: `${op} AIRTIME`,
+        reference: txRef
+      };
+
+      console.log('Dispatching Flutterwave Airtime Payload:', payload);
       const response = await fetch(`${FLW_BASE_URL}/bills`, {
         method: 'POST',
         headers: this.getHeaders(),
-        body: JSON.stringify({
-          country: 'NG',
-          customer: cleanPhone,
-          amount: params.amount,
-          recurrence: 'ONCE',
-          type: 'AIRTIME',
-          reference: txRef
-        })
+        body: JSON.stringify(payload)
       });
 
       const resJson: any = await response.json();
+      console.log('Flutterwave /bills Airtime Response:', resJson);
 
-      if (response.ok && resJson.status === 'success') {
+      if (response.ok && (resJson.status === 'success' || resJson.data?.status === 'successful')) {
         return {
           status: true,
           data: {
@@ -94,32 +103,51 @@ export class FlutterwaveBillsService {
             status: 'SUCCESSFUL',
             flwRef: resJson.data?.flw_ref || `FLW_${Date.now()}`
           },
-          message: 'Airtime recharge successful!'
+          message: `Airtime recharge successful! ₦${params.amount.toLocaleString()} sent to ${cleanPhone}`
         };
       }
 
-      return {
-        status: true,
-        data: {
-          txRef: txRef,
+      // Retry with generic AIRTIME type if specific network was rejected
+      if (!response.ok || resJson.status !== 'success') {
+        const retryPayload = {
+          country: 'NG',
+          customer: cleanPhone,
           amount: params.amount,
-          phoneNumber: cleanPhone,
-          operator: params.operator,
-          status: 'SUCCESSFUL',
-          flwRef: `FLW_${Date.now()}`
-        },
-        message: 'Airtime recharge processed successfully!'
+          recurrence: 'ONCE',
+          type: 'AIRTIME',
+          reference: `${txRef}_RETRY`
+        };
+        const retryRes = await fetch(`${FLW_BASE_URL}/bills`, {
+          method: 'POST',
+          headers: this.getHeaders(),
+          body: JSON.stringify(retryPayload)
+        });
+        const retryJson: any = await retryRes.json();
+        if (retryRes.ok && (retryJson.status === 'success' || retryJson.data?.status === 'successful')) {
+          return {
+            status: true,
+            data: {
+              txRef: txRef,
+              amount: params.amount,
+              phoneNumber: cleanPhone,
+              operator: params.operator,
+              status: 'SUCCESSFUL',
+              flwRef: retryJson.data?.flw_ref || `FLW_${Date.now()}`
+            },
+            message: `Airtime recharge successful! ₦${params.amount.toLocaleString()} sent to ${cleanPhone}`
+          };
+        }
+      }
+
+      return {
+        status: false,
+        message: resJson.message || 'Flutterwave airtime delivery was not confirmed by the carrier network.'
       };
     } catch (err: any) {
+      console.error('Airtime delivery error:', err);
       return {
-        status: true,
-        data: {
-          txRef: txRef,
-          amount: params.amount,
-          phoneNumber: cleanPhone,
-          operator: params.operator,
-          status: 'SUCCESSFUL'
-        }
+        status: false,
+        message: err.message || 'Error connecting to Flutterwave bills API.'
       };
     }
   }
@@ -133,48 +161,57 @@ export class FlutterwaveBillsService {
     email?: string;
   }): Promise<{ status: boolean; data?: any; message?: string }> {
     const txRef = `RENTILLY_DATA_${params.phoneNumber.slice(-4)}_${Date.now()}`;
-    const cleanPhone = params.phoneNumber.replace(/[^0-9]/g, '');
+    let cleanPhone = params.phoneNumber.replace(/[^0-9]/g, '');
+    if (cleanPhone.startsWith('234') && cleanPhone.length > 10) {
+      cleanPhone = '0' + cleanPhone.substring(3);
+    }
+
+    const op = (params.operator || 'MTN').toUpperCase().trim();
 
     try {
+      const payload = {
+        country: 'NG',
+        customer: cleanPhone,
+        amount: params.amount,
+        recurrence: 'ONCE',
+        type: `${op} DATA`,
+        reference: txRef
+      };
+
+      console.log('Dispatching Flutterwave Data Payload:', payload);
       const response = await fetch(`${FLW_BASE_URL}/bills`, {
         method: 'POST',
         headers: this.getHeaders(),
-        body: JSON.stringify({
-          country: 'NG',
-          customer: cleanPhone,
-          amount: params.amount,
-          recurrence: 'ONCE',
-          type: `${params.operator.toUpperCase()} DATA`,
-          reference: txRef
-        })
+        body: JSON.stringify(payload)
       });
 
       const resJson: any = await response.json();
+      console.log('Flutterwave /bills Data Response:', resJson);
+
+      if (response.ok && (resJson.status === 'success' || resJson.data?.status === 'successful')) {
+        return {
+          status: true,
+          data: {
+            txRef: txRef,
+            amount: params.amount,
+            phoneNumber: cleanPhone,
+            plan: params.plan,
+            operator: params.operator,
+            status: 'SUCCESSFUL',
+            flwRef: resJson.data?.flw_ref || `FLW_${Date.now()}`
+          },
+          message: `Data bundle (${params.plan}) activated successfully for ${cleanPhone}!`
+        };
+      }
 
       return {
-        status: true,
-        data: {
-          txRef: txRef,
-          amount: params.amount,
-          phoneNumber: cleanPhone,
-          plan: params.plan,
-          operator: params.operator,
-          status: 'SUCCESSFUL',
-          flwRef: resJson.data?.flw_ref || `FLW_${Date.now()}`
-        },
-        message: 'Data bundle activated successfully!'
+        status: false,
+        message: resJson.message || 'Data bundle fulfillment was not completed by the network.'
       };
-    } catch (_) {
+    } catch (err: any) {
       return {
-        status: true,
-        data: {
-          txRef: txRef,
-          amount: params.amount,
-          phoneNumber: cleanPhone,
-          plan: params.plan,
-          operator: params.operator,
-          status: 'SUCCESSFUL'
-        }
+        status: false,
+        message: err.message || 'Error connecting to Flutterwave bills API.'
       };
     }
   }
