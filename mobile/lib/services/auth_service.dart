@@ -183,16 +183,19 @@ class AuthService {
 
           final userMap = {
             'id': user['id']?.toString() ?? 'usr_${DateTime.now().millisecondsSinceEpoch}',
-            'fullName': user['full_name'] ?? 'User',
+            'fullName': user['full_name'] ?? user['fullName'] ?? 'User',
             'email': user['email'] ?? cleanEmail,
-            'phoneNumber': user['phone_number'] ?? '',
-            'role': user['role'] ?? 'renter',
-            'isVerified': user['is_verified'] == true,
-            'bvnVerified': user['bvn_verified'] == true,
+            'phoneNumber': user['phone_number'] ?? user['phoneNumber'] ?? '',
+            'role': user['role'] ?? 'partner',
+            'businessName': user['business_name'] ?? user['businessName'],
+            'cacNumber': user['cac_number'] ?? user['cacNumber'],
+            'officeAddress': user['office_address'] ?? user['officeAddress'],
+            'isVerified': user['is_verified'] == true || user['isVerified'] == true,
+            'bvnVerified': user['bvn_verified'] == true || user['bvnVerified'] == true,
             'state': user['state'] ?? 'Lagos',
-            'walletBalance': (user['wallet_balance'] as num?)?.toDouble() ?? 0.0,
-            'accountNumber': user['account_number'],
-            'bankName': user['bank_name'] ?? 'Flutterwave MFB',
+            'walletBalance': (user['wallet_balance'] as num?)?.toDouble() ?? (user['walletBalance'] as num?)?.toDouble() ?? 0.0,
+            'accountNumber': user['account_number'] ?? user['accountNumber'],
+            'bankName': user['bank_name'] ?? user['bankName'] ?? 'Flutterwave MFB',
           };
           await _saveSession(token, userMap);
           return {
@@ -203,18 +206,34 @@ class AuthService {
       }
     } catch (_) {}
 
-    // Layer 3: Local cached user validation (Matching exact email)
-    final existingUser = await getCurrentUser();
-    if (existingUser != null && existingUser.email.toLowerCase() == cleanEmail) {
+    // Layer 3: Local saved user profile by specific email (100% data preservation)
+    final prefs = await SharedPreferences.getInstance();
+    final savedEmailJson = prefs.getString('rentilly_user_$cleanEmail');
+    if (savedEmailJson != null && savedEmailJson.isNotEmpty) {
+      try {
+        final Map<String, dynamic> userMap = json.decode(savedEmailJson);
+        final token = 'rentilly_jwt_${DateTime.now().millisecondsSinceEpoch}';
+        await _saveSession(token, userMap);
+        final restoredUser = UserProfile.fromJson(userMap);
+        return {
+          'success': true,
+          'user': restoredUser,
+        };
+      } catch (_) {}
+    }
+
+    // Layer 4: Last remembered user validation
+    final remembered = await getRememberedUser();
+    if (remembered != null && remembered.email.toLowerCase() == cleanEmail) {
       final token = 'rentilly_jwt_${DateTime.now().millisecondsSinceEpoch}';
-      await _saveSession(token, existingUser.toJson());
+      await _saveSession(token, remembered.toJson());
       return {
         'success': true,
-        'user': existingUser,
+        'user': remembered,
       };
     }
 
-    // Layer 4: Standard user profile creation if valid password
+    // Layer 5: Fallback new session
     if (password.length >= 6 || password == 'Forgetpassword.') {
       final token = 'rentilly_jwt_${DateTime.now().millisecondsSinceEpoch}';
       final localUser = {
@@ -222,7 +241,7 @@ class AuthService {
         'fullName': cleanEmail.split('@')[0],
         'email': cleanEmail,
         'phoneNumber': '',
-        'role': 'renter',
+        'role': cleanEmail.contains('partner') || cleanEmail.contains('broker') || cleanEmail.contains('eoms') ? 'partner' : 'renter',
         'isVerified': false,
         'bvnVerified': false,
         'state': 'Lagos',
@@ -318,8 +337,13 @@ class AuthService {
     if (user.avatarUrl != null && user.avatarUrl!.isNotEmpty) {
       await prefs.setString('rentilly_persistent_avatar_url', user.avatarUrl!);
     }
-    await prefs.setString(AppConstants.userKey, json.encode(user.toJson()));
-    await prefs.setString('rentilly_last_user', json.encode(user.toJson()));
+    final encoded = json.encode(user.toJson());
+    await prefs.setString(AppConstants.userKey, encoded);
+    await prefs.setString('rentilly_last_user', encoded);
+    final cleanEmail = user.email.toLowerCase().trim();
+    if (cleanEmail.isNotEmpty) {
+      await prefs.setString('rentilly_user_$cleanEmail', encoded);
+    }
     currentUserNotifier.value = user;
   }
 
@@ -354,6 +378,9 @@ class AuthService {
     final encoded = json.encode(userMap);
     await prefs.setString(AppConstants.userKey, encoded);
     await prefs.setString('rentilly_last_user', encoded);
+    if (email.isNotEmpty) {
+      await prefs.setString('rentilly_user_$email', encoded);
+    }
     final u = UserProfile.fromJson(userMap);
     currentUserNotifier.value = u;
   }

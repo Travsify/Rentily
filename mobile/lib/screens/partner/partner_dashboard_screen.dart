@@ -129,6 +129,11 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
         behavior: SnackBarBehavior.floating,
       ),
     );
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning 👋';
+    if (hour < 17) return 'Good afternoon 👋';
+    return 'Good evening 👋';
   }
 
   @override
@@ -224,6 +229,71 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // 0. Corporate Greeting Header
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _getGreeting(),
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            businessName,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                              color: AppColors.textPrimary,
+                              letterSpacing: -0.2,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: isVerified ? const Color(0xFFECFDF5) : const Color(0xFFFFFBEB),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: isVerified ? const Color(0xFFBBF7D0) : const Color(0xFFFDE68A),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isVerified ? Icons.verified_rounded : Icons.pending_actions_rounded,
+                            size: 14,
+                            color: isVerified ? const Color(0xFF16A34A) : const Color(0xFFD97706),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            isVerified ? 'VERIFIED' : 'PENDING KYB',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w900,
+                              color: isVerified ? const Color(0xFF16A34A) : const Color(0xFFD97706),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
                 // 1. Corporate Identity Hero Card with Dual Balance (Tap to Commissions Vault)
                 InkWell(
                   onTap: () => widget.onGoToWallet?.call(),
