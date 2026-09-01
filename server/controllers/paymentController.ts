@@ -181,6 +181,67 @@ export async function validateDiscoMeter(req: Request, res: Response) {
   }
 }
 
+// 4b. Vend Electricity Prepaid Token Direct Endpoint
+export async function purchaseElectricityToken(req: Request, res: Response) {
+  try {
+    const { disco, meterNumber, amount, phoneNumber, email, userId } = req.body;
+    if (!meterNumber || !amount || Number(amount) <= 0) {
+      return res.status(400).json({ error: 'Meter number and amount are required' });
+    }
+
+    const result = await FlutterwaveBillsService.purchaseElectricity({
+      disco: disco || 'EKEDC',
+      meterNumber: meterNumber.toString(),
+      amount: Number(amount),
+      phoneNumber,
+      email,
+    });
+
+    if (result.status && supabase && userId) {
+      await supabase.from('transactions').insert({
+        user_id: userId,
+        total_amount: Number(amount),
+        escrow_status: 'bill_paid',
+        payment_gateway: 'flutterwave_bills',
+        payment_reference: result.data?.txRef,
+      });
+    }
+
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+// 4c. Flutterwave Webhook Listener
+export async function flutterwaveWebhook(req: Request, res: Response) {
+  try {
+    const payload = req.body;
+    const event = payload?.event;
+    const data = payload?.data;
+
+    if ((event === 'charge.completed' || event === 'transfer.completed') && (data?.status === 'successful' || data?.status === 'success')) {
+      const amountPaid = Number(data.amount || data.charged_amount || 0);
+      const email = data.customer?.email?.toLowerCase();
+
+      if (amountPaid > 0 && email) {
+        const memUser = await UserStore.findByEmail(email);
+        if (memUser) {
+          const newBal = (memUser.walletBalance || 0) + amountPaid;
+          UserStore.upsertUser({
+            ...memUser,
+            walletBalance: newBal,
+          });
+        }
+      }
+    }
+
+    res.status(200).json({ received: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
 // 5. Universal Bill & Airtime Payment API
 export async function payBill(req: Request, res: Response) {
   try {
