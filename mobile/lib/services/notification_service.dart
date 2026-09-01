@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:rentilly/services/api_service.dart';
-import 'package:rentilly/services/auth_service.dart';
+import 'api_service.dart';
+import 'auth_service.dart';
 
 class InAppNotification {
   final String id;
