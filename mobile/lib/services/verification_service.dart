@@ -1,19 +1,20 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../constants/app_constants.dart';
 import '../models/user_profile.dart';
 import 'auth_service.dart';
 
 class VerificationService {
-  static const String baseUrl = 'https://rentilly.onrender.com/api';
+  static const String baseUrl = AppConstants.apiBaseUrl;
   static const String premblySecretKey = 'live_sec_oOq6uB3m6J3k2V9xR8tP1wS4nF5zY7aD';
   static const String premblyAppId = 'app_live_88492048';
   static const String flutterwaveSecretKey = 'FLWSECK-2a833d7d7454e38e1215b225916053aa-193498877521-X';
 
   /// Performs Corporate KYB / Identity verification and issues a dedicated NUBAN virtual bank account.
-  /// For Partners: account is issued in the Partner's Business Name (e.g. Eoms Global Inclusive Limited / Rentilly).
+  /// For Partners: account is issued in the Partner's Business Name.
   /// For Landlords / Renters: account is issued in their personal Legal Full Name.
   static Future<Map<String, dynamic>> verifyAndProvision({
-    required String idType, // 'nin', 'voters_card', 'drivers_license', 'passport', 'bvn'
+    required String idType,
     required String idNumber,
     required String bvn,
     required String dob,
@@ -22,7 +23,7 @@ class VerificationService {
   }) async {
     final currentUser = await AuthService.getCurrentUser();
     final userId = currentUser?.id ?? 'usr_${DateTime.now().millisecondsSinceEpoch}';
-    final email = currentUser?.email ?? 'user@rentilly.ng';
+    final email = currentUser?.email ?? 'info@myrentilly.com';
     final phone = currentUser?.phoneNumber ?? '08120000000';
     final isPartner = currentUser?.role == 'partner';
 
@@ -33,7 +34,7 @@ class VerificationService {
 
     final bvnToUse = bvn.trim().isNotEmpty ? bvn.trim() : (idType == 'bvn' ? idNumber.trim() : '');
 
-    // Step A: Attempt via Core Backend
+    // Step A: Attempt via Core Backend (Flutterwave MFB provisioning router)
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/verification/verify-and-provision'),
@@ -51,17 +52,14 @@ class VerificationService {
           'dob': dob,
           'role': currentUser?.role ?? 'renter',
         }),
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(const Duration(seconds: 25));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['status'] == true && data['accountNumber'] != null) {
           final accNum = data['accountNumber']?.toString() ?? '';
-          if (accNum.isNotEmpty && !accNum.startsWith('02')) {
+          if (accNum.isNotEmpty) {
             String rawBank = data['bankName']?.toString() ?? 'Flutterwave MFB';
-            if (rawBank.toLowerCase().contains('wema') || rawBank.toLowerCase().contains('providus')) {
-              rawBank = 'Flutterwave MFB';
-            }
             final cleanBank = rawBank.contains('(') ? rawBank.split('(')[0].trim() : rawBank;
 
             final updatedUser = (currentUser ?? UserProfile(
@@ -96,7 +94,7 @@ class VerificationService {
       }
     } catch (_) {}
 
-    // Step B: Direct Live Call to Flutterwave to provision Dedicated Permanent Virtual Account
+    // Step B: Direct Call to Flutterwave Cloud API
     try {
       String firstName;
       String lastName;
@@ -133,9 +131,6 @@ class VerificationService {
       if (flwRes.statusCode == 200 && flwJson['status'] == 'success' && flwJson['data'] != null) {
         final realAccount = flwJson['data']['account_number']?.toString();
         String rawBank = flwJson['data']['bank_name']?.toString() ?? 'Flutterwave MFB';
-        if (rawBank.toLowerCase().contains('wema') || rawBank.toLowerCase().contains('providus')) {
-          rawBank = 'Flutterwave MFB';
-        }
         final cleanBank = rawBank.contains('(') ? rawBank.split('(')[0].trim() : rawBank;
 
         if (realAccount != null && realAccount.isNotEmpty) {
@@ -169,67 +164,14 @@ class VerificationService {
         }
       }
 
-      // Seamless fallback when third-party API keys encounter authorization/compliance limits
-      final rawHash = (email.hashCode.abs() + (bvnToUse.hashCode.abs()) + userId.hashCode.abs()).abs();
-      final fallbackAccount = '78${(rawHash % 90000000 + 10000000)}';
-
-      final fallbackUser = (currentUser ?? UserProfile(
-        id: userId,
-        email: email,
-        fullName: effectiveName,
-        phoneNumber: phone,
-        role: currentUser?.role ?? 'renter',
-      )).copyWith(
-        isVerified: true,
-        bvnVerified: true,
-        businessName: isPartner ? partnerBizName : currentUser?.businessName,
-        cacNumber: isPartner ? (cacNumber ?? currentUser?.cacNumber) : currentUser?.cacNumber,
-        ninNumber: idNumber,
-        accountNumber: fallbackAccount,
-        bankName: 'Flutterwave MFB',
-      );
-
-      await AuthService.updateUser(fallbackUser);
-
       return {
-        'success': true,
-        'accountNumber': fallbackAccount,
-        'bankName': 'Flutterwave MFB',
-        'user': fallbackUser,
-        'message': isPartner
-            ? 'Corporate KYB verified! Dedicated commission vault provisioned in your business name: $effectiveName.'
-            : 'Identity verified! Dedicated settlement account provisioned.',
+        'success': false,
+        'message': flwJson['message'] ?? 'Failed to provision dedicated NUBAN from Flutterwave.',
       };
-    } catch (err) {
-      final rawHash = (email.hashCode.abs() + (bvnToUse.hashCode.abs()) + userId.hashCode.abs()).abs();
-      final fallbackAccount = '78${(rawHash % 90000000 + 10000000)}';
-
-      final fallbackUser = (currentUser ?? UserProfile(
-        id: userId,
-        email: email,
-        fullName: effectiveName,
-        phoneNumber: phone,
-        role: currentUser?.role ?? 'renter',
-      )).copyWith(
-        isVerified: true,
-        bvnVerified: true,
-        businessName: isPartner ? partnerBizName : currentUser?.businessName,
-        cacNumber: isPartner ? (cacNumber ?? currentUser?.cacNumber) : currentUser?.cacNumber,
-        ninNumber: idNumber,
-        accountNumber: fallbackAccount,
-        bankName: 'Flutterwave MFB',
-      );
-
-      await AuthService.updateUser(fallbackUser);
-
+    } catch (e) {
       return {
-        'success': true,
-        'accountNumber': fallbackAccount,
-        'bankName': 'Flutterwave MFB',
-        'user': fallbackUser,
-        'message': isPartner
-            ? 'Corporate KYB verified! Dedicated commission vault provisioned in your business name: $effectiveName.'
-            : 'Identity verified! Dedicated settlement account provisioned.',
+        'success': false,
+        'message': 'Failed to reach Flutterwave API: $e',
       };
     }
   }
