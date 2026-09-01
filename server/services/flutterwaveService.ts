@@ -5,11 +5,20 @@ dotenv.config();
 const FLW_BASE_URL = 'https://api.flutterwave.com/v3';
 
 export class FlutterwaveService {
+  private static getSecretKey(): string {
+    return process.env.FLUTTERWAVE_SECRET_KEY || 'FLWSECK-2a833d7d7454e38e1215b225916053aa-193498877521-X';
+  }
+
   private static getHeaders() {
     return {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${process.env.FLUTTERWAVE_SECRET_KEY || 'FLWSECK-2a833d7d7454e38e1215b225916053aa-193498877521-X'}`
+      'Authorization': `Bearer ${this.getSecretKey()}`
     };
+  }
+
+  static isConfigured(): boolean {
+    const key = this.getSecretKey();
+    return Boolean(key && key.length > 5);
   }
 
   // 1. Dynamic Virtual Account for Rent Escrow Collection
