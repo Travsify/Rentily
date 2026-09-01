@@ -18,7 +18,7 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _obscurePassword = true;
@@ -26,54 +26,92 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isBiometricMode = true;
   UserProfile? _savedUser;
   String? _errorMessage;
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
 
   @override
   void initState() {
     super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+    )..repeat(reverse: true);
+
+    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.12).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
     _checkSavedUserSession();
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
   }
 
   void _checkSavedUserSession() async {
     final prefs = await SharedPreferences.getInstance();
     final biometricsEnabled = prefs.getBool('rentilly_biometrics_enabled') ?? true;
-    final savedUser = await AuthService.getCurrentUser();
+    final rememberedUser = await AuthService.getRememberedUser();
 
-    if (savedUser != null && savedUser.email.isNotEmpty && biometricsEnabled && !widget.forcePasswordMode) {
-      setState(() {
-        _savedUser = savedUser;
-        _isBiometricMode = true;
-      });
-      // Automatically prompt biometric login after build
+    if (rememberedUser != null && biometricsEnabled && !widget.forcePasswordMode) {
+      if (mounted) {
+        setState(() {
+          _savedUser = rememberedUser;
+          _isBiometricMode = true;
+        });
+      }
+      // Automatically prompt biometric scan on startup
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _handleBiometricAuth();
       });
     } else {
-      setState(() {
-        _savedUser = savedUser;
-        _isBiometricMode = false;
-        if (savedUser?.email.isNotEmpty == true) {
-          _emailController.text = savedUser!.email;
-        }
-      });
+      if (mounted) {
+        setState(() {
+          _savedUser = rememberedUser;
+          _isBiometricMode = false;
+          if (rememberedUser?.email.isNotEmpty == true) {
+            _emailController.text = rememberedUser!.email;
+          }
+        });
+      }
     }
   }
 
   void _handleBiometricAuth() async {
-    setState(() => _errorMessage = null);
+    if (_isLoading) return;
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
 
-    final authenticated = await BiometricService.authenticate(
-      reason: 'Scan your fingerprint or face to log in to Rentilly',
-    );
-
-    if (authenticated) {
-      if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+    try {
+      final authenticated = await BiometricService.authenticate(
+        reason: 'Verify your fingerprint to securely unlock your Rentilly Living Escrow',
       );
-    } else {
+
+      if (authenticated) {
+        await AuthService.loginWithBiometrics();
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const MainNavigationScreen()),
+        );
+      } else {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _errorMessage = 'Fingerprint not recognized. Tap the fingerprint button below to try again or switch to password.';
+          });
+        }
+      }
+    } catch (_) {
       if (mounted) {
         setState(() {
-          _errorMessage = 'Biometric authentication cancelled. Tap below to retry or switch to password.';
+          _isLoading = false;
+          _errorMessage = 'Biometric scanner unavailable. Tap below to retry or switch to password.';
         });
       }
     }
@@ -127,27 +165,29 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // 1. Futuristic Biometric-First Screen (Zero Email/Password fields shown)
+  // 1. Futuristic Fintech Biometric Screen (Revolut / Apple Pay style)
   Widget _buildBiometricView() {
     final name = _savedUser?.fullName.isNotEmpty == true ? _savedUser!.fullName : 'Patrick Achua';
     final email = _savedUser?.email.isNotEmpty == true ? _savedUser!.email : 'patrickachua3@gmail.com';
+    final accNum = _savedUser?.accountNumber?.isNotEmpty == true ? _savedUser!.accountNumber! : '9955394366';
+    final maskedAcc = accNum.length >= 4 ? '•••• ${accNum.substring(accNum.length - 4)}' : '•••• 4366';
     final initials = name.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase();
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Brand Logo
+        // Brand Shield Emblem
         Container(
-          width: 58,
-          height: 58,
+          width: 54,
+          height: 54,
           decoration: BoxDecoration(
             gradient: const LinearGradient(
               colors: [AppColors.primary, AppColors.primaryLight],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
                 color: AppColors.primary.withValues(alpha: 0.25),
@@ -157,45 +197,104 @@ class _LoginScreenState extends State<LoginScreen> {
             ],
           ),
           child: const Center(
-            child: Icon(Icons.shield_rounded, size: 30, color: Colors.white),
+            child: Icon(Icons.shield_rounded, size: 28, color: Colors.white),
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 12),
+        Text(
+          'RENTILLY',
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 15,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 2.0,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        Text(
+          'Living Escrow & Direct Real Estate Exchange',
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 28),
 
-        // User Avatar
+        // User Identity Card
         Container(
-          width: 72,
-          height: 72,
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
           decoration: BoxDecoration(
-            shape: BoxShape.circle,
             color: Colors.white,
-            border: Border.all(color: AppColors.primary, width: 2),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: AppColors.borderDark),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
+                color: Colors.black.withValues(alpha: 0.03),
                 blurRadius: 12,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
-          child: Center(
-            child: Text(
-              initials.isNotEmpty ? initials : 'PA',
-              style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w900, color: AppColors.primary),
-            ),
+          child: Column(
+            children: [
+              Stack(
+                children: [
+                  Container(
+                    width: 68,
+                    height: 68,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.backgroundDark,
+                      border: Border.all(color: AppColors.primaryLight, width: 2.5),
+                    ),
+                    child: Center(
+                      child: Text(
+                        initials.isNotEmpty ? initials : 'PA',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: const BoxDecoration(
+                        color: Colors.green,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.verified, size: 14, color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Welcome, $name',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '$email • Dedicated Escrow $maskedAcc',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: 14),
-
-        Text(
-          'Welcome back, $name',
-          style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          email,
-          style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary),
-        ),
-        const SizedBox(height: 36),
+        const SizedBox(height: 32),
 
         if (_errorMessage != null) ...[
           Container(
@@ -208,60 +307,88 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Text(
               _errorMessage!,
               textAlign: TextAlign.center,
-              style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.error, fontWeight: FontWeight.w600),
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 11,
+                color: AppColors.error,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
           const SizedBox(height: 24),
         ],
 
-        // Large Glowing Biometric Fingerprint Button
+        // Interactive Pulsing Biometric Fingerprint Button
         GestureDetector(
           onTap: _handleBiometricAuth,
-          child: Container(
-            width: 90,
-            height: 90,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: Colors.white,
-              border: Border.all(color: AppColors.primaryLight, width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.15),
-                  blurRadius: 24,
-                  spreadRadius: 4,
-                ),
-              ],
-            ),
-            child: const Center(
-              child: Icon(Icons.fingerprint_rounded, size: 48, color: AppColors.primary),
+          child: ScaleTransition(
+            scale: _pulseAnimation,
+            child: Container(
+              width: 92,
+              height: 92,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white,
+                border: Border.all(color: AppColors.primary, width: 2.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.25),
+                    blurRadius: 28,
+                    spreadRadius: 6,
+                  ),
+                ],
+              ),
+              child: Center(
+                child: _isLoading
+                    ? const SizedBox(
+                        width: 32,
+                        height: 32,
+                        child: CircularProgressIndicator(strokeWidth: 3, color: AppColors.primary),
+                      )
+                    : const Icon(Icons.fingerprint_rounded, size: 54, color: AppColors.primary),
+              ),
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 18),
 
         Text(
-          'Tap to Login with Fingerprint / Face ID',
-          style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
+          'Verify Fingerprint',
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            color: AppColors.primary,
+          ),
         ),
-        const SizedBox(height: 40),
+        Text(
+          'Click to log in with fingerprint',
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 11,
+            color: AppColors.textSecondary,
+          ),
+        ),
+        const SizedBox(height: 36),
 
-        // Action Button
+        // Action Button: Verify Fingerprint
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
-            onPressed: _handleBiometricAuth,
-            icon: const Icon(Icons.fingerprint_rounded, size: 18, color: Colors.white),
-            label: Text('Authenticate with Biometrics', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
+            onPressed: _isLoading ? null : _handleBiometricAuth,
+            icon: const Icon(Icons.fingerprint_rounded, size: 20, color: Colors.white),
+            label: Text(
+              'Verify Fingerprint to Log In',
+              style: GoogleFonts.plusJakartaSans(fontSize: 13.5, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              elevation: 0,
             ),
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
 
-        // Switch to Password Button
+        // Switch to Email & Password
         TextButton(
           onPressed: () {
             setState(() {
@@ -270,71 +397,78 @@ class _LoginScreenState extends State<LoginScreen> {
             });
           },
           child: Text(
-            'Use Email & Password Instead',
+            'Log in with Password instead',
             style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+          ),
+        ),
+        TextButton(
+          onPressed: () {
+            setState(() {
+              _isBiometricMode = false;
+              _savedUser = null;
+              _emailController.clear();
+              _passwordController.clear();
+              _errorMessage = null;
+            });
+          },
+          child: Text(
+            'Switch Account',
+            style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppColors.primary),
           ),
         ),
       ],
     );
   }
 
-  // 2. Standard Email & Password Fallback View
+  // 2. Email & Password View (Only displayed when explicitly requested)
   Widget _buildPasswordView() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Brand Shield Logo
         Center(
           child: Container(
-            width: 68,
-            height: 68,
+            width: 64,
+            height: 64,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
                 colors: [AppColors.primary, AppColors.primaryLight],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(22),
+              borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
                   color: AppColors.primary.withValues(alpha: 0.25),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
+                  blurRadius: 16,
+                  offset: const Offset(0, 6),
                 ),
               ],
             ),
             child: const Center(
-              child: Icon(Icons.shield_rounded, size: 36, color: Colors.white),
+              child: Icon(Icons.shield_rounded, size: 32, color: Colors.white),
             ),
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 20),
 
         Center(
           child: Text(
-            'Sign In to Rentilly',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
-            ),
+            'Welcome to Rentilly',
+            style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 4),
         Center(
           child: Text(
-            'Direct real estate and living escrow protocol.',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 12,
-              color: AppColors.textSecondary,
-            ),
+            'Sign in to access your direct escrow portal',
+            style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary),
           ),
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: 32),
 
         if (_errorMessage != null) ...[
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: AppColors.error.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(12),
@@ -342,95 +476,102 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             child: Text(
               _errorMessage!,
-              style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.error, fontWeight: FontWeight.w600),
+              style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.error, fontWeight: FontWeight.w600),
             ),
           ),
           const SizedBox(height: 16),
         ],
 
-        // Email Field
-        Text('EMAIL ADDRESS', style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: AppColors.textSecondary)),
+        Text(
+          'EMAIL ADDRESS',
+          style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, letterSpacing: 0.8, color: AppColors.textSecondary),
+        ),
         const SizedBox(height: 6),
         TextField(
           controller: _emailController,
           keyboardType: TextInputType.emailAddress,
-          style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+          style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary),
           decoration: InputDecoration(
-            hintText: 'name@example.com',
+            hintText: 'e.g. patrickachua3@gmail.com',
             hintStyle: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textMuted),
+            prefixIcon: const Icon(Icons.email_outlined, size: 18, color: AppColors.textSecondary),
             filled: true,
             fillColor: Colors.white,
-            prefixIcon: const Icon(Icons.email_outlined, size: 18, color: AppColors.primary),
             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.borderDark)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.borderDark)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.borderDark)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 18),
 
-        // Password Field
-        Text('PASSWORD', style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: AppColors.textSecondary)),
+        Text(
+          'PASSWORD',
+          style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, letterSpacing: 0.8, color: AppColors.textSecondary),
+        ),
         const SizedBox(height: 6),
         TextField(
           controller: _passwordController,
           obscureText: _obscurePassword,
-          style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+          style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary),
           decoration: InputDecoration(
             hintText: 'Enter your password',
             hintStyle: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textMuted),
-            filled: true,
-            fillColor: Colors.white,
-            prefixIcon: const Icon(Icons.lock_outline_rounded, size: 18, color: AppColors.primary),
+            prefixIcon: const Icon(Icons.lock_outline_rounded, size: 18, color: AppColors.textSecondary),
             suffixIcon: IconButton(
-              icon: Icon(_obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18, color: AppColors.textMuted),
+              icon: Icon(_obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18, color: AppColors.textSecondary),
               onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
             ),
+            filled: true,
+            fillColor: Colors.white,
             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.borderDark)),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.borderDark)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.borderDark)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
           ),
         ),
         const SizedBox(height: 24),
 
-        // Sign In Button
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
             onPressed: _isLoading ? null : _handlePasswordLogin,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              elevation: 0,
             ),
             child: _isLoading
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : Text('Sign In', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold)),
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
+                : Text('Sign In', style: GoogleFonts.plusJakartaSans(fontSize: 13.5, fontWeight: FontWeight.bold, color: Colors.white)),
           ),
         ),
+        const SizedBox(height: 16),
 
-        if (_savedUser != null) ...[
-          const SizedBox(height: 14),
+        if (_savedUser != null)
           Center(
             child: TextButton.icon(
               onPressed: () => setState(() => _isBiometricMode = true),
               icon: const Icon(Icons.fingerprint_rounded, size: 18, color: AppColors.primary),
-              label: Text('Switch to Biometric Sign In', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary)),
+              label: Text('Use Biometric Fingerprint Login', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary)),
             ),
           ),
-        ],
 
-        const SizedBox(height: 20),
         Center(
-          child: GestureDetector(
-            onTap: () {
-              Navigator.of(context).push(MaterialPageRoute(builder: (_) => const RegisterScreen()));
+          child: TextButton(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const RegisterScreen()),
+              );
             },
-            child: RichText(
-              text: TextSpan(
+            child: Text.rich(
+              TextSpan(
                 text: "Don't have an account? ",
                 style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary),
                 children: [
                   TextSpan(
-                    text: 'Register Now',
+                    text: 'Create Account',
                     style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
                   ),
                 ],
