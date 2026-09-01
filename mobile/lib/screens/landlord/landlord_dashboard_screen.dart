@@ -6,6 +6,7 @@ import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/verification_modal.dart';
 import '../../widgets/partner_listing_modal.dart';
+import '../../widgets/partner_id_card_modal.dart';
 import '../properties/properties_screen.dart';
 import '../inspections/inspections_screen.dart';
 
@@ -207,6 +208,20 @@ class _LandlordDashboardScreenState extends State<LandlordDashboardScreen> {
                 onTap: () {
                   if (_user != null) {
                     PartnerListingModal.show(context, user: _user!, onListingCreated: _loadUser);
+                  }
+                },
+              ),
+
+              // 2. Partner Accreditation Digital ID Card
+              _buildActionCard(
+                icon: Icons.badge_rounded,
+                title: 'My Partner Accreditation ID Card 🪪',
+                subtitle: 'Digital Rentilly accreditation badge & scannable QR verification for estate gates.',
+                tag: 'OFFICIAL ID',
+                color: const Color(0xFF0D9488),
+                onTap: () {
+                  if (_user != null) {
+                    PartnerIdCardModal.show(context, user: _user!);
                   }
                 },
               ),

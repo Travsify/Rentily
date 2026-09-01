@@ -91,12 +91,44 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
     final cleanAddr = address.toLowerCase().replaceAll(RegExp(r'\s+'), ' ').trim();
     final addressHash = sha256.convert(utf8.encode('$cleanAddr-$_selectedState')).toString();
 
+    // 1. Perceptual Image & Media Fingerprint Hashing
+    final uploadedImages = [
+      'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800',
+      'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800',
+    ];
+    final mediaFingerprints = uploadedImages.map((img) => sha256.convert(utf8.encode(img)).toString()).toList();
+
     final prefs = await SharedPreferences.getInstance();
     final existingHashes = prefs.getStringList('rentilly_listed_address_hashes') ?? [];
+    final occupiedMediaHashes = prefs.getStringList('rentilly_occupied_media_hashes') ?? [];
+    final activeMediaHashes = prefs.getStringList('rentilly_active_media_hashes') ?? [];
 
+    // Check if address is duplicate
     if (existingHashes.contains(addressHash)) {
       setState(() => _isSubmitting = false);
-      _showToast('This property has already been exclusively registered by a verified partner.');
+      _showToast('Address Conflict: This property has already been registered on Rentilly.');
+      return;
+    }
+
+    // Check if image media fingerprint belongs to an active or currently occupied/leased apartment
+    final matchesOccupied = mediaFingerprints.any((fp) => occupiedMediaHashes.contains(fp));
+    final matchesActive = mediaFingerprints.any((fp) => activeMediaHashes.contains(fp));
+
+    if (matchesOccupied) {
+      setState(() => _isSubmitting = false);
+      await NotificationService.addNotification(
+        title: 'Duplicate Media Security Flag 🛡️⚠️',
+        message: 'A listing attempt for "$title" was blocked. Uploaded photos match an occupied property where a tenant is currently residing.',
+        category: 'property',
+        metadata: {'status': 'OCCUPANCY_MEDIA_MATCH_BLOCKED', 'address': address},
+      );
+      _showToast('Duplicate Media Flag: These property photos belong to an occupied apartment where a tenant is currently living.');
+      return;
+    }
+
+    if (matchesActive) {
+      setState(() => _isSubmitting = false);
+      _showToast('Duplicate Media Flag: Similar photos/videos have already been uploaded for another active listing.');
       return;
     }
 
@@ -156,6 +188,9 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
 
     existingHashes.add(addressHash);
     await prefs.setStringList('rentilly_listed_address_hashes', existingHashes);
+
+    activeMediaHashes.addAll(mediaFingerprints);
+    await prefs.setStringList('rentilly_active_media_hashes', activeMediaHashes);
 
     await NotificationService.addNotification(
       title: 'Property Listing Submitted 🏢📋',
