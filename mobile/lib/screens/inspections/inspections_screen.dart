@@ -3,7 +3,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../constants/app_colors.dart';
 import '../../models/inspection.dart';
+import '../../models/user_profile.dart';
 import '../../services/api_service.dart';
+import '../../services/auth_service.dart';
+import '../../widgets/partner_id_card_modal.dart';
 import '../main_navigation_screen.dart';
 
 class InspectionsScreen extends StatefulWidget {
@@ -16,13 +19,14 @@ class InspectionsScreen extends StatefulWidget {
 class _InspectionsScreenState extends State<InspectionsScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   List<Inspection> _inspections = [];
+  UserProfile? _user;
   bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _loadInspections();
+    _loadData();
   }
 
   @override
@@ -31,16 +35,20 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
     super.dispose();
   }
 
-  void _loadInspections() async {
+  void _loadData() async {
     setState(() => _isLoading = true);
+    final user = await AuthService.getCurrentUser();
     final data = await ApiService.fetchInspections();
     if (mounted) {
       setState(() {
+        _user = user;
         _inspections = data;
         _isLoading = false;
       });
     }
   }
+
+  bool get _isHost => _user?.role == 'owner' || _user?.role == 'landlord' || _user?.role == 'partner';
 
   void _shareSafetyItinerary(Inspection insp) {
     Share.share(
@@ -56,81 +64,21 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
     );
   }
 
-  void _showReviewDialog(Inspection insp) {
-    int rating = 5;
-    final commentController = TextEditingController();
+  void _shareHostGatePass(Inspection insp) {
+    final hostId = _user?.role == 'partner'
+        ? 'RNT-PTR-${_user?.id.replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0').substring(0, 4) ?? "0042"}'
+        : 'RNT-LLD-${_user?.id.replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0').substring(0, 4) ?? "0018"}';
 
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setDlgState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Row(
-            children: [
-              const Icon(Icons.star_rounded, color: AppColors.accentOrange, size: 22),
-              const SizedBox(width: 8),
-              Text('Rate & Review Host', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('How was your inspection for "${insp.propertyTitle}"?', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
-              const SizedBox(height: 14),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(5, (index) {
-                  return IconButton(
-                    icon: Icon(
-                      index < rating ? Icons.star_rounded : Icons.star_outline_rounded,
-                      color: AppColors.accentOrange,
-                      size: 30,
-                    ),
-                    onPressed: () => setDlgState(() => rating = index + 1),
-                  );
-                }),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: commentController,
-                maxLines: 3,
-                style: GoogleFonts.plusJakartaSans(fontSize: 12),
-                decoration: InputDecoration(
-                  hintText: 'Did the host present their Rentilly Digital ID? Was the property accurate to photos?',
-                  hintStyle: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textMuted),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.borderDark)),
-                  filled: true,
-                  fillColor: const Color(0xFFF8FAFC),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: AppColors.textSecondary, fontWeight: FontWeight.bold)),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(ctx).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Thank you! Review submitted and inspection escrow disbursed.', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
-                    backgroundColor: AppColors.primary,
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              ),
-              child: Text('Submit Review', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
-            ),
-          ],
-        ),
-      ),
+    Share.share(
+      '🔑 RENTILLY ESTATE ACCESS GATE PASS\n\n'
+      'Dear Tenant,\n\n'
+      'Your upcoming property inspection has been approved. Please present this pass at the estate security gate:\n\n'
+      '📍 Property: ${insp.propertyTitle}\n'
+      '🏢 Address: ${insp.propertyAddress}\n'
+      '📅 Scheduled Date & Time: ${insp.scheduledDate}\n'
+      '🔑 6-Digit Gate Code: ${insp.inspectionPassCode}\n'
+      '👤 Accredited Host ID: $hostId\n\n'
+      'Our host will present their matching Rentilly Digital ID upon arrival.',
     );
   }
 
@@ -140,7 +88,7 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
       backgroundColor: AppColors.backgroundDark,
       appBar: AppBar(
         title: Text(
-          'Property Inspections',
+          _isHost ? 'Host Walkthroughs & Gate Passes' : 'Property Inspections',
           style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
         ),
         backgroundColor: Colors.white,
@@ -152,9 +100,9 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
           labelStyle: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold),
           indicatorColor: AppColors.primary,
           indicatorWeight: 3,
-          tabs: const [
-            Tab(text: '4K Live Video 📹'),
-            Tab(text: 'In-Person Tour 🚶'),
+          tabs: [
+            Tab(text: _isHost ? 'Host 4K Live Video 📹' : '4K Live Video 📹'),
+            Tab(text: _isHost ? 'Host In-Person Visits 🚶' : 'In-Person Tour 🚶'),
           ],
         ),
       ),
@@ -162,9 +110,7 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
         child: TabBarView(
           controller: _tabController,
           children: [
-            // Tab 1: 4K Live Video Tour with Landlord / Host Scheduled Window
             _buildVideoTourTab(),
-            // Tab 2: Verified In-Person Inspection Walkthrough
             _buildInPersonTab(),
           ],
         ),
@@ -183,7 +129,7 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
             padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF0D5C46), Color(0xFF07382B)],
+                colors: [Color(0xFF064E3B), Color(0xFF0F172A)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -213,27 +159,31 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
                           const Icon(Icons.videocam_rounded, size: 12, color: Colors.white),
                           const SizedBox(width: 4),
                           Text(
-                            'LIVE 4K STREAM',
+                            _isHost ? 'BROADCAST 4K STREAM' : 'LIVE 4K STREAM',
                             style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, color: Colors.white),
                           ),
                         ],
                       ),
                     ),
                     Text(
-                      '₦0 Agent Free',
+                      'Zero Physical Stress',
                       style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.white70),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Zero Physical Stress.\nReal-Time 4K Video Walkthrough.',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white, height: 1.2),
+                  _isHost
+                      ? 'Host Real-Time 4K Video Walkthroughs.\nConnect with Diaspora Tenants.'
+                      : 'Zero Physical Stress.\nReal-Time 4K Video Walkthrough.',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white, height: 1.25),
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Connect live with direct landlords or verified partners. Inspect plumbing, water pressure, and power before committing.',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 11, color: Colors.white70, height: 1.3),
+                  _isHost
+                      ? 'Broadcast live HD video from your unit directly to prospective tenants. Showcase water pressure, interior finishing, and answer questions live.'
+                      : 'Connect live with direct landlords or verified partners. Inspect plumbing, water pressure, and power before committing.',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: Colors.white70, height: 1.35),
                 ),
               ],
             ),
@@ -241,7 +191,7 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
           const SizedBox(height: 20),
 
           Text(
-            'ACTIVE VIDEO SESSIONS',
+            _isHost ? 'SCHEDULED BROADCAST SESSIONS' : 'ACTIVE VIDEO SESSIONS',
             style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 12),
@@ -258,23 +208,31 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
                 const Icon(Icons.video_call_outlined, size: 40, color: AppColors.primary),
                 const SizedBox(height: 12),
                 Text(
-                  'No Upcoming Video Calls',
+                  _isHost ? 'No Active Video Broadcast Requests' : 'No Upcoming Video Calls',
                   style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'When you request a 4K live tour from a listing, your direct call session will appear here.',
+                  _isHost
+                      ? 'When tenants schedule a 4K live video inspection for your properties, incoming requests appear here.'
+                      : 'When you request a 4K live tour from a listing, your direct call session will appear here.',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
                   onPressed: () {
-                    MainNavigationScreen.of(context)?.switchTab(1);
+                    if (_isHost) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Video broadcast portal is active and ready for tenant sessions.', style: GoogleFonts.plusJakartaSans(fontSize: 11)), backgroundColor: AppColors.primary),
+                      );
+                    } else {
+                      MainNavigationScreen.of(context)?.switchTab(1);
+                    }
                   },
-                  icon: const Icon(Icons.search_rounded, size: 16, color: Colors.white),
+                  icon: Icon(_isHost ? Icons.videocam_rounded : Icons.search_rounded, size: 16, color: Colors.white),
                   label: Text(
-                    'Explore Properties for Live Video',
+                    _isHost ? 'Test Camera & 4K Stream 🎥' : 'Explore Properties for Live Video',
                     style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
                   ),
                   style: ElevatedButton.styleFrom(
@@ -297,7 +255,7 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
         : ListView(
             padding: const EdgeInsets.all(18),
             children: [
-              // Mandatory Digital ID Safety Directive Card
+              // Digital ID Policy Card (Role-tailored for Host vs Tenant)
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -315,12 +273,14 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'MANDATORY HOST DIGITAL ID POLICY',
+                            _isHost ? 'HOST ACCREDITATION & DIGITAL ID DIRECTIVE' : 'MANDATORY HOST DIGITAL ID POLICY',
                             style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.w900, color: const Color(0xFF92400E), letterSpacing: 0.5),
                           ),
                           const SizedBox(height: 3),
                           Text(
-                            'Always demand to see the host\'s official Rentilly Digital ID (Landlord or Corporate Partner) upon arrival. If they cannot produce their matching Digital ID with accredited status, DO NOT enter the property.',
+                            _isHost
+                                ? 'As an accredited Rentilly host, always present your Official Digital ID Card upon tenant arrival. This satisfies estate security protocols and clears tenant inspection escrow.'
+                                : 'Always demand to see the host\'s official Rentilly Digital ID (Landlord or Corporate Partner) upon arrival. If they cannot produce their matching Digital ID with accredited status, DO NOT enter the property.',
                             style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: const Color(0xFF78350F), height: 1.35),
                           ),
                         ],
@@ -349,12 +309,14 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
                         ),
                         const SizedBox(height: 14),
                         Text(
-                          'No Scheduled In-Person Visits',
+                          _isHost ? 'No Pending Inspection Requests' : 'No Scheduled In-Person Visits',
                           style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Browse verified properties to book an in-person physical walkthrough directly with the owner.',
+                          _isHost
+                            ? 'When tenants book in-person walkthroughs for your units, their booking schedules and gate passes appear here.'
+                            : 'Browse verified properties to book an in-person physical walkthrough directly with the owner.',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
                         ),
@@ -409,61 +371,64 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('ESTATE GATE CODE', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                                  Text(_isHost ? 'TENANT GATE PASS' : 'ESTATE GATE CODE', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
                                   Text(insp.inspectionPassCode, style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w900, color: AppColors.primary)),
                                 ],
                               ),
                               OutlinedButton(
                                 onPressed: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Gate Pass ${insp.inspectionPassCode} copied to clipboard', style: GoogleFonts.plusJakartaSans(fontSize: 11)), backgroundColor: AppColors.primary),
-                                  );
+                                  if (_isHost) {
+                                    _shareHostGatePass(insp);
+                                  } else {
+                                    _shareSafetyItinerary(insp);
+                                  }
                                 },
                                 style: OutlinedButton.styleFrom(
                                   side: const BorderSide(color: AppColors.primary),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                 ),
-                                child: Text('Copy Pass', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                                child: Text(_isHost ? 'Send to Tenant 📤' : 'Copy Pass', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
                               ),
                             ],
                           ),
                         ),
                         const SizedBox(height: 12),
 
-                        // Action Buttons: Safety Share & Review
+                        // Action Buttons
                         Row(
                           children: [
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: () => _shareSafetyItinerary(insp),
-                                icon: const Icon(Icons.share_location_rounded, size: 14, color: AppColors.primary),
-                                label: Text(
-                                  'Share Itinerary (Safety) 🛡️',
-                                  style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppColors.primary),
-                                ),
-                                style: OutlinedButton.styleFrom(
-                                  side: const BorderSide(color: AppColors.primary),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                  padding: const EdgeInsets.symmetric(vertical: 10),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: ElevatedButton.icon(
-                                onPressed: () => _showReviewDialog(insp),
-                                icon: const Icon(Icons.star_rate_rounded, size: 14, color: Colors.white),
-                                label: Text(
-                                  'Rate & Review ⭐',
-                                  style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.white),
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppColors.accentOrange,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                            if (_isHost) ...[
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: () {
+                                    if (_user != null) PartnerIdCardModal.show(context, user: _user!);
+                                  },
+                                  icon: const Icon(Icons.badge_rounded, size: 14, color: Colors.white),
+                                  label: Text('Present My Digital ID 🪪', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.primary,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    padding: const EdgeInsets.symmetric(vertical: 10),
+                                  ),
                                 ),
                               ),
-                            ),
+                            ] else ...[
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: () => _shareSafetyItinerary(insp),
+                                  icon: const Icon(Icons.share_location_rounded, size: 14, color: AppColors.primary),
+                                  label: Text(
+                                    'Share Itinerary (Safety) 🛡️',
+                                    style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppColors.primary),
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    side: const BorderSide(color: AppColors.primary),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                    padding: const EdgeInsets.symmetric(vertical: 10),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ],

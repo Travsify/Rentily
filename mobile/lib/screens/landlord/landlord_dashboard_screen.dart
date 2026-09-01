@@ -18,6 +18,7 @@ import '../properties/properties_screen.dart';
 import '../inspections/inspections_screen.dart';
 import 'landlord_wallet_screen.dart';
 import 'landlord_profile_screen.dart';
+import 'landlord_digital_leases_screen.dart';
 
 class LandlordDashboardScreen extends StatefulWidget {
   final VoidCallback? onSwitchToTenant;
@@ -31,10 +32,17 @@ class LandlordDashboardScreen extends StatefulWidget {
 class _LandlordDashboardScreenState extends State<LandlordDashboardScreen> {
   int _currentIndex = 0;
 
+  void switchTab(int index) {
+    setState(() => _currentIndex = index);
+  }
+
   @override
   Widget build(BuildContext context) {
     final screens = [
-      _LandlordPortfolioTab(onSwitchToTenant: widget.onSwitchToTenant),
+      _LandlordPortfolioTab(
+        onSwitchToTenant: widget.onSwitchToTenant,
+        onNavigateToWallet: () => setState(() => _currentIndex = 2),
+      ),
       const PropertiesScreen(initialPurpose: 'all'),
       const LandlordWalletScreen(),
       const InspectionsScreen(),
@@ -57,8 +65,9 @@ class _LandlordDashboardScreenState extends State<LandlordDashboardScreen> {
 
 class _LandlordPortfolioTab extends StatefulWidget {
   final VoidCallback? onSwitchToTenant;
+  final VoidCallback? onNavigateToWallet;
 
-  const _LandlordPortfolioTab({this.onSwitchToTenant});
+  const _LandlordPortfolioTab({this.onSwitchToTenant, this.onNavigateToWallet});
 
   @override
   State<_LandlordPortfolioTab> createState() => _LandlordPortfolioTabState();
@@ -80,6 +89,21 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
   void initState() {
     super.initState();
     _loadData();
+    AuthService.currentUserNotifier.addListener(_onUserUpdated);
+  }
+
+  @override
+  void dispose() {
+    AuthService.currentUserNotifier.removeListener(_onUserUpdated);
+    super.dispose();
+  }
+
+  void _onUserUpdated() {
+    if (mounted) {
+      setState(() {
+        _user = AuthService.currentUserNotifier.value;
+      });
+    }
   }
 
   void _loadData() async {
@@ -130,12 +154,12 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: AppColors.accentOrange.withValues(alpha: 0.12),
+                color: AppColors.primary.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
                 'LANDLORD ASSET PORTAL 🔑',
-                style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w900, color: AppColors.accentOrange),
+                style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w900, color: AppColors.primary),
               ),
             ),
           ],
@@ -165,102 +189,122 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 1. Landlord Hero Card with Dual Balance
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(22),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.15),
-                        blurRadius: 16,
-                        offset: const Offset(0, 6),
+                // 1. Direct Property Owner Card (Styled in Rentilly Brand Green with Tap-to-Wallet)
+                GestureDetector(
+                  onTap: () {
+                    if (widget.onNavigateToWallet != null) {
+                      widget.onNavigateToWallet!();
+                    } else {
+                      Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LandlordWalletScreen()));
+                    }
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF064E3B), Color(0xFF042F2E)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.real_estate_agent_rounded, size: 18, color: Colors.white70),
-                              const SizedBox(width: 6),
-                              Text(
-                                'DIRECT PROPERTY OWNER',
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(color: const Color(0xFF4ADE80).withValues(alpha: 0.3), width: 1.2),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.15),
+                          blurRadius: 16,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.real_estate_agent_rounded, size: 18, color: Color(0xFF4ADE80)),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'DIRECT PROPERTY OWNER',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 8.5,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 1.1,
+                                    color: const Color(0xFF4ADE80),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: isVerified ? const Color(0xFF22C55E).withValues(alpha: 0.2) : AppColors.accentOrange.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: isVerified ? const Color(0xFF4ADE80) : AppColors.accentOrange),
+                              ),
+                              child: Text(
+                                isVerified ? 'TITLE VERIFIED 🔑' : 'TIER 1 (UNVERIFIED)',
                                 style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 8.5,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 1.1,
-                                  color: Colors.white70,
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.w900,
+                                  color: isVerified ? const Color(0xFF4ADE80) : AppColors.accentOrange,
                                 ),
                               ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          name,
+                          style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          'Landlord ID: $landlordId • ${_user?.email ?? ""}',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: const Color(0xFF38BDF8), fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 18),
+
+                        // Metrics Dual Balances (Tappable to Wallet)
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.25),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('OPERATING FUNDS', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white60)),
+                                    const SizedBox(height: 2),
+                                    Text('₦${_currencyFormat.format(operationalBalance)}', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white)),
+                                  ],
+                                ),
+                              ),
+                              Container(width: 1, height: 32, color: Colors.white24),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('ACTIVE ESCROW RENT', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white60)),
+                                    const SizedBox(height: 2),
+                                    Text('₦${_currencyFormat.format(escrowBalance)}', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w900, color: const Color(0xFF38BDF8))),
+                                  ],
+                                ),
+                              ),
+                              const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: Colors.white70),
                             ],
                           ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: isVerified ? const Color(0xFF22C55E).withValues(alpha: 0.2) : AppColors.accentOrange.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: isVerified ? const Color(0xFF4ADE80) : AppColors.accentOrange),
-                            ),
-                            child: Text(
-                              isVerified ? 'TITLE VERIFIED 🔑' : 'TIER 1 (UNVERIFIED)',
-                              style: GoogleFonts.plusJakartaSans(
-                                fontSize: 8,
-                                fontWeight: FontWeight.w900,
-                                color: isVerified ? const Color(0xFF4ADE80) : AppColors.accentOrange,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                      Text(
-                        name,
-                        style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
-                      ),
-                      const SizedBox(height: 3),
-                      Text(
-                        'Landlord ID: $landlordId • ${_user?.email ?? ""}',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: const Color(0xFF38BDF8), fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 18),
-
-                      // Metrics Dual Balances
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('OPERATING FUNDS', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white60)),
-                                const SizedBox(height: 2),
-                                Text('₦${_currencyFormat.format(operationalBalance)}', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white)),
-                              ],
-                            ),
-                          ),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('ACTIVE ESCROW RENT', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white60)),
-                                const SizedBox(height: 2),
-                                Text('₦${_currencyFormat.format(escrowBalance)}', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w900, color: const Color(0xFF38BDF8))),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -376,7 +420,11 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
                             Expanded(
                               child: ElevatedButton.icon(
                                 onPressed: () {
-                                  if (_user != null) AddMoneyModal.show(context, user: _user!);
+                                  if (_user != null) {
+                                    AddMoneyModal.show(context, user: _user!, onAccountUpdated: (u) {
+                                      setState(() => _user = u);
+                                    });
+                                  }
                                 },
                                 icon: const Icon(Icons.add_rounded, size: 14, color: Colors.white),
                                 label: Text('Fund Wallet', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
@@ -446,7 +494,7 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
                     _buildGridCard(
                       icon: Icons.badge_rounded,
                       title: 'My Landlord ID',
-                      subtitle: 'Title Audited Credential',
+                      subtitle: 'Title Audited PDF Credential',
                       badge: 'OFFICIAL',
                       color: const Color(0xFF0D9488),
                       onTap: () {
@@ -462,9 +510,7 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
                       badge: 'LEGAL',
                       color: const Color(0xFF7C3AED),
                       onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('All current leases are up to date.', style: GoogleFonts.plusJakartaSans(fontSize: 11)), backgroundColor: AppColors.primary),
-                        );
+                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LandlordDigitalLeasesScreen()));
                       },
                     ),
                     _buildGridCard(
