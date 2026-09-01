@@ -166,12 +166,6 @@ export async function login(req: Request, res: Response) {
         restoredUser.bankName = 'Flutterwave MFB';
         restoredUser.walletBalance = 2000.00;
         UserStore.upsertUser(restoredUser);
-      } else if (isPartner) {
-        restoredUser.isVerified = true;
-        restoredUser.bvnVerified = true;
-        restoredUser.accountNumber = '9955394366';
-        restoredUser.bankName = 'Flutterwave MFB';
-        UserStore.upsertUser(restoredUser);
       }
 
       const token = `rentilly_jwt_${restoredUser.id}_${Date.now()}`;
