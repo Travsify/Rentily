@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
+import '../models/user_profile.dart';
+import '../services/auth_service.dart';
 import '../widgets/rentilly_bottom_bar.dart';
 import '../widgets/quick_utilities_modal.dart';
 import 'home/home_screen.dart';
@@ -8,6 +10,7 @@ import 'inspections/inspections_screen.dart';
 import 'vaults/vaults_screen.dart';
 import 'profile/profile_screen.dart';
 import 'landlord/landlord_dashboard_screen.dart';
+import 'partner/partner_dashboard_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   final int initialIndex;
@@ -29,7 +32,8 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   late int _currentIndex;
-  bool _isLandlordMode = false;
+  String _activeViewMode = 'consumer'; // 'consumer', 'landlord', 'partner'
+  UserProfile? _user;
 
   final List<Widget> _screens = const [
     HomeScreen(),
@@ -43,27 +47,55 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
-    _isLandlordMode = widget.initialLandlordMode;
+    _checkUserRole();
+  }
+
+  void _checkUserRole() async {
+    final user = await AuthService.getCurrentUser();
+    if (mounted && user != null) {
+      setState(() {
+        _user = user;
+        if (widget.initialLandlordMode) {
+          _activeViewMode = 'landlord';
+        } else if (user.role == 'partner') {
+          _activeViewMode = 'partner';
+        } else if (user.role == 'owner' || user.role == 'landlord') {
+          _activeViewMode = 'landlord';
+        } else {
+          _activeViewMode = 'consumer';
+        }
+      });
+    }
   }
 
   void switchTab(int index) {
     setState(() {
       _currentIndex = index;
-      _isLandlordMode = false;
+      _activeViewMode = 'consumer';
     });
   }
 
   void toggleLandlordMode(bool enable) {
     setState(() {
-      _isLandlordMode = enable;
+      if (!enable) {
+        _activeViewMode = 'consumer';
+      } else {
+        _activeViewMode = (_user?.role == 'partner') ? 'partner' : 'landlord';
+      }
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLandlordMode) {
+    if (_activeViewMode == 'partner') {
+      return PartnerDashboardScreen(
+        onSwitchToTenant: () => setState(() => _activeViewMode = 'consumer'),
+      );
+    }
+
+    if (_activeViewMode == 'landlord') {
       return LandlordDashboardScreen(
-        onSwitchToTenant: () => setState(() => _isLandlordMode = false),
+        onSwitchToTenant: () => setState(() => _activeViewMode = 'consumer'),
       );
     }
 
