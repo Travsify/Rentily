@@ -273,26 +273,29 @@ class _InlineOtpVerificationWidgetState extends State<InlineOtpVerificationWidge
               ),
               if (!widget.isVerified) ...[
                 Padding(
-                  padding: const EdgeInsets.only(right: 6),
-                  child: TextButton(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ElevatedButton.icon(
                     onPressed: _isSending ? null : _sendOtp,
-                    style: TextButton.styleFrom(
-                      backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    icon: _isSending
+                        ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : const Icon(Icons.send_rounded, size: 12, color: Colors.white),
+                    label: Text(
+                      _isSending ? 'Sending...' : 'Verify',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF16A34A),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
-                    child: _isSending
-                        ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2))
-                        : Text(
-                            'Verify',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.primary,
-                            ),
-                          ),
                   ),
                 ),
               ],

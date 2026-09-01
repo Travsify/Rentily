@@ -141,10 +141,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
           setState(() => _errorMessage = 'Please enter Director / Representative Full Legal Name.');
           return;
         }
-        if (_phoneController.text.trim().isEmpty) {
-          setState(() => _errorMessage = 'Please enter a valid phone number.');
-          return;
-        }
         setState(() => _step = 3);
         return;
       }
@@ -1014,17 +1010,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
           style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600),
           decoration: _buildInputDecoration('e.g. Patrick Achua (Managing Director)', Icons.person_outline_rounded),
         ),
-        const SizedBox(height: 14),
-
-        // Phone Number
-        Text('DIRECT CORPORATE PHONE NUMBER', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
-        const SizedBox(height: 6),
-        TextField(
-          controller: _phoneController,
-          keyboardType: TextInputType.phone,
-          style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600),
-          decoration: _buildInputDecoration('0812 345 6789', Icons.phone_android_rounded),
-        ),
       ],
     );
   }
@@ -1034,6 +1019,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Security Verification Banner
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0FDF4),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFF86EFAC)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.shield_rounded, size: 20, color: Color(0xFF16A34A)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Enter your Email and Phone, then tap the green "Verify" button to receive your 6-digit OTP codes.',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF14532D),
+                    height: 1.35,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
         // 1. Email Verification with Resend
         InlineOtpVerificationWidget(
           label: 'Official Email Address',
