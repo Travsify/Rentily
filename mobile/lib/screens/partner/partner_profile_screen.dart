@@ -154,15 +154,6 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
         ),
         backgroundColor: Colors.white,
         elevation: 0,
-        actions: [
-          if (widget.onSwitchToTenant != null)
-            TextButton.icon(
-              onPressed: widget.onSwitchToTenant,
-              icon: const Icon(Icons.swap_horiz_rounded, size: 16, color: AppColors.primary),
-              label: Text('Consumer Mode', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
-            ),
-          const SizedBox(width: 8),
-        ],
       ),
       body: SafeArea(
         child: ListView(
@@ -351,6 +342,16 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
                 );
               },
             ),
+            if (widget.onSwitchToTenant != null) ...[
+              const SizedBox(height: 4),
+              _buildTile(
+                icon: Icons.swap_horiz_rounded,
+                title: 'Switch to Consumer / Renter Mode 🔄',
+                subtitle: 'Browse properties, search rentals & manage tenancies as a consumer',
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.primary),
+                onTap: widget.onSwitchToTenant!,
+              ),
+            ],
             const SizedBox(height: 24),
 
             // Logout Button

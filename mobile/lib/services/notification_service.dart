@@ -138,6 +138,17 @@ class NotificationService {
     unreadCountNotifier.value = 0;
   }
 
+  // Delete a single notification
+  static Future<void> deleteNotification(String id) async {
+    final current = await getNotifications();
+    current.removeWhere((n) => n.id == id);
+    await _saveNotifications(current);
+    _updateUnreadCount(current);
+  }
+
+  // Alias for markAllAsRead for compatibility
+  static Future<void> markAllRead() => markAllAsRead();
+
   static Future<void> _saveNotifications(List<InAppNotification> list) async {
     final prefs = await SharedPreferences.getInstance();
     final str = json.encode(list.map((e) => e.toJson()).toList());

@@ -139,7 +139,7 @@ class VerificationService {
     try {
       final nameParts = fullName.trim().split(' ');
       final firstName = nameParts.first;
-      final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : 'Atua';
+      final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : 'Achua';
 
       final flwRes = await http.post(
         Uri.parse('https://api.flutterwave.com/v3/virtual-account-numbers'),

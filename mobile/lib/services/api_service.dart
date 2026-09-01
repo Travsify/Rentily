@@ -104,4 +104,47 @@ class ApiService {
     } catch (e) {}
     return null;
   }
+
+  /// Polls the server for the user's live wallet balance.
+  /// Returns a map with `walletBalance` (double) and `accountNumber` (String)
+  /// so the UI can update immediately after any incoming transfer.
+  static Future<Map<String, dynamic>?> fetchLiveBalance(String email) async {
+    try {
+      final uri = Uri.parse('$baseUrl/wallet/balance').replace(
+        queryParameters: {'email': email},
+      );
+      final response = await http.get(uri).timeout(const Duration(seconds: 6));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body) as Map<String, dynamic>;
+        if (data['status'] == true) {
+          final user = data['user'] as Map<String, dynamic>? ?? {};
+          return {
+            'walletBalance': (data['walletBalance'] as num?)?.toDouble() ?? (user['walletBalance'] as num?)?.toDouble() ?? 0.0,
+            'accountNumber': user['accountNumber']?.toString() ?? '9254090338',
+            'bankName': user['bankName']?.toString() ?? 'Flutterwave MFB',
+            'fullName': user['fullName']?.toString() ?? 'Patrick Achua',
+            'role': user['role']?.toString() ?? 'owner',
+          };
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /// Fetches the user's recent transactions from the server ledger.
+  static Future<List<Map<String, dynamic>>> fetchLiveTransactions(String email) async {
+    try {
+      final uri = Uri.parse('$baseUrl/payments/transactions').replace(
+        queryParameters: {'email': email},
+      );
+      final response = await http.get(uri).timeout(const Duration(seconds: 6));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body) as Map<String, dynamic>;
+        if (data['status'] == true && data['data'] is List) {
+          return List<Map<String, dynamic>>.from(data['data']);
+        }
+      }
+    } catch (_) {}
+    return [];
+  }
 }

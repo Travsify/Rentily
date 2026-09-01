@@ -78,6 +78,10 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
 
   // Direct Landlord Title Verification Fields
   String _selectedTitleDoc = 'deed_of_assignment';
+  String? _titleDocFilePath;
+  String? _titleDocFileName;
+  String? _meterBillFilePath;
+  String? _meterBillFileName;
   bool _hasUploadedTitleDoc = true;
   bool _hasUploadedElectricityBill = true;
   bool _agreedToTitleWarranty = true;
@@ -88,6 +92,52 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
   bool _isSubmitting = false;
 
   final NumberFormat _currencyFormat = NumberFormat('#,###');
+
+  void _pickTitleDocument() async {
+    try {
+      final XFile? file = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+      if (file != null) {
+        setState(() {
+          _titleDocFilePath = file.path;
+          _titleDocFileName = file.name;
+          _hasUploadedTitleDoc = true;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Title Document Attached: ${file.name} 📄', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+              backgroundColor: const Color(0xFF16A34A),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    } catch (_) {}
+  }
+
+  void _pickMeterBill() async {
+    try {
+      final XFile? file = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+      if (file != null) {
+        setState(() {
+          _meterBillFilePath = file.path;
+          _meterBillFileName = file.name;
+          _hasUploadedElectricityBill = true;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Recent Meter Bill Attached (≤ 3 months): ${file.name} ⚡', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+              backgroundColor: const Color(0xFF16A34A),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    } catch (_) {}
+  }
 
   @override
   void initState() {
@@ -493,52 +543,85 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
 
                 // 2. Media Uploads: Property Photos & Walkthrough Video
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text('2. PROPERTY PHOTOS & 4K VIDEO WALKTHROUGH', style: _labelStyle),
-                    Text('${_uploadedImages.length} Photos Added', style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                    Expanded(
+                      child: Text(
+                        '2. PROPERTY PHOTOS & 4K VIDEO',
+                        style: _labelStyle,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        '${_uploadedImages.length} photo${_uploadedImages.length == 1 ? '' : 's'}',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.primary),
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 8),
 
-                // Media Action Buttons
+                // Media Action Buttons — each label uses overflow ellipsis
                 Row(
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: _pickImages,
-                        icon: const Icon(Icons.add_photo_alternate_rounded, size: 16, color: AppColors.primary),
-                        label: Text('Add Photos', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                        icon: const Icon(Icons.add_photo_alternate_rounded, size: 15, color: AppColors.primary),
+                        label: Text(
+                          'Add Photos',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppColors.primary),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
                         style: OutlinedButton.styleFrom(
                           side: const BorderSide(color: AppColors.primary),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     Expanded(
                       child: OutlinedButton.icon(
                         onPressed: _takePhoto,
-                        icon: const Icon(Icons.camera_alt_rounded, size: 16, color: AppColors.primary),
-                        label: Text('Take Photo', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                        icon: const Icon(Icons.camera_alt_rounded, size: 15, color: AppColors.primary),
+                        label: Text(
+                          'Camera',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppColors.primary),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
                         style: OutlinedButton.styleFrom(
                           side: const BorderSide(color: AppColors.primary),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     Expanded(
                       child: ElevatedButton.icon(
                         onPressed: _pickVideo,
-                        icon: const Icon(Icons.videocam_rounded, size: 16, color: Colors.white),
-                        label: Text(_uploadedVideoPath != null ? 'Video Added 🎥' : 'Add 4K Video', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.white)),
+                        icon: const Icon(Icons.videocam_rounded, size: 15, color: Colors.white),
+                        label: Text(
+                          _uploadedVideoPath != null ? 'Video ✓' : '4K Video',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.white),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _uploadedVideoPath != null ? const Color(0xFF16A34A) : AppColors.accentOrange,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
                         ),
                       ),
                     ),
@@ -546,52 +629,70 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
                 ),
                 const SizedBox(height: 10),
 
-                // Uploaded Photos Horizontal Strip
+                // Uploaded Photos — horizontally scrollable, fully clipped, never overflows
                 if (_uploadedImages.isNotEmpty) ...[
-                  SizedBox(
-                    height: 75,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _uploadedImages.length,
-                      itemBuilder: (ctx, i) {
-                        final path = _uploadedImages[i];
-                        return Container(
-                          width: 75,
-                          height: 75,
-                          margin: const EdgeInsets.only(right: 8),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: AppColors.borderDark),
-                          ),
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(9),
-                                child: path.startsWith('http')
-                                    ? Image.network(path, fit: BoxFit.cover)
-                                    : Image.file(File(path), fit: BoxFit.cover),
-                              ),
-                              Positioned(
-                                top: 2,
-                                right: 2,
-                                child: GestureDetector(
-                                  onTap: () => setState(() => _uploadedImages.removeAt(i)),
-                                  child: Container(
-                                    padding: const EdgeInsets.all(2),
-                                    decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
-                                    child: const Icon(Icons.close_rounded, size: 12, color: Colors.white),
-                                  ),
+                  ClipRect(
+                    child: SizedBox(
+                      height: 80,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        itemCount: _uploadedImages.length,
+                        itemBuilder: (ctx, i) {
+                          final path = _uploadedImages[i];
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: SizedBox(
+                                width: 80,
+                                height: 80,
+                                child: Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    path.startsWith('http')
+                                        ? Image.network(path, fit: BoxFit.cover)
+                                        : Image.file(File(path), fit: BoxFit.cover),
+                                    Positioned(
+                                      top: 3,
+                                      right: 3,
+                                      child: GestureDetector(
+                                        onTap: () => setState(() => _uploadedImages.removeAt(i)),
+                                        child: Container(
+                                          padding: const EdgeInsets.all(3),
+                                          decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                                          child: const Icon(Icons.close_rounded, size: 11, color: Colors.white),
+                                        ),
+                                      ),
+                                    ),
+                                    Positioned(
+                                      bottom: 0,
+                                      left: 0,
+                                      right: 0,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(vertical: 3),
+                                        color: Colors.black38,
+                                        child: Text(
+                                          'Photo ${i + 1}',
+                                          textAlign: TextAlign.center,
+                                          style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            ],
-                          ),
-                        );
-                      },
+                            ),
+                          );
+                        },
+                      ),
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Text('🛡️ All media is cryptographically hashed to block duplicate listings & active tenancy re-uploads.', style: GoogleFonts.plusJakartaSans(fontSize: 9, color: AppColors.textSecondary)),
+                  Text(
+                    '🛡️ All media is cryptographically hashed to block duplicate listings & tenancy re-uploads.',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 9, color: AppColors.textSecondary),
+                  ),
                 ],
                 const SizedBox(height: 18),
 
@@ -814,46 +915,119 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
                         ),
                         const SizedBox(height: 12),
 
-                        // Upload Status Badges
-                        Row(
+                        // Interactive Upload Badges / Buttons for Title Document & Meter Bill
+                        Column(
                           children: [
-                            Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: const Color(0xFF86EFAC)),
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.description_rounded, size: 14, color: Color(0xFF16A34A)),
-                                    const SizedBox(width: 4),
-                                    Expanded(
-                                      child: Text('Title Document Attached 📄', style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.bold, color: const Color(0xFF16A34A))),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: _pickTitleDocument,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                      decoration: BoxDecoration(
+                                        color: _titleDocFilePath != null ? const Color(0xFFDCFCE7) : Colors.white,
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: _titleDocFilePath != null ? const Color(0xFF16A34A) : const Color(0xFF86EFAC),
+                                          width: _titleDocFilePath != null ? 1.5 : 1.0,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            _titleDocFilePath != null ? Icons.check_circle_rounded : Icons.upload_file_rounded,
+                                            size: 16,
+                                            color: const Color(0xFF16A34A),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  _titleDocFileName != null ? 'Title Doc Attached ✓' : 'Attach Title Doc 📄',
+                                                  style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.bold, color: const Color(0xFF166534)),
+                                                ),
+                                                Text(
+                                                  _titleDocFileName ?? 'Tap to select document/photo',
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: GoogleFonts.plusJakartaSans(fontSize: 8, color: const Color(0xFF15803D)),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ],
+                                  ),
                                 ),
-                              ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: GestureDetector(
+                                    onTap: _pickMeterBill,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                                      decoration: BoxDecoration(
+                                        color: _meterBillFilePath != null ? const Color(0xFFDCFCE7) : Colors.white,
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: _meterBillFilePath != null ? const Color(0xFF16A34A) : const Color(0xFF86EFAC),
+                                          width: _meterBillFilePath != null ? 1.5 : 1.0,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            _meterBillFilePath != null ? Icons.check_circle_rounded : Icons.electric_bolt_rounded,
+                                            size: 16,
+                                            color: const Color(0xFF16A34A),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  _meterBillFileName != null ? 'Meter Bill Attached ✓' : 'Attach Meter Bill ⚡',
+                                                  style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.bold, color: const Color(0xFF166534)),
+                                                ),
+                                                Text(
+                                                  _meterBillFileName ?? 'Tap to select meter bill',
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: GoogleFonts.plusJakartaSans(fontSize: 8, color: const Color(0xFF15803D)),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: const Color(0xFF86EFAC)),
-                                ),
-                                child: Row(
-                                  children: [
-                                    const Icon(Icons.electric_bolt_rounded, size: 14, color: Color(0xFF16A34A)),
-                                    const SizedBox(width: 4),
-                                    Expanded(
-                                      child: Text('Recent Meter Bill Attached ⚡', style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.bold, color: const Color(0xFF16A34A))),
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFEF3C7),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: const Color(0xFFFDE68A)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.info_outline_rounded, size: 13, color: Color(0xFFB45309)),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      'Mandatory: Recent meter bill must not be older than 3 months for title verification.',
+                                      style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w600, color: const Color(0xFF92400E)),
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
@@ -871,7 +1045,7 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
                             ),
                             Expanded(
                               child: Text(
-                                'I legally warrant that I am the bonafide title owner with unencumbered authority to lease/sell this unit under Lagos Tenancy Law 2011.',
+                                'I legally warrant that I am the bonafide title owner with full unencumbered authority to lease or sell this unit in accordance with the laws of the Federal Republic of Nigeria.',
                                 style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: const Color(0xFF14532D), height: 1.3),
                               ),
                             ),

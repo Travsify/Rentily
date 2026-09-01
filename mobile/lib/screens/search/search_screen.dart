@@ -52,7 +52,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   void _performSearch(String query) async {
     setState(() => _isLoading = true);
-    final props = await ApiService.asyncFetchProperties(search: query);
+    final props = await ApiService.fetchProperties(search: query);
     if (mounted) {
       setState(() {
         _results = props;

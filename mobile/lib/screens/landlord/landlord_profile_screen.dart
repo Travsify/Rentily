@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../constants/app_colors.dart';
 import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
@@ -37,7 +38,12 @@ class _LandlordProfileScreenState extends State<LandlordProfileScreen> {
   }
 
   void _loadUser() async {
-    final user = await AuthService.getCurrentUser();
+    final prefs = await SharedPreferences.getInstance();
+    var user = await AuthService.getCurrentUser();
+    final savedAvatar = prefs.getString('rentilly_persistent_avatar_url');
+    if (user != null && (user.avatarUrl == null || user.avatarUrl!.isEmpty) && savedAvatar != null && savedAvatar.isNotEmpty) {
+      user = user.copyWith(avatarUrl: savedAvatar);
+    }
     final hasPin = await PaymentSecurityService.hasPaymentPin();
     if (mounted) {
       setState(() {
@@ -52,6 +58,8 @@ class _LandlordProfileScreenState extends State<LandlordProfileScreen> {
     final picker = ImagePicker();
     final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
     if (image != null && _user != null) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('rentilly_persistent_avatar_url', image.path);
       final updated = _user!.copyWith(avatarUrl: image.path);
       await AuthService.updateUser(updated);
       setState(() => _user = updated);
@@ -778,15 +786,6 @@ class _LandlordProfileScreenState extends State<LandlordProfileScreen> {
         ),
         backgroundColor: Colors.white,
         elevation: 0,
-        actions: [
-          if (widget.onSwitchToTenant != null)
-            TextButton.icon(
-              onPressed: widget.onSwitchToTenant,
-              icon: const Icon(Icons.swap_horiz_rounded, size: 16, color: AppColors.primary),
-              label: Text('Consumer Mode', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
-            ),
-          const SizedBox(width: 8),
-        ],
       ),
       body: SafeArea(
         child: ListView(
@@ -985,6 +984,16 @@ class _LandlordProfileScreenState extends State<LandlordProfileScreen> {
               subtitle: 'Strict title confidentiality & 256-bit financial encryption terms',
               onTap: _showPrivacyPolicyModal,
             ),
+            if (widget.onSwitchToTenant != null) ...[
+              const SizedBox(height: 4),
+              _buildTile(
+                icon: Icons.swap_horiz_rounded,
+                title: 'Switch to Consumer / Renter Mode 🔄',
+                subtitle: 'Browse properties, search rentals & manage tenancies as a consumer',
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.primary),
+                onTap: widget.onSwitchToTenant!,
+              ),
+            ],
             const SizedBox(height: 24),
 
             // Logout Button

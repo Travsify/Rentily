@@ -264,8 +264,11 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
       return;
     }
 
-    if (amount > widget.user.walletBalance) {
-      setState(() => _errorMessage = 'Amount exceeds available balance (₦${NumberFormat('#,###.00').format(widget.user.walletBalance)}).');
+    final currentUser = await AuthService.getCurrentUser() ?? widget.user;
+    final currentBal = currentUser.walletBalance;
+
+    if (amount > currentBal) {
+      setState(() => _errorMessage = 'Amount exceeds available balance (₦${NumberFormat('#,###.00').format(currentBal)}).');
       return;
     }
 
@@ -280,7 +283,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
       context,
       title: 'Withdrawal to $_selectedBankName ($accNum)',
       amount: amount,
-      recipient: _resolvedAccountName ?? widget.user.fullName,
+      recipient: _resolvedAccountName ?? currentUser.fullName,
     );
     if (!authorized) {
       setState(() => _errorMessage = 'Payment authorization cancelled or incorrect.');
@@ -298,11 +301,11 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
         url,
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
-          'userId': widget.user.id,
-          'email': widget.user.email,
+          'userId': currentUser.id,
+          'email': currentUser.email,
           'accountNumber': accNum,
           'bankCode': _selectedBankCode,
-          'accountName': _resolvedAccountName ?? widget.user.fullName,
+          'accountName': _resolvedAccountName ?? currentUser.fullName,
           'amount': amount,
           'reason': 'Rentilly Living Escrow Payout'
         }),
@@ -313,8 +316,8 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
       setState(() => _isProcessing = false);
 
       if (res.statusCode == 200 && data['status'] == true) {
-        final newBal = (widget.user.walletBalance - amount).clamp(0.0, double.infinity);
-        final updatedUser = widget.user.copyWith(walletBalance: newBal);
+        final newBal = (currentBal - amount).clamp(0.0, double.infinity);
+        final updatedUser = currentUser.copyWith(walletBalance: newBal);
         await AuthService.updateUser(updatedUser);
         widget.onWithdrawalSuccess(newBal);
 

@@ -433,50 +433,57 @@ class PartnerIdCardModal extends StatelessWidget {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(5),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF4ADE80).withValues(alpha: 0.2),
-                                      shape: BoxShape.circle,
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(5),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF4ADE80).withValues(alpha: 0.2),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(Icons.shield_rounded, size: 14, color: Color(0xFF4ADE80)),
                                     ),
-                                    child: const Icon(Icons.shield_rounded, size: 14, color: Color(0xFF4ADE80)),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'RENTILLY ESCROW NETWORK',
-                                        style: GoogleFonts.plusJakartaSans(
-                                          fontSize: 8,
-                                          fontWeight: FontWeight.w900,
-                                          letterSpacing: 1.0,
-                                          color: const Color(0xFF4ADE80),
-                                        ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'RENTILLY ESCROW NETWORK',
+                                            style: GoogleFonts.plusJakartaSans(
+                                              fontSize: 7.5,
+                                              fontWeight: FontWeight.w900,
+                                              letterSpacing: 0.8,
+                                              color: const Color(0xFF4ADE80),
+                                            ),
+                                          ),
+                                          Text(
+                                            isPartner ? 'CORPORATE BROKERAGE CREDENTIAL' : 'DIRECT PROPERTY OWNER CREDENTIAL',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: GoogleFonts.plusJakartaSans(
+                                              fontSize: 9.5,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                      Text(
-                                        isPartner ? 'CORPORATE BROKERAGE CREDENTIAL' : 'DIRECT PROPERTY OWNER CREDENTIAL',
-                                        style: GoogleFonts.plusJakartaSans(
-                                          fontSize: 10,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
+                                    ),
+                                  ],
+                                ),
                               ),
+                              const SizedBox(width: 6),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFF16A34A),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
                                   isPartner ? 'CAC AUDITED' : 'TITLE VERIFIED',
-                                  style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.w900, color: Colors.white),
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 7.5, fontWeight: FontWeight.w900, color: Colors.white),
                                 ),
                               ),
                             ],

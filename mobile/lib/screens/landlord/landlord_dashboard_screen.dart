@@ -19,6 +19,9 @@ import '../inspections/inspections_screen.dart';
 import 'landlord_wallet_screen.dart';
 import 'landlord_profile_screen.dart';
 import 'landlord_digital_leases_screen.dart';
+import '../../services/notification_service.dart';
+import '../shared/notification_center_screen.dart';
+import '../shared/chat_inbox_screen.dart';
 
 class LandlordDashboardScreen extends StatefulWidget {
   final VoidCallback? onSwitchToTenant;
@@ -167,16 +170,48 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
         backgroundColor: Colors.white,
         elevation: 0,
         actions: [
-          if (widget.onSwitchToTenant != null)
-            TextButton.icon(
-              onPressed: widget.onSwitchToTenant,
-              icon: const Icon(Icons.swap_horiz_rounded, size: 16, color: AppColors.primary),
-              label: Text(
-                'Consumer Mode',
-                style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
-              ),
-            ),
-          const SizedBox(width: 8),
+          // 1. Chat Icon with Messages Inbox
+          IconButton(
+            icon: const Icon(Icons.chat_bubble_outline_rounded, color: AppColors.textPrimary, size: 21),
+            tooltip: 'Tenant & Buyer Messages',
+            onPressed: () => ChatInboxScreen.show(context),
+          ),
+          // 2. Notification Bell with Unread Badge
+          ValueListenableBuilder<int>(
+            valueListenable: NotificationService.unreadCountNotifier,
+            builder: (context, count, _) {
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.notifications_none_rounded, color: AppColors.textPrimary, size: 23),
+                    tooltip: 'In-App Activity Notifications',
+                    onPressed: () => NotificationCenterScreen.show(context),
+                  ),
+                  if (count > 0)
+                    Positioned(
+                      top: 9,
+                      right: 9,
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: const BoxDecoration(
+                          color: Color(0xFFDC2626),
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(minWidth: 15, minHeight: 15),
+                        child: Center(
+                          child: Text(
+                            count > 9 ? '9+' : '$count',
+                            style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.w900, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(width: 4),
         ],
       ),
       body: SafeArea(

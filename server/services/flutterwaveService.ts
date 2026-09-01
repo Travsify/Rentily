@@ -282,4 +282,21 @@ export class FlutterwaveService {
       { code: '999991', name: 'PalmPay' }
     ];
   }
+
+  // 4. Fetch Live Inbound Transactions directly from Flutterwave Cloud API
+  static async fetchLiveTransactions(): Promise<any[]> {
+    if (!this.isConfigured()) return [];
+    try {
+      const response = await fetch(`${FLW_BASE_URL}/transactions?currency=NGN`, {
+        headers: this.getHeaders()
+      });
+      const resJson: any = await response.json();
+      if (response.ok && resJson.status === 'success' && Array.isArray(resJson.data)) {
+        return resJson.data;
+      }
+    } catch (err: any) {
+      console.error('[Flutterwave] fetchLiveTransactions error:', err.message);
+    }
+    return [];
+  }
 }

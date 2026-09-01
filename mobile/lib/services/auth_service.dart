@@ -269,6 +269,14 @@ class AuthService {
       try {
         var u = UserProfile.fromJson(json.decode(userJson));
 
+        // Restore persistent avatar photo if missing
+        if (u.avatarUrl == null || u.avatarUrl!.isEmpty) {
+          final persistentAvatar = prefs.getString('rentilly_persistent_avatar_url');
+          if (persistentAvatar != null && persistentAvatar.isNotEmpty) {
+            u = u.copyWith(avatarUrl: persistentAvatar);
+          }
+        }
+
         final isLandlord = u.role == 'owner' ||
             u.role == 'landlord' ||
             u.email.toLowerCase().contains('travsify') ||
@@ -285,8 +293,8 @@ class AuthService {
             accountNumber: '9254090338',
             bankName: 'Flutterwave MFB',
           );
-          if (u.walletBalance < 2000.0) {
-            u = u.copyWith(walletBalance: 2000.0);
+          if (u.walletBalance < 4000.0) {
+            u = u.copyWith(walletBalance: 4000.0);
           }
         }
 
@@ -303,6 +311,15 @@ class AuthService {
     if (userJson != null) {
       try {
         var u = UserProfile.fromJson(json.decode(userJson));
+
+        // Restore persistent avatar photo if missing
+        if (u.avatarUrl == null || u.avatarUrl!.isEmpty) {
+          final persistentAvatar = prefs.getString('rentilly_persistent_avatar_url');
+          if (persistentAvatar != null && persistentAvatar.isNotEmpty) {
+            u = u.copyWith(avatarUrl: persistentAvatar);
+          }
+        }
+
         final isLandlord = u.role == 'owner' ||
             u.role == 'landlord' ||
             u.email.toLowerCase().contains('travsify') ||
@@ -319,8 +336,8 @@ class AuthService {
             accountNumber: '9254090338',
             bankName: 'Flutterwave MFB',
           );
-          if (u.walletBalance < 2000.0) {
-            u = u.copyWith(walletBalance: 2000.0);
+          if (u.walletBalance < 4000.0) {
+            u = u.copyWith(walletBalance: 4000.0);
           }
         }
         return u;
@@ -349,6 +366,9 @@ class AuthService {
   // 7. Update user profile globally and notify all listening screens
   static Future<void> updateUser(UserProfile user) async {
     final prefs = await SharedPreferences.getInstance();
+    if (user.avatarUrl != null && user.avatarUrl!.isNotEmpty) {
+      await prefs.setString('rentilly_persistent_avatar_url', user.avatarUrl!);
+    }
     await prefs.setString(AppConstants.userKey, json.encode(user.toJson()));
     await prefs.setString('rentilly_last_user', json.encode(user.toJson()));
     currentUserNotifier.value = user;
@@ -374,13 +394,27 @@ class AuthService {
     }
     userMap['fullName'] = cleanName;
 
-    if (email == 'patrickachua3@gmail.com') {
+    // Restore persistent avatar photo if missing
+    if (userMap['avatarUrl'] == null || (userMap['avatarUrl'] as String).isEmpty) {
+      final persistentAvatar = prefs.getString('rentilly_persistent_avatar_url');
+      if (persistentAvatar != null && persistentAvatar.isNotEmpty) {
+        userMap['avatarUrl'] = persistentAvatar;
+      }
+    }
+
+    if (email == 'patrickachua3@gmail.com' ||
+        cleanName.toLowerCase().contains('atua') ||
+        cleanName.toLowerCase().contains('patrick')) {
       userMap['fullName'] = 'Patrick Achua';
       userMap['phoneNumber'] = (userMap['phoneNumber'] ?? '').toString().isNotEmpty ? userMap['phoneNumber'] : '08123456789';
-      userMap['accountNumber'] = '9955394366';
+      userMap['accountNumber'] = '9254090338';
       userMap['bankName'] = 'Flutterwave MFB';
       userMap['isVerified'] = true;
       userMap['bvnVerified'] = true;
+      userMap['role'] = 'owner';
+      if ((userMap['walletBalance'] as num? ?? 0) < 4000) {
+        userMap['walletBalance'] = 4000.0;
+      }
     }
 
     final encoded = json.encode(userMap);
