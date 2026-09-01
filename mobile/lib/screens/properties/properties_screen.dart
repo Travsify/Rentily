@@ -724,7 +724,7 @@ class _PropertiesScreenState extends State<PropertiesScreen> {
                       color: prop.listedByRole == 'verified_partner' ? const Color(0xFF0F172A).withValues(alpha: 0.85) : Colors.black.withValues(alpha: 0.75),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: prop.listedByRole == 'verified_partner' ? const Color(0xFF38BDF8) : const Color(0xFF22C55E),
+                        color: prop.listedByRole == 'verified_partner' ? const Color(0xFFFBBF24) : const Color(0xFF22C55E),
                         width: 1,
                       ),
                     ),
@@ -734,7 +734,7 @@ class _PropertiesScreenState extends State<PropertiesScreen> {
                         Icon(
                           prop.listedByRole == 'verified_partner' ? Icons.business_rounded : Icons.vpn_key_rounded,
                           size: 11,
-                          color: prop.listedByRole == 'verified_partner' ? const Color(0xFF38BDF8) : const Color(0xFF22C55E),
+                          color: prop.listedByRole == 'verified_partner' ? const Color(0xFFFBBF24) : const Color(0xFF22C55E),
                         ),
                         const SizedBox(width: 4),
                         Text(

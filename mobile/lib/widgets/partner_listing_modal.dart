@@ -978,7 +978,7 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
                             ),
                             Text(
                               _isDirectLandlord ? '100% NET RENT' : (_purpose == 'rent' ? '2.5% ON RENT' : '2.0% ON SALE'),
-                              style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w900, color: const Color(0xFF38BDF8)),
+                              style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w900, color: const Color(0xFFFBBF24)),
                             ),
                           ],
                         ),

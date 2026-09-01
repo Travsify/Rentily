@@ -194,18 +194,18 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                           children: [
                             Text('ACTIVE SETTLEMENT FUNDS IN ESCROW', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white60)),
                             const SizedBox(height: 2),
-                            Text('₦${_currencyFormat.format(escrowBalance)}', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w900, color: const Color(0xFF38BDF8))),
+                            Text('₦${_currencyFormat.format(escrowBalance)}', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w900, color: const Color(0xFFFBBF24))),
                           ],
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF0284C7).withValues(alpha: 0.2),
+                            color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
                             'RELEASES ON KEY CONFIRMATION',
-                            style: GoogleFonts.plusJakartaSans(fontSize: 7.5, fontWeight: FontWeight.w900, color: const Color(0xFF38BDF8)),
+                            style: GoogleFonts.plusJakartaSans(fontSize: 7.5, fontWeight: FontWeight.w900, color: const Color(0xFFFBBF24)),
                           ),
                         ),
                       ],
@@ -421,7 +421,7 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                       Icons.wifi_rounded,
                       'Data Bundle',
                       '4K Video Tours',
-                      const Color(0xFF0284C7),
+                      const Color(0xFFF59E0B),
                       () {
                         Navigator.of(context).push(MaterialPageRoute(builder: (_) => BillsScreen(initialCategory: 'data')));
                       },

@@ -87,7 +87,7 @@ class _LandlordDigitalLeasesScreenState extends State<LandlordDigitalLeasesScree
                         const SizedBox(height: 4),
                         Text('Annual Rent: ₦${_currencyFormat.format(lease['annualRent'])}', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary)),
                         const SizedBox(height: 4),
-                        Text('Caution Deposit: ₦${_currencyFormat.format(lease['caution'])} (100% Escrow Locked)', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: const Color(0xFF0284C7), fontWeight: FontWeight.bold)),
+                        Text('Caution Deposit: ₦${_currencyFormat.format(lease['caution'])} (100% Escrow Locked)', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: const Color(0xFFD97706), fontWeight: FontWeight.bold)),
                         const SizedBox(height: 4),
                         Text('Term: ${lease['startDate']} - ${lease['endDate']}', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
                       ],

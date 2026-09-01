@@ -234,7 +234,7 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
                       const SizedBox(height: 3),
                       Text(
                         'CAC: $cacNumber • Partner ID: $partnerId',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: const Color(0xFF38BDF8)),
+                        style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: const Color(0xFFFBBF24)),
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -262,7 +262,7 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
                               children: [
                                 Text('COMMISSIONS IN ESCROW', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white60)),
                                 const SizedBox(height: 2),
-                                Text('₦${_currencyFormat.format(escrowCommission)}', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w900, color: const Color(0xFF38BDF8))),
+                                Text('₦${_currencyFormat.format(escrowCommission)}', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w900, color: const Color(0xFFFBBF24))),
                               ],
                             ),
                           ),
@@ -480,7 +480,7 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
                       title: 'Field Inspections',
                       subtitle: '6-Digit Gate Passes',
                       badge: 'ACTIVE',
-                      color: const Color(0xFF0284C7),
+                      color: const Color(0xFFF59E0B),
                       onTap: () {
                         Navigator.of(context).push(MaterialPageRoute(builder: (_) => const InspectionsScreen()));
                       },

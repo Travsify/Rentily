@@ -512,7 +512,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
-                        color: prop.listedByRole == 'verified_partner' ? const Color(0xFFBAE6FD) : const Color(0xFFBBF7D0),
+                        color: prop.listedByRole == 'verified_partner' ? const Color(0xFFFDE68A) : const Color(0xFFBBF7D0),
                         width: 1.5,
                       ),
                       boxShadow: [
@@ -528,13 +528,13 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: prop.listedByRole == 'verified_partner' ? const Color(0xFF0284C7).withValues(alpha: 0.1) : const Color(0xFF16A34A).withValues(alpha: 0.1),
+                            color: prop.listedByRole == 'verified_partner' ? const Color(0xFFD97706).withValues(alpha: 0.1) : const Color(0xFF16A34A).withValues(alpha: 0.1),
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
                             prop.listedByRole == 'verified_partner' ? Icons.business_rounded : Icons.vpn_key_rounded,
                             size: 20,
-                            color: prop.listedByRole == 'verified_partner' ? const Color(0xFF0284C7) : const Color(0xFF16A34A),
+                            color: prop.listedByRole == 'verified_partner' ? const Color(0xFFD97706) : const Color(0xFF16A34A),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -556,7 +556,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: prop.listedByRole == 'verified_partner' ? const Color(0xFFE0F2FE) : const Color(0xFFDCFCE7),
+                                      color: prop.listedByRole == 'verified_partner' ? const Color(0xFFFEF3C7) : const Color(0xFFDCFCE7),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(

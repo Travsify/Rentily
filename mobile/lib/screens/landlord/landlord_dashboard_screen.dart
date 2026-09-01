@@ -264,7 +264,7 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
                         const SizedBox(height: 3),
                         Text(
                           'Landlord ID: $landlordId • ${_user?.email ?? ""}',
-                          style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: const Color(0xFF38BDF8), fontWeight: FontWeight.bold),
+                          style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: const Color(0xFFFBBF24), fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 18),
 
@@ -295,7 +295,7 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
                                   children: [
                                     Text('ACTIVE ESCROW FUNDS', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white60)),
                                     const SizedBox(height: 2),
-                                    Text('₦${_currencyFormat.format(escrowBalance)}', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w900, color: const Color(0xFF38BDF8))),
+                                    Text('₦${_currencyFormat.format(escrowBalance)}', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w900, color: const Color(0xFFFBBF24))),
                                   ],
                                 ),
                               ),
@@ -526,7 +526,7 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
                       title: 'Gate Passes',
                       subtitle: 'Walkthrough Approvals',
                       badge: 'ACTIVE',
-                      color: const Color(0xFF0284C7),
+                      color: const Color(0xFFF59E0B),
                       onTap: () {
                         if (widget.onNavigateToTab != null) {
                           widget.onNavigateToTab!(3);
