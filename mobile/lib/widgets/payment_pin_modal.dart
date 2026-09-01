@@ -7,7 +7,7 @@ import '../services/payment_security_service.dart';
 import '../services/biometric_service.dart';
 
 class PaymentPinModal {
-  // 1. Enter Payment PIN Modal (With Quick Biometric Trigger)
+  // 1. Enter 6-digit Payment PIN Modal (With Quick Biometric Trigger)
   static Future<bool> showEnterPin(
     BuildContext context, {
     required String title,
@@ -27,7 +27,7 @@ class PaymentPinModal {
     return result ?? false;
   }
 
-  // 2. Create 4-digit PIN Modal
+  // 2. Create 6-digit PIN Modal
   static Future<bool> showCreatePin(BuildContext context) async {
     final result = await showModalBottomSheet<bool>(
       context: context,
@@ -38,7 +38,7 @@ class PaymentPinModal {
     return result ?? false;
   }
 
-  // 3. Change Payment PIN Modal (Verifies Current PIN First)
+  // 3. Change Payment PIN Modal (Verifies Current 6-digit PIN First)
   static Future<bool> showChangePin(BuildContext context) async {
     final result = await showModalBottomSheet<bool>(
       context: context,
@@ -71,14 +71,14 @@ class _EnterPinSheetState extends State<_EnterPinSheet> {
   bool _isVerifying = false;
 
   void _onKeyPress(String val) {
-    if (_pin.length < 4) {
+    if (_pin.length < 6) {
       HapticFeedback.lightImpact();
       setState(() {
         _pin += val;
         _errorMessage = null;
       });
 
-      if (_pin.length == 4) {
+      if (_pin.length == 6) {
         _verifyPin();
       }
     }
@@ -107,7 +107,7 @@ class _EnterPinSheetState extends State<_EnterPinSheet> {
       HapticFeedback.heavyImpact();
       setState(() {
         _pin = '';
-        _errorMessage = 'Incorrect 4-digit payment PIN. Please try again.';
+        _errorMessage = 'Incorrect 6-digit payment PIN. Please try again.';
       });
     }
   }
@@ -189,20 +189,20 @@ class _EnterPinSheetState extends State<_EnterPinSheet> {
           ),
           const SizedBox(height: 18),
           Text(
-            'Enter your 4-digit Payment PIN or use Biometrics',
+            'Enter your 6-digit Payment PIN or use Biometrics',
             style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 14),
 
-          // 4 PIN Dots
+          // 6 PIN Dots
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(4, (index) {
+            children: List.generate(6, (index) {
               final isFilled = index < _pin.length;
               return Container(
-                margin: const EdgeInsets.symmetric(horizontal: 8),
-                width: 16,
-                height: 16,
+                margin: const EdgeInsets.symmetric(horizontal: 5),
+                width: 14,
+                height: 14,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: isFilled ? AppColors.primary : Colors.transparent,
@@ -305,7 +305,7 @@ class _EnterPinSheetState extends State<_EnterPinSheet> {
   }
 }
 
-// ==================== CREATE PIN MODAL ====================
+// ==================== CREATE 6-DIGIT PIN MODAL ====================
 class _CreatePinSheet extends StatefulWidget {
   const _CreatePinSheet();
 
@@ -320,26 +320,26 @@ class _CreatePinSheetState extends State<_CreatePinSheet> {
   String? _errorMessage;
 
   void _onKeyPress(String val) {
-    if (_step == 1 && _pin.length < 4) {
+    if (_step == 1 && _pin.length < 6) {
       HapticFeedback.lightImpact();
       setState(() {
         _pin += val;
         _errorMessage = null;
       });
 
-      if (_pin.length == 4) {
+      if (_pin.length == 6) {
         setState(() {
           _step = 2;
         });
       }
-    } else if (_step == 2 && _confirmedPin.length < 4) {
+    } else if (_step == 2 && _confirmedPin.length < 6) {
       HapticFeedback.lightImpact();
       setState(() {
         _confirmedPin += val;
         _errorMessage = null;
       });
 
-      if (_confirmedPin.length == 4) {
+      if (_confirmedPin.length == 6) {
         _savePin();
       }
     }
@@ -406,7 +406,7 @@ class _CreatePinSheetState extends State<_CreatePinSheet> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                _step == 1 ? 'Create 4-Digit Payment PIN' : 'Confirm 4-Digit PIN',
+                _step == 1 ? 'Create 6-Digit Payment PIN' : 'Confirm 6-Digit PIN',
                 style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
               ),
               IconButton(icon: const Icon(Icons.close_rounded, size: 20), onPressed: () => Navigator.of(context).pop(false)),
@@ -415,22 +415,22 @@ class _CreatePinSheetState extends State<_CreatePinSheet> {
           const SizedBox(height: 8),
           Text(
             _step == 1
-                ? 'Create a secret 4-digit code to authorize all withdrawals and utility payments.'
-                : 'Re-enter your 4-digit PIN to confirm.',
+                ? 'Create a secret 6-digit code to authorize all withdrawals and utility payments.'
+                : 'Re-enter your 6-digit PIN to confirm.',
             style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: AppColors.textSecondary),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 20),
 
-          // PIN Dots
+          // 6 PIN Dots
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(4, (index) {
+            children: List.generate(6, (index) {
               final isFilled = _step == 1 ? index < _pin.length : index < _confirmedPin.length;
               return Container(
-                margin: const EdgeInsets.symmetric(horizontal: 8),
-                width: 16,
-                height: 16,
+                margin: const EdgeInsets.symmetric(horizontal: 5),
+                width: 14,
+                height: 14,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: isFilled ? AppColors.primary : Colors.transparent,
@@ -506,7 +506,7 @@ class _CreatePinSheetState extends State<_CreatePinSheet> {
   }
 }
 
-// ==================== CHANGE PIN MODAL ====================
+// ==================== CHANGE 6-DIGIT PIN MODAL ====================
 class _ChangePinSheet extends StatefulWidget {
   const _ChangePinSheet();
 
@@ -524,13 +524,13 @@ class _ChangePinSheetState extends State<_ChangePinSheet> {
   void _onKeyPress(String val) async {
     HapticFeedback.lightImpact();
     if (_step == 1) {
-      if (_currentPin.length < 4) {
+      if (_currentPin.length < 6) {
         setState(() {
           _currentPin += val;
           _errorMessage = null;
         });
 
-        if (_currentPin.length == 4) {
+        if (_currentPin.length == 6) {
           final isValid = await PaymentSecurityService.verifyPaymentPin(_currentPin);
           if (isValid) {
             setState(() {
@@ -540,32 +540,32 @@ class _ChangePinSheetState extends State<_ChangePinSheet> {
             HapticFeedback.heavyImpact();
             setState(() {
               _currentPin = '';
-              _errorMessage = 'Incorrect current PIN. Please enter your correct payment code.';
+              _errorMessage = 'Incorrect current 6-digit PIN. Please enter your correct payment code.';
             });
           }
         }
       }
     } else if (_step == 2) {
-      if (_newPin.length < 4) {
+      if (_newPin.length < 6) {
         setState(() {
           _newPin += val;
           _errorMessage = null;
         });
 
-        if (_newPin.length == 4) {
+        if (_newPin.length == 6) {
           setState(() {
             _step = 3;
           });
         }
       }
     } else if (_step == 3) {
-      if (_confirmPin.length < 4) {
+      if (_confirmPin.length < 6) {
         setState(() {
           _confirmPin += val;
           _errorMessage = null;
         });
 
-        if (_confirmPin.length == 4) {
+        if (_confirmPin.length == 6) {
           if (_newPin == _confirmPin) {
             await PaymentSecurityService.setPaymentPin(_newPin);
             HapticFeedback.mediumImpact();
@@ -577,7 +577,7 @@ class _ChangePinSheetState extends State<_ChangePinSheet> {
               _step = 2;
               _newPin = '';
               _confirmPin = '';
-              _errorMessage = 'New PINs do not match. Please try again.';
+              _errorMessage = 'New 6-digit PINs do not match. Please try again.';
             });
           }
         }
@@ -607,24 +607,24 @@ class _ChangePinSheetState extends State<_ChangePinSheet> {
   String get _stepTitle {
     switch (_step) {
       case 1:
-        return 'Enter Current Payment PIN';
+        return 'Enter Current 6-Digit PIN';
       case 2:
-        return 'Enter New 4-Digit PIN';
+        return 'Enter New 6-Digit PIN';
       case 3:
-        return 'Confirm New 4-Digit PIN';
+        return 'Confirm New 6-Digit PIN';
       default:
-        return 'Change Payment PIN';
+        return 'Change 6-Digit Payment PIN';
     }
   }
 
   String get _stepSubtitle {
     switch (_step) {
       case 1:
-        return 'Please enter your current payment PIN to verify ownership before changing.';
+        return 'Please enter your current 6-digit payment PIN to verify ownership before changing.';
       case 2:
-        return 'Enter your new 4-digit payment PIN.';
+        return 'Enter your new 6-digit payment PIN.';
       case 3:
-        return 'Re-enter your new 4-digit payment PIN to confirm.';
+        return 'Re-enter your new 6-digit payment PIN to confirm.';
       default:
         return '';
     }
@@ -665,19 +665,19 @@ class _ChangePinSheetState extends State<_ChangePinSheet> {
           ),
           const SizedBox(height: 20),
 
-          // Dots
+          // 6 Dots
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(4, (index) {
+            children: List.generate(6, (index) {
               final isFilled = _step == 1
                   ? index < _currentPin.length
                   : _step == 2
                       ? index < _newPin.length
                       : index < _confirmPin.length;
               return Container(
-                margin: const EdgeInsets.symmetric(horizontal: 8),
-                width: 16,
-                height: 16,
+                margin: const EdgeInsets.symmetric(horizontal: 5),
+                width: 14,
+                height: 14,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: isFilled ? AppColors.primary : Colors.transparent,

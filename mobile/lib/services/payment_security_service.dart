@@ -7,26 +7,26 @@ class PaymentSecurityService {
   static const String _pinKey = 'user_payment_pin_hash';
   static const String _biometricEnabledKey = 'user_biometric_payment_enabled';
 
-  // 1. Check if user has established a 4-digit payment code
+  // 1. Check if user has established a 6-digit payment code
   static Future<bool> hasPaymentPin() async {
     final prefs = await SharedPreferences.getInstance();
     final pin = prefs.getString(_pinKey);
-    return pin != null && (pin.length == 4 || pin.length == 6);
+    return pin != null && pin.length == 6;
   }
 
-  // 2. Set or Update payment PIN
+  // 2. Set or Update 6-digit payment PIN
   static Future<bool> setPaymentPin(String pin) async {
-    if ((pin.length != 4 && pin.length != 6) || int.tryParse(pin) == null) return false;
+    if (pin.length != 6 || int.tryParse(pin) == null) return false;
     final prefs = await SharedPreferences.getInstance();
     return await prefs.setString(_pinKey, pin);
   }
 
-  // 3. Verify entered PIN
+  // 3. Verify entered 6-digit PIN
   static Future<bool> verifyPaymentPin(String enteredPin) async {
     final prefs = await SharedPreferences.getInstance();
     final savedPin = prefs.getString(_pinKey);
     if (savedPin == null) {
-      return enteredPin == '1234' || enteredPin == '123456';
+      return enteredPin == '123456';
     }
     return savedPin == enteredPin;
   }

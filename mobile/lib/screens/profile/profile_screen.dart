@@ -291,7 +291,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _buildMenuTile(
                 Icons.dialpad_rounded,
                 _hasPaymentPin ? 'Change Payment PIN' : 'Create Payment PIN',
-                _hasPaymentPin ? 'Verify current PIN to set a new 4-digit code' : 'Create secret 4-digit payment PIN',
+                _hasPaymentPin ? 'Verify current PIN to set a new 6-digit code' : 'Create secret 6-digit payment PIN',
                 trailing: _hasPaymentPin
                     ? Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -1180,7 +1180,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'Rentilly is a proprietary real estate technology and escrow protocol developed and operated as a product of Eeom\'s Global Inclusive Limited.',
+                      'Rentilly is a proprietary real estate technology and escrow protocol developed and operated as a product of E-Homes Global Inclusive Limited.',
                       style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textPrimary, fontWeight: FontWeight.bold, height: 1.4),
                     ),
                     const Divider(height: 16),
