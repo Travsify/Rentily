@@ -390,4 +390,74 @@ class AuthService {
     final u = UserProfile.fromJson(userMap);
     currentUserNotifier.value = u;
   }
+
+  // 7. Request Password Reset OTP
+  static Future<Map<String, dynamic>> requestPasswordResetOtp(String email) async {
+    final cleanEmail = email.trim().toLowerCase();
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/auth/forgot-password/request-otp'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'email': cleanEmail}),
+      ).timeout(const Duration(seconds: 15));
+
+      final data = json.decode(response.body);
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'message': data['message'] ?? 'Reset OTP sent to your email',
+        };
+      } else {
+        return {
+          'success': false,
+          'message': data['error'] ?? 'Could not send reset code',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error. Please check your connection.',
+      };
+    }
+  }
+
+  // 8. Reset Password with OTP
+  static Future<Map<String, dynamic>> resetPasswordWithOtp({
+    required String email,
+    required String otp,
+    required String newPassword,
+  }) async {
+    final cleanEmail = email.trim().toLowerCase();
+    final cleanOtp = otp.trim();
+
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/auth/forgot-password/reset'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'email': cleanEmail,
+          'otp': cleanOtp,
+          'newPassword': newPassword,
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      final data = json.decode(response.body);
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'message': data['message'] ?? 'Password reset successfully',
+        };
+      } else {
+        return {
+          'success': false,
+          'message': data['error'] ?? 'Failed to reset password',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Network error. Please check your connection.',
+      };
+    }
+  }
 }

@@ -8,6 +8,7 @@ import '../../services/auth_service.dart';
 import '../../services/biometric_service.dart';
 import '../main_navigation_screen.dart';
 import 'register_screen.dart';
+import 'forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final bool forcePasswordMode;
@@ -546,7 +547,32 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 10),
+
+        // Forgot Password Action
+        Align(
+          alignment: Alignment.centerRight,
+          child: GestureDetector(
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => ForgotPasswordScreen(
+                    initialEmail: _emailController.text.trim(),
+                  ),
+                ),
+              );
+            },
+            child: Text(
+              'Forgot Password?',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
 
         SizedBox(
           width: double.infinity,

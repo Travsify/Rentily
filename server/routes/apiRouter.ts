@@ -107,6 +107,8 @@ apiRouter.get('/auth/me', authController.getMe);
 apiRouter.get('/users', authController.listUsers);
 apiRouter.post('/auth/send-otp', otpController.sendOtp);
 apiRouter.post('/auth/verify-otp', otpController.verifyOtp);
+apiRouter.post('/auth/forgot-password/request-otp', authController.requestPasswordResetOtp);
+apiRouter.post('/auth/forgot-password/reset', authController.resetPasswordWithOtp);
 apiRouter.post('/auth/change-password', authController.changePassword);
 apiRouter.post('/users/create', authController.adminCreateUser);
 apiRouter.post('/users/:id/reset-password', authController.adminResetPassword);

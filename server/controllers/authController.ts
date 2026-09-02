@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { supabase } from '../supabaseClient';
 import { UserStore } from '../services/userStore';
+import { NotificationDispatcher } from '../services/notificationDispatcher';
 import crypto from 'crypto';
 
 export async function register(req: Request, res: Response) {
@@ -320,6 +321,156 @@ export async function adminCreateUser(req: Request, res: Response) {
     return res.status(201).json({ success: true, message: `New ${role} account created.`, user });
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
+  }
+}
+
+// In-memory OTP store with TTL for secure password reset
+interface PasswordResetOtpEntry {
+  email: string;
+  otp: string;
+  expiresAt: number;
+}
+const resetOtpStore = new Map<string, PasswordResetOtpEntry>();
+
+/**
+ * 1. Request Password Reset OTP
+ */
+export async function requestPasswordResetOtp(req: Request, res: Response) {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Registered email address is required' });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+
+    // Check existence in UserStore or Supabase
+    let user = await UserStore.findByEmail(cleanEmail);
+    let userName = user?.fullName || 'Valued User';
+
+    if (!user && supabase) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .eq('email', cleanEmail)
+        .single();
+      if (profile) {
+        userName = profile.full_name || 'Valued User';
+      }
+    }
+
+    // Generate 6-digit numeric OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+    resetOtpStore.set(cleanEmail, {
+      email: cleanEmail,
+      otp,
+      expiresAt
+    });
+
+    console.log(`🔐 [PasswordReset] Generated OTP for ${cleanEmail}: ${otp} (Expires in 10 mins)`);
+
+    // Dispatch branded transactional email
+    NotificationDispatcher.dispatch({
+      email: cleanEmail,
+      userName,
+      title: '🔐 Reset Your Rentilly Account Password',
+      category: 'security',
+      message: `We received a request to reset your Rentilly account password. Use the 6-digit verification code below to authorize your password update. This code will expire in 10 minutes.`,
+      metadata: {
+        'One-Time Code (OTP)': otp,
+        'Security Notice': 'If you did not make this request, your account is safe and you can ignore this email.'
+      }
+    }).catch(err => console.warn('[PasswordReset] Email dispatch error:', err));
+
+    return res.json({
+      status: true,
+      message: 'Password reset code has been sent to your registered email address.',
+      email: cleanEmail
+    });
+  } catch (err: any) {
+    console.error('requestPasswordResetOtp error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to process password reset request' });
+  }
+}
+
+/**
+ * 2. Verify OTP & Set New Password
+ */
+export async function resetPasswordWithOtp(req: Request, res: Response) {
+  try {
+    const { email, otp, newPassword } = req.body;
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ error: 'Email, OTP code, and new password are required' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters long' });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+    const cleanOtp = otp.toString().trim();
+
+    const entry = resetOtpStore.get(cleanEmail);
+    if (!entry || entry.otp !== cleanOtp) {
+      return res.status(400).json({ error: 'Invalid or incorrect verification code. Please check your email and try again.' });
+    }
+
+    if (Date.now() > entry.expiresAt) {
+      resetOtpStore.delete(cleanEmail);
+      return res.status(400).json({ error: 'This verification code has expired. Please request a new one.' });
+    }
+
+    // Hash new password
+    const newHash = crypto.createHash('sha256').update(newPassword).digest('hex');
+
+    // Update in UserStore
+    let user = await UserStore.findByEmail(cleanEmail);
+    if (user) {
+      UserStore.upsertUser({
+        ...user,
+        passwordHash: newHash,
+        updatedAt: new Date().toISOString()
+      });
+    }
+
+    // Update in Supabase profiles table
+    if (supabase) {
+      try {
+        await supabase
+          .from('profiles')
+          .update({
+            password_hash: newHash,
+            updated_at: new Date().toISOString()
+          })
+          .eq('email', cleanEmail);
+      } catch (_) {}
+    }
+
+    // Clear consumed OTP
+    resetOtpStore.delete(cleanEmail);
+
+    // Send confirmation email
+    NotificationDispatcher.dispatch({
+      email: cleanEmail,
+      userName: user?.fullName || 'Valued User',
+      title: '✅ Password Successfully Updated',
+      category: 'security',
+      message: `Your Rentilly account password has been successfully reset. If you did not perform this change, please contact Rentilly Security immediately.`,
+      metadata: {
+        'Security Status': 'Password Updated',
+        'Date': new Date().toLocaleString('en-NG', { timeZone: 'Africa/Lagos' })
+      }
+    }).catch(() => {});
+
+    return res.json({
+      status: true,
+      message: 'Your password has been successfully reset. You can now log in with your new password.'
+    });
+  } catch (err: any) {
+    console.error('resetPasswordWithOtp error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to reset password' });
   }
 }
 
