@@ -1,17 +1,14 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../constants/app_colors.dart';
-import '../../constants/app_constants.dart';
 import '../../models/user_profile.dart';
-import '../../services/auth_service.dart';
 import '../../services/api_service.dart';
+import '../../services/auth_service.dart';
 import '../../widgets/rentilly_bottom_bar.dart';
 import '../../widgets/partner_bottom_bar.dart';
 import '../../widgets/landlord_bottom_bar.dart';
-import '../../widgets/transaction_receipt_modal.dart';
 import '../../widgets/statement_export_modal.dart';
 
 class CardsScreen extends StatefulWidget {
@@ -27,14 +24,15 @@ class _CardsScreenState extends State<CardsScreen> {
   bool _showCardDetails = false;
   double _fxUsdToNgn = 1510.0;
   double _cardIssuanceFeeUsd = 3.00;
-  final NumberFormat _currencyFormat = NumberFormat('#,###.00', 'en_US');
 
-  // Real cards list loaded from Supabase (ZERO MOCK DATA)
+  // Live user cards loaded from Supabase (ZERO MOCK/DUMMY CARDS)
   List<Map<String, dynamic>> _userCards = [];
   int _selectedCardIndex = 0;
 
-  // Real card transactions (empty if no transactions yet)
+  // Real card transactions
   List<Map<String, dynamic>> _cardTransactions = [];
+
+  final _currencyFormat = NumberFormat('#,##0.00', 'en_US');
 
   @override
   void initState() {
@@ -46,7 +44,7 @@ class _CardsScreenState extends State<CardsScreen> {
     setState(() => _isLoading = true);
     final user = await AuthService.getCurrentUser();
 
-    if (user != null) {
+    if (user != null && user.email.isNotEmpty) {
       try {
         final rates = await ApiService.fetchFxRates();
         final pricing = await ApiService.fetchCardPricing();
@@ -79,15 +77,7 @@ class _CardsScreenState extends State<CardsScreen> {
     return _userCards[_selectedCardIndex];
   }
 
-  // --- 1. REVEAL / UNMASK CARD DETAILS ---
-  void _toggleRevealDetails() {
-    HapticFeedback.lightImpact();
-    setState(() {
-      _showCardDetails = !_showCardDetails;
-    });
-  }
-
-  // --- 2. TOGGLE FREEZE / UNFREEZE ---
+  // --- 1. TOGGLE FREEZE / UNFREEZE ---
   Future<void> _toggleFreeze() async {
     final card = _currentCard;
     if (card == null || _user == null) return;
@@ -113,7 +103,7 @@ class _CardsScreenState extends State<CardsScreen> {
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(targetFrozen ? '🔒 Card has been frozen.' : '✅ Card is active and ready for use.'),
+          content: Text(targetFrozen ? '🔒 Card has been frozen for security.' : '✅ Card is now active and ready for online use.'),
           backgroundColor: targetFrozen ? Colors.orange.shade800 : AppColors.primary,
           duration: const Duration(seconds: 2),
         ),
@@ -121,7 +111,7 @@ class _CardsScreenState extends State<CardsScreen> {
     }
   }
 
-  // --- 3. DELETE / TERMINATE CARD ---
+  // --- 2. DELETE / TERMINATE CARD ---
   Future<void> _confirmDeleteCard() async {
     final card = _currentCard;
     if (card == null || _user == null) return;
@@ -133,7 +123,7 @@ class _CardsScreenState extends State<CardsScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
-            const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 28),
+            const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 28),
             const SizedBox(width: 10),
             Text(
               'Delete Virtual Card',
@@ -142,7 +132,7 @@ class _CardsScreenState extends State<CardsScreen> {
           ],
         ),
         content: Text(
-          'Are you sure you want to delete this virtual USD card ending in ${(card['maskedPan'] ?? '').toString().replaceAll(' ', '').substring(card['maskedPan'].toString().length - 4)}?\n\nThis card will be permanently deactivated and removed from your account.',
+          'Are you sure you want to permanently delete this virtual USD Visa card?\n\nThis card will be deactivated immediately and removed from your account.',
           style: GoogleFonts.plusJakartaSans(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
         ),
         actions: [
@@ -162,45 +152,30 @@ class _CardsScreenState extends State<CardsScreen> {
       ),
     );
 
-    if (confirmed == true) {
-      final cardId = card['id'] ?? card['cardId'];
+    if (confirmed == true && mounted) {
       setState(() => _isLoading = true);
-
+      final cardId = card['id'] ?? card['cardId'];
       final success = await ApiService.deleteVirtualCard(_user!.email, cardId);
 
       if (mounted) {
-        if (success) {
-          setState(() {
-            _userCards.removeAt(_selectedCardIndex);
-            if (_selectedCardIndex >= _userCards.length) {
-              _selectedCardIndex = 0;
-            }
-            _isLoading = false;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('🗑️ Virtual card was successfully deleted.'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        } else {
-          setState(() => _isLoading = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to delete card. Please try again.')),
-          );
-        }
+        await _loadData();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(success ? 'Card deleted successfully.' : 'Failed to delete card. Please try again.'),
+            backgroundColor: success ? AppColors.primary : Colors.red,
+          ),
+        );
       }
     }
   }
 
-  // --- 4. TOP-UP / FUND CARD MODAL ---
+  // --- 3. TOP-UP / FUND CARD MODAL ---
   void _showFundCardModal() {
     final card = _currentCard;
     if (card == null || _user == null) return;
 
     final amountController = TextEditingController();
-    String selectedWallet = 'NGN';
-    double fundAmountUsd = 10.0;
+    double fundAmountUsd = 0.0;
 
     showModalBottomSheet(
       context: context,
@@ -241,7 +216,7 @@ class _CardsScreenState extends State<CardsScreen> {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.15),
+                        color: AppColors.primary.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const Icon(Icons.add_card_rounded, color: AppColors.primary, size: 22),
@@ -252,7 +227,7 @@ class _CardsScreenState extends State<CardsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Top Up Virtual USD Card',
+                            'Top-Up Virtual Dollar Card',
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 17,
                               fontWeight: FontWeight.bold,
@@ -260,7 +235,7 @@ class _CardsScreenState extends State<CardsScreen> {
                             ),
                           ),
                           Text(
-                            'Instant conversion from your wallet',
+                            'Fund your USD Visa from your wallet',
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 11.5,
                               color: AppColors.textSecondary,
@@ -273,67 +248,62 @@ class _CardsScreenState extends State<CardsScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // Amount in USD Input
                 Text(
-                  'Amount to Load (USD)',
+                  'Amount in USD (\$)',
                   style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white70),
                 ),
                 const SizedBox(height: 8),
                 TextField(
-                  controller: amountController..text = fundAmountUsd.toStringAsFixed(0),
+                  controller: amountController,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+                  style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+                  onChanged: (val) {
+                    setModalState(() {
+                      fundAmountUsd = double.tryParse(val) ?? 0.0;
+                    });
+                  },
                   decoration: InputDecoration(
                     prefixIcon: const Padding(
-                      padding: EdgeInsets.all(14),
-                      child: Text('\$', style: TextStyle(color: AppColors.primary, fontSize: 18, fontWeight: FontWeight.bold)),
+                      padding: EdgeInsets.only(left: 16, right: 8, top: 12),
+                      child: Text('\$', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.primary)),
                     ),
                     filled: true,
                     fillColor: AppColors.backgroundDark,
+                    hintText: '0.00',
+                    hintStyle: const TextStyle(color: Colors.white30),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
                   ),
-                  onChanged: (val) {
-                    final num = double.tryParse(val) ?? 0.0;
-                    setModalState(() {
-                      fundAmountUsd = num;
-                    });
-                  },
                 ),
                 const SizedBox(height: 14),
 
-                // Conversion Summary Box
+                // Live Exchange Rate Conversion Pill
                 Container(
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
                     color: AppColors.backgroundDark,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.white12),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white10),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Exchange Rate', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
-                          const SizedBox(height: 2),
-                          Text('\$1.00 USD = ₦${_fxUsdToNgn.toStringAsFixed(2)} NGN', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.white)),
-                        ],
+                      Text(
+                        'Total Debit (NGN):',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary),
                       ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text('Total Debit', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
-                          const SizedBox(height: 2),
-                          Text('₦${_currencyFormat.format(requiredNgn)}', style: GoogleFonts.plusJakartaSans(fontSize: 13.5, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                        ],
+                      Text(
+                        '≈ ₦${_currencyFormat.format(requiredNgn)}',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary,
+                        ),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 20),
 
-                // Confirm Top Up Button
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -381,7 +351,359 @@ class _CardsScreenState extends State<CardsScreen> {
     );
   }
 
-  // --- 4b. CHANGE CARD PIN MODAL ---
+  // --- 4. DETAILS & BILLING ADDRESS MODAL (REVEALS EVERYTHING SECURELY) ---
+  void _showCardDetailsAndAddressModal() {
+    final card = _currentCard;
+    if (card == null || _user == null) return;
+
+    final fullPan = (card['fullPan'] ?? card['maskedPan'] ?? '4829 •••• •••• 7194').toString();
+    final cardholder = (card['cardholderName'] ?? _user!.fullName).toString().toUpperCase();
+    final expMonth = card['expiryMonth']?.toString() ?? '12';
+    final expYear = card['expiryYear']?.toString() ?? '28';
+    final cvv = card['cvv']?.toString() ?? '819';
+    final pin = card['pin']?.toString() ?? '2491';
+
+    HapticFeedback.mediumImpact();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 32),
+        decoration: const BoxDecoration(
+          color: AppColors.surfaceDark,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+
+              // Title Header
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.lock_open_rounded, color: AppColors.primary, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Card Details & Billing Address',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        Text(
+                          'Institutional USD Virtual Visa • Confidential',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11.5,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              // ─── SECTION 1: SENSITIVE CARD CREDENTIALS ───
+              Text(
+                'CARD CREDENTIALS',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.2,
+                  color: AppColors.primary,
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.backgroundDark,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white12),
+                ),
+                child: Column(
+                  children: [
+                    // Card Number
+                    _buildCopyableRow(
+                      label: 'Card Number',
+                      value: fullPan,
+                      isMonospace: true,
+                      onCopy: () {
+                        Clipboard.setData(ClipboardData(text: fullPan.replaceAll(' ', '')));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Card number copied to clipboard ✓'), duration: Duration(seconds: 1)),
+                        );
+                      },
+                    ),
+                    const Divider(color: Colors.white10, height: 20),
+
+                    // Cardholder Name
+                    _buildCopyableRow(
+                      label: 'Cardholder Name',
+                      value: cardholder,
+                      onCopy: () {
+                        Clipboard.setData(ClipboardData(text: cardholder));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Cardholder name copied ✓'), duration: Duration(seconds: 1)),
+                        );
+                      },
+                    ),
+                    const Divider(color: Colors.white10, height: 20),
+
+                    // Expiry, CVV & PIN in 3 columns
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildCopyableRow(
+                            label: 'Expires',
+                            value: '$expMonth/$expYear',
+                            onCopy: () {
+                              Clipboard.setData(ClipboardData(text: '$expMonth/$expYear'));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Expiry date copied ✓'), duration: Duration(seconds: 1)),
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildCopyableRow(
+                            label: 'CVV / CVC',
+                            value: cvv,
+                            isMonospace: true,
+                            onCopy: () {
+                              Clipboard.setData(ClipboardData(text: cvv));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('CVV copied ✓'), duration: Duration(seconds: 1)),
+                              );
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: _buildCopyableRow(
+                            label: 'Card PIN',
+                            value: pin,
+                            isMonospace: true,
+                            onCopy: () {
+                              Clipboard.setData(ClipboardData(text: pin));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Card PIN copied ✓'), duration: Duration(seconds: 1)),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // ─── SECTION 2: OFFICIAL BILLING ADDRESS (USA) ───
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'BILLING ADDRESS (DELAWARE, USA)',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () {
+                      Clipboard.setData(const ClipboardData(
+                        text: '651 N Broad Street, Middletown, Delaware, 19709, United States',
+                      ));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Full billing address copied ✓'), duration: Duration(seconds: 1)),
+                      );
+                    },
+                    child: Text(
+                      'Copy Full Address',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.backgroundDark,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white12),
+                ),
+                child: Column(
+                  children: [
+                    _buildCopyableRow(
+                      label: 'Street Address',
+                      value: '651 N Broad Street',
+                      onCopy: () {
+                        Clipboard.setData(const ClipboardData(text: '651 N Broad Street'));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Street copied ✓'), duration: Duration(seconds: 1)),
+                        );
+                      },
+                    ),
+                    const Divider(color: Colors.white10, height: 16),
+                    _buildCopyableRow(
+                      label: 'City',
+                      value: 'Middletown',
+                      onCopy: () {
+                        Clipboard.setData(const ClipboardData(text: 'Middletown'));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('City copied ✓'), duration: Duration(seconds: 1)),
+                        );
+                      },
+                    ),
+                    const Divider(color: Colors.white10, height: 16),
+                    _buildCopyableRow(
+                      label: 'State',
+                      value: 'Delaware (DE)',
+                      onCopy: () {
+                        Clipboard.setData(const ClipboardData(text: 'Delaware'));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('State copied ✓'), duration: Duration(seconds: 1)),
+                        );
+                      },
+                    ),
+                    const Divider(color: Colors.white10, height: 16),
+                    _buildCopyableRow(
+                      label: 'Postal / ZIP Code',
+                      value: '19709',
+                      isMonospace: true,
+                      onCopy: () {
+                        Clipboard.setData(const ClipboardData(text: '19709'));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('ZIP Code copied ✓'), duration: Duration(seconds: 1)),
+                        );
+                      },
+                    ),
+                    const Divider(color: Colors.white10, height: 16),
+                    _buildCopyableRow(
+                      label: 'Country',
+                      value: 'United States (USA)',
+                      onCopy: () {
+                        Clipboard.setData(const ClipboardData(text: 'United States'));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Country copied ✓'), duration: Duration(seconds: 1)),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 18),
+
+              // Checkout tip notice
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline_rounded, color: AppColors.primary, size: 18),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Use this exact Delaware billing address when paying on Apple, Google, OpenAI, AWS, and Netflix to guarantee 100% authorization.',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 11, color: Colors.white70, height: 1.3),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCopyableRow({
+    required String label,
+    required String value,
+    bool isMonospace = false,
+    required VoidCallback onCopy,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+            const SizedBox(height: 2),
+            Text(
+              value,
+              style: isMonospace
+                  ? GoogleFonts.sourceCodePro(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)
+                  : GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+          ],
+        ),
+        GestureDetector(
+          onTap: () {
+            HapticFeedback.lightImpact();
+            onCopy();
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.copy_rounded, size: 12, color: AppColors.primary),
+                const SizedBox(width: 4),
+                Text('Copy', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppColors.primary)),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // --- 5. CHANGE CARD PIN MODAL ---
   void _showChangePinModal() {
     final card = _currentCard;
     if (card == null || _user == null) return;
@@ -426,7 +748,7 @@ class _CardsScreenState extends State<CardsScreen> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: Colors.purple.withOpacity(0.15),
+                      color: Colors.purple.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(Icons.pin_rounded, color: Colors.purpleAccent, size: 22),
@@ -564,11 +886,10 @@ class _CardsScreenState extends State<CardsScreen> {
     );
   }
 
-  // --- 5. ISSUE NEW VIRTUAL CARD MODAL ---
+  // --- 6. ISSUE NEW VIRTUAL CARD MODAL (BRANDED IN RENTILLY COLORS) ---
   void _showIssueCardModal() {
     if (_user == null) return;
 
-    String selectedWallet = 'NGN';
     double feeInSelectedCurr = _cardIssuanceFeeUsd * _fxUsdToNgn;
     String feeFormatted = '₦${_currencyFormat.format(feeInSelectedCurr)} NGN';
 
@@ -576,18 +897,18 @@ class _CardsScreenState extends State<CardsScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModalState) => Container(
-          padding: EdgeInsets.only(
-            left: 20,
-            right: 20,
-            top: 20,
-            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-          ),
-          decoration: const BoxDecoration(
-            color: AppColors.surfaceDark,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-          ),
+      builder: (ctx) => Container(
+        padding: EdgeInsets.only(
+          left: 20,
+          right: 20,
+          top: 20,
+          bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+        ),
+        decoration: const BoxDecoration(
+          color: AppColors.surfaceDark,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -603,15 +924,17 @@ class _CardsScreenState extends State<CardsScreen> {
                 ),
               ),
               const SizedBox(height: 18),
+
+              // Title Header
               Row(
                 children: [
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.15),
+                      color: AppColors.primary.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.credit_card_rounded, color: AppColors.primary, size: 22),
+                    child: const Icon(Icons.credit_card_rounded, color: AppColors.primary, size: 24),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -619,17 +942,17 @@ class _CardsScreenState extends State<CardsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Request Virtual Dollar Card',
+                          'Issue Virtual USD Visa',
                           style: GoogleFonts.plusJakartaSans(
-                            fontSize: 17,
+                            fontSize: 18,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
                           ),
                         ),
                         Text(
-                          'USD Visa • Global online payments & subscriptions',
+                          'International payments with Delaware USA billing',
                           style: GoogleFonts.plusJakartaSans(
-                            fontSize: 11.5,
+                            fontSize: 12,
                             color: AppColors.textSecondary,
                           ),
                         ),
@@ -640,7 +963,96 @@ class _CardsScreenState extends State<CardsScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Card Specifications
+              // ─── VISUAL CARD MOCKUP PREVIEW ───
+              Container(
+                height: 180,
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(20),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF064E3B), Color(0xFF0F172A), Color(0xFF022C22)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.35), width: 1.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.15),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.credit_card_rounded, color: Colors.white, size: 18),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Rentilly USD Card',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Icon(Icons.contactless_rounded, color: Colors.white70, size: 20),
+                      ],
+                    ),
+                    Text(
+                      '4829 •••• •••• ••••',
+                      style: GoogleFonts.sourceCodePro(
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2.5,
+                        color: Colors.white,
+                      ),
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('CARDHOLDER', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, color: Colors.white60, letterSpacing: 1.0)),
+                            Text(_user!.fullName.toUpperCase(), style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+                          ],
+                        ),
+                        Text(
+                          'VISA',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                            fontStyle: FontStyle.italic,
+                            color: Colors.white,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // ─── KEY FEATURES LIST ───
+              _buildBenefitBullet('Universal Acceptance: OpenAI, Netflix, Apple, AWS, Google, Spotify'),
+              const SizedBox(height: 8),
+              _buildBenefitBullet('Real Delaware, USA Billing Address included with every card'),
+              const SizedBox(height: 8),
+              _buildBenefitBullet('Instant top-up and liquidation directly to your Nigerian Naira wallet'),
+              const SizedBox(height: 20),
+
+              // ─── PRICING BREAKDOWN ───
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
@@ -651,23 +1063,21 @@ class _CardsScreenState extends State<CardsScreen> {
                 child: Column(
                   children: [
                     _buildSpecRow('Card Network', 'VISA Virtual Debit'),
-                    const Divider(color: Colors.white12, height: 16),
+                    const Divider(color: Colors.white10, height: 16),
                     _buildSpecRow('Card Currency', 'USD (\$)'),
-                    const Divider(color: Colors.white12, height: 16),
-                    _buildSpecRow('Cardholder Name', _user!.fullName),
-                    const Divider(color: Colors.white12, height: 16),
-                    _buildSpecRow('Issuance Fee', '\$${_cardIssuanceFeeUsd.toStringAsFixed(2)} USD ($feeFormatted)'),
-                    const Divider(color: Colors.white12, height: 16),
+                    const Divider(color: Colors.white10, height: 16),
                     _buildSpecRow('Billing Address', '651 N Broad St, Middletown, Delaware'),
+                    const Divider(color: Colors.white10, height: 16),
+                    _buildSpecRow('Issuance Fee', '\$${_cardIssuanceFeeUsd.toStringAsFixed(2)} USD ($feeFormatted)'),
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 22),
 
-              // Issue Card Button
+              // Issue Card CTA Button
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton(
+                child: ElevatedButton.icon(
                   onPressed: () async {
                     Navigator.pop(ctx);
                     setState(() => _isLoading = true);
@@ -690,14 +1100,16 @@ class _CardsScreenState extends State<CardsScreen> {
                       );
                     }
                   },
+                  icon: const Icon(Icons.flash_on_rounded, color: Colors.white, size: 20),
+                  label: Text(
+                    'Pay $feeFormatted & Issue Card',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  ),
-                  child: Text(
-                    'Pay $feeFormatted & Issue Card',
-                    style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    elevation: 4,
                   ),
                 ),
               ),
@@ -705,6 +1117,22 @@ class _CardsScreenState extends State<CardsScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildBenefitBullet(String text) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 16),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            text,
+            style: GoogleFonts.plusJakartaSans(fontSize: 12, color: Colors.white70, height: 1.3),
+          ),
+        ),
+      ],
     );
   }
 
@@ -798,13 +1226,13 @@ class _CardsScreenState extends State<CardsScreen> {
                       _buildVirtualCardWidget(card, isFrozen, cardBal, cardBalNgn),
                       const SizedBox(height: 18),
 
-                      // --- 4 CORE CARD ACTIONS ---
+                      // --- CORE ACTION BUTTONS (DETAILS, TOP-UP, PIN, FREEZE, DELETE) ---
                       _buildCardActionButtons(isFrozen),
                       const SizedBox(height: 22),
 
-                      // --- CARD BILLING ADDRESS (DELAWARE USA) ---
-                      _buildBillingAddressCard(),
-                      const SizedBox(height: 22),
+                      // --- INSTITUTIONAL TRUST & FEATURE PILLS ---
+                      _buildSecurityFeatureRow(),
+                      const SizedBox(height: 24),
 
                       // --- CARD TRANSACTION LEDGER ---
                       _buildTransactionLedgerHeader(),
@@ -834,7 +1262,7 @@ class _CardsScreenState extends State<CardsScreen> {
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.12),
+              color: AppColors.primary.withValues(alpha: 0.12),
               shape: BoxShape.circle,
             ),
             child: const Icon(Icons.credit_card_off_rounded, color: AppColors.primary, size: 48),
@@ -850,7 +1278,7 @@ class _CardsScreenState extends State<CardsScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Get an encrypted, institutional USD virtual Visa card. Pay online, subscribe to global tools (OpenAI, AWS, Apple, Netflix) with standard Delaware USA billing address.',
+            'Get an institutional USD virtual Visa card. Pay online, subscribe to global services (OpenAI, AWS, Apple, Netflix) with standard Delaware USA billing address.',
             textAlign: TextAlign.center,
             style: GoogleFonts.plusJakartaSans(
               fontSize: 12.5,
@@ -858,21 +1286,25 @@ class _CardsScreenState extends State<CardsScreen> {
               height: 1.5,
             ),
           ),
-          const SizedBox(height: 26),
+          const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: _showIssueCardModal,
-              icon: const Icon(Icons.add_card_rounded, color: Colors.white, size: 18),
+              icon: const Icon(Icons.add_rounded, color: Colors.white, size: 20),
               label: Text(
-                'Request Virtual Dollar Card (\$${_cardIssuanceFeeUsd.toStringAsFixed(2)})',
-                style: GoogleFonts.plusJakartaSans(fontSize: 13.5, fontWeight: FontWeight.bold, color: Colors.white),
+                'Request Virtual Dollar Card',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
               ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                elevation: 0,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                elevation: 4,
               ),
             ),
           ),
@@ -881,48 +1313,52 @@ class _CardsScreenState extends State<CardsScreen> {
     );
   }
 
-  // --- 2. VIRTUAL CARD WIDGET ---
+  // --- 2. LIVE VIRTUAL CARD WIDGET ---
   Widget _buildVirtualCardWidget(Map<String, dynamic> card, bool isFrozen, double balanceUsd, double balanceNgn) {
-    final cardholder = (card['cardholderName'] ?? _user?.fullName ?? 'Cardholder').toString().toUpperCase();
     final maskedPan = card['maskedPan']?.toString() ?? '4829 •••• •••• 7194';
-    final fullPan = card['fullPan']?.toString() ?? maskedPan;
+    final fullPan = (card['fullPan'] ?? maskedPan).toString();
+    final cardholder = (card['cardholderName'] ?? _user?.fullName ?? 'CARDHOLDER').toString().toUpperCase();
     final expMonth = card['expiryMonth']?.toString() ?? '12';
     final expYear = card['expiryYear']?.toString() ?? '28';
     final cvv = card['cvv']?.toString() ?? '819';
+    final pin = card['pin']?.toString() ?? '2491';
 
     return Container(
       width: double.infinity,
       height: 220,
       decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
         gradient: LinearGradient(
           colors: isFrozen
-              ? [const Color(0xFF334155), const Color(0xFF1E293B)]
-              : [const Color(0xFF065F46), const Color(0xFF0F172A), const Color(0xFF0284C7)],
+              ? [const Color(0xFF1E293B), const Color(0xFF0F172A), const Color(0xFF1E293B)]
+              : [const Color(0xFF064E3B), const Color(0xFF0F172A), const Color(0xFF022C22)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: isFrozen ? Colors.orange.withValues(alpha: 0.4) : AppColors.primary.withValues(alpha: 0.4),
+          width: 1.5,
+        ),
         boxShadow: [
           BoxShadow(
-            color: isFrozen ? Colors.black38 : const Color(0xFF065F46).withOpacity(0.35),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
+            color: isFrozen ? Colors.orange.withValues(alpha: 0.1) : AppColors.primary.withValues(alpha: 0.2),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
           ),
         ],
-        border: Border.all(color: Colors.white.withOpacity(0.2), width: 1.2),
       ),
       child: Stack(
         children: [
-          // Background subtle circles
+          // Background decorative watermarks
           Positioned(
-            right: -20,
-            top: -20,
+            right: -30,
+            bottom: -30,
             child: Container(
-              width: 130,
-              height: 130,
+              width: 180,
+              height: 180,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white.withOpacity(0.04),
+                color: Colors.white.withValues(alpha: 0.03),
               ),
             ),
           ),
@@ -933,7 +1369,7 @@ class _CardsScreenState extends State<CardsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // Top Row: Logo, Brand & Status Badge
+                // Top Row: Brand & Status Badge
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -942,7 +1378,7 @@ class _CardsScreenState extends State<CardsScreen> {
                         const Icon(Icons.credit_card_rounded, color: Colors.white, size: 20),
                         const SizedBox(width: 8),
                         Text(
-                          'Rentilly USD Card',
+                          'Rentilly USD Visa',
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
@@ -955,7 +1391,7 @@ class _CardsScreenState extends State<CardsScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: isFrozen ? Colors.orange.withOpacity(0.2) : AppColors.primaryLight.withOpacity(0.25),
+                        color: isFrozen ? Colors.orange.withValues(alpha: 0.2) : AppColors.primaryLight.withValues(alpha: 0.25),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: isFrozen ? Colors.orange : AppColors.primaryLight,
@@ -1024,14 +1460,14 @@ class _CardsScreenState extends State<CardsScreen> {
                             ),
                           ),
                           const SizedBox(width: 8),
-                          const Icon(Icons.copy_rounded, size: 14, color: Colors.white60),
+                          const Icon(Icons.copy_rounded, size: 14, color: Colors.white70),
                         ],
                       ),
                     ),
                   ],
                 ),
 
-                // Bottom Row: Cardholder, Expiry, CVV & Visa Badge
+                // Bottom Row: Cardholder, Expiry, CVV, PIN & Visa Badge
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -1060,7 +1496,7 @@ class _CardsScreenState extends State<CardsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('PIN', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, color: Colors.white60, letterSpacing: 1.0)),
-                        Text(_showCardDetails ? (card['pin']?.toString() ?? '2491') : '••••', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+                        Text(_showCardDetails ? pin : '••••', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
                       ],
                     ),
                     Text(
@@ -1083,23 +1519,25 @@ class _CardsScreenState extends State<CardsScreen> {
     );
   }
 
-  // --- 3. 5 CORE ACTION BUTTONS (Details, Top-Up, PIN, Freeze, Delete) ---
+  // --- 3. 5 CORE ACTION BUTTONS ---
   Widget _buildCardActionButtons(bool isFrozen) {
     return Row(
       children: [
-        // 1. Reveal Details Toggle
+        // 1. Details & Address (Opens Full Details and Delaware Address Modal)
         Expanded(
+          flex: 3,
           child: _buildActionButton(
-            icon: _showCardDetails ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-            label: _showCardDetails ? 'Hide' : 'Details',
+            icon: Icons.badge_outlined,
+            label: 'Details & Address',
             color: Colors.blue.shade400,
-            onTap: _toggleRevealDetails,
+            onTap: _showCardDetailsAndAddressModal,
           ),
         ),
-        const SizedBox(width: 6),
+        const SizedBox(width: 8),
 
         // 2. Top-Up Card
         Expanded(
+          flex: 2,
           child: _buildActionButton(
             icon: Icons.add_rounded,
             label: 'Top-Up',
@@ -1107,21 +1545,23 @@ class _CardsScreenState extends State<CardsScreen> {
             onTap: _showFundCardModal,
           ),
         ),
-        const SizedBox(width: 6),
+        const SizedBox(width: 8),
 
         // 3. Card PIN
         Expanded(
+          flex: 2,
           child: _buildActionButton(
             icon: Icons.pin_rounded,
-            label: 'PIN',
+            label: 'Card PIN',
             color: Colors.purple.shade300,
             onTap: _showChangePinModal,
           ),
         ),
-        const SizedBox(width: 6),
+        const SizedBox(width: 8),
 
         // 4. Freeze / Unfreeze
         Expanded(
+          flex: 2,
           child: _buildActionButton(
             icon: isFrozen ? Icons.lock_open_rounded : Icons.lock_outline_rounded,
             label: isFrozen ? 'Unfreeze' : 'Freeze',
@@ -1129,10 +1569,11 @@ class _CardsScreenState extends State<CardsScreen> {
             onTap: _toggleFreeze,
           ),
         ),
-        const SizedBox(width: 6),
+        const SizedBox(width: 8),
 
         // 5. Delete Card
         Expanded(
+          flex: 2,
           child: _buildActionButton(
             icon: Icons.delete_outline_rounded,
             label: 'Delete',
@@ -1160,16 +1601,19 @@ class _CardsScreenState extends State<CardsScreen> {
         decoration: BoxDecoration(
           color: AppColors.surfaceDark,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withOpacity(0.3), width: 1),
+          border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
         ),
         child: Column(
           children: [
             Icon(icon, color: color, size: 18),
-            const SizedBox(height: 4),
+            const SizedBox(height: 5),
             Text(
               label,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 11,
+                fontSize: 10.5,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
               ),
@@ -1180,87 +1624,62 @@ class _CardsScreenState extends State<CardsScreen> {
     );
   }
 
-  // --- 4. BILLING ADDRESS CARD (DELAWARE USA) ---
-  Widget _buildBillingAddressCard() {
+  // --- 4. SECURITY & FEATURE BADGES ---
+  Widget _buildSecurityFeatureRow() {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: AppColors.surfaceDark,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white10),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.location_on_rounded, color: AppColors.primary, size: 18),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Card Billing Address',
-                    style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
-                  ),
-                ],
-              ),
-              GestureDetector(
-                onTap: () {
-                  Clipboard.setData(const ClipboardData(text: '651 N Broad Street, Middletown, Delaware, 19709, United States'));
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Billing address copied to clipboard ✓'), duration: Duration(seconds: 1)),
-                  );
-                },
-                child: Row(
-                  children: [
-                    const Icon(Icons.copy_rounded, size: 13, color: AppColors.primary),
-                    const SizedBox(width: 4),
-                    Text('Copy', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _buildAddressRow('Street', '651 N Broad Street'),
-          const SizedBox(height: 6),
-          _buildAddressRow('City', 'Middletown'),
-          const SizedBox(height: 6),
-          _buildAddressRow('State', 'Delaware (DE)'),
-          const SizedBox(height: 6),
-          _buildAddressRow('Zip / Postal Code', '19709'),
-          const SizedBox(height: 6),
-          _buildAddressRow('Country', 'United States (USA)'),
+          _buildPillItem(Icons.verified_user_rounded, '3D-Secure V2', Colors.blue.shade400),
+          Container(width: 1, height: 20, color: Colors.white12),
+          _buildPillItem(Icons.public_rounded, 'Delaware USA Reg', AppColors.primary),
+          Container(width: 1, height: 20, color: Colors.white12),
+          _buildPillItem(Icons.check_circle_outline_rounded, 'Zero Decline', Colors.purple.shade300),
         ],
       ),
     );
   }
 
-  Widget _buildAddressRow(String label, String value) {
+  Widget _buildPillItem(IconData icon, String title, Color color) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: AppColors.textSecondary)),
-        Text(value, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white)),
+        Icon(icon, size: 14, color: color),
+        const SizedBox(width: 6),
+        Text(
+          title,
+          style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white70),
+        ),
       ],
     );
   }
 
-  // --- 5. TRANSACTION LEDGER ---
+  // --- 5. TRANSACTION LEDGER HEADER & LIST ---
   Widget _buildTransactionLedgerHeader() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
           'Card Transactions',
-          style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
         ),
-        Text(
-          '${_cardTransactions.length} records',
-          style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: AppColors.textSecondary),
-        ),
+        if (_cardTransactions.isNotEmpty)
+          Text(
+            '${_cardTransactions.length} records',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 12,
+              color: AppColors.textSecondary,
+            ),
+          ),
       ],
     );
   }
@@ -1269,113 +1688,102 @@ class _CardsScreenState extends State<CardsScreen> {
     if (_cardTransactions.isEmpty) {
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
+        padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
         decoration: BoxDecoration(
           color: AppColors.surfaceDark,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white12),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Colors.white10),
         ),
         child: Column(
           children: [
-            Icon(Icons.receipt_long_rounded, color: Colors.white.withOpacity(0.2), size: 36),
-            const SizedBox(height: 8),
+            Icon(Icons.receipt_long_rounded, size: 36, color: Colors.white.withValues(alpha: 0.2)),
+            const SizedBox(height: 10),
             Text(
               'No card transactions yet',
-              style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white70),
+              style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white70),
             ),
             const SizedBox(height: 4),
             Text(
-              'Your online purchases and wallet top-ups will appear here in real-time.',
+              'Online purchases and funding activities will appear here in real time.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
+              style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: AppColors.textSecondary),
             ),
           ],
         ),
       );
     }
 
-    return ListView.separated(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: _cardTransactions.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
-      itemBuilder: (ctx, i) {
-        final tx = _cardTransactions[i];
-        final isCredit = tx['isCredit'] == true;
-        final double amt = (tx['amount'] as num?)?.toDouble() ?? 0.0;
+    return Column(
+      children: _cardTransactions.map((tx) {
+        final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
+        final isDebit = tx['type'] == 'DEBIT';
+        final status = tx['status']?.toString() ?? 'SUCCESSFUL';
 
-        return GestureDetector(
-          onTap: () {
-            if (_user != null) {
-              TransactionReceiptModal.show(
-                context,
-                transaction: tx,
-                user: _user!,
-                currency: 'USD',
-              );
-            }
-          },
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceDark,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Colors.white12),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: isCredit ? Colors.green.withOpacity(0.15) : Colors.blue.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    isCredit ? Icons.arrow_downward_rounded : Icons.shopping_bag_rounded,
-                    color: isCredit ? Colors.green : Colors.blue,
-                    size: 18,
-                  ),
+        return Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceDark,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.white10),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: isDebit ? Colors.red.withValues(alpha: 0.12) : AppColors.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        tx['title'] ?? 'Card Transaction',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.white),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Text(
-                        tx['merchant'] ?? 'Online Merchant',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary),
-                      ),
-                    ],
-                  ),
+                child: Icon(
+                  isDebit ? Icons.shopping_bag_outlined : Icons.add_rounded,
+                  color: isDebit ? Colors.redAccent : AppColors.primary,
+                  size: 18,
                 ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '${isCredit ? '+' : '-'}\$${amt.toStringAsFixed(2)}',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: isCredit ? Colors.green : Colors.white,
-                      ),
+                      tx['merchantName']?.toString() ?? 'Online Purchase',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
                     ),
+                    const SizedBox(height: 2),
                     Text(
-                      tx['status'] ?? 'SUCCESS',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: Colors.green, fontWeight: FontWeight.bold),
+                      tx['date']?.toString() ?? 'Recent',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '${isDebit ? '-' : '+'}\$${_currencyFormat.format(amount)} USD',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: isDebit ? Colors.white : AppColors.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    status,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: status == 'SUCCESSFUL' ? AppColors.primary : Colors.orange,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         );
-      },
+      }).toList(),
     );
   }
 }
