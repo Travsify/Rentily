@@ -134,7 +134,22 @@ export class AutoReconciliationWorker {
                   });
 
                 console.log(`✅ [AutoReconciliation] Automatically credited ₦${amount} to ${email} (New Balance: ₦${newBal})`);
-              }
+
+                // Dispatch real-time Push Notification and Resend Email to user
+                NotificationDispatcher.dispatch({
+                  userId: profile.id,
+                  email: email,
+                  userName: profile.full_name || 'Valued User',
+                  category: 'wallet',
+                  title: `Credit Alert: ₦${amount.toLocaleString()} Inbound Payment Received`,
+                  message: `Your Rentilly wallet has been credited with +₦${amount.toLocaleString()} via ${tx.payment_type || 'Bank Transfer'}. New Balance: ₦${newBal.toLocaleString()}.`,
+                  metadata: {
+                    amount: amount,
+                    reference: ref,
+                    bankName: 'Rentilly Dedicated Virtual Account',
+                    date: new Date().toISOString()
+                  }
+                });
             }
           }
         }

@@ -224,3 +224,6 @@ apiRouter.post('/cards/set-pin', paymentController.setCardPin);
 apiRouter.post('/cards/reveal-details', paymentController.revealCardDetails);
 apiRouter.get('/cards/transactions/:cardId', paymentController.getCardTransactions);
 
+// 23. Client Push & Email Notification Dispatch Trigger
+apiRouter.post('/notifications/dispatch', paymentController.clientDispatchNotification);
+

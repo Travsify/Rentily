@@ -165,7 +165,7 @@ class NotificationService {
     return list;
   }
 
-  // Add new notification for current user
+  // Add new notification for current user and dispatch Push & Email
   static Future<void> addNotification({
     required String title,
     required String message,
@@ -186,6 +186,22 @@ class NotificationService {
     current.insert(0, newNotif);
     await _saveNotifications(current);
     _updateUnreadCount(current);
+
+    // Dispatches Real-time Push Notification & Branded Resend HTML Email
+    try {
+      final user = await AuthService.getCurrentUser();
+      if (user != null && user.email.trim().isNotEmpty) {
+        ApiService.dispatchNotification(
+          email: user.email.trim(),
+          userId: user.id,
+          userName: user.fullName,
+          category: category,
+          title: title,
+          message: message,
+          metadata: metadata,
+        );
+      }
+    } catch (_) {}
   }
 
   // Mark single notification as read

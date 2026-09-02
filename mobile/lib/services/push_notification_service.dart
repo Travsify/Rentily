@@ -110,29 +110,40 @@ class PushNotificationService {
   static Future<void> _registerPlayerIdWithBackend(String playerId) async {
     try {
       final user = await AuthService.getCurrentUser();
-      if (user == null || user.id.isEmpty) return;
+      if (user == null) return;
+      final cleanEmail = user.email.toLowerCase().trim();
 
-      // Direct Supabase PATCH to update the user's profile with their player ID
-      final url = Uri.parse(
-        '${AppConstants.supabaseUrl}/rest/v1/profiles?id=eq.${user.id}',
-      );
+      // 1. Direct Supabase PATCH by ID
+      if (user.id.isNotEmpty) {
+        await http.patch(
+          Uri.parse('${AppConstants.supabaseUrl}/rest/v1/profiles?id=eq.${user.id}'),
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': AppConstants.supabaseAnonKey,
+            'Authorization': 'Bearer ${AppConstants.supabaseAnonKey}',
+            'Prefer': 'return=minimal',
+          },
+          body: json.encode({'onesignal_player_id': playerId}),
+        );
+      }
 
-      await http.patch(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': AppConstants.supabaseAnonKey,
-          'Authorization': 'Bearer ${AppConstants.supabaseAnonKey}',
-          'Prefer': 'return=minimal',
-        },
-        body: json.encode({
-          'onesignal_player_id': playerId,
-        }),
-      );
+      // 2. Direct Supabase PATCH by Email (Guaranteed match)
+      if (cleanEmail.isNotEmpty) {
+        await http.patch(
+          Uri.parse('${AppConstants.supabaseUrl}/rest/v1/profiles?email=eq.$cleanEmail'),
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': AppConstants.supabaseAnonKey,
+            'Authorization': 'Bearer ${AppConstants.supabaseAnonKey}',
+            'Prefer': 'return=minimal',
+          },
+          body: json.encode({'onesignal_player_id': playerId}),
+        );
+      }
 
-      debugPrint('[PushNotification] Player ID registered with backend');
+      debugPrint('[PushNotification] Player ID registered with backend for: $cleanEmail');
     } catch (e) {
-      debugPrint('[PushNotification] Backend registration error: \$e');
+      debugPrint('[PushNotification] Backend registration error: $e');
     }
   }
 

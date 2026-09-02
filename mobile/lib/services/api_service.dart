@@ -615,6 +615,37 @@ class ApiService {
     }
   }
 
+  /// Dispatch real-time Push Notification and Resend Email from mobile app
+  static Future<bool> dispatchNotification({
+    required String email,
+    String? userId,
+    String? userName,
+    required String category,
+    required String title,
+    required String message,
+    Map<String, dynamic>? metadata,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/notifications/dispatch'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'email': email,
+          'userId': userId,
+          'userName': userName,
+          'category': category,
+          'title': title,
+          'message': message,
+          'metadata': metadata,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      return res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Fetch live system FX rates (Supabase Cloud Layer 1 with Render fallback)
   static Future<Map<String, double>> fetchFxRates() async {
     // 1. Direct Supabase Cloud REST

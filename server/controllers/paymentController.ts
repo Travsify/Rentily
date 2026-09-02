@@ -953,6 +953,20 @@ export async function adminRegisterAndCreditUser(req: Request, res: Response) {
           date: flwTx.created_at || new Date().toISOString()
         }, { onConflict: 'id' });
       }
+
+      // Dispatch Push Notification & Resend HTML Email
+      NotificationDispatcher.dispatch({
+        userId: resolvedId,
+        email: cleanEmail,
+        title: `Credit Alert: ₦${amount.toLocaleString()} Recovered Inbound Deposit`,
+        category: 'wallet',
+        message: `Your dedicated Flutterwave MFB account received an inflow of ₦${amount.toLocaleString()}.`,
+        metadata: {
+          amount,
+          reference: flwTx.flw_ref || flwTx.tx_ref,
+          bankName: 'Flutterwave MFB Dedicated Bank Transfer'
+        }
+      });
     }
 
     const finalBal = TransactionStore.computeNetBalance(cleanEmail);
@@ -1062,6 +1076,21 @@ export async function adminReconcileBalance(req: Request, res: Response) {
           updatedAt: new Date().toISOString()
         });
       }
+
+      // Dispatch Push Notification & Resend HTML Email
+      NotificationDispatcher.dispatch({
+        userId: resolvedUserId,
+        email: resolvedEmail,
+        userName: freshUser?.fullName || 'Valued User',
+        title: `Credit Alert: ₦${amount.toLocaleString()} Inbound Payment Reconciled`,
+        category: 'wallet',
+        message: `Your Rentilly wallet has been credited with +₦${amount.toLocaleString()} via Inbound Bank Transfer.`,
+        metadata: {
+          amount,
+          reference: flwTx.flw_ref || flwTx.tx_ref,
+          bankName: 'Dedicated Virtual Account'
+        }
+      });
     }
 
     const finalBal = TransactionStore.computeNetBalance(user?.email || cleanEmail);
@@ -1376,6 +1405,38 @@ export async function updateCardPricingHandler(req: Request, res: Response) {
       data: updated
     });
   } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+export async function clientDispatchNotification(req: Request, res: Response) {
+  try {
+    const { email, userId, userName, category, title, message, metadata } = req.body;
+    if (!title || !message) {
+      return res.status(400).json({ error: 'title and message are required' });
+    }
+
+    const cleanEmail = (email || '').toString().trim().toLowerCase();
+
+    console.log(`[Notification Dispatch API] Triggered for email: ${cleanEmail}, title: "${title}"`);
+
+    const result = await NotificationDispatcher.dispatch({
+      userId: userId?.toString(),
+      email: cleanEmail,
+      userName: userName?.toString(),
+      category: category || 'wallet',
+      title: title.toString(),
+      message: message.toString(),
+      metadata: metadata || {}
+    });
+
+    res.json({
+      status: true,
+      message: 'Notification dispatched successfully across Push and Email.',
+      result
+    });
+  } catch (err: any) {
+    console.error('[Notification Dispatch API] Error:', err.message);
     res.status(500).json({ error: err.message });
   }
 }
