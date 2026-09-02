@@ -21,6 +21,7 @@ import { CautionClaimsTab } from './components/CautionClaimsTab';
 import { StatutoryNoticesTab } from './components/StatutoryNoticesTab';
 import { LeaseRenewalsTab } from './components/LeaseRenewalsTab';
 import { ReconciliationTab } from './components/ReconciliationTab';
+import { GlobalCardsDeskTab } from './components/GlobalCardsDeskTab';
 import { IntegrationsTab } from './components/IntegrationsTab';
 import { SupabaseConfigTab } from './components/SupabaseConfigTab';
 import { FlutterApiDocsTab } from './components/FlutterApiDocsTab';
@@ -247,6 +248,10 @@ export default function App() {
 
           {currentTab === 'reconciliation' && (
             <ReconciliationTab />
+          )}
+
+          {currentTab === 'global_cards' && (
+            <GlobalCardsDeskTab />
           )}
 
           {currentTab === 'statutory_notices' && (

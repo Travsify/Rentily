@@ -33,9 +33,9 @@
     "accountNumber": "9591357072",
     "bankName": "Flutterwave MFB",
     "state": "Lagos",
-    "walletBalance": 1000,
+    "walletBalance": 900,
     "createdAt": "2026-09-02T07:50:58.103846+00:00",
-    "updatedAt": "2026-09-02T08:21:34.81+00:00",
+    "updatedAt": "2026-09-02T09:06:35.927+00:00",
     "ninNumber": null,
     "bvnVerified": false
   },

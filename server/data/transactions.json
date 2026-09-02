@@ -1,5 +1,19 @@
 [
   {
+    "id": "e08467c0-088f-40da-a9f2-0d4def2bd8c1",
+    "userId": "c0000000-0000-0000-0000-000000000001",
+    "email": "tonerocool1@gmail.com",
+    "title": "MTN Airtime Top-Up (₦100)",
+    "type": "rent",
+    "category": "deposit",
+    "amount": 100,
+    "isCredit": false,
+    "reference": "RNT_AIR_1788339992566",
+    "status": "SUCCESSFUL",
+    "escrowStatus": "held_in_escrow",
+    "date": "2026-09-02T09:06:35.79+00:00"
+  },
+  {
     "id": "a9ade487-e6c3-4aba-8be6-5b884994f35c",
     "userId": "c0000000-0000-0000-0000-000000000001",
     "email": "tonerocool1@gmail.com",

@@ -210,6 +210,7 @@ export type AdminTab =
   | 'statutory_notices'
   | 'lease_renewals'
   | 'reconciliation'
+  | 'global_cards'
   | 'fraud_blacklist'
   | 'support_tickets'
   | 'integrations'

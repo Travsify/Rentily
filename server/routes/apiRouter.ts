@@ -204,3 +204,15 @@ apiRouter.post('/renewals/dispatch-reminder', renewalController.dispatchRenewalR
 // 20. Daily Banking Reconciliation Audit
 apiRouter.get('/reconciliation/audit', reconciliationController.runReconciliationAudit);
 
+// 21. Multi-Currency Global Vault
+apiRouter.get('/wallet/multi-currency-accounts', paymentController.getMultiCurrencyAccounts);
+apiRouter.post('/wallet/convert-currency', paymentController.convertVaultCurrency);
+
+// 22. Virtual Card Issuing & Management
+apiRouter.get('/cards/user-cards', paymentController.getUserCards);
+apiRouter.post('/cards/create', paymentController.issueVirtualCard);
+apiRouter.post('/cards/fund', paymentController.fundVirtualCard);
+apiRouter.post('/cards/toggle-freeze', paymentController.toggleFreezeVirtualCard);
+apiRouter.post('/cards/reveal-details', paymentController.revealCardDetails);
+apiRouter.get('/cards/transactions/:cardId', paymentController.getCardTransactions);
+

@@ -19,7 +19,8 @@ import {
   Eye,
   Calendar,
   Scale,
-  Activity
+  Activity,
+  Globe
 } from 'lucide-react';
 import type { AdminTab } from '../types';
 
@@ -149,6 +150,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           label: 'Daily Banking Audit',
           icon: Activity,
           badge: 'Settlement'
+        },
+        {
+          id: 'global_cards',
+          label: 'Global FX & Virtual Cards',
+          icon: Globe,
+          badge: 'USD/Cards'
         },
         {
           id: 'bills_operations',

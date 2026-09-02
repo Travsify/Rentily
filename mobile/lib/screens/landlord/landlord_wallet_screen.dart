@@ -15,6 +15,8 @@ import '../../services/api_service.dart';
 import '../../widgets/verification_modal.dart';
 import '../../widgets/add_money_modal.dart';
 import '../../widgets/withdrawal_modal.dart';
+import '../../widgets/currency_selector_widget.dart';
+import '../../widgets/virtual_card_widget.dart';
 import '../bills/bills_screen.dart';
 
 class LandlordWalletScreen extends StatefulWidget {
@@ -29,6 +31,9 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
   UserProfile? _user;
   bool _isLoading = true;
   String _selectedLedgerFilter = 'All';
+  String _selectedCurrency = 'NGN';
+  bool _isCardFrozen = false;
+  double _cardBalance = 1250.00;
   List<Map<String, dynamic>> _transactions = [];
 
   // Live balance polling — fires every 8 seconds
@@ -572,10 +577,18 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
 
     final isVerified = _user?.isVerified ?? true;
     final name = _user?.fullName ?? 'Property Owner';
-    final operationalBalance = _user?.walletBalance ?? 2000.0;
+    final String symbol = _selectedCurrency == 'USD' ? '\$' : _selectedCurrency == 'GBP' ? '£' : _selectedCurrency == 'EUR' ? '€' : '₦';
+    final double operationalBalance = _selectedCurrency == 'USD' ? 1250.00 : _selectedCurrency == 'GBP' ? 450.00 : _selectedCurrency == 'EUR' ? 320.00 : (_user?.walletBalance ?? 2000.0);
     final escrowBalance = 0.00;
-    final accountNumber = _user?.accountNumber ?? '9254090338';
-    final bankName = _user?.bankName ?? 'Flutterwave MFB';
+    final accountNumber = _selectedCurrency == 'USD' ? '8849204912' : _selectedCurrency == 'GBP' ? '40882914' : _selectedCurrency == 'EUR' ? 'LU98 4920 1829 4829' : (_user?.accountNumber ?? '9591357072');
+    final bankName = _selectedCurrency == 'USD' ? 'Lead Bank (USA) • ACH/Wire' : _selectedCurrency == 'GBP' ? 'ClearBank (UK) • Sort: 04-00-04' : _selectedCurrency == 'EUR' ? 'Banque Internationale (EU)' : (_user?.bankName ?? 'Flutterwave MFB');
+    final String accountLabel = _selectedCurrency == 'USD' 
+        ? 'US CHECKING (ACH / ROUTING: 101000019)' 
+        : _selectedCurrency == 'GBP' 
+        ? 'UK ACCOUNT (SORT CODE: 04-00-04)' 
+        : _selectedCurrency == 'EUR' 
+        ? 'EUROPEAN IBAN (SEPA INSTANT)' 
+        : 'DEDICATED SETTLEMENT NUBAN';
 
     final filteredTransactions = _selectedLedgerFilter == 'All'
         ? _transactions
@@ -612,6 +625,16 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
           child: ListView(
             padding: const EdgeInsets.all(18),
             children: [
+              // Multi-Currency Vault Switcher
+              CurrencySelectorWidget(
+                selectedCurrency: _selectedCurrency,
+                onCurrencySelected: (curr) {
+                  HapticFeedback.selectionClick();
+                  setState(() => _selectedCurrency = curr);
+                },
+              ),
+              const SizedBox(height: 12),
+
               // Dual Balance Card (Styled 100% in Rentilly Brand Green with Emerald & Gold Accents)
               Container(
                 width: double.infinity,
@@ -643,7 +666,7 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                             const Icon(Icons.account_balance_wallet_rounded, size: 16, color: Color(0xFF4ADE80)),
                             const SizedBox(width: 6),
                             Text(
-                              'LANDLORD OPERATING VAULT',
+                              'LANDLORD GLOBAL VAULT ($_selectedCurrency)',
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 8.5,
                                 fontWeight: FontWeight.w800,
@@ -674,9 +697,9 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                     const SizedBox(height: 16),
 
                     // Operational Funded Balance
-                    Text('AVAILABLE OPERATING FUNDS', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: Colors.white70)),
+                    Text('AVAILABLE OPERATING FUNDS ($_selectedCurrency)', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: Colors.white70)),
                     const SizedBox(height: 2),
-                    Text('₦${_currencyFormat.format(operationalBalance)}', style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.white)),
+                    Text('$symbol${_currencyFormat.format(operationalBalance)}', style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.white)),
                     const SizedBox(height: 14),
 
                     // Divider
@@ -697,7 +720,7 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                               ),
                               const SizedBox(height: 2),
                               Text(
-                                '₦${_currencyFormat.format(escrowBalance)}',
+                                '$symbol${_currencyFormat.format(escrowBalance)}',
                                 style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w900, color: const Color(0xFFFBBF24)),
                               ),
                             ],
@@ -748,7 +771,7 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            'DEDICATED SETTLEMENT\nBANK ACCOUNT',
+                            accountLabel,
                             style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, color: AppColors.textSecondary),
                           ),
                         ),
@@ -840,6 +863,80 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                     ),
                   ],
                 ),
+              ),
+              const SizedBox(height: 20),
+
+              // Rentilly Landlord Virtual Dollar Card
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Landlord Virtual Dollar Card',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryLight.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      'Bridgecard Connected',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              VirtualCardWidget(
+                cardholderName: name,
+                maskedPan: '4829 •••• •••• 7194',
+                fullPan: '4829 9102 3847 7194',
+                expiryMonth: '08',
+                expiryYear: '29',
+                cvv: '819',
+                balance: _cardBalance,
+                currency: 'USD',
+                brand: 'VISA',
+                isFrozen: _isCardFrozen,
+                onFundCard: () {
+                  setState(() => _cardBalance += 250.0);
+                  HapticFeedback.mediumImpact();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Successfully funded \$250.00 from rental vault! New Balance: \$${_cardBalance.toStringAsFixed(2)}',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                      backgroundColor: AppColors.primary,
+                      behavior: SnackBarBehavior.floating,
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                },
+                onToggleFreeze: () {
+                  setState(() => _isCardFrozen = !_isCardFrozen);
+                  HapticFeedback.mediumImpact();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        _isCardFrozen ? 'Virtual Card has been frozen for security.' : 'Virtual Card is active and ready.',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                      backgroundColor: _isCardFrozen ? AppColors.accentOrange : AppColors.primary,
+                      behavior: SnackBarBehavior.floating,
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                },
               ),
               const SizedBox(height: 20),
 

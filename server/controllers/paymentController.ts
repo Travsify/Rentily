@@ -7,6 +7,8 @@ import { UserStore } from '../services/userStore';
 import { TransactionStore, type WalletTransaction } from '../services/transactionStore';
 import { NotificationDispatcher } from '../services/notificationDispatcher';
 import { getStoredFees } from './feeController';
+import { MultiCurrencyService } from '../services/multiCurrencyService';
+import { CardIssuingService } from '../services/cardIssuingService';
 
 export async function createVirtualAccount(req: Request, res: Response) {
   try {
@@ -1075,3 +1077,212 @@ export async function adminReconcileBalance(req: Request, res: Response) {
     res.status(500).json({ error: err.message });
   }
 }
+
+// --- MULTI-CURRENCY VAULT CONTROLLER ---
+
+export async function getMultiCurrencyAccounts(req: Request, res: Response) {
+  try {
+    const { email } = req.query;
+    const cleanEmail = (email || 'tonerocool1@gmail.com').toString().trim().toLowerCase();
+    const user = await UserStore.findByEmail(cleanEmail);
+    const fullName = user?.fullName || user?.businessName || 'Valued Partner';
+
+    const accounts = await MultiCurrencyService.getUserAccounts(cleanEmail, fullName);
+    
+    // Sync true NGN net balance from TransactionStore
+    const trueNgn = TransactionStore.computeNetBalance(cleanEmail);
+    const ngnAcc = accounts.find(a => a.currency === 'NGN');
+    if (ngnAcc) {
+      ngnAcc.balance = trueNgn;
+    }
+
+    res.json({
+      status: true,
+      data: accounts
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+export async function convertVaultCurrency(req: Request, res: Response) {
+  try {
+    const { fromCurrency, toCurrency, amount, email } = req.body;
+    if (!fromCurrency || !toCurrency || !amount || Number(amount) <= 0) {
+      return res.status(400).json({ error: 'Valid fromCurrency, toCurrency, and amount are required' });
+    }
+
+    const conversion = MultiCurrencyService.convert(fromCurrency, toCurrency, Number(amount));
+    
+    // Dispatch in-app / email alert
+    NotificationDispatcher.dispatch({
+      email: email || 'tonerocool1@gmail.com',
+      userName: 'Valued Partner',
+      category: 'wallet',
+      title: `Currency Converted: ${fromCurrency} → ${toCurrency}`,
+      message: `Successfully converted ${fromCurrency} ${Number(amount).toLocaleString()} to ${toCurrency} ${conversion.convertedAmount.toLocaleString()} at rate ${conversion.rate}.`,
+      metadata: {
+        fromCurrency,
+        toCurrency,
+        amount: Number(amount),
+        convertedAmount: conversion.convertedAmount,
+        rate: conversion.rate,
+        fee: conversion.fee
+      }
+    });
+
+    res.json({
+      status: true,
+      message: `Converted ${fromCurrency} ${Number(amount).toLocaleString()} into ${toCurrency} ${conversion.convertedAmount.toLocaleString()}`,
+      data: conversion
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+// --- VIRTUAL CARD ISSUING CONTROLLER ---
+
+export async function getUserCards(req: Request, res: Response) {
+  try {
+    const { email } = req.query;
+    const cleanEmail = (email || 'tonerocool1@gmail.com').toString().trim().toLowerCase();
+    const user = await UserStore.findByEmail(cleanEmail);
+    const fullName = user?.fullName || user?.businessName || 'Valued Partner';
+
+    const cards = await CardIssuingService.getUserCards(cleanEmail, fullName);
+    res.json({
+      status: true,
+      data: cards
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+export async function issueVirtualCard(req: Request, res: Response) {
+  try {
+    const { email, cardholderName, currency, brand, initialFunding } = req.body;
+    const cleanEmail = (email || 'tonerocool1@gmail.com').toString().trim().toLowerCase();
+    const user = await UserStore.findByEmail(cleanEmail);
+    const name = cardholderName || user?.fullName || user?.businessName || 'Valued Partner';
+
+    const card = await CardIssuingService.issueCard({
+      email: cleanEmail,
+      cardholderName: name,
+      currency: currency || 'USD',
+      brand: brand || 'VISA',
+      initialFunding: Number(initialFunding || 0)
+    });
+
+    NotificationDispatcher.dispatch({
+      email: cleanEmail,
+      userName: name,
+      category: 'wallet',
+      title: `Virtual ${card.currency} ${card.brand} Card Issued! 💳`,
+      message: `Your new virtual card ending in ${card.maskedPan.slice(-4)} is active and ready for online spending.`,
+      metadata: {
+        cardId: card.id,
+        maskedPan: card.maskedPan,
+        currency: card.currency,
+        brand: card.brand
+      }
+    });
+
+    res.json({
+      status: true,
+      message: `Virtual ${card.currency} card issued successfully!`,
+      data: card
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+export async function fundVirtualCard(req: Request, res: Response) {
+  try {
+    const { cardId, amount, email } = req.body;
+    if (!cardId || !amount || Number(amount) <= 0) {
+      return res.status(400).json({ error: 'Valid cardId and amount are required' });
+    }
+
+    const result = await CardIssuingService.fundCard(cardId, Number(amount));
+    if (!result.success) {
+      return res.status(400).json({ error: result.message });
+    }
+
+    NotificationDispatcher.dispatch({
+      email: email || 'tonerocool1@gmail.com',
+      userName: 'Valued Partner',
+      category: 'wallet',
+      title: `Virtual Card Funded — ${amount}`,
+      message: result.message,
+      metadata: { cardId, amount: Number(amount), newBalance: result.newBalance }
+    });
+
+    res.json({
+      status: true,
+      message: result.message,
+      newBalance: result.newBalance
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+export async function toggleFreezeVirtualCard(req: Request, res: Response) {
+  try {
+    const { cardId } = req.body;
+    if (!cardId) {
+      return res.status(400).json({ error: 'cardId is required' });
+    }
+
+    const result = await CardIssuingService.toggleFreeze(cardId);
+    if (!result.success) {
+      return res.status(400).json({ error: result.message });
+    }
+
+    res.json({
+      status: true,
+      isFrozen: result.isFrozen,
+      message: result.message
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+export async function revealCardDetails(req: Request, res: Response) {
+  try {
+    const { cardId } = req.body;
+    if (!cardId) {
+      return res.status(400).json({ error: 'cardId is required' });
+    }
+
+    const details = await CardIssuingService.revealDetails(cardId);
+    if (!details) {
+      return res.status(404).json({ error: 'Card not found' });
+    }
+
+    res.json({
+      status: true,
+      data: details
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+export async function getCardTransactions(req: Request, res: Response) {
+  try {
+    const { cardId } = req.params;
+    const txs = CardIssuingService.getCardTransactions(cardId || 'default');
+    res.json({
+      status: true,
+      data: txs
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+}
+

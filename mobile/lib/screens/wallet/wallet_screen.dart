@@ -14,6 +14,8 @@ import '../../widgets/add_money_modal.dart';
 import '../../widgets/rentilly_bottom_bar.dart';
 import '../../widgets/verification_modal.dart';
 import '../../widgets/withdrawal_modal.dart';
+import '../../widgets/currency_selector_widget.dart';
+import '../../widgets/virtual_card_widget.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
@@ -27,6 +29,9 @@ class _WalletScreenState extends State<WalletScreen> {
   bool _hideBalance = false;
   UserProfile? _user;
   bool _isLoading = true;
+  String _selectedCurrency = 'NGN';
+  bool _isCardFrozen = false;
+  double _cardBalance = 1250.00;
 
   @override
   void initState() {
@@ -128,9 +133,17 @@ class _WalletScreenState extends State<WalletScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final double balance = _user?.walletBalance ?? 0.00;
-    final String? accNum = _user?.accountNumber;
-    final String bank = _user?.bankName ?? 'Flutterwave MFB';
+    final String symbol = _selectedCurrency == 'USD' ? '\$' : _selectedCurrency == 'GBP' ? '£' : _selectedCurrency == 'EUR' ? '€' : '₦';
+    final double balance = _selectedCurrency == 'USD' ? 1250.00 : _selectedCurrency == 'GBP' ? 450.00 : _selectedCurrency == 'EUR' ? 320.00 : (_user?.walletBalance ?? 0.00);
+    final String bank = _selectedCurrency == 'USD' ? 'Lead Bank (USA)' : _selectedCurrency == 'GBP' ? 'ClearBank (UK)' : _selectedCurrency == 'EUR' ? 'Banque Internationale (EU)' : (_user?.bankName ?? 'Flutterwave MFB');
+    final String? accNum = _selectedCurrency == 'USD' ? '8849204912' : _selectedCurrency == 'GBP' ? '40882914' : _selectedCurrency == 'EUR' ? 'LU98 4920 1829 4829' : _user?.accountNumber;
+    final String accountLabel = _selectedCurrency == 'USD' 
+        ? 'US CHECKING (ACH / ROUTING: 101000019)' 
+        : _selectedCurrency == 'GBP' 
+        ? 'UK ACCOUNT (SORT CODE: 04-00-04)' 
+        : _selectedCurrency == 'EUR' 
+        ? 'EUROPEAN IBAN (SEPA INSTANT)' 
+        : 'DEDICATED NUBAN ACCOUNT';
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
@@ -159,6 +172,16 @@ class _WalletScreenState extends State<WalletScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Multi-Currency Vault Switcher Tabs
+              CurrencySelectorWidget(
+                selectedCurrency: _selectedCurrency,
+                onCurrencySelected: (curr) {
+                  HapticFeedback.selectionClick();
+                  setState(() => _selectedCurrency = curr);
+                },
+              ),
+              const SizedBox(height: 12),
+
               // Main Debit Wallet Card (Emerald Teal & Deep Pine with Gold/Amber Accents)
               Container(
                 width: double.infinity,
@@ -193,7 +216,7 @@ class _WalletScreenState extends State<WalletScreen> {
                             const Icon(Icons.shield_rounded, size: 18, color: Colors.white),
                             const SizedBox(width: 6),
                             Text(
-                              'RENTILLY LIVING ESCROW',
+                              'RENTILLY GLOBAL ESCROW',
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 9,
                                 fontWeight: FontWeight.w800,
@@ -224,7 +247,7 @@ class _WalletScreenState extends State<WalletScreen> {
 
                     // Balance Display
                     Text(
-                      'TOTAL AVAILABLE BALANCE',
+                      'TOTAL AVAILABLE BALANCE ($_selectedCurrency)',
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 8.5,
                         fontWeight: FontWeight.bold,
@@ -236,7 +259,7 @@ class _WalletScreenState extends State<WalletScreen> {
                     Row(
                       children: [
                         Text(
-                          _hideBalance ? '₦ • • • • • •' : '₦${_currencyFormat.format(balance)}',
+                          _hideBalance ? '$symbol • • • • • •' : '$symbol${_currencyFormat.format(balance)}',
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 26,
                             fontWeight: FontWeight.w900,
@@ -268,31 +291,48 @@ class _WalletScreenState extends State<WalletScreen> {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'DEDICATED ACCOUNT NUMBER',
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white.withValues(alpha: 0.7),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    accountLabel,
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 7.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white.withValues(alpha: 0.7),
+                                    ),
                                   ),
-                                ),
-                                Text(
-                                  '$accNum • $bank',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white,
+                                  Text(
+                                    '$accNum • $bank',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                             GestureDetector(
-                              onTap: _copyAccount,
+                              onTap: () {
+                                Clipboard.setData(ClipboardData(text: accNum));
+                                HapticFeedback.lightImpact();
+                                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Account Details Copied: $accNum',
+                                      style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                                    ),
+                                    backgroundColor: AppColors.primary,
+                                    behavior: SnackBarBehavior.floating,
+                                    duration: const Duration(seconds: 2),
+                                  ),
+                                );
+                              },
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                                 decoration: BoxDecoration(
@@ -374,7 +414,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 18),
 
               // Wallet Actions (Add Money, Withdraw, Statement, Vault)
               Row(
@@ -421,6 +461,80 @@ class _WalletScreenState extends State<WalletScreen> {
                     }),
                   ),
                 ],
+              ),
+              const SizedBox(height: 22),
+
+              // Rentilly Virtual Dollar Card Section (Bridgecard CaaS)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Rentilly Global Dollar Card',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryLight.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      'Bridgecard Active',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              VirtualCardWidget(
+                cardholderName: _user?.fullName ?? _user?.businessName ?? 'Valued Partner',
+                maskedPan: '4829 •••• •••• 7194',
+                fullPan: '4829 9102 3847 7194',
+                expiryMonth: '08',
+                expiryYear: '29',
+                cvv: '819',
+                balance: _cardBalance,
+                currency: 'USD',
+                brand: 'VISA',
+                isFrozen: _isCardFrozen,
+                onFundCard: () {
+                  setState(() => _cardBalance += 100.0);
+                  HapticFeedback.mediumImpact();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        'Successfully funded \$100.00 to card! New Balance: \$${_cardBalance.toStringAsFixed(2)}',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                      backgroundColor: AppColors.primary,
+                      behavior: SnackBarBehavior.floating,
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                },
+                onToggleFreeze: () {
+                  setState(() => _isCardFrozen = !_isCardFrozen);
+                  HapticFeedback.mediumImpact();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        _isCardFrozen ? 'Virtual Card has been frozen for security.' : 'Virtual Card is active and ready.',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                      backgroundColor: _isCardFrozen ? AppColors.accentOrange : AppColors.primary,
+                      behavior: SnackBarBehavior.floating,
+                      duration: const Duration(seconds: 2),
+                    ),
+                  );
+                },
               ),
               const SizedBox(height: 24),
 

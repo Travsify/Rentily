@@ -1,0 +1,27 @@
+[
+  {
+    "id": "CARD_1788342162380_4829",
+    "cardholderName": "EHOMES GLOBAL INCLUSIVE LIMITED",
+    "email": "tonerocool1@gmail.com",
+    "currency": "USD",
+    "brand": "VISA",
+    "cardType": "VIRTUAL_DEBIT",
+    "maskedPan": "4829 •••• •••• 7194",
+    "fullPan": "4829 9102 3847 7194",
+    "expiryMonth": "08",
+    "expiryYear": "29",
+    "cvv": "819",
+    "balance": 1250,
+    "spendingLimit": 5000,
+    "isFrozen": false,
+    "status": "ACTIVE",
+    "billingAddress": {
+      "street": "Plot 12, Admiralty Way, Lekki Phase 1",
+      "city": "Lagos",
+      "state": "Lagos State",
+      "postalCode": "101233",
+      "country": "Nigeria"
+    },
+    "createdAt": "2026-09-02T09:42:42.380Z"
+  }
+]
