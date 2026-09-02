@@ -47,6 +47,17 @@ export class MultiCurrencyService {
     } catch (_) {}
   }
 
+  static async initFromSupabase() {
+    if (supabase) {
+      try {
+        const { data } = await supabase.from('system_configs').select('data').eq('id', 'system_fx_rates').single();
+        if (data && data.data) {
+          this.fxRates = { ...this.fxRates, ...data.data };
+        }
+      } catch (_) {}
+    }
+  }
+
   static getFxRates(): Record<string, number> {
     return { ...this.fxRates };
   }
@@ -72,6 +83,14 @@ export class MultiCurrencyService {
       }
       fs.writeFileSync(FX_RATES_FILE, JSON.stringify(this.fxRates, null, 2), 'utf8');
     } catch (_) {}
+
+    if (supabase) {
+      supabase.from('system_configs').upsert({
+        id: 'system_fx_rates',
+        data: this.fxRates,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id' }).then(() => {}).catch(() => {});
+    }
 
     return { ...this.fxRates };
   }

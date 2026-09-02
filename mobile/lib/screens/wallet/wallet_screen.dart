@@ -32,6 +32,10 @@ class _WalletScreenState extends State<WalletScreen> {
   String _selectedCurrency = 'NGN';
   bool _isCardFrozen = false;
   double _cardBalance = 1250.00;
+  double _fxUsdToNgn = 1510.0;
+  double _fxUsdToGbp = 0.76;
+  double _fxUsdToEur = 0.91;
+  double _cardIssuanceFeeUsd = 3.00;
 
   @override
   void initState() {
@@ -104,6 +108,22 @@ class _WalletScreenState extends State<WalletScreen> {
           }
         }
       } catch (_) {}
+      try {
+        final rates = await ApiService.fetchFxRates();
+        final pricing = await ApiService.fetchCardPricing();
+        if (mounted) {
+          setState(() {
+            _fxUsdToNgn = rates['USD_NGN'] ?? 1510.0;
+            _fxUsdToGbp = (rates['GBP_NGN'] != null && rates['USD_NGN'] != null)
+                ? (rates['USD_NGN']! / rates['GBP_NGN']!)
+                : 0.76;
+            _fxUsdToEur = (rates['EUR_NGN'] != null && rates['USD_NGN'] != null)
+                ? (rates['USD_NGN']! / rates['EUR_NGN']!)
+                : 0.91;
+            _cardIssuanceFeeUsd = (pricing['issuanceFeeUsd'] as num?)?.toDouble() ?? 3.00;
+          });
+        }
+      } catch (_) {}
     }
   }
 
@@ -112,9 +132,6 @@ class _WalletScreenState extends State<WalletScreen> {
   void _showIssueCardModal() {
     final name = _user?.fullName ?? _user?.businessName ?? 'Valued Customer';
     String selectedFundingWallet = 'NGN';
-    const double fxUsdToNgn = 1510.0;
-    const double fxUsdToGbp = 0.76;
-    const double fxUsdToEur = 0.91;
 
     showModalBottomSheet(
       context: context,
@@ -122,24 +139,24 @@ class _WalletScreenState extends State<WalletScreen> {
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) {
-          double feeInSelectedCurr = 3.0;
-          String feeFormatted = '\$3.00 USD';
+          double feeInSelectedCurr = _cardIssuanceFeeUsd;
+          String feeFormatted = '\$${_cardIssuanceFeeUsd.toStringAsFixed(2)} USD';
           double availableBalance = 0.0;
 
           if (selectedFundingWallet == 'NGN') {
-            feeInSelectedCurr = 3.0 * fxUsdToNgn; // ₦4,530
+            feeInSelectedCurr = _cardIssuanceFeeUsd * _fxUsdToNgn;
             feeFormatted = '₦${_currencyFormat.format(feeInSelectedCurr)} NGN';
             availableBalance = _user?.walletBalance ?? 0.0;
           } else if (selectedFundingWallet == 'USD') {
-            feeInSelectedCurr = 3.0;
-            feeFormatted = '\$3.00 USD';
+            feeInSelectedCurr = _cardIssuanceFeeUsd;
+            feeFormatted = '\$${_cardIssuanceFeeUsd.toStringAsFixed(2)} USD';
             availableBalance = 0.0;
           } else if (selectedFundingWallet == 'GBP') {
-            feeInSelectedCurr = 3.0 * fxUsdToGbp; // £2.28
+            feeInSelectedCurr = _cardIssuanceFeeUsd * _fxUsdToGbp;
             feeFormatted = '£${_currencyFormat.format(feeInSelectedCurr)} GBP';
             availableBalance = 0.0;
           } else if (selectedFundingWallet == 'EUR') {
-            feeInSelectedCurr = 3.0 * fxUsdToEur; // €2.73
+            feeInSelectedCurr = _cardIssuanceFeeUsd * _fxUsdToEur;
             feeFormatted = '€${_currencyFormat.format(feeInSelectedCurr)} EUR';
             availableBalance = 0.0;
           }
@@ -253,7 +270,7 @@ class _WalletScreenState extends State<WalletScreen> {
                           children: [
                             Text('Exchange Rate', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textMuted)),
                             Text(
-                              selectedFundingWallet == 'NGN' ? '\$1 = ₦1,510 NGN' : selectedFundingWallet == 'GBP' ? '\$1 = £0.76 GBP' : '\$1 = €0.91 EUR',
+                              selectedFundingWallet == 'NGN' ? '\$1.00 = ₦${_fxUsdToNgn.toStringAsFixed(0)} NGN' : selectedFundingWallet == 'GBP' ? '\$1.00 = £${_fxUsdToGbp.toStringAsFixed(2)} GBP' : '\$1.00 = €${_fxUsdToEur.toStringAsFixed(2)} EUR',
                               style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
                             ),
                           ],

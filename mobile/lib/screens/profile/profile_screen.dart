@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +11,7 @@ import '../../services/biometric_service.dart';
 import '../../services/payment_security_service.dart';
 import '../../widgets/payment_pin_modal.dart';
 import '../../widgets/verification_modal.dart';
+import '../../widgets/app_avatar.dart';
 import '../auth/login_screen.dart';
 import '../auth/register_screen.dart';
 import '../main_navigation_screen.dart';
@@ -136,32 +138,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       onTap: _showProfilePictureSheet,
                       child: Stack(
                         children: [
-                          Container(
-                            width: 56,
-                            height: 56,
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: LinearGradient(
-                                colors: [AppColors.primary, AppColors.primaryLight],
-                              ),
-                            ),
-                            child: _currentUser?.avatarUrl != null &&
-                                    _currentUser!.avatarUrl!.isNotEmpty &&
-                                    File(_currentUser!.avatarUrl!).existsSync()
-                                ? ClipOval(
-                                    child: Image.file(
-                                      File(_currentUser!.avatarUrl!),
-                                      width: 56,
-                                      height: 56,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  )
-                                : Center(
-                                    child: Text(
-                                      initials.isNotEmpty ? initials : 'PA',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 18),
-                                    ),
-                                  ),
+                          AppAvatar(
+                            avatarUrl: _currentUser?.avatarUrl,
+                            name: name,
+                            size: 56,
                           ),
                           Positioned(
                             bottom: 0,
@@ -1375,8 +1355,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
 
       if (pickedFile != null && _currentUser != null) {
-        final imagePath = pickedFile.path;
-        final updated = _currentUser!.copyWith(avatarUrl: imagePath);
+        final bytes = await pickedFile.readAsBytes();
+        final base64String = base64Encode(bytes);
+        final dataUri = 'data:image/jpeg;base64,$base64String';
+
+        final updated = _currentUser!.copyWith(avatarUrl: dataUri);
         await AuthService.updateUser(updated);
         setState(() {
           _currentUser = updated;
@@ -1385,7 +1368,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Profile photo updated successfully!', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold)),
+              content: Text('Profile photo updated & synced to cloud! 📸', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold)),
               backgroundColor: AppColors.primary,
             ),
           );

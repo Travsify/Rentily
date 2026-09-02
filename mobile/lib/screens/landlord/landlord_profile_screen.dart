@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -14,6 +15,7 @@ import '../../services/notification_service.dart';
 import '../../widgets/verification_modal.dart';
 import '../../widgets/payment_pin_modal.dart';
 import '../../widgets/partner_id_card_modal.dart';
+import '../../widgets/app_avatar.dart';
 import '../auth/login_screen.dart';
 
 class LandlordProfileScreen extends StatefulWidget {
@@ -58,15 +60,23 @@ class _LandlordProfileScreenState extends State<LandlordProfileScreen> {
     final picker = ImagePicker();
     final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
     if (image != null && _user != null) {
+      final bytes = await image.readAsBytes();
+      final base64String = base64Encode(bytes);
+      final dataUri = 'data:image/jpeg;base64,$base64String';
+
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('rentilly_persistent_avatar_url', image.path);
-      final updated = _user!.copyWith(avatarUrl: image.path);
+      await prefs.setString('rentilly_persistent_avatar_url', dataUri);
+      if (_user!.email.isNotEmpty) {
+        await prefs.setString('rentilly_avatar_${_user!.email.toLowerCase()}', dataUri);
+      }
+
+      final updated = _user!.copyWith(avatarUrl: dataUri);
       await AuthService.updateUser(updated);
       setState(() => _user = updated);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Profile picture updated successfully! 📸', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold)),
+            content: Text('Profile picture updated & synced to cloud! 📸', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold)),
             backgroundColor: AppColors.primary,
           ),
         );
@@ -803,26 +813,10 @@ class _LandlordProfileScreenState extends State<LandlordProfileScreen> {
                 children: [
                   Stack(
                     children: [
-                      Container(
-                        width: 64,
-                        height: 64,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColors.primary,
-                        ),
-                        child: avatarUrl != null && avatarUrl.isNotEmpty
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(32),
-                                child: avatarUrl.startsWith('http')
-                                    ? Image.network(avatarUrl, fit: BoxFit.cover)
-                                    : Image.file(File(avatarUrl), fit: BoxFit.cover),
-                              )
-                            : Center(
-                                child: Text(
-                                  name.isNotEmpty ? name.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join() : 'LL',
-                                  style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white),
-                                ),
-                              ),
+                      AppAvatar(
+                        avatarUrl: _user?.avatarUrl,
+                        name: name,
+                        size: 64,
                       ),
                       Positioned(
                         bottom: 0,

@@ -406,4 +406,88 @@ class ApiService {
       return false;
     }
   }
+
+  /// Fetch live system FX rates (Supabase Cloud Layer 1 with Render fallback)
+  static Future<Map<String, double>> fetchFxRates() async {
+    // 1. Direct Supabase Cloud REST
+    try {
+      final sbRes = await http.get(
+        Uri.parse('https://zuxvxuqxomsxgiljykzj.supabase.co/rest/v1/system_configs?id=eq.system_fx_rates&select=data'),
+        headers: {
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp1eHZ4dXF4b21zeGdpbGp5a3pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwODAzNTMsImV4cCI6MjEwMzY1NjM1M30.4g6-vT5q7Oa6kQ-3_M76Zk-r8S26u_gM69W4G_7w6A8',
+        },
+      ).timeout(const Duration(seconds: 4));
+      if (sbRes.statusCode == 200) {
+        final List<dynamic> list = json.decode(sbRes.body);
+        if (list.isNotEmpty && list[0]['data'] != null) {
+          final m = Map<String, dynamic>.from(list[0]['data']);
+          return {
+            'USD_NGN': (m['USD_NGN'] as num?)?.toDouble() ?? 1510.0,
+            'GBP_NGN': (m['GBP_NGN'] as num?)?.toDouble() ?? 1980.0,
+            'EUR_NGN': (m['EUR_NGN'] as num?)?.toDouble() ?? 1660.0,
+          };
+        }
+      }
+    } catch (_) {}
+
+    // 2. Render Core API Fallback
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/wallet/fx-rates')).timeout(const Duration(seconds: 6));
+      if (res.statusCode == 200) {
+        final data = json.decode(res.body);
+        if (data['status'] == true && data['data'] != null) {
+          final m = Map<String, dynamic>.from(data['data']);
+          return {
+            'USD_NGN': (m['USD_NGN'] as num?)?.toDouble() ?? 1510.0,
+            'GBP_NGN': (m['GBP_NGN'] as num?)?.toDouble() ?? 1980.0,
+            'EUR_NGN': (m['EUR_NGN'] as num?)?.toDouble() ?? 1660.0,
+          };
+        }
+      }
+    } catch (_) {}
+
+    return {
+      'USD_NGN': 1510.0,
+      'GBP_NGN': 1980.0,
+      'EUR_NGN': 1660.0,
+    };
+  }
+
+  /// Fetch live virtual card pricing configuration
+  static Future<Map<String, dynamic>> fetchCardPricing() async {
+    // 1. Direct Supabase Cloud REST
+    try {
+      final sbRes = await http.get(
+        Uri.parse('https://zuxvxuqxomsxgiljykzj.supabase.co/rest/v1/system_configs?id=eq.card_pricing_config&select=data'),
+        headers: {
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp1eHZ4dXF4b21zeGdpbGp5a3pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwODAzNTMsImV4cCI6MjEwMzY1NjM1M30.4g6-vT5q7Oa6kQ-3_M76Zk-r8S26u_gM69W4G_7w6A8',
+        },
+      ).timeout(const Duration(seconds: 4));
+      if (sbRes.statusCode == 200) {
+        final List<dynamic> list = json.decode(sbRes.body);
+        if (list.isNotEmpty && list[0]['data'] != null) {
+          return Map<String, dynamic>.from(list[0]['data']);
+        }
+      }
+    } catch (_) {}
+
+    // 2. Render Core API Fallback
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/cards/pricing')).timeout(const Duration(seconds: 6));
+      if (res.statusCode == 200) {
+        final data = json.decode(res.body);
+        if (data['status'] == true && data['data'] != null) {
+          return Map<String, dynamic>.from(data['data']);
+        }
+      }
+    } catch (_) {}
+
+    return {
+      'issuanceFeeUsd': 3.00,
+      'fundingFeePercent': 1.5,
+      'monthlyMaintenanceUsd': 1.00,
+      'minFundingUsd': 5.00,
+      'liquidationFeePercent': 1.0,
+    };
+  }
 }

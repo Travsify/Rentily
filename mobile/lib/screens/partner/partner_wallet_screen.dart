@@ -45,10 +45,11 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
   // Zero dummy data: Starts EMPTY until user taps 'Get Account'
   final Map<String, Map<String, String>> _virtualAccounts = {};
 
-  // Live FX Benchmarks
-  final double _fxUsdToNgn = 1510.0;
-  final double _fxUsdToGbp = 0.76;
-  final double _fxUsdToEur = 0.91;
+  // Live Dynamic FX Benchmarks & Card Pricing (Admin Configurable)
+  double _fxUsdToNgn = 1510.0;
+  double _fxUsdToGbp = 0.76;
+  double _fxUsdToEur = 0.91;
+  double _cardIssuanceFeeUsd = 3.00;
 
   @override
   void initState() {
@@ -144,6 +145,23 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
         await AuthService.updateUser(effectiveUser);
       }
 
+      try {
+        final rates = await ApiService.fetchFxRates();
+        final pricing = await ApiService.fetchCardPricing();
+        if (mounted) {
+          setState(() {
+            _fxUsdToNgn = rates['USD_NGN'] ?? 1510.0;
+            _fxUsdToGbp = (rates['GBP_NGN'] != null && rates['USD_NGN'] != null)
+                ? (rates['USD_NGN']! / rates['GBP_NGN']!)
+                : 0.76;
+            _fxUsdToEur = (rates['EUR_NGN'] != null && rates['USD_NGN'] != null)
+                ? (rates['USD_NGN']! / rates['EUR_NGN']!)
+                : 0.91;
+            _cardIssuanceFeeUsd = (pricing['issuanceFeeUsd'] as num?)?.toDouble() ?? 3.00;
+          });
+        }
+      } catch (_) {}
+
       if (mounted) {
         setState(() {
           _user = effectiveUser;
@@ -210,29 +228,29 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
       backgroundColor: Colors.transparent,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) {
-          // Calculate fees depending on chosen wallet
-          double feeInSelectedCurr = 3.0;
-          String feeFormatted = '\$3.00 USD';
+          // Calculate fees depending on chosen wallet and dynamic admin pricing
+          double feeInSelectedCurr = _cardIssuanceFeeUsd;
+          String feeFormatted = '\$${_cardIssuanceFeeUsd.toStringAsFixed(2)} USD';
           double availableBalance = 0.0;
           String currSymbol = '\$';
 
           if (selectedFundingWallet == 'NGN') {
-            feeInSelectedCurr = 3.0 * _fxUsdToNgn; // ₦4,530
+            feeInSelectedCurr = _cardIssuanceFeeUsd * _fxUsdToNgn;
             feeFormatted = '₦${_currencyFormat.format(feeInSelectedCurr)} NGN';
             availableBalance = _user?.walletBalance ?? 0.0;
             currSymbol = '₦';
           } else if (selectedFundingWallet == 'USD') {
-            feeInSelectedCurr = 3.0;
-            feeFormatted = '\$3.00 USD';
+            feeInSelectedCurr = _cardIssuanceFeeUsd;
+            feeFormatted = '\$${_cardIssuanceFeeUsd.toStringAsFixed(2)} USD';
             availableBalance = _usdBalance;
             currSymbol = '\$';
           } else if (selectedFundingWallet == 'GBP') {
-            feeInSelectedCurr = 3.0 * _fxUsdToGbp; // £2.28
+            feeInSelectedCurr = _cardIssuanceFeeUsd * _fxUsdToGbp;
             feeFormatted = '£${_currencyFormat.format(feeInSelectedCurr)} GBP';
             availableBalance = _gbpBalance;
             currSymbol = '£';
           } else if (selectedFundingWallet == 'EUR') {
-            feeInSelectedCurr = 3.0 * _fxUsdToEur; // €2.73
+            feeInSelectedCurr = _cardIssuanceFeeUsd * _fxUsdToEur;
             feeFormatted = '€${_currencyFormat.format(feeInSelectedCurr)} EUR';
             availableBalance = _eurBalance;
             currSymbol = '€';
@@ -347,7 +365,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                           children: [
                             Text('Exchange Rate', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textMuted)),
                             Text(
-                              selectedFundingWallet == 'NGN' ? '\$1 = ₦1,510 NGN' : selectedFundingWallet == 'GBP' ? '\$1 = £0.76 GBP' : '\$1 = €0.91 EUR',
+                              selectedFundingWallet == 'NGN' ? '\$1.00 = ₦${_fxUsdToNgn.toStringAsFixed(0)} NGN' : selectedFundingWallet == 'GBP' ? '\$1.00 = £${_fxUsdToGbp.toStringAsFixed(2)} GBP' : '\$1.00 = €${_fxUsdToEur.toStringAsFixed(2)} EUR',
                               style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
                             ),
                           ],

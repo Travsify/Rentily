@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -13,6 +14,7 @@ import '../../widgets/verification_modal.dart';
 import '../../widgets/partner_id_card_modal.dart';
 import '../../widgets/partner_landlord_onboard_modal.dart';
 import '../../widgets/partner_legal_modal.dart';
+import '../../widgets/app_avatar.dart';
 import '../auth/login_screen.dart';
 
 class PartnerProfileScreen extends StatefulWidget {
@@ -72,9 +74,18 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
     final picker = ImagePicker();
     final image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
     if (image != null && _user != null) {
+      final bytes = await image.readAsBytes();
+      final base64String = base64Encode(bytes);
+      final dataUri = 'data:image/jpeg;base64,$base64String';
+
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('rentilly_persistent_partner_logo', image.path);
-      final updated = _user!.copyWith(avatarUrl: image.path);
+      await prefs.setString('rentilly_persistent_partner_logo', dataUri);
+      await prefs.setString('rentilly_persistent_avatar_url', dataUri);
+      if (_user!.email.isNotEmpty) {
+        await prefs.setString('rentilly_avatar_${_user!.email.toLowerCase()}', dataUri);
+      }
+
+      final updated = _user!.copyWith(avatarUrl: dataUri);
       await AuthService.updateUser(updated);
       setState(() => _user = updated);
       if (mounted) {
@@ -86,7 +97,7 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Corporate firm logo updated successfully! 🏢📸',
+                    'Corporate firm logo updated & saved permanently! 🏢📸',
                     style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
                   ),
                 ),
@@ -252,33 +263,10 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
                     onTap: _pickLogo,
                     child: Stack(
                       children: [
-                        Container(
-                          width: 60,
-                          height: 60,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: const Color(0xFFF1F5F9),
-                            border: Border.all(color: AppColors.primary, width: 2),
-                            image: (_user?.avatarUrl != null && _user!.avatarUrl!.isNotEmpty)
-                                ? DecorationImage(
-                                    image: _user!.avatarUrl!.startsWith('http')
-                                        ? NetworkImage(_user!.avatarUrl!) as ImageProvider
-                                        : FileImage(File(_user!.avatarUrl!)),
-                                    fit: BoxFit.cover,
-                                  )
-                                : null,
-                            gradient: (_user?.avatarUrl == null || _user!.avatarUrl!.isEmpty)
-                                ? const LinearGradient(colors: [AppColors.primaryLight, AppColors.primary])
-                                : null,
-                          ),
-                          child: (_user?.avatarUrl == null || _user!.avatarUrl!.isEmpty)
-                              ? Center(
-                                  child: Text(
-                                    businessName.isNotEmpty ? businessName.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join() : 'PT',
-                                    style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.white),
-                                  ),
-                                )
-                              : null,
+                        AppAvatar(
+                          avatarUrl: _user?.avatarUrl,
+                          name: businessName,
+                          size: 60,
                         ),
                         Positioned(
                           bottom: 0,

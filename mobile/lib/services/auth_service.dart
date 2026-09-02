@@ -205,12 +205,16 @@ class AuthService {
               user['role'] == 'partner' ||
               cleanEmail == 'tonerocool1@gmail.com';
 
+          final prefs = await SharedPreferences.getInstance();
+          final cachedAvatar = prefs.getString('rentilly_avatar_$cleanEmail') ?? prefs.getString('rentilly_persistent_avatar_url');
+
           final userMap = {
             'id': user['id']?.toString() ?? 'usr_${DateTime.now().millisecondsSinceEpoch}',
             'fullName': user['full_name'] ?? user['fullName'] ?? '',
             'email': user['email'] ?? cleanEmail,
             'phoneNumber': user['phone_number'] ?? user['phoneNumber'] ?? '',
             'role': isPartner ? 'partner' : (user['role'] ?? 'renter'),
+            'avatarUrl': user['avatar_url'] ?? user['avatarUrl'] ?? cachedAvatar,
             'businessName': user['business_name'] ?? user['businessName'],
             'cacNumber': user['cac_number'] ?? user['cacNumber'],
             'officeAddress': user['office_address'] ?? user['officeAddress'],
@@ -365,17 +369,51 @@ class AuthService {
   // 7. Update user profile globally and notify all listening screens
   static Future<void> updateUser(UserProfile user) async {
     final prefs = await SharedPreferences.getInstance();
+    final cleanEmail = user.email.toLowerCase().trim();
     if (user.avatarUrl != null && user.avatarUrl!.isNotEmpty) {
       await prefs.setString('rentilly_persistent_avatar_url', user.avatarUrl!);
+      if (cleanEmail.isNotEmpty) {
+        await prefs.setString('rentilly_avatar_$cleanEmail', user.avatarUrl!);
+      }
     }
     final encoded = json.encode(user.toJson());
     await prefs.setString(AppConstants.userKey, encoded);
     await prefs.setString('rentilly_last_user', encoded);
-    final cleanEmail = user.email.toLowerCase().trim();
     if (cleanEmail.isNotEmpty) {
       await prefs.setString('rentilly_user_$cleanEmail', encoded);
     }
     currentUserNotifier.value = user;
+
+    // Direct Supabase Cloud Profile Sync
+    if (cleanEmail.isNotEmpty) {
+      try {
+        final updatePayload = <String, dynamic>{
+          'full_name': user.fullName,
+          'phone_number': user.phoneNumber,
+          'state': user.state,
+          'business_name': user.businessName,
+          'cac_number': user.cacNumber,
+          'office_address': user.officeAddress,
+          'wallet_balance': user.walletBalance,
+          'account_number': user.accountNumber,
+          'bank_name': user.bankName,
+        };
+        if (user.avatarUrl != null && user.avatarUrl!.isNotEmpty) {
+          updatePayload['avatar_url'] = user.avatarUrl;
+        }
+
+        http.patch(
+          Uri.parse('$supabaseUrl/rest/v1/profiles?email=eq.$cleanEmail'),
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': supabaseKey,
+            'Authorization': 'Bearer $supabaseKey',
+            'Prefer': 'return=representation',
+          },
+          body: json.encode(updatePayload),
+        ).catchError((_) => http.Response('', 500));
+      } catch (_) {}
+    }
   }
 
   // 8. Sign Out
@@ -427,10 +465,14 @@ class AuthService {
     }
 
     if (userMap['avatarUrl'] == null || (userMap['avatarUrl'] as String).isEmpty) {
-      final persistentAvatar = prefs.getString('rentilly_persistent_avatar_url');
+      final emailAvatar = email.isNotEmpty ? prefs.getString('rentilly_avatar_$email') : null;
+      final persistentAvatar = emailAvatar ?? prefs.getString('rentilly_persistent_avatar_url');
       if (persistentAvatar != null && persistentAvatar.isNotEmpty) {
         userMap['avatarUrl'] = persistentAvatar;
       }
+    } else if (email.isNotEmpty) {
+      await prefs.setString('rentilly_avatar_$email', userMap['avatarUrl']);
+      await prefs.setString('rentilly_persistent_avatar_url', userMap['avatarUrl']);
     }
 
     final encoded = json.encode(userMap);

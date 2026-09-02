@@ -21,6 +21,7 @@ import '../inspections/inspections_screen.dart';
 import 'partner_wallet_screen.dart';
 import 'partner_profile_screen.dart';
 import 'partner_mandates_screen.dart';
+import '../../widgets/app_avatar.dart';
 import '../../services/notification_service.dart';
 import '../shared/notification_center_screen.dart';
 import '../shared/chat_inbox_screen.dart';
@@ -271,33 +272,10 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
                     Expanded(
                       child: Row(
                         children: [
-                          Container(
-                            width: 44,
-                            height: 44,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: const Color(0xFFF1F5F9),
-                              border: Border.all(color: AppColors.primary, width: 1.5),
-                              image: (_user?.avatarUrl != null && _user!.avatarUrl!.isNotEmpty)
-                                  ? DecorationImage(
-                                      image: _user!.avatarUrl!.startsWith('http')
-                                          ? NetworkImage(_user!.avatarUrl!) as ImageProvider
-                                          : FileImage(File(_user!.avatarUrl!)),
-                                      fit: BoxFit.cover,
-                                    )
-                                  : null,
-                              gradient: (_user?.avatarUrl == null || _user!.avatarUrl!.isEmpty)
-                                  ? const LinearGradient(colors: [AppColors.primaryLight, AppColors.primary])
-                                  : null,
-                            ),
-                            child: (_user?.avatarUrl == null || _user!.avatarUrl!.isEmpty)
-                                ? Center(
-                                    child: Text(
-                                      businessName.isNotEmpty ? businessName.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join() : 'PT',
-                                      style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.white),
-                                    ),
-                                  )
-                                : null,
+                          AppAvatar(
+                            avatarUrl: _user?.avatarUrl,
+                            name: businessName,
+                            size: 44,
                           ),
                           const SizedBox(width: 10),
                           Expanded(

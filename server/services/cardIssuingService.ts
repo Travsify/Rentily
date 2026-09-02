@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
+import { supabase } from '../supabaseClient';
 
 dotenv.config();
 
@@ -75,6 +76,17 @@ export class CardIssuingService {
     } catch (_) {}
   }
 
+  static async initFromSupabase() {
+    if (supabase) {
+      try {
+        const { data } = await supabase.from('system_configs').select('data').eq('id', 'card_pricing_config').single();
+        if (data && data.data) {
+          this.cardPricing = { ...this.cardPricing, ...data.data };
+        }
+      } catch (_) {}
+    }
+  }
+
   static getCardPricing(): CardPricingConfig {
     return { ...this.cardPricing };
   }
@@ -101,6 +113,14 @@ export class CardIssuingService {
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(CARD_PRICING_FILE, JSON.stringify(this.cardPricing, null, 2), 'utf8');
     } catch (_) {}
+
+    if (supabase) {
+      supabase.from('system_configs').upsert({
+        id: 'card_pricing_config',
+        data: this.cardPricing,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id' }).then(() => {}).catch(() => {});
+    }
 
     return { ...this.cardPricing };
   }
