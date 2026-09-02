@@ -181,6 +181,7 @@ export interface FraudBlacklistEntry {
 
 export type AdminTab = 
   | 'overview' 
+  | 'users'
   | 'kyp' 
   | 'properties' 
   | 'inspections' 

@@ -7,8 +7,10 @@ import {
   Copy, 
   ExternalLink, 
   FileCode,
-  Layers
+  Layers,
+  Loader2
 } from 'lucide-react';
+import { RentillyApiService } from '../services/api';
 
 interface SupabaseConfigTabProps {
   onTestConnection?: () => void;
@@ -20,6 +22,8 @@ export const SupabaseConfigTab: React.FC<SupabaseConfigTabProps> = () => {
   const [supabaseAnonKey, setSupabaseAnonKey] = useState('');
   const [supabaseServiceRoleKey, setSupabaseServiceRoleKey] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
 
   const copyToClipboard = (text: string, index: number) => {
     navigator.clipboard.writeText(text);
@@ -27,10 +31,28 @@ export const SupabaseConfigTab: React.FC<SupabaseConfigTabProps> = () => {
     setTimeout(() => setCopiedIndex(null), 2000);
   };
 
-  const handleSaveCredentials = (e: React.FormEvent) => {
+  const handleSaveCredentials = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 3000);
+    if (!supabaseUrl.trim() || (!supabaseAnonKey.trim() && !supabaseServiceRoleKey.trim())) {
+      setFeedbackMessage('Please provide your Supabase URL and at least one API Key.');
+      return;
+    }
+    setIsSaving(true);
+    setFeedbackMessage(null);
+    try {
+      const res = await RentillyApiService.configureSupabase({
+        url: supabaseUrl.trim(),
+        anonKey: supabaseAnonKey.trim(),
+        serviceRoleKey: supabaseServiceRoleKey.trim()
+      });
+      setSaveSuccess(res.success && res.connected);
+      setFeedbackMessage(res.message);
+    } catch (err: any) {
+      setSaveSuccess(false);
+      setFeedbackMessage(err.message || 'Failed to connect to Supabase.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -92,19 +114,33 @@ export const SupabaseConfigTab: React.FC<SupabaseConfigTabProps> = () => {
                 />
               </div>
 
-              <div className="pt-2 flex items-center justify-between">
-                <button
-                  type="submit"
-                  className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md transition"
-                >
-                  Save & Validate Connection
-                </button>
+              <div className="pt-2 flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <button
+                    type="submit"
+                    disabled={isSaving}
+                    className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-xs shadow-md transition flex items-center gap-1.5"
+                  >
+                    {isSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                    <span>{isSaving ? 'Validating Connection...' : 'Save & Validate Connection'}</span>
+                  </button>
 
-                {saveSuccess && (
-                  <span className="text-emerald-400 font-semibold flex items-center gap-1">
-                    <Check className="w-4 h-4" />
-                    <span>Credentials Saved!</span>
-                  </span>
+                  {saveSuccess && (
+                    <span className="text-emerald-400 font-semibold flex items-center gap-1">
+                      <Check className="w-4 h-4" />
+                      <span>Connected!</span>
+                    </span>
+                  )}
+                </div>
+
+                {feedbackMessage && (
+                  <div className={`p-2.5 rounded-lg text-[11px] font-mono ${
+                    saveSuccess 
+                      ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30' 
+                      : 'bg-amber-500/10 text-amber-300 border border-amber-500/30'
+                  }`}>
+                    {feedbackMessage}
+                  </div>
                 )}
               </div>
             </form>

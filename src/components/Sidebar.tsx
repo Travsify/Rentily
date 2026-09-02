@@ -1,6 +1,7 @@
 import React from 'react';
 import { 
   LayoutDashboard, 
+  Users,
   ShieldAlert, 
   Building2, 
   CalendarCheck, 
@@ -34,6 +35,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: 'overview' as AdminTab,
       label: 'Executive Overview',
       icon: LayoutDashboard,
+      badge: null
+    },
+    {
+      id: 'users' as AdminTab,
+      label: 'Users & Stakeholders',
+      icon: Users,
       badge: null
     },
     {

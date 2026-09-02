@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
 import { OverviewTab } from './components/OverviewTab';
+import { UsersTab } from './components/UsersTab';
 import { KYPVerificationTab } from './components/KYPVerificationTab';
 import { KYPModal } from './components/KYPModal';
 import { PropertiesTab } from './components/PropertiesTab';
@@ -22,6 +23,7 @@ export default function App() {
   const [currentTab, setCurrentTab] = useState<AdminTab>('overview');
   
   // Data State
+  const [users, setUsers] = useState<UserProfile[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
   const [kypRecords, setKypRecords] = useState<KYPRecord[]>([]);
   const [inspections, setInspections] = useState<Inspection[]>([]);
@@ -48,12 +50,13 @@ export default function App() {
   // Load all initial data
   const loadData = async () => {
     try {
-      const [props, kyps, insps, txns, legals] = await Promise.all([
+      const [props, kyps, insps, txns, legals, allUsers] = await Promise.all([
         RentillyApiService.getProperties(),
         RentillyApiService.getKYPRecords(),
         RentillyApiService.getInspections(),
         RentillyApiService.getTransactions(),
-        RentillyApiService.getLegalAgreements()
+        RentillyApiService.getLegalAgreements(),
+        RentillyApiService.getUsers()
       ]);
 
       setProperties(props);
@@ -61,6 +64,7 @@ export default function App() {
       setInspections(insps);
       setTransactions(txns);
       setLegalAgreements(legals);
+      setUsers(allUsers);
 
       // Check health against live Render / local API
       const health = await checkServerHealth();
@@ -173,6 +177,10 @@ export default function App() {
               setCurrentTab={setCurrentTab}
               onOpenKYPModal={(kyp) => setSelectedKYP(kyp)}
             />
+          )}
+
+          {currentTab === 'users' && (
+            <UsersTab users={users} />
           )}
 
           {currentTab === 'kyp' && (

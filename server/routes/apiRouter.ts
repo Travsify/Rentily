@@ -12,7 +12,7 @@ import * as fraudController from '../controllers/fraudController';
 import * as otpController from '../controllers/otpController';
 import * as rnplController from '../controllers/rnplController';
 import { shippingRouter } from './shippingRouter';
-import { isSupabaseConfigured } from '../supabaseClient';
+import { isSupabaseConfigured, reconfigureSupabase, supabase } from '../supabaseClient';
 import { IdentitypassService } from '../services/identitypassService';
 import { FlutterwaveService } from '../services/flutterwaveService';
 export const apiRouter = Router();
@@ -28,6 +28,42 @@ apiRouter.get('/health', (_req, res) => {
     flutterwaveConfigured: FlutterwaveService.isConfigured(),
     timestamp: new Date().toISOString()
   });
+});
+
+// 1a. Dynamic Supabase Configuration & Validation
+apiRouter.post('/config/supabase', async (req, res) => {
+  try {
+    const { url, anonKey, serviceRoleKey } = req.body;
+    const keyToUse = (serviceRoleKey || anonKey || '').trim();
+    const cleanUrl = (url || '').trim();
+
+    if (!cleanUrl || !keyToUse) {
+      return res.status(400).json({ error: 'Supabase URL and API Key are required.' });
+    }
+
+    const configured = reconfigureSupabase(cleanUrl, keyToUse);
+    if (!configured || !supabase) {
+      return res.status(400).json({ error: 'Invalid URL or Key format. URL must start with https://.' });
+    }
+
+    // Ping Supabase
+    try {
+      const { error } = await supabase.from('users').select('id').limit(1);
+      return res.json({
+        success: true,
+        connected: !error,
+        message: error ? `Connected with note: ${error.message}` : 'Connected to Supabase PostgreSQL successfully!'
+      });
+    } catch (pingErr: any) {
+      return res.json({
+        success: true,
+        connected: false,
+        message: `Connection test note: ${pingErr.message}`
+      });
+    }
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
 });
 
 // 1b. Debug: verify AdminDataStore seed data loading (lazy import to avoid circular crash)

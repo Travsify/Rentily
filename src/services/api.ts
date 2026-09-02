@@ -235,4 +235,25 @@ export class RentillyApiService {
     if (!res.ok) throw new Error('Failed to generate legal agreement');
     return await res.json();
   }
+
+  // 7. Users & Stakeholders Audit
+  static async getUsers(): Promise<UserProfile[]> {
+    try {
+      const res = await fetch(`${activeApiBase}/users`);
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.error('Error fetching users:', e);
+    }
+    return [];
+  }
+
+  // 8. Dynamic Supabase Configuration
+  static async configureSupabase(data: { url: string; anonKey?: string; serviceRoleKey?: string }): Promise<{ success: boolean; connected: boolean; message: string }> {
+    const res = await fetch(`${activeApiBase}/config/supabase`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    return await res.json();
+  }
 }
