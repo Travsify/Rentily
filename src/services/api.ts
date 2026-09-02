@@ -7,11 +7,15 @@ import type {
   UserProfile
 } from '../types';
 
-// API Base URL - Render live backend with localhost fallback
-const REMOTE_API_BASE = 'https://rentilly-admin-api.onrender.com/api';
-const LOCAL_API_BASE = 'http://localhost:4000/api';
+// Dynamic API Base URL — dynamically targets current host origin
+const getApiBase = () => {
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}/api`;
+  }
+  return '/api';
+};
 
-let activeApiBase = REMOTE_API_BASE;
+const activeApiBase = getApiBase();
 
 const STORAGE_KEYS = {
   AUTH_TOKEN: 'rentilly_auth_token',
@@ -21,17 +25,8 @@ const STORAGE_KEYS = {
 // Check backend availability
 export async function checkServerHealth() {
   try {
-    const res = await fetch(`${REMOTE_API_BASE}/health`, { signal: AbortSignal.timeout(4000) });
+    const res = await fetch(`${activeApiBase}/health`, { signal: AbortSignal.timeout(3000) });
     if (res.ok) {
-      activeApiBase = REMOTE_API_BASE;
-      return await res.json();
-    }
-  } catch {}
-
-  try {
-    const res = await fetch(`${LOCAL_API_BASE}/health`, { signal: AbortSignal.timeout(2000) });
-    if (res.ok) {
-      activeApiBase = LOCAL_API_BASE;
       return await res.json();
     }
   } catch {}

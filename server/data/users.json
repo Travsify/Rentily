@@ -1,1 +1,49 @@
-[]
+[
+  {
+    "id": "usr_patrick_achua",
+    "email": "patrickachua3@gmail.com",
+    "fullName": "Patrick Achua",
+    "phoneNumber": "+2348026990956",
+    "passwordHash": "7d1e7d9746ac6d15aa55e22d7b6aca74d9be9b50b62375a3cdcbf7127f50a1b5",
+    "role": "renter",
+    "isVerified": true,
+    "accountNumber": "9254090338",
+    "bankName": "Flutterwave MFB",
+    "state": "Lagos",
+    "walletBalance": 0,
+    "createdAt": "2026-09-02T06:49:43.084Z",
+    "updatedAt": "2026-09-02T06:49:43.084Z"
+  },
+  {
+    "id": "usr_1788303582852",
+    "email": "tonerocool1@gmail.com",
+    "fullName": "Anthony O.",
+    "phoneNumber": "+2348011223344",
+    "passwordHash": "7d1e7d9746ac6d15aa55e22d7b6aca74d9be9b50b62375a3cdcbf7127f50a1b5",
+    "role": "partner",
+    "isVerified": true,
+    "businessName": "Rentilly Elite Partner Agency",
+    "cacNumber": "RC-1849204",
+    "officeAddress": "Admiralty Way, Lekki Phase 1, Lagos",
+    "partnerStatus": "verified",
+    "accountNumber": "9591357072",
+    "bankName": "Flutterwave MFB",
+    "state": "Lagos",
+    "walletBalance": 2000,
+    "createdAt": "2026-09-02T06:49:43.084Z",
+    "updatedAt": "2026-09-02T06:49:43.084Z"
+  },
+  {
+    "id": "usr_admin_root",
+    "email": "admin@myrentilly.com",
+    "fullName": "Rentilly Super Admin",
+    "phoneNumber": "+2348000000000",
+    "passwordHash": "1a6c236645cd3cff3f5b9e7e06bfb78226a30ed3fe22266f72ff258076afff48",
+    "role": "admin",
+    "isVerified": true,
+    "state": "Lagos",
+    "walletBalance": 0,
+    "createdAt": "2026-09-02T06:49:43.084Z",
+    "updatedAt": "2026-09-02T06:49:43.084Z"
+  }
+]
