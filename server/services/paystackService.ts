@@ -16,6 +16,11 @@ export class PaystackService {
     };
   }
 
+  static isConfigured(): boolean {
+    const key = this.getSecretKey();
+    return Boolean(key && key.length > 5);
+  }
+
   // 1. Fetch Nigerian Banks List
   static async getBanks(): Promise<{ status: boolean; data?: any[]; message?: string }> {
     try {

@@ -23,10 +23,8 @@
     "amount": 2000,
     "isCredit": true,
     "reference": "100004260901232426170038034521",
-    "sender": "TOMISIN OLAMIPO KOLAWOLE",
-    "beneficiary": "Eoms Global Inclusive Limited",
     "status": "SUCCESSFUL",
-    "date": "2026-09-01T23:24:29+00:00",
-    "escrowStatus": "released_to_owner"
+    "escrowStatus": "released_to_owner",
+    "date": "2026-09-01T23:24:29+00:00"
   }
 ]

@@ -19,15 +19,20 @@ export interface ReconciliationReport {
 
 export async function runReconciliationAudit(_req: Request, res: Response) {
   try {
+    await Promise.allSettled([
+      UserStore.syncFromSupabase(),
+      TransactionStore.syncFromSupabase()
+    ]);
+
     const users = await UserStore.getAllUsers();
     const transactions = TransactionStore.getAllTransactions();
 
-    const totalWalletObligations = users.reduce((acc, u) => acc + (u.walletBalance || 0), 0);
+    const totalWalletObligations = users.reduce((acc, u) => acc + (Number(u.walletBalance) || 0), 0);
     const totalInbound = transactions
-      .filter(t => t.category === 'deposit' || t.category === 'wallet_funding')
+      .filter(t => t.isCredit || t.category === 'deposit' || t.category === 'wallet_funding')
       .reduce((acc, t) => acc + Number(t.amount || 0), 0);
     const totalOutbound = transactions
-      .filter(t => t.category === 'withdrawal')
+      .filter(t => !t.isCredit || t.category === 'withdrawal')
       .reduce((acc, t) => acc + Number(t.amount || 0), 0);
 
     const netSettlement = totalInbound - totalOutbound;
@@ -48,7 +53,16 @@ export async function runReconciliationAudit(_req: Request, res: Response) {
 
     res.json({
       success: true,
-      report
+      report,
+      recentTransactions: transactions.slice(0, 10),
+      auditedUsers: users.map(u => ({
+        id: u.id,
+        fullName: u.fullName,
+        businessName: u.businessName,
+        email: u.email,
+        walletBalance: u.walletBalance,
+        role: u.role
+      }))
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
