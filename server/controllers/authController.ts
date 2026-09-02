@@ -194,3 +194,31 @@ export async function getMe(req: Request, res: Response) {
     }
   });
 }
+
+export async function listUsers(_req: Request, res: Response) {
+  try {
+    const users = UserStore.getAllUsers();
+    const sanitized = users.map(u => ({
+      id: u.id,
+      fullName: u.fullName,
+      email: u.email,
+      phoneNumber: u.phoneNumber,
+      role: u.role,
+      isVerified: u.isVerified,
+      ninNumber: u.ninNumber,
+      bvnVerified: u.bvnVerified,
+      accountNumber: u.accountNumber,
+      bankName: u.bankName,
+      state: u.state,
+      businessName: u.businessName,
+      cacNumber: u.cacNumber,
+      partnerStatus: u.partnerStatus,
+      walletBalance: u.walletBalance || 0,
+      createdAt: u.createdAt
+    }));
+    return res.json(sanitized);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+

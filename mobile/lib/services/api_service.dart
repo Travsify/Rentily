@@ -269,4 +269,22 @@ class ApiService {
     } catch (_) {}
     return [];
   }
+
+  /// Fetches digital legal agreements / leases for a tenant or landlord
+  static Future<List<Map<String, dynamic>>> fetchLegalAgreements({String? email, String? landlordId}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/legal/agreements').replace(
+        queryParameters: {
+          if (email != null && email.isNotEmpty) 'email': email.trim(),
+          if (landlordId != null && landlordId.isNotEmpty) 'landlordId': landlordId.trim(),
+        },
+      );
+      final response = await http.get(uri).timeout(const Duration(seconds: 8));
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return List<Map<String, dynamic>>.from(data);
+      }
+    } catch (_) {}
+    return [];
+  }
 }

@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { supabase } from '../supabaseClient';
-import type { Property } from '../types';
+import type { Property, KYPRecord } from '../types';
 import { AdminDataStore } from '../services/adminDataStore';
 
 export async function getProperties(req: Request, res: Response) {
@@ -12,8 +12,8 @@ export async function getProperties(req: Request, res: Response) {
     if (supabase) {
       try {
         let query = supabase.from('properties').select('*');
-        if (purpose) query = query.eq('purpose', purpose);
-        if (status) query = query.eq('status', status);
+        if (purpose && purpose !== 'all') query = query.eq('purpose', purpose);
+        if (status && status !== 'all') query = query.eq('status', status);
         if (state) query = query.ilike('state', `%${state}%`);
         if (search) query = query.or(`title.ilike.%${search}%,neighborhood.ilike.%${search}%,address.ilike.%${search}%`);
 
@@ -55,12 +55,12 @@ export async function getProperties(req: Request, res: Response) {
       } catch (_) {}
     }
 
-    // Fallback: AdminDataStore (file-backed with seed data)
+    // Local / In-memory store (AdminDataStore)
     let storeProps = AdminDataStore.getProperties();
 
-    // Apply filters to store results
-    if (purpose) storeProps = storeProps.filter(p => p.purpose === purpose);
-    if (status) storeProps = storeProps.filter(p => p.status === status);
+    // Apply filters
+    if (purpose && purpose !== 'all') storeProps = storeProps.filter(p => p.purpose === purpose);
+    if (status && status !== 'all') storeProps = storeProps.filter(p => p.status === status);
     if (state) storeProps = storeProps.filter(p => p.state.toLowerCase().includes(String(state).toLowerCase()));
     if (search) {
       const s = String(search).toLowerCase();
@@ -71,7 +71,7 @@ export async function getProperties(req: Request, res: Response) {
       );
     }
 
-    // Merge: Supabase takes priority; append store records that aren't in Supabase
+    // Merge: prefer Supabase if it returned data, append non-duplicate store items
     if (supabaseProps.length > 0) {
       const supabaseIds = new Set(supabaseProps.map(p => p.id));
       const extraStoreProps = storeProps.filter(p => !supabaseIds.has(p.id));
@@ -119,11 +119,11 @@ export async function createProperty(req: Request, res: Response) {
     const totalInitialPayment = basePrice + cautionFee + serviceCharge + rentillyFee;
 
     const now = new Date().toISOString();
-    const newId = `prop_${Date.now()}`;
+    const newId = body.id || `prop_${Date.now()}`;
 
     const newProperty: Property = {
       id: newId,
-      ownerId: body.ownerId || body.userId || 'unknown_owner',
+      ownerId: body.ownerId || body.userId || 'usr_landlord',
       ownerName: body.ownerName || 'Property Owner',
       ownerPhone: body.ownerPhone || '',
       title: body.title || 'Untitled Property',
@@ -137,9 +137,9 @@ export async function createProperty(req: Request, res: Response) {
       totalInitialPayment,
       paymentFrequency: body.paymentFrequency || 'annually',
       address: body.address || '',
-      state: body.state || '',
+      state: body.state || 'Lagos',
       lga: body.lga || '',
-      neighborhood: body.neighborhood || '',
+      neighborhood: body.neighborhood || body.address || '',
       bedrooms: Number(body.bedrooms || 0),
       bathrooms: Number(body.bathrooms || 0),
       toilets: Number(body.toilets || 0),
@@ -147,17 +147,48 @@ export async function createProperty(req: Request, res: Response) {
       amenities: body.amenities || [],
       images: body.images || [],
       videoWalkthroughUrl: body.videoWalkthroughUrl,
-      status: 'pending_kyp',
+      status: body.status || 'pending_kyp',
       createdAt: now,
       updatedAt: now,
     };
 
-    // Try Supabase first
+    // Auto-create a corresponding KYP record so Admin KYP verification can audit the title deed
+    const kypRecord: KYPRecord = {
+      id: `kyp_${newProperty.id}`,
+      propertyId: newProperty.id,
+      propertyTitle: newProperty.title,
+      propertyPurpose: newProperty.purpose,
+      propertyPrice: newProperty.basePrice,
+      propertyNeighborhood: `${newProperty.neighborhood}, ${newProperty.state}`,
+      ownerId: newProperty.ownerId,
+      ownerName: newProperty.ownerName,
+      ownerEmail: body.ownerEmail || `${newProperty.ownerId}@myrentilly.com`,
+      ownerPhone: newProperty.ownerPhone,
+      titleDocumentType: body.titleDocumentType || 'deed_of_assignment',
+      titleDocumentNumber: body.titleDocumentNumber || `TITLE-${Date.now()}`,
+      titleDocumentUrls: body.titleDocumentUrls || (body.titleDocumentUrl ? [body.titleDocumentUrl] : []),
+      ownerIdType: body.ownerIdType || 'NIN',
+      ownerIdNumber: body.ownerIdNumber || '',
+      ownerIdUrl: body.ownerIdUrl || '',
+      discoProvider: body.discoProvider || 'EKEDC',
+      discoMeterNumber: body.discoMeterNumber || '',
+      utilityBillUrl: body.utilityBillUrl || '',
+      landRegistrySearchStatus: 'pending',
+      status: 'pending',
+      submittedAt: now,
+    };
+
+    // Always save to AdminDataStore
+    AdminDataStore.addProperty(newProperty);
+    AdminDataStore.addKYP(kypRecord);
+
+    // Also persist to Supabase if available
     if (supabase) {
       try {
-        const { data, error } = await supabase
+        await supabase
           .from('properties')
           .insert({
+            id: newProperty.id,
             owner_id: newProperty.ownerId,
             owner_name: newProperty.ownerName,
             owner_phone: newProperty.ownerPhone,
@@ -182,19 +213,22 @@ export async function createProperty(req: Request, res: Response) {
             amenities: newProperty.amenities,
             images: newProperty.images,
             status: newProperty.status,
-          })
-          .select()
-          .single();
+          });
 
-        if (!error && data) {
-          AdminDataStore.addProperty({ ...newProperty, id: data.id });
-          return res.status(201).json(data);
-        }
+        await supabase
+          .from('kyp_verifications')
+          .insert({
+            id: kypRecord.id,
+            property_id: kypRecord.propertyId,
+            owner_id: kypRecord.ownerId,
+            title_document_type: kypRecord.titleDocumentType,
+            title_document_number: kypRecord.titleDocumentNumber,
+            status: 'pending',
+            submitted_at: now
+          });
       } catch (_) {}
     }
 
-    // Fallback: Save to AdminDataStore only
-    AdminDataStore.addProperty(newProperty);
     res.status(201).json(newProperty);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -207,24 +241,19 @@ export async function updatePropertyStatus(req: Request, res: Response) {
     const { status, verifiedBy } = req.body;
     const now = new Date().toISOString();
 
-    // Try Supabase
+    // Update in AdminDataStore
+    const updated = AdminDataStore.updatePropertyStatus(id, status);
+
+    // Also try Supabase
     if (supabase) {
       try {
-        const { data, error } = await supabase
+        await supabase
           .from('properties')
           .update({ status, verified_at: now, verified_by: verifiedBy, updated_at: now })
-          .eq('id', id)
-          .select()
-          .single();
-        if (!error && data) {
-          AdminDataStore.updatePropertyStatus(id, status);
-          return res.json(data);
-        }
+          .eq('id', id);
       } catch (_) {}
     }
 
-    // Fallback: AdminDataStore only
-    const updated = AdminDataStore.updatePropertyStatus(id, status);
     if (!updated) return res.status(404).json({ error: 'Property not found' });
     res.json(updated);
   } catch (err: any) {

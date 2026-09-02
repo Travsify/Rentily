@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../constants/app_colors.dart';
+import '../../services/auth_service.dart';
+import '../../services/api_service.dart';
 import '../properties/properties_screen.dart';
 
 class TenancyAgreementsScreen extends StatefulWidget {
@@ -11,9 +13,45 @@ class TenancyAgreementsScreen extends StatefulWidget {
 }
 
 class _TenancyAgreementsScreenState extends State<TenancyAgreementsScreen> {
-  // Empty by default for users who have not rented an apartment
   final List<Map<String, dynamic>> _userAgreements = [];
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAgreements();
+  }
+
+  void _loadAgreements() async {
+    setState(() => _isLoading = true);
+    try {
+      final user = await AuthService.getCurrentUser();
+      final list = await ApiService.fetchLegalAgreements(email: user?.email);
+      if (mounted) {
+        setState(() {
+          _userAgreements.clear();
+          for (final item in list) {
+            _userAgreements.add({
+              'id': item['id'],
+              'title': item['agreementTitle'] ?? item['propertyTitle'] ?? 'Tenancy Agreement',
+              'ref': item['transactionId'] ?? item['id'] ?? 'RENT-2026',
+              'landlord': item['landlordName'] ?? 'Direct Landlord',
+              'tenant': item['tenantName'] ?? user?.fullName ?? 'Tenant',
+              'rent': item['annualRent']?.toString() ?? '0.00',
+              'caution': item['cautionDeposit']?.toString() ?? '0.00',
+              'duration': '12 Months',
+              'startDate': item['tenancyCommencementDate'] ?? 'Pending',
+              'address': item['propertyTitle'] ?? 'Lagos, Nigeria',
+              'status': item['status'] == 'fully_executed' ? 'ACTIVE LEASE' : 'PENDING SIGNATURES',
+            });
+          }
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   void _downloadAgreement(Map<String, dynamic> agreement) {
     ScaffoldMessenger.of(context).showSnackBar(

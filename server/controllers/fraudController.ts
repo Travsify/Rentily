@@ -3,8 +3,20 @@ import { supabase } from '../supabaseClient';
 import fs from 'fs';
 import path from 'path';
 
-const DATA_DIR = path.join(process.cwd(), 'server', 'data');
-const BLACKLIST_FILE = path.join(DATA_DIR, 'admin_blacklist.json');
+function getDataDir(): string {
+  const candidates = [
+    path.join(process.cwd(), 'server', 'data'),
+    path.join('/opt/render/project/src', 'server', 'data'),
+    path.join('/tmp', 'rentilly-data'),
+  ];
+  for (const dir of candidates) {
+    try {
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      return dir;
+    } catch { continue; }
+  }
+  return '/tmp';
+}
 
 interface BlacklistEntry {
   id: string;
@@ -21,64 +33,45 @@ interface BlacklistEntry {
   createdAt: string;
 }
 
-function seedBlacklist(): BlacklistEntry[] {
-  return [
-    {
-      id: 'bl_001',
-      fullName: 'JOHN DOTUN ADESANYA',
-      phoneNumber: '+2348012345678',
-      nin: '98765432100',
-      bankAccountNumber: '0123456789',
-      bankName: 'Access Bank',
-      flagReason: 'Serial rental fraud — posed as landlord, collected deposits on properties not owned. 3 verified complaints.',
-      severity: 'critical',
-      flaggedBy: 'Rentilly Anti-Fraud Desk (Admin)',
-      isActive: true,
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: 'bl_002',
-      fullName: 'GRACE OBIAGELI NWACHUKWU',
-      phoneNumber: '+2348087654321',
-      bvn: '22109876543',
-      flagReason: 'Forged utility bills and land documents submitted for KYP verification. Case filed at EFCC.',
-      severity: 'high',
-      flaggedBy: 'Rentilly KYP Legal Officer',
-      isActive: true,
-      createdAt: new Date().toISOString(),
-    },
-  ];
+let _blacklistCache: BlacklistEntry[] | null = null;
+
+function getBlacklistFile(): string {
+  return path.join(getDataDir(), 'admin_blacklist.json');
 }
 
 function readBlacklist(): BlacklistEntry[] {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  if (!fs.existsSync(BLACKLIST_FILE)) {
-    const seed = seedBlacklist();
-    fs.writeFileSync(BLACKLIST_FILE, JSON.stringify(seed, null, 2), 'utf-8');
-    return seed;
+  if (_blacklistCache !== null) {
+    return _blacklistCache;
   }
   try {
-    const content = fs.readFileSync(BLACKLIST_FILE, 'utf-8');
-    const parsed = JSON.parse(content || '[]');
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-      const seed = seedBlacklist();
-      fs.writeFileSync(BLACKLIST_FILE, JSON.stringify(seed, null, 2), 'utf-8');
-      return seed;
+    const file = getBlacklistFile();
+    if (fs.existsSync(file)) {
+      const content = fs.readFileSync(file, 'utf-8');
+      const parsed = JSON.parse(content || '[]');
+      if (Array.isArray(parsed)) {
+        _blacklistCache = parsed;
+        return _blacklistCache;
+      }
     }
-    return parsed;
-  } catch {
-    return seedBlacklist();
-  }
+  } catch {}
+  _blacklistCache = [];
+  return _blacklistCache;
 }
 
 function writeBlacklist(data: BlacklistEntry[]): void {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(BLACKLIST_FILE, JSON.stringify(data, null, 2), 'utf-8');
+  _blacklistCache = data;
+  try {
+    const file = getBlacklistFile();
+    fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf-8');
+  } catch {}
 }
 
 export async function getBlacklist(_req: Request, res: Response) {
   try {
-    // Try Supabase first
+    // Primary: local store
+    const local = readBlacklist();
+
+    // Secondary: Supabase
     if (supabase) {
       try {
         const { data, error } = await supabase
@@ -101,17 +94,14 @@ export async function getBlacklist(_req: Request, res: Response) {
             isActive: row.is_active,
             createdAt: row.created_at
           }));
-          // Merge with local seed
-          const local = readBlacklist();
-          const supabaseIds = new Set(supabaseMapped.map((e: any) => e.id));
-          const extra = local.filter(e => !supabaseIds.has(e.id));
-          return res.json([...supabaseMapped, ...extra]);
+          const localIds = new Set(local.map(e => e.id));
+          const missing = supabaseMapped.filter(e => !localIds.has(e.id));
+          return res.json([...local, ...missing]);
         }
       } catch (_) {}
     }
 
-    // Fallback: local file store
-    res.json(readBlacklist());
+    res.json(local);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -140,12 +130,18 @@ export async function addToBlacklist(req: Request, res: Response) {
       createdAt: new Date().toISOString(),
     };
 
-    // Try Supabase
+    // Save locally
+    const all = readBlacklist();
+    all.unshift(newEntry);
+    writeBlacklist(all);
+
+    // Save to Supabase if available
     if (supabase) {
       try {
-        const { data, error } = await supabase
+        await supabase
           .from('fraud_blacklist')
           .insert({
+            id: newEntry.id,
             full_name: newEntry.fullName,
             phone_number: newEntry.phoneNumber || null,
             bvn: newEntry.bvn || null,
@@ -155,24 +151,10 @@ export async function addToBlacklist(req: Request, res: Response) {
             flag_reason: newEntry.flagReason,
             severity: newEntry.severity,
             flagged_by: newEntry.flaggedBy,
-          })
-          .select()
-          .single();
-
-        if (!error && data) {
-          // Also save to local store
-          const all = readBlacklist();
-          all.unshift({ ...newEntry, id: data.id });
-          writeBlacklist(all);
-          return res.status(201).json(data);
-        }
+          });
       } catch (_) {}
     }
 
-    // Fallback: local only
-    const all = readBlacklist();
-    all.unshift(newEntry);
-    writeBlacklist(all);
     res.status(201).json(newEntry);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -183,15 +165,14 @@ export async function deleteFromBlacklist(req: Request, res: Response) {
   try {
     const { id } = req.params;
 
+    const all = readBlacklist().filter(e => e.id !== id);
+    writeBlacklist(all);
+
     if (supabase) {
       try {
         await supabase.from('fraud_blacklist').delete().eq('id', id);
       } catch (_) {}
     }
-
-    // Always update local store
-    const all = readBlacklist().filter(e => e.id !== id);
-    writeBlacklist(all);
 
     res.json({ success: true, message: 'Entity removed from blacklist.' });
   } catch (err: any) {
@@ -213,7 +194,6 @@ export async function checkBlacklist(req: Request, res: Response) {
       return res.json({ isBlacklisted: true, record: match });
     }
 
-    // Also check Supabase if connected
     if (supabase) {
       try {
         let query = supabase.from('fraud_blacklist').select('*').eq('is_active', true);

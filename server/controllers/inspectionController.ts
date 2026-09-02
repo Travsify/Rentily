@@ -4,19 +4,27 @@ import type { Inspection } from '../types';
 import { NotificationDispatcher } from '../services/notificationDispatcher';
 import { AdminDataStore } from '../services/adminDataStore';
 
-export async function getInspections(_req: Request, res: Response) {
+export async function getInspections(req: Request, res: Response) {
   try {
-    // Try Supabase first
-    let supabaseInsps: Inspection[] = [];
+    const { email, userId, propertyId, status } = req.query;
+    const cleanEmail = email ? String(email).toLowerCase().trim() : '';
+
+    // Primary: AdminDataStore
+    let storeInsps = AdminDataStore.getInspections();
+
+    // Secondary: Supabase (if available)
     if (supabase) {
       try {
-        const { data, error } = await supabase
+        let query = supabase
           .from('inspections')
           .select('*, properties(*)')
           .order('scheduled_date', { ascending: false });
 
+        if (status) query = query.eq('status', status);
+
+        const { data, error } = await query;
         if (!error && data && data.length > 0) {
-          supabaseInsps = data.map((row: any) => ({
+          const supabaseInsps: Inspection[] = data.map((row: any) => ({
             id: row.id,
             propertyId: row.property_id,
             propertyTitle: row.properties?.title || 'Property',
@@ -35,20 +43,34 @@ export async function getInspections(_req: Request, res: Response) {
             ownerNotes: row.owner_notes,
             createdAt: row.created_at
           }));
+
+          const storeIds = new Set(storeInsps.map(i => i.id));
+          const missing = supabaseInsps.filter(i => !storeIds.has(i.id));
+          storeInsps = [...storeInsps, ...missing];
         }
       } catch (_) {}
     }
 
-    // Fallback: AdminDataStore
-    const storeInsps = AdminDataStore.getInspections();
-
-    if (supabaseInsps.length > 0) {
-      const supabaseIds = new Set(supabaseInsps.map(i => i.id));
-      const extraStore = storeInsps.filter(i => !supabaseIds.has(i.id));
-      return res.json([...supabaseInsps, ...extraStore]);
+    // Apply filters if requested by Flutter app
+    if (cleanEmail) {
+      storeInsps = storeInsps.filter(i =>
+        (i as any).email?.toLowerCase?.() === cleanEmail ||
+        i.prospectName.toLowerCase().includes(cleanEmail) ||
+        i.ownerName.toLowerCase().includes(cleanEmail) ||
+        i.prospectPhone.includes(cleanEmail)
+      );
+    }
+    if (userId) {
+      storeInsps = storeInsps.filter(i => i.prospectId === userId || i.ownerId === userId);
+    }
+    if (propertyId) {
+      storeInsps = storeInsps.filter(i => i.propertyId === propertyId);
+    }
+    if (status) {
+      storeInsps = storeInsps.filter(i => i.status === status);
     }
 
-    return res.json(storeInsps);
+    res.json(storeInsps);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -59,19 +81,20 @@ export async function bookInspection(req: Request, res: Response) {
     const body = req.body;
     const passCode = Math.floor(100000 + Math.random() * 900000).toString();
     const now = new Date().toISOString();
+    const newId = body.id || `insp_${Date.now()}`;
 
     const inspectionRecord: Inspection = {
-      id: `insp_${Date.now()}`,
+      id: newId,
       propertyId: body.propertyId || 'unknown',
-      propertyTitle: body.propertyTitle || 'Property Inspection',
+      propertyTitle: body.propertyTitle || 'Property Walkthrough Inspection',
       propertyAddress: body.propertyAddress || '',
-      prospectId: body.prospectId || `user_${Date.now()}`,
+      prospectId: body.prospectId || `usr_${Date.now()}`,
       prospectName: body.prospectName || 'Prospective Tenant',
       prospectPhone: body.prospectPhone || '',
-      ownerId: body.ownerId || 'owner_unknown',
-      ownerName: body.ownerName || 'Property Owner',
+      ownerId: body.ownerId || 'owner_direct',
+      ownerName: body.ownerName || 'Property Landlord',
       ownerPhone: body.ownerPhone || '',
-      scheduledDate: body.scheduledDate,
+      scheduledDate: body.scheduledDate || new Date().toISOString().split('T')[0],
       scheduledTimeSlot: body.scheduledTimeSlot || '11:00 AM - 12:00 PM',
       inspectionPassCode: passCode,
       status: 'pending_owner',
@@ -79,45 +102,42 @@ export async function bookInspection(req: Request, res: Response) {
       createdAt: now,
     };
 
-    // Try Supabase first
+    // Always save to AdminDataStore so Admin Inspections Tab immediately shows it
+    AdminDataStore.addInspection(inspectionRecord);
+
+    // Also persist in Supabase if available
     if (supabase) {
       try {
-        const { data, error } = await supabase
+        await supabase
           .from('inspections')
           .insert({
+            id: inspectionRecord.id,
             property_id: body.propertyId,
-            prospect_id: body.prospectId || '00000000-0000-0000-0000-000000000002',
-            owner_id: body.ownerId || '00000000-0000-0000-0000-000000000001',
-            scheduled_date: body.scheduledDate,
-            scheduled_time_slot: body.scheduledTimeSlot || '11:00 AM - 12:00 PM',
+            prospect_id: inspectionRecord.prospectId,
+            owner_id: inspectionRecord.ownerId,
+            scheduled_date: inspectionRecord.scheduledDate,
+            scheduled_time_slot: inspectionRecord.scheduledTimeSlot,
             inspection_pass_code: passCode,
             status: 'pending_owner',
             prospect_notes: body.prospectNotes
-          })
-          .select()
-          .single();
-
-        if (!error && data) {
-          AdminDataStore.addInspection({ ...inspectionRecord, id: data.id });
-        }
+          });
       } catch (_) {}
-    } else {
-      AdminDataStore.addInspection(inspectionRecord);
     }
 
     // Dispatch notification
-    if (body.email || body.prospectEmail) {
+    const recipientEmail = body.email || body.prospectEmail;
+    if (recipientEmail) {
       NotificationDispatcher.dispatch({
-        userId: body.prospectId,
-        email: body.email || body.prospectEmail,
-        userName: body.prospectName,
-        title: `Gate Pass: 6-Digit Code for Inspection (${body.scheduledDate})`,
+        userId: inspectionRecord.prospectId,
+        email: recipientEmail,
+        userName: inspectionRecord.prospectName,
+        title: `Gate Pass: 6-Digit Security Code (${inspectionRecord.scheduledDate})`,
         category: 'inspection',
-        message: `Your property walkthrough inspection has been registered. Present this 6-digit gate code at the estate security gate.`,
+        message: `Your property walkthrough inspection has been booked. Present this 6-digit gate code to the security guards.`,
         metadata: {
           gateCode: passCode,
-          propertyTitle: body.propertyTitle || 'Inspected Property',
-          date: `${body.scheduledDate} (${body.scheduledTimeSlot || '11:00 AM'})`
+          propertyTitle: inspectionRecord.propertyTitle,
+          date: `${inspectionRecord.scheduledDate} (${inspectionRecord.scheduledTimeSlot})`
         }
       });
     }
@@ -125,7 +145,8 @@ export async function bookInspection(req: Request, res: Response) {
     res.status(201).json({
       success: true,
       inspectionPassCode: passCode,
-      message: `Inspection scheduled for ${body.scheduledDate}. Your 6-digit gate pass is: ${passCode}`
+      inspection: inspectionRecord,
+      message: `Inspection scheduled for ${inspectionRecord.scheduledDate}. Your 6-digit gate pass is: ${passCode}`
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -137,29 +158,23 @@ export async function updateInspectionStatus(req: Request, res: Response) {
     const { id } = req.params;
     const { status, ownerNotes, rescheduledDate } = req.body;
 
-    // Try Supabase
+    // Update in AdminDataStore
+    const updated = AdminDataStore.updateInspectionStatus(id, status, ownerNotes);
+
+    // Also update in Supabase
     if (supabase) {
       try {
         const updateData: any = { status };
         if (ownerNotes) updateData.owner_notes = ownerNotes;
         if (rescheduledDate) updateData.scheduled_date = rescheduledDate;
 
-        const { data, error } = await supabase
+        await supabase
           .from('inspections')
           .update(updateData)
-          .eq('id', id)
-          .select()
-          .single();
-
-        if (!error && data) {
-          AdminDataStore.updateInspectionStatus(id, status, ownerNotes);
-          return res.json(data);
-        }
+          .eq('id', id);
       } catch (_) {}
     }
 
-    // Fallback: AdminDataStore only
-    const updated = AdminDataStore.updateInspectionStatus(id, status, ownerNotes);
     if (!updated) return res.status(404).json({ error: 'Inspection not found' });
     res.json(updated);
   } catch (err: any) {

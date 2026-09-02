@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../constants/app_colors.dart';
-import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
+import '../../services/api_service.dart';
 
 class LandlordDigitalLeasesScreen extends StatefulWidget {
   const LandlordDigitalLeasesScreen({super.key});
@@ -14,7 +14,7 @@ class LandlordDigitalLeasesScreen extends StatefulWidget {
 
 class _LandlordDigitalLeasesScreenState extends State<LandlordDigitalLeasesScreen> {
   final NumberFormat _currencyFormat = NumberFormat('#,###.00', 'en_US');
-  UserProfile? _user;
+  List<Map<String, dynamic>> _leases = [];
   bool _isLoading = true;
 
   @override
@@ -25,9 +25,30 @@ class _LandlordDigitalLeasesScreenState extends State<LandlordDigitalLeasesScree
 
   void _loadUser() async {
     final user = await AuthService.getCurrentUser();
+    List<Map<String, dynamic>> realLeases = [];
+    try {
+      final list = await ApiService.fetchLegalAgreements(email: user?.email);
+      for (final item in list) {
+        realLeases.add({
+          'id': item['transactionId'] ?? item['id'] ?? 'LEASE-2026',
+          'status': item['status'] == 'fully_executed' ? 'ACTIVE' : 'PENDING',
+          'statusColor': item['status'] == 'fully_executed' ? const Color(0xFF16A34A) : const Color(0xFFD97706),
+          'propertyTitle': item['agreementTitle'] ?? item['propertyTitle'] ?? 'Tenancy Property',
+          'tenantName': item['tenantName'] ?? 'Direct Tenant',
+          'annualRent': (item['annualRent'] as num?)?.toDouble() ?? 0.0,
+          'startDate': item['tenancyCommencementDate'] ?? 'N/A',
+          'endDate': item['tenancyExpirationDate'] ?? 'N/A',
+          'cautionEscrow': (item['cautionDeposit'] as num?)?.toDouble() ?? 0.0,
+          'rentillyFee': 0.0,
+          'governingLaw': item['governingLaw'] ?? 'Laws of Lagos State',
+          'isDisputed': false,
+        });
+      }
+    } catch (_) {}
+
     if (mounted) {
       setState(() {
-        _user = user;
+        _leases = realLeases;
         _isLoading = false;
       });
     }
@@ -127,8 +148,6 @@ class _LandlordDigitalLeasesScreenState extends State<LandlordDigitalLeasesScree
       );
     }
 
-    final List<Map<String, dynamic>> sampleLeases = [];
-
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
       appBar: AppBar(
@@ -183,12 +202,12 @@ class _LandlordDigitalLeasesScreenState extends State<LandlordDigitalLeasesScree
             const SizedBox(height: 20),
 
             Text(
-              'ACTIVE TENANCY LEASES (${sampleLeases.length})',
+              'ACTIVE TENANCY LEASES (${_leases.length})',
               style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 10),
 
-            if (sampleLeases.isEmpty)
+            if (_leases.isEmpty)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
                 decoration: BoxDecoration(
@@ -222,7 +241,7 @@ class _LandlordDigitalLeasesScreenState extends State<LandlordDigitalLeasesScree
                 ),
               )
             else
-              ...sampleLeases.map((lease) {
+              ..._leases.map((lease) {
                 return Container(
                   margin: const EdgeInsets.only(bottom: 14),
                   padding: const EdgeInsets.all(16),

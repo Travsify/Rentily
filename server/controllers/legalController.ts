@@ -3,10 +3,15 @@ import { supabase } from '../supabaseClient';
 import type { LegalAgreement } from '../types';
 import { AdminDataStore } from '../services/adminDataStore';
 
-export async function getLegalAgreements(_req: Request, res: Response) {
+export async function getLegalAgreements(req: Request, res: Response) {
   try {
-    // Try Supabase first
-    let supabaseLegal: LegalAgreement[] = [];
+    const { email, tenantId, landlordId } = req.query;
+    const cleanEmail = email ? String(email).toLowerCase().trim() : '';
+
+    // Primary: AdminDataStore
+    let storeLegal = AdminDataStore.getLegalAgreements();
+
+    // Secondary: Supabase (if available)
     if (supabase) {
       try {
         const { data, error } = await supabase
@@ -15,7 +20,7 @@ export async function getLegalAgreements(_req: Request, res: Response) {
           .order('created_at', { ascending: false });
 
         if (!error && data && data.length > 0) {
-          supabaseLegal = data.map((row: any) => ({
+          const supabaseLegal: LegalAgreement[] = data.map((row: any) => ({
             id: row.id,
             propertyId: row.property_id,
             propertyTitle: row.properties?.title || 'Property Agreement',
@@ -40,17 +45,28 @@ export async function getLegalAgreements(_req: Request, res: Response) {
             status: row.status,
             createdAt: row.created_at
           }));
+
+          const storeIds = new Set(storeLegal.map(l => l.id));
+          const missing = supabaseLegal.filter(l => !storeIds.has(l.id));
+          storeLegal = [...storeLegal, ...missing];
         }
       } catch (_) {}
     }
 
-    // Fallback: AdminDataStore
-    const storeLegal = AdminDataStore.getLegalAgreements();
-
-    if (supabaseLegal.length > 0) {
-      const supabaseIds = new Set(supabaseLegal.map(l => l.id));
-      const extraStore = storeLegal.filter(l => !supabaseIds.has(l.id));
-      return res.json([...supabaseLegal, ...extraStore]);
+    // Filter if requested by Flutter app
+    if (cleanEmail) {
+      storeLegal = storeLegal.filter(a =>
+        a.tenantName.toLowerCase().includes(cleanEmail) ||
+        a.landlordName.toLowerCase().includes(cleanEmail) ||
+        a.tenantId.toLowerCase() === cleanEmail ||
+        a.landlordId.toLowerCase() === cleanEmail
+      );
+    }
+    if (tenantId) {
+      storeLegal = storeLegal.filter(a => a.tenantId === tenantId);
+    }
+    if (landlordId) {
+      storeLegal = storeLegal.filter(a => a.landlordId === landlordId);
     }
 
     return res.json(storeLegal);
@@ -79,47 +95,48 @@ export async function generateAgreement(req: Request, res: Response) {
       prop = storeProps.find(p => p.id === propertyId);
     }
 
-    if (!prop) {
-      return res.status(404).json({ error: 'Property not found' });
-    }
-
     const commencementDateObj = new Date(commencementDate || now);
     const expirationDate = new Date(commencementDateObj);
     expirationDate.setMonth(expirationDate.getMonth() + Number(durationMonths));
 
     const agreementId = `legal_${Date.now()}`;
-    const agreementTitle = `${durationMonths}-Month ${prop.purpose === 'rent' ? 'Tenancy' : 'Sale'} Agreement — ${prop.title || prop.neighborhood}`;
+    const agreementTitle = `${durationMonths}-Month ${prop?.purpose === 'sale' ? 'Contract of Sale' : 'Tenancy Agreement'} — ${prop?.title || 'Rentilly Living'}`;
 
     const newAgreement: LegalAgreement = {
       id: agreementId,
-      propertyId,
-      propertyTitle: prop.title || 'Property',
+      propertyId: propertyId || 'general_property',
+      propertyTitle: prop?.title || 'Rentilly Property',
       transactionId: `txn_${Date.now()}`,
-      landlordId: prop.owner_id || prop.ownerId || 'unknown_landlord',
-      landlordName: prop.owner_name || prop.ownerName || 'Property Owner',
-      tenantId: tenantId || `tenant_${Date.now()}`,
-      tenantName: tenantName || 'Tenant',
-      agreementType: prop.purpose === 'rent' ? 'tenancy_agreement' : 'contract_of_sale',
+      landlordId: prop?.owner_id || prop?.ownerId || 'usr_landlord',
+      landlordName: prop?.owner_name || prop?.ownerName || 'Property Landlord',
+      tenantId: tenantId || `usr_tenant_${Date.now()}`,
+      tenantName: tenantName || 'Direct Tenant',
+      agreementType: prop?.purpose === 'sale' ? 'contract_of_sale' : 'tenancy_agreement',
       agreementTitle,
-      governingLaw: prop.state === 'FCT' ? 'Laws of the Federal Capital Territory' : `Laws of ${prop.state} State`,
+      governingLaw: prop?.state === 'FCT' ? 'Laws of the Federal Capital Territory' : `Laws of ${prop?.state || 'Lagos'} State`,
       tenancyCommencementDate: commencementDateObj.toISOString().split('T')[0],
       tenancyExpirationDate: expirationDate.toISOString().split('T')[0],
-      annualRent: Number(prop.base_price || prop.basePrice || 0),
-      cautionDeposit: Number(prop.caution_fee || prop.cautionFee || 0),
-      landlordSigned: false,
+      annualRent: Number(prop?.base_price || prop?.basePrice || 0),
+      cautionDeposit: Number(prop?.caution_fee || prop?.cautionFee || 0),
+      landlordSigned: true,
+      landlordSignedAt: now,
       tenantSigned: false,
-      legalOfficerStamp: false,
-      status: 'drafting',
+      legalOfficerStamp: true,
+      status: 'pending_signatures',
       createdAt: now,
     };
 
-    // Try Supabase
+    // Save to AdminDataStore
+    AdminDataStore.addLegalAgreement(newAgreement);
+
+    // Also persist to Supabase if available
     if (supabase) {
       try {
-        const { data, error } = await supabase
+        await supabase
           .from('legal_agreements')
           .insert({
-            property_id: propertyId,
+            id: newAgreement.id,
+            property_id: newAgreement.propertyId,
             tenant_id: newAgreement.tenantId,
             tenant_name: newAgreement.tenantName,
             landlord_id: newAgreement.landlordId,
@@ -131,20 +148,12 @@ export async function generateAgreement(req: Request, res: Response) {
             tenancy_expiration_date: newAgreement.tenancyExpirationDate,
             annual_rent: newAgreement.annualRent,
             caution_deposit: newAgreement.cautionDeposit,
-            status: 'drafting',
-          })
-          .select()
-          .single();
-
-        if (!error && data) {
-          AdminDataStore.addLegalAgreement({ ...newAgreement, id: data.id });
-          return res.status(201).json({ agreement: { ...newAgreement, id: data.id }, agreementTitle });
-        }
+            landlord_signed: true,
+            status: 'pending_signatures',
+          });
       } catch (_) {}
     }
 
-    // Fallback: AdminDataStore only
-    AdminDataStore.addLegalAgreement(newAgreement);
     res.status(201).json({ agreement: newAgreement, agreementTitle });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

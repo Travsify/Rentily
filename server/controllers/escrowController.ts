@@ -64,36 +64,40 @@ export async function releaseEscrowPayout(req: Request, res: Response) {
     const payoutReference = `PAYOUT-RENTILLY-${Date.now()}`;
     const payoutReleasedAt = new Date().toISOString();
 
-    if (!supabase) {
-      // Fallback: update in TransactionStore if exists
-      return res.json({ success: true, payoutReference, payoutReleasedAt, source: 'local' });
+    // 1. Always update in local/in-memory TransactionStore
+    TransactionStore.updateTransactionStatus(id, 'released_to_owner', payoutReference);
+
+    // 2. Also update Supabase if available
+    let txn: any = null;
+    if (supabase) {
+      try {
+        const { data } = await supabase
+          .from('transactions')
+          .update({
+            escrow_status: 'released_to_owner',
+            owner_payout_reference: payoutReference,
+            payout_released_at: payoutReleasedAt
+          })
+          .eq('id', id)
+          .select()
+          .maybeSingle();
+
+        txn = data;
+
+        if (txn && txn.property_id) {
+          await supabase
+            .from('properties')
+            .update({
+              status: txn.transaction_type === 'rent' ? 'rented' : 'sold',
+              delisted_at: payoutReleasedAt,
+              updated_at: payoutReleasedAt
+            })
+            .eq('id', txn.property_id);
+        }
+      } catch (_) {}
     }
 
-    const { data: txn, error: txnError } = await supabase
-      .from('transactions')
-      .update({
-        escrow_status: 'released_to_owner',
-        owner_payout_reference: payoutReference,
-        payout_released_at: payoutReleasedAt
-      })
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (txnError) throw new Error(txnError.message);
-
-    if (txn && txn.property_id) {
-      await supabase
-        .from('properties')
-        .update({
-          status: txn.transaction_type === 'rent' ? 'rented' : 'sold',
-          delisted_at: payoutReleasedAt,
-          updated_at: payoutReleasedAt
-        })
-        .eq('id', txn.property_id);
-    }
-
-    res.json({ transaction: txn, payoutReference, payoutReleasedAt });
+    res.json({ success: true, transaction: txn, payoutReference, payoutReleasedAt });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -103,7 +107,6 @@ export async function getPartnerCommissions(req: Request, res: Response) {
   try {
     const { partnerId, email } = req.query;
 
-    // Try live TransactionStore first for the partner's wallet transactions
     if (email) {
       const partnerEmail = String(email).toLowerCase().trim();
       const walletTxs = await TransactionStore.getTransactionsByEmail(partnerEmail);
@@ -122,7 +125,7 @@ export async function getPartnerCommissions(req: Request, res: Response) {
           propertyTitle: t.title || 'Partner Commission',
           commissionAmount: Math.round(t.amount * 0.025),
           commissionRate: '2.5%',
-          escrowStatus: 'held_in_escrow',
+          escrowStatus: t.escrowStatus || 'held_in_escrow',
           createdAt: t.date
         }))
       });

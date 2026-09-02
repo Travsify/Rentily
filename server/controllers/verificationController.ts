@@ -90,7 +90,7 @@ export async function verifyAndProvision(req: Request, res: Response) {
     const partnerBizName = (businessName || '').trim();
     let cleanName = (fullName || '').trim();
     if (!cleanName || cleanName.includes('@')) {
-      cleanName = partnerBizName.isNotEmpty ? partnerBizName : (premblyResult?.data?.fullName || 'Rentilly Partner');
+      cleanName = partnerBizName.length > 0 ? partnerBizName : (premblyResult?.data?.fullName || 'Rentilly Partner');
     }
 
     // Step 2: Instant Flutterwave Dedicated NUBAN Virtual Account Generation with Live BVN

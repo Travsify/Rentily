@@ -951,10 +951,7 @@ export async function adminReconcileBalance(req: Request, res: Response) {
     }
 
     // Fetch ALL successful FLW transactions (no email filter — for account number matching)
-    const FLW_SECRET = [
-      'FLWSECK-', '2a833d7d', '7454e38e', '1215b225',
-      '916053aa', '-193498877521-X'
-    ].join('');
+    const FLW_SECRET = process.env.FLUTTERWAVE_SECRET_KEY || FlutterwaveService.getSecretKey();
 
     const today = new Date().toISOString().slice(0, 10);
     const fromDate = '2026-01-01';

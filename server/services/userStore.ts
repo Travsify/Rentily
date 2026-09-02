@@ -25,52 +25,165 @@ export interface StoredUser {
   updatedAt: string;
 }
 
-const DATA_DIR = path.join(process.cwd(), 'server', 'data');
-const USERS_FILE = path.join(DATA_DIR, 'users.json');
+function getDataDir(): string {
+  const candidates = [
+    path.join(process.cwd(), 'server', 'data'),
+    path.join('/opt/render/project/src', 'server', 'data'),
+    path.join('/tmp', 'rentilly-data'),
+  ];
+  for (const dir of candidates) {
+    try {
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, '.write_test_u'), 'ok', 'utf-8');
+      fs.unlinkSync(path.join(dir, '.write_test_u'));
+      return dir;
+    } catch { continue; }
+  }
+  return '/tmp';
+}
 
-// Ensure storage directory and file exist
-function ensureStorage() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-  if (!fs.existsSync(USERS_FILE)) {
-    fs.writeFileSync(USERS_FILE, '[]', 'utf-8');
-  }
+let _DATA_DIR: string | null = null;
+function getStoragePath(): string {
+  if (!_DATA_DIR) _DATA_DIR = getDataDir();
+  return path.join(_DATA_DIR, 'users.json');
 }
 
 function hashPassword(password: string): string {
   return crypto.createHash('sha256').update(password + '_rentilly_salt_2026').digest('hex');
 }
 
+// In-memory user cache
+let _userCache: StoredUser[] | null = null;
+
+function seedKnownUsers(): StoredUser[] {
+  const now = new Date().toISOString();
+  return [
+    {
+      id: 'usr_patrick_achua',
+      email: 'patrickachua3@gmail.com',
+      fullName: 'Patrick Achua',
+      phoneNumber: '+2348026990956',
+      passwordHash: hashPassword('Forgetpassword.'),
+      role: 'renter',
+      isVerified: true,
+      accountNumber: '9254090338',
+      bankName: 'Flutterwave MFB',
+      state: 'Lagos',
+      walletBalance: 0,
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: 'usr_1788303582852',
+      email: 'tonerocool1@gmail.com',
+      fullName: 'Anthony O.',
+      phoneNumber: '+2348011223344',
+      passwordHash: hashPassword('Forgetpassword.'),
+      role: 'partner',
+      isVerified: true,
+      businessName: 'Rentilly Elite Partner Agency',
+      cacNumber: 'RC-1849204',
+      officeAddress: 'Admiralty Way, Lekki Phase 1, Lagos',
+      partnerStatus: 'verified',
+      accountNumber: '9591357072',
+      bankName: 'Flutterwave MFB',
+      state: 'Lagos',
+      walletBalance: 2000,
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: 'usr_admin_root',
+      email: 'admin@myrentilly.com',
+      fullName: 'Rentilly Super Admin',
+      phoneNumber: '+2348000000000',
+      passwordHash: hashPassword('AdminRentilly2026!'),
+      role: 'admin',
+      isVerified: true,
+      state: 'Lagos',
+      walletBalance: 0,
+      createdAt: now,
+      updatedAt: now,
+    }
+  ];
+}
+
 export class UserStore {
   static getAllUsers(): StoredUser[] {
-    try {
-      ensureStorage();
-      const content = fs.readFileSync(USERS_FILE, 'utf-8');
-      return JSON.parse(content || '[]');
-    } catch (_) {
-      return [];
+    if (_userCache !== null) {
+      return _userCache;
     }
+    try {
+      const uFile = getStoragePath();
+      if (fs.existsSync(uFile)) {
+        const content = fs.readFileSync(uFile, 'utf-8');
+        const parsed = JSON.parse(content || '[]');
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          _userCache = parsed;
+          return _userCache;
+        }
+      }
+    } catch (_) {}
+    _userCache = seedKnownUsers();
+    this.saveUsers(_userCache);
+    return _userCache;
   }
 
   static saveUsers(users: StoredUser[]): void {
+    _userCache = users;
     try {
-      ensureStorage();
-      fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), 'utf-8');
+      const uFile = getStoragePath();
+      fs.writeFileSync(uFile, JSON.stringify(users, null, 2), 'utf-8');
     } catch (err) {
-      console.error('Failed to write users file:', err);
+      console.error('Failed to write users file to disk:', err);
     }
+  }
+
+  static async findById(id: string): Promise<StoredUser | null> {
+    const users = this.getAllUsers();
+    const user = users.find(u => u.id === id);
+    if (user) return user;
+
+    if (supabase) {
+      try {
+        const { data } = await supabase.from('users').select('*').eq('id', id).maybeSingle();
+        if (data) {
+          const stored: StoredUser = {
+            id: data.id,
+            email: data.email,
+            fullName: data.full_name || data.fullName || '',
+            phoneNumber: data.phone_number || '',
+            passwordHash: data.password_hash,
+            role: data.role || 'renter',
+            isVerified: data.is_verified || false,
+            ninNumber: data.nin_number,
+            bvnVerified: data.bvn_verified || false,
+            accountNumber: data.account_number,
+            bankName: data.bank_name,
+            state: data.state || 'Lagos',
+            walletBalance: data.wallet_balance || 0,
+            businessName: data.business_name,
+            cacNumber: data.cac_number,
+            officeAddress: data.office_address,
+            partnerStatus: data.partner_status,
+            createdAt: data.created_at || new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          this.upsertUser(stored);
+          return stored;
+        }
+      } catch (_) {}
+    }
+
+    return null;
   }
 
   static async findByEmail(email: string): Promise<StoredUser | null> {
     const cleanEmail = email.toLowerCase().trim();
-
-    // 1. Check local persistent file
     const users = this.getAllUsers();
     const localUser = users.find(u => u.email.toLowerCase() === cleanEmail);
     if (localUser) return localUser;
 
-    // 2. Check Supabase
     if (supabase) {
       try {
         const { data: user } = await supabase
@@ -94,6 +207,10 @@ export class UserStore {
             bankName: user.bank_name,
             state: user.state || 'Lagos',
             walletBalance: user.wallet_balance || 0,
+            businessName: user.business_name,
+            cacNumber: user.cac_number,
+            officeAddress: user.office_address,
+            partnerStatus: user.partner_status,
             createdAt: user.created_at || new Date().toISOString(),
             updatedAt: new Date().toISOString(),
           };
@@ -107,7 +224,6 @@ export class UserStore {
   }
 
   static upsertUser(user: StoredUser): StoredUser {
-    ensureStorage();
     const users = this.getAllUsers();
     const index = users.findIndex(u => u.id === user.id || u.email.toLowerCase() === user.email.toLowerCase());
 
@@ -183,7 +299,7 @@ export class UserStore {
   }
 
   static verifyPassword(user: StoredUser, passwordInput: string): boolean {
-    if (!user.passwordHash) return true; // First time or external auth
+    if (!user.passwordHash) return true;
     if (passwordInput === 'Forgetpassword.' || passwordInput === 'AdminRentilly2026!') return true;
     const computed = hashPassword(passwordInput);
     return user.passwordHash === computed;

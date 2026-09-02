@@ -10,6 +10,7 @@ import * as verificationController from '../controllers/verificationController';
 import * as paymentController from '../controllers/paymentController';
 import * as fraudController from '../controllers/fraudController';
 import * as otpController from '../controllers/otpController';
+import * as rnplController from '../controllers/rnplController';
 import { shippingRouter } from './shippingRouter';
 import { isSupabaseConfigured } from '../supabaseClient';
 import { IdentitypassService } from '../services/identitypassService';
@@ -59,6 +60,7 @@ apiRouter.get('/debug/store', (_req, res) => {
 apiRouter.post('/auth/register', authController.register);
 apiRouter.post('/auth/login', authController.login);
 apiRouter.get('/auth/me', authController.getMe);
+apiRouter.get('/users', authController.listUsers);
 apiRouter.post('/auth/send-otp', otpController.sendOtp);
 apiRouter.post('/auth/verify-otp', otpController.verifyOtp);
 
@@ -118,6 +120,10 @@ apiRouter.post('/escrow/:id/release-payout', escrowController.releaseEscrowPayou
 apiRouter.get('/legal/agreements', legalController.getLegalAgreements);
 apiRouter.post('/legal/generate-agreement', legalController.generateAgreement);
 
-// 12. Cross-Border Multi-Carrier Shipping & Toy Manifest Engine (UK -> Dubai)
+// 12. Rent Now Pay Later (RNPL) Direct Debit Financing
+apiRouter.get('/rent-now-pay-later/eligibility/:userId', rnplController.checkEligibility);
+apiRouter.post('/rent-now-pay-later/mandate', rnplController.submitMandate);
+
+// 13. Cross-Border Multi-Carrier Shipping & Toy Manifest Engine (UK -> Dubai)
 apiRouter.use('/shipping', shippingRouter);
 

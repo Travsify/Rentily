@@ -8,7 +8,7 @@ export interface WalletTransaction {
   email: string;
   title: string;
   type: string;
-  category: 'deposit' | 'withdrawal' | 'utility' | 'rent' | 'escrow';
+  category: 'deposit' | 'withdrawal' | 'utility' | 'rent' | 'escrow' | 'wallet_funding';
   amount: number;
   isCredit: boolean;
   reference: string;
@@ -17,40 +17,67 @@ export interface WalletTransaction {
   recipientAccount?: string;
   recipientBank?: string;
   status: 'SUCCESSFUL' | 'PENDING' | 'FAILED';
+  escrowStatus?: 'held_in_escrow' | 'released_to_owner' | 'refunded' | 'disputed';
+  ownerPayoutReference?: string;
+  payoutReleasedAt?: string;
   token?: string;
   units?: string;
   date: string;
 }
 
-const DATA_DIR = path.join(process.cwd(), 'server', 'data');
-const TX_FILE = path.join(DATA_DIR, 'transactions.json');
-
-function ensureStorage() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+function getDataDir(): string {
+  const candidates = [
+    path.join(process.cwd(), 'server', 'data'),
+    path.join('/opt/render/project/src', 'server', 'data'),
+    path.join('/tmp', 'rentilly-data'),
+  ];
+  for (const dir of candidates) {
+    try {
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, '.write_test_tx'), 'ok', 'utf-8');
+      fs.unlinkSync(path.join(dir, '.write_test_tx'));
+      return dir;
+    } catch { continue; }
   }
-  if (!fs.existsSync(TX_FILE)) {
-    fs.writeFileSync(TX_FILE, '[]', 'utf-8');
-  }
+  return '/tmp';
 }
+
+let _DATA_DIR: string | null = null;
+function getStoragePath(): string {
+  if (!_DATA_DIR) _DATA_DIR = getDataDir();
+  return path.join(_DATA_DIR, 'transactions.json');
+}
+
+// In-memory transaction cache
+let _txCache: WalletTransaction[] | null = null;
 
 export class TransactionStore {
   static getAllTransactions(): WalletTransaction[] {
-    try {
-      ensureStorage();
-      const content = fs.readFileSync(TX_FILE, 'utf-8');
-      return JSON.parse(content || '[]');
-    } catch (_) {
-      return [];
+    if (_txCache !== null) {
+      return _txCache;
     }
+    try {
+      const txFile = getStoragePath();
+      if (fs.existsSync(txFile)) {
+        const content = fs.readFileSync(txFile, 'utf-8');
+        const parsed = JSON.parse(content || '[]');
+        if (Array.isArray(parsed)) {
+          _txCache = parsed;
+          return _txCache;
+        }
+      }
+    } catch (_) {}
+    _txCache = [];
+    return _txCache;
   }
 
   static saveTransactions(txs: WalletTransaction[]): void {
+    _txCache = txs;
     try {
-      ensureStorage();
-      fs.writeFileSync(TX_FILE, JSON.stringify(txs, null, 2), 'utf-8');
+      const txFile = getStoragePath();
+      fs.writeFileSync(txFile, JSON.stringify(txs, null, 2), 'utf-8');
     } catch (err) {
-      console.error('Failed to save transactions:', err);
+      console.error('Failed to save transactions to disk:', err);
     }
   }
 
@@ -58,13 +85,17 @@ export class TransactionStore {
     const cleanEmail = email.toLowerCase().trim();
     const all = this.getAllTransactions();
     const filtered = all.filter(t => t.email.toLowerCase() === cleanEmail);
-    // Sort descending by date
     return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }
 
   static async addTransaction(tx: WalletTransaction): Promise<WalletTransaction> {
     const all = this.getAllTransactions();
-    all.unshift(tx);
+    const existingIdx = all.findIndex(t => t.id === tx.id || (tx.reference && t.reference === tx.reference));
+    if (existingIdx >= 0) {
+      all[existingIdx] = { ...all[existingIdx], ...tx };
+    } else {
+      all.unshift(tx);
+    }
     this.saveTransactions(all);
 
     // Also persist in Supabase if available
@@ -81,6 +112,24 @@ export class TransactionStore {
     }
 
     return tx;
+  }
+
+  static updateTransactionStatus(
+    id: string,
+    escrowStatus: 'held_in_escrow' | 'released_to_owner' | 'refunded' | 'disputed',
+    ownerPayoutReference?: string
+  ): boolean {
+    const all = this.getAllTransactions();
+    const idx = all.findIndex(t => t.id === id);
+    if (idx === -1) return false;
+    all[idx] = {
+      ...all[idx],
+      escrowStatus,
+      ownerPayoutReference: ownerPayoutReference || all[idx].ownerPayoutReference,
+      payoutReleasedAt: new Date().toISOString()
+    };
+    this.saveTransactions(all);
+    return true;
   }
 
   static computeNetBalance(email: string): number {
