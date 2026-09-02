@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import type { Transaction } from '../types';
 import { TransactionStore } from '../services/transactionStore';
 import { AdminDataStore } from '../services/adminDataStore';
+import { NotificationDispatcher } from '../services/notificationDispatcher';
 
 export async function getTransactions(_req: Request, res: Response) {
   try {
@@ -96,6 +97,22 @@ export async function releaseEscrowPayout(req: Request, res: Response) {
         }
       } catch (_) {}
     }
+
+    // Dispatch payout release alert
+    const targetOwnerEmail = txn?.owner_name || `${id}@myrentilly.com`;
+    NotificationDispatcher.dispatch({
+      userId: txn?.owner_id || id,
+      email: targetOwnerEmail.includes('@') ? targetOwnerEmail : 'owner@myrentilly.com',
+      userName: txn?.owner_name || 'Property Owner',
+      title: `Move-In Escrow Payout Released 💰`,
+      category: 'escrow',
+      message: `Your property funds have been released from Rentilly escrow to your settlement bank account. Payout Reference: ${payoutReference}.`,
+      metadata: {
+        payoutReference,
+        transactionId: id,
+        amount: txn?.total_amount
+      }
+    });
 
     res.json({ success: true, transaction: txn, payoutReference, payoutReleasedAt });
   } catch (err: any) {

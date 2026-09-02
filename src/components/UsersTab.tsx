@@ -3,7 +3,8 @@ import {
   Users, 
   ShieldCheck, 
   Search, 
-  AlertCircle
+  AlertCircle,
+  Download
 } from 'lucide-react';
 import type { UserProfile } from '../types';
 
@@ -32,6 +33,34 @@ export const UsersTab: React.FC<UsersTabProps> = ({ users }) => {
   const partnerCount = users.filter(u => u.role === ('partner' as any)).length;
   const landlordCount = users.filter(u => u.role === 'owner').length;
 
+  const exportToCSV = () => {
+    if (users.length === 0) return;
+    const headers = ['User ID', 'Full Name', 'Email', 'Phone', 'Role', 'Verified', 'Account Number', 'Bank', 'Wallet Balance (NGN)', 'Created At'];
+    const rows = users.map(u => {
+      const anyU = u as any;
+      return [
+        u.id,
+        `"${(u.fullName || '').replace(/"/g, '""')}"`,
+        u.email,
+        u.phoneNumber || '',
+        u.role,
+        u.isVerified ? 'Yes' : 'No',
+        anyU.accountNumber || '',
+        `"${(anyU.bankName || '').replace(/"/g, '""')}"`,
+        anyU.walletBalance || 0,
+        u.createdAt || ''
+      ];
+    });
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `rentilly_users_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-6 font-sans">
       {/* Header */}
@@ -45,6 +74,16 @@ export const UsersTab: React.FC<UsersTabProps> = ({ users }) => {
             Audit registered Nigerian property owners, prospective tenants, institutional partners, and system administrators.
           </p>
         </div>
+
+        {users.length > 0 && (
+          <button
+            onClick={exportToCSV}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-slate-600 text-xs font-semibold text-white shadow-sm transition"
+          >
+            <Download className="w-4 h-4 text-emerald-400" />
+            <span>Export Users (CSV)</span>
+          </button>
+        )}
       </div>
 
       {/* KPI Stats */}

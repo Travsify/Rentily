@@ -52,6 +52,12 @@ export const Navbar: React.FC<NavbarProps> = ({
           </span>
         </div>
 
+        {/* Real-Time Polling Live Sync */}
+        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span className="font-semibold text-[10px]">Live Sync Active</span>
+        </div>
+
         {/* Supabase Status */}
         <button 
           onClick={() => setCurrentTab('supabase_config')}

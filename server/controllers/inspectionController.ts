@@ -176,6 +176,38 @@ export async function updateInspectionStatus(req: Request, res: Response) {
     }
 
     if (!updated) return res.status(404).json({ error: 'Inspection not found' });
+
+    // Dispatch notification to prospect if email is available
+    const prospectEmail = (updated as any).email || (updated as any).prospectEmail || `${updated.prospectId}@myrentilly.com`;
+    if (status === 'confirmed') {
+      NotificationDispatcher.dispatch({
+        userId: updated.prospectId,
+        email: prospectEmail,
+        userName: updated.prospectName,
+        title: `Walkthrough Inspection Confirmed 🔑✅`,
+        category: 'inspection',
+        message: `Your physical inspection for "${updated.propertyTitle}" has been confirmed for ${updated.scheduledDate} (${updated.scheduledTimeSlot}). Gate pass code: ${updated.inspectionPassCode}.`,
+        metadata: {
+          gateCode: updated.inspectionPassCode,
+          propertyTitle: updated.propertyTitle,
+          date: updated.scheduledDate
+        }
+      });
+    } else if (status === 'rescheduled') {
+      NotificationDispatcher.dispatch({
+        userId: updated.prospectId,
+        email: prospectEmail,
+        userName: updated.prospectName,
+        title: `Inspection Rescheduled 📅`,
+        category: 'inspection',
+        message: `Your walkthrough inspection has been rescheduled to ${rescheduledDate || updated.scheduledDate}. Gate code remains: ${updated.inspectionPassCode}.`,
+        metadata: {
+          gateCode: updated.inspectionPassCode,
+          newDate: rescheduledDate || updated.scheduledDate
+        }
+      });
+    }
+
     res.json(updated);
   } catch (err: any) {
     res.status(500).json({ error: err.message });

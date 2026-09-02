@@ -45,6 +45,13 @@ export default function App() {
       setCurrentUser(existingUser);
     }
     loadData();
+
+    // Auto-polling interval: refreshes data every 25 seconds for real-time responsiveness
+    const pollTimer = setInterval(() => {
+      loadData();
+    }, 25000);
+
+    return () => clearInterval(pollTimer);
   }, []);
 
   // Load all initial data

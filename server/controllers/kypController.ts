@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { supabase } from '../supabaseClient';
 import type { KYPRecord } from '../types';
 import { AdminDataStore } from '../services/adminDataStore';
+import { NotificationDispatcher } from '../services/notificationDispatcher';
 
 export async function getKYPRecords(req: Request, res: Response) {
   try {
@@ -48,7 +49,7 @@ export async function getKYPRecords(req: Request, res: Response) {
       } catch (_) {}
     }
 
-    // Fallback: AdminDataStore
+    // Local Store: AdminDataStore
     const storeKyp = AdminDataStore.getKYP(status ? String(status) : undefined);
 
     if (supabaseKyp.length > 0) {
@@ -71,10 +72,19 @@ export async function reviewKYP(req: Request, res: Response) {
     const reviewedBy = reviewerName || 'Barrister Chijioke Okonkwo (Legal Lead)';
     const reviewedAt = new Date().toISOString();
 
-    // Try Supabase
+    // 1. Update in AdminDataStore
+    const updated = AdminDataStore.reviewKYP(id, status, landRegistrySearchNotes, rejectionReason);
+
+    // Update linked property in store
+    if (updated?.propertyId) {
+      if (status === 'approved') AdminDataStore.updatePropertyStatus(updated.propertyId, 'verified');
+      if (status === 'rejected') AdminDataStore.updatePropertyStatus(updated.propertyId, 'rejected');
+    }
+
+    // 2. Also update in Supabase
     if (supabase) {
       try {
-        const { data: kyp, error: kypError } = await supabase
+        const { data: kyp } = await supabase
           .from('kyp_verifications')
           .update({
             status,
@@ -86,36 +96,55 @@ export async function reviewKYP(req: Request, res: Response) {
           })
           .eq('id', id)
           .select()
-          .single();
+          .maybeSingle();
 
-        if (!kypError && kyp) {
-          // Also update property status in Supabase
-          if (kyp.property_id) {
-            if (status === 'approved') {
-              await supabase.from('properties').update({
-                status: 'verified', verified_at: reviewedAt, verified_by: reviewedBy, updated_at: reviewedAt
-              }).eq('id', kyp.property_id);
-              AdminDataStore.updatePropertyStatus(kyp.property_id, 'verified');
-            } else if (status === 'rejected') {
-              await supabase.from('properties').update({ status: 'rejected', updated_at: reviewedAt }).eq('id', kyp.property_id);
-              AdminDataStore.updatePropertyStatus(kyp.property_id, 'rejected');
-            }
+        if (kyp && kyp.property_id) {
+          if (status === 'approved') {
+            await supabase.from('properties').update({
+              status: 'verified', verified_at: reviewedAt, verified_by: reviewedBy, updated_at: reviewedAt
+            }).eq('id', kyp.property_id);
+          } else if (status === 'rejected') {
+            await supabase.from('properties').update({
+              status: 'rejected', updated_at: reviewedAt
+            }).eq('id', kyp.property_id);
           }
-          // Update AdminDataStore too
-          AdminDataStore.reviewKYP(id, status, landRegistrySearchNotes, rejectionReason);
-          return res.json(kyp);
         }
       } catch (_) {}
     }
 
-    // Fallback: AdminDataStore only
-    const updated = AdminDataStore.reviewKYP(id, status, landRegistrySearchNotes, rejectionReason);
-    if (!updated) return res.status(404).json({ error: 'KYP record not found' });
+    if (!updated) {
+      return res.status(404).json({ error: 'KYP record not found' });
+    }
 
-    // Update linked property status in store
-    if (updated.propertyId) {
-      if (status === 'approved') AdminDataStore.updatePropertyStatus(updated.propertyId, 'verified');
-      if (status === 'rejected') AdminDataStore.updatePropertyStatus(updated.propertyId, 'rejected');
+    // 3. Dispatch automated outbound notification to the property owner
+    const ownerEmail = updated.ownerEmail || `${updated.ownerId}@myrentilly.com`;
+    if (status === 'approved') {
+      NotificationDispatcher.dispatch({
+        userId: updated.ownerId,
+        email: ownerEmail,
+        userName: updated.ownerName,
+        title: `Title Deed Verified & Published 🔑📄`,
+        category: 'property',
+        message: `Congratulations! Your property "${updated.propertyTitle}" has passed Land Registry title audit and is now verified and active on the Rentilly discovery feed.`,
+        metadata: {
+          propertyId: updated.propertyId,
+          propertyTitle: updated.propertyTitle,
+          status: 'verified'
+        }
+      });
+    } else if (status === 'rejected') {
+      NotificationDispatcher.dispatch({
+        userId: updated.ownerId,
+        email: ownerEmail,
+        userName: updated.ownerName,
+        title: `KYP Title Review Action Required ⚠️`,
+        category: 'property',
+        message: `Your title audit for "${updated.propertyTitle}" was not approved: ${rejectionReason || 'Please upload an original certified true copy of your Land Registry Deed.'}`,
+        metadata: {
+          propertyId: updated.propertyId,
+          rejectionReason
+        }
+      });
     }
 
     res.json(updated);

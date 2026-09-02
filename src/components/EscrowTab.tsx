@@ -3,7 +3,8 @@ import {
   BadgePercent, 
   Wallet, 
   CheckCircle2, 
-  Clock 
+  Clock,
+  Download
 } from 'lucide-react';
 import type { Transaction } from '../types';
 
@@ -22,6 +23,32 @@ export const EscrowTab: React.FC<EscrowTabProps> = ({ transactions, onReleasePay
     .filter(t => t.escrowStatus === 'held_in_escrow')
     .reduce((acc, t) => acc + (t.cautionFee || 0), 0);
 
+  const exportToCSV = () => {
+    if (transactions.length === 0) return;
+    const headers = ['Transaction ID', 'Property', 'Type', 'Payer', 'Owner', 'Gateway', 'Total Amount (NGN)', 'Platform Fee (NGN)', 'Escrow Status', 'Payout Reference', 'Date'];
+    const rows = transactions.map(t => [
+      t.id,
+      `"${(t.propertyTitle || '').replace(/"/g, '""')}"`,
+      t.transactionType,
+      `"${(t.payerName || '').replace(/"/g, '""')}"`,
+      `"${(t.ownerName || '').replace(/"/g, '""')}"`,
+      t.paymentGateway,
+      t.totalAmount,
+      t.rentillyLegalFee,
+      t.escrowStatus,
+      t.ownerPayoutReference || '',
+      t.createdAt
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `rentilly_escrow_ledger_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -35,6 +62,16 @@ export const EscrowTab: React.FC<EscrowTabProps> = ({ transactions, onReleasePay
             Holding tenant & buyer funds in protected escrow until physical key handover and signed legal agreements.
           </p>
         </div>
+
+        {transactions.length > 0 && (
+          <button
+            onClick={exportToCSV}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-slate-600 text-xs font-semibold text-white shadow-sm transition"
+          >
+            <Download className="w-4 h-4 text-emerald-400" />
+            <span>Export Ledger (CSV)</span>
+          </button>
+        )}
       </div>
 
       {/* Escrow Metric Cards */}
