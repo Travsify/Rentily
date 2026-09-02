@@ -134,7 +134,7 @@ class _PostRoommateModalState extends State<PostRoommateModal> {
       imageUrls: [
         'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800',
       ],
-      aboutMe: about.isNotEmpty ? about : 'Looking for a responsible, verified flatmate to split our lease through Rentilly living escrow.',
+      aboutMe: about.isNotEmpty ? about : 'Looking for a responsible, verified flatmate to split our lease through Rentilly Escrow.',
       isVerified: widget.user.isVerified,
       createdAt: DateTime.now(),
     );

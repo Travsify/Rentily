@@ -1335,7 +1335,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 Text(
                   '• 2.5% rent and 2.0% sales escrow commissions guaranteed on verified move-ins.\n'
                   '• Zero agency fees charged to prospective tenants.\n'
-                  '• Caution deposit 100% safeguarded in Rentilly Living Escrow.\n'
+                  '• Caution deposit 100% safeguarded in Rentilly Escrow.\n'
                   '• Digital Accreditation ID Card required for all field viewings.',
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 9.5,

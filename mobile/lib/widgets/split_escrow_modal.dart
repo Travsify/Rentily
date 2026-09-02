@@ -39,7 +39,7 @@ class _SplitEscrowModalState extends State<SplitEscrowModal> {
 
     await NotificationService.addNotification(
       title: 'Joint Split-Escrow Initiated 👥🔒',
-      message: 'Your $pct% co-living share of ₦${_currencyFormat.format(widget.post.budgetShare)} was locked into living escrow with ${widget.post.userName} for ${widget.post.bedroomType} ($count-way split).',
+      message: 'Your $pct% co-living share of ₦${_currencyFormat.format(widget.post.budgetShare)} was locked into Rentilly Escrow with ${widget.post.userName} for ${widget.post.bedroomType} ($count-way split).',
       category: 'transaction',
       metadata: {
         'post_id': widget.post.id,
@@ -87,7 +87,7 @@ class _SplitEscrowModalState extends State<SplitEscrowModal> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Protected by 0% Caution Living Escrow Protocol. Funds are only disbursed when all co-tenants sign.',
+                      'Protected by 0% Caution Rentilly Escrow Protocol. Funds are only disbursed when all co-tenants sign.',
                       style: GoogleFonts.plusJakartaSans(fontSize: 10, color: const Color(0xFF16A34A), fontWeight: FontWeight.w600),
                     ),
                   ),
@@ -154,7 +154,7 @@ class _SplitEscrowModalState extends State<SplitEscrowModal> {
                           style: GoogleFonts.plusJakartaSans(fontSize: 14.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                         ),
                         Text(
-                          '$splitCount-Way Joint Living Escrow ($pct% Each)',
+                          '$splitCount-Way Joint Rentilly Escrow ($pct% Each)',
                           style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary),
                         ),
                       ],
@@ -317,7 +317,7 @@ class _SplitEscrowModalState extends State<SplitEscrowModal> {
                   ),
                   child: Column(
                     children: [
-                      _buildGuaranteeRow(Icons.check_circle_outline_rounded, 'Funds remain in secure living escrow until all co-tenants sign.'),
+                      _buildGuaranteeRow(Icons.check_circle_outline_rounded, 'Funds remain in secure Rentilly Escrow until all co-tenants sign.'),
                       const SizedBox(height: 6),
                       _buildGuaranteeRow(Icons.check_circle_outline_rounded, '0% illegal caution fee & 0% hidden middleman markups.'),
                       const SizedBox(height: 6),

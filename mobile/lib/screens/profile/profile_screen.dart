@@ -404,177 +404,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 'Strict Data Protection & 256-Bit Encryption',
                 onTap: _openPrivacyPolicy,
               ),
-              const SizedBox(height: 16),
-
-              // Corporate Partner & Brokerage Portal Card
-              Container(
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF064E3B), Color(0xFF042F2E)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: const Color(0xFF4ADE80).withValues(alpha: 0.3)),
-                ),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  leading: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF4ADE80).withValues(alpha: 0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.business_center_rounded, color: Color(0xFF4ADE80), size: 20),
-                  ),
-                  title: Text(
-                    'Corporate Partner & Broker Portal 🏢',
-                    style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
-                  ),
-                  subtitle: Text(
-                    'Access Firm Dashboard, Commissions Vault & CAC KYB',
-                    style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: Colors.white70),
-                  ),
-                  trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.white70),
-                  onTap: () async {
-                    if (_currentUser?.role != 'partner') {
-                      final cleanEmail = _currentUser?.email.trim().toLowerCase() ?? 'info@drivegates.co.uk';
-                      final isDrivegates = cleanEmail.contains('drivegates');
-                      final bizName = isDrivegates ? 'Drivegates Limited' : (_currentUser?.businessName ?? 'Partner Enterprise');
-                      
-                      final updated = _currentUser?.copyWith(
-                        role: 'partner',
-                        businessName: bizName,
-                        cacNumber: isDrivegates ? 'RC 1892834' : (_currentUser?.cacNumber ?? 'RC 1928374'),
-                        officeAddress: _currentUser?.officeAddress ?? '14 Admiralty Way, Lekki Phase 1, Lagos',
-                        isVerified: true,
-                        bvnVerified: true,
-                        accountNumber: _currentUser?.accountNumber ?? '9861458175',
-                        bankName: 'Flutterwave MFB',
-                      ) ?? UserProfile(
-                        id: 'usr_partner_${DateTime.now().millisecondsSinceEpoch}',
-                        fullName: bizName,
-                        email: cleanEmail,
-                        phoneNumber: '08123456789',
-                        role: 'partner',
-                        isVerified: true,
-                        businessName: bizName,
-                        cacNumber: isDrivegates ? 'RC 1892834' : 'RC 1928374',
-                        officeAddress: '14 Admiralty Way, Lekki Phase 1, Lagos',
-                        accountNumber: '9861458175',
-                        bankName: 'Flutterwave MFB',
-                      );
-                      await AuthService.updateUser(updated);
-                      setState(() => _currentUser = updated);
-                    }
-                    if (context.mounted) {
-                      MainNavigationScreen.of(context)?.togglePartnerMode(true);
-                    }
-                  },
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // Landlord & Seller Portal Information Card
-              Container(
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  leading: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppColors.accentOrange.withValues(alpha: 0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.real_estate_agent_rounded, color: AppColors.accentOrange, size: 20),
-                  ),
-                  title: Text(
-                    'Landlord & Seller Portal',
-                    style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
-                  ),
-                  subtitle: Text(
-                    'Requires dedicated Landlord / Property Owner account',
-                    style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: Colors.white70),
-                  ),
-                  trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.white70),
-                  onTap: () {
-                    showDialog(
-                      context: context,
-                      builder: (ctx) => AlertDialog(
-                        backgroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                        title: Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: AppColors.accentOrange.withValues(alpha: 0.12),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(Icons.shield_rounded, color: AppColors.accentOrange, size: 20),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                'Landlord Account Required',
-                                style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                              ),
-                            ),
-                          ],
-                        ),
-                        content: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'To maintain strict legal escrow separation and security compliance, a tenant/renter account cannot be converted to a landlord account within the same profile.',
-                              style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: AppColors.textSecondary, height: 1.4),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              'If you are a property owner or wish to list properties for rent or sale, please register a dedicated Landlord Account.',
-                              style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppColors.textPrimary, height: 1.4),
-                            ),
-                          ],
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.of(ctx).pop(),
-                            child: Text(
-                              'Stay as Renter',
-                              style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
-                            ),
-                          ),
-                          ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.accentOrange,
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            ),
-                            onPressed: () {
-                              Navigator.of(ctx).pop();
-                              Navigator.of(context).push(
-                                MaterialPageRoute(builder: (_) => const RegisterScreen(initialRole: 'owner')),
-                              );
-                            },
-                            child: Text(
-                              'Create Landlord Account',
-                              style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
               const SizedBox(height: 20),
 
               // Logout Button
@@ -766,7 +595,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const Divider(height: 18),
                   _buildStatusRow('Dedicated Account', _currentUser?.accountNumber ?? '9955394366'),
                   const Divider(height: 18),
-                  _buildStatusRow('Account Type', 'Dedicated Living Escrow'),
+                  _buildStatusRow('Account Type', 'Dedicated Rentilly Escrow'),
                   const Divider(height: 18),
                   _buildStatusRow('Identity Verification', 'Verified & Linked'),
                   const Divider(height: 18),
@@ -788,7 +617,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Your Rentilly Living Escrow account is permanently active, dedicated, and protected under verified real estate regulations.',
+                      'Your Rentilly Escrow account is permanently active, dedicated, and protected under verified real estate regulations.',
                       style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.primary, height: 1.3),
                     ),
                   ),
@@ -868,7 +697,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Dedicated Living Escrow Account', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                        Text('Dedicated Rentilly Escrow Account', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                         Text('${_currentUser?.accountNumber ?? "9955394366"} • ${_currentUser?.fullName ?? "Patrick Achua"}', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
                       ],
                     ),
@@ -908,7 +737,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       'Unresolved Habitability & Structural Defects (Flooding/Power/Water)',
       'Property Ownership, Survey & Title Deed Verification Dispute',
       'Illegal Agent Harassment & Extortionate Demands',
-      'Living Escrow Milestone Settlement Delay',
+      'Rentilly Escrow Milestone Settlement Delay',
       'Breach of Signed Tenancy or Lease Agreement',
       'Other Real Estate & Tenancy Legal Dispute',
     ];

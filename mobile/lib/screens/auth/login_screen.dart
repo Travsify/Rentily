@@ -235,7 +235,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           ),
         ),
         Text(
-          'Living Escrow & Direct Real Estate Exchange',
+          'Rentilly Escrow & Direct Real Estate Exchange',
           style: GoogleFonts.plusJakartaSans(
             fontSize: 10,
             fontWeight: FontWeight.w600,

@@ -187,7 +187,7 @@ class StatementPdfService {
               _buildPdfDetailRow('Beneficiary Account Name', beneficiary),
               _buildPdfDetailRow('Dedicated Account Number', user.accountNumber ?? '9955394366'),
               _buildPdfDetailRow('Settlement Partner Bank', bankName),
-              _buildPdfDetailRow('Settlement Category', 'Living Escrow Protected'),
+              _buildPdfDetailRow('Settlement Category', 'Rentilly Escrow Protected'),
               _buildPdfDetailRow('Payer Email', user.email),
               _buildPdfDetailRow('Timestamp (UTC+1)', date),
               _buildPdfDetailRow('Corporate Issuer', 'Product of E-Homes Global Inclusive Limited'),
@@ -902,7 +902,7 @@ class StatementPdfService {
     final currPrefix = _formatCurrencyPrefix(currency);
     await Share.shareXFiles(
       [XFile(file.path, mimeType: 'application/pdf')],
-      text: 'Rentilly Living Escrow Receipt - $currPrefix${_currencyFormat.format((transaction['amount'] as num?)?.toDouble() ?? 0.0)}',
+      text: 'Rentilly Escrow Receipt - $currPrefix${_currencyFormat.format((transaction['amount'] as num?)?.toDouble() ?? 0.0)}',
       subject: 'Rentilly Transaction Receipt',
     );
   }
@@ -927,7 +927,7 @@ class StatementPdfService {
 
     await Share.shareXFiles(
       [XFile(file.path, mimeType: 'application/pdf')],
-      text: 'Rentilly Living Escrow Account Statement ($currency) for ${user.fullName}',
+      text: 'Rentilly Escrow Account Statement ($currency) for ${user.fullName}',
       subject: 'Rentilly Account Statement',
     );
   }

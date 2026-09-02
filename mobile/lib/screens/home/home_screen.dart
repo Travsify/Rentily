@@ -229,7 +229,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 if (_user?.isVerified == true && _user?.accountNumber != null) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text('Your dedicated Living Escrow bank account is active and verified.', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
+                                      content: Text('Your dedicated Rentilly Escrow bank account is active and verified.', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
                                       backgroundColor: AppColors.primary,
                                     ),
                                   );
@@ -405,7 +405,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               const Icon(Icons.shield_rounded, size: 16, color: Colors.white),
                               const SizedBox(width: 5),
                               Text(
-                                'RENTILLY LIVING ESCROW',
+                                'RENTILLY ESCROW',
                                 style: GoogleFonts.plusJakartaSans(
                                   fontSize: 9,
                                   fontWeight: FontWeight.w800,

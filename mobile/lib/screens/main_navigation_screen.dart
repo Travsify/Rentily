@@ -89,23 +89,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   void switchTab(int index) {
     setState(() {
       _currentIndex = index;
-      _activeViewMode = 'consumer';
-    });
-  }
-
-  void toggleLandlordMode(bool enable) {
-    setState(() {
-      if (!enable) {
-        _activeViewMode = 'consumer';
-      } else {
-        _activeViewMode = (_user?.role == 'partner') ? 'partner' : 'landlord';
-      }
-    });
-  }
-
-  void togglePartnerMode(bool enable) {
-    setState(() {
-      _activeViewMode = enable ? 'partner' : 'consumer';
     });
   }
 

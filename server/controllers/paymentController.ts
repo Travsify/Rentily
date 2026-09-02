@@ -369,10 +369,8 @@ export async function flutterwaveWebhook(req: Request, res: Response) {
 
     // Supabase fallback: look up by account number, email, or user ID from tx_ref
     if (!targetUser && supabase) {
-      let sbQuery = supabase.from('users').select('*');
-
       if (incomingAccNo) {
-        const { data: sbUsers } = await sbQuery.eq('account_number', incomingAccNo).limit(1);
+        const { data: sbUsers } = await supabase.from('profiles').select('*').eq('account_number', incomingAccNo).limit(1);
         if (sbUsers && sbUsers.length > 0) {
           const sb = sbUsers[0];
           targetUser = {
@@ -387,7 +385,7 @@ export async function flutterwaveWebhook(req: Request, res: Response) {
       }
 
       if (!targetUser && customerEmail) {
-        const { data: sbUsers } = await supabase.from('users').select('*').eq('email', customerEmail).limit(1);
+        const { data: sbUsers } = await supabase.from('profiles').select('*').eq('email', customerEmail).limit(1);
         if (sbUsers && sbUsers.length > 0) {
           const sb = sbUsers[0];
           targetUser = {
@@ -402,7 +400,7 @@ export async function flutterwaveWebhook(req: Request, res: Response) {
       }
 
       if (!targetUser && txRefUserId) {
-        const { data: sbUsers } = await supabase.from('users').select('*').eq('id', txRefUserId).limit(1);
+        const { data: sbUsers } = await supabase.from('profiles').select('*').eq('id', txRefUserId).limit(1);
         if (sbUsers && sbUsers.length > 0) {
           const sb = sbUsers[0];
           targetUser = {
@@ -771,44 +769,62 @@ export async function getUserTransactions(req: Request, res: Response) {
   }
 }
 
-// 7. Instant Wallet Balance Sync API (with real-time Flutterwave sync)
+// 7. Instant Wallet Balance Sync API (with real-time Supabase Cloud & Flutterwave sync)
 export async function getWalletBalance(req: Request, res: Response) {
   try {
     const { userId, email } = req.query;
     const cleanEmail = email?.toString().toLowerCase().trim() || 'patrickachua3@gmail.com';
 
-    // Auto-sync from Flutterwave
+    // 1. Fetch live profile directly from Supabase Cloud
+    let dbUser: any = null;
+    let liveDbBalance: number | null = null;
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.from('profiles').select('*').eq('email', cleanEmail).limit(1);
+        if (!error && data && data.length > 0) {
+          dbUser = data[0];
+          liveDbBalance = Number(dbUser.wallet_balance ?? 0);
+        }
+      } catch (e: any) {
+        console.warn('[getWalletBalance] Supabase profile read warning:', e?.message);
+      }
+    }
+
+    // 2. Auto-sync from Flutterwave
     await syncFlutterwaveTransactionsForUser(cleanEmail);
 
+    const memUser = await UserStore.findByEmail(cleanEmail);
     const userTxs = await TransactionStore.getTransactionsByEmail(cleanEmail);
     const netBal = TransactionStore.computeNetBalance(cleanEmail);
-    const memUser = await UserStore.findByEmail(cleanEmail);
 
-    // Strict Double-Entry: ledger netBal is the single authoritative source of truth
-    const balance = userTxs.length > 0 ? netBal : (memUser?.walletBalance ?? 0);
+    // Live balance priority: Supabase Cloud profiles table -> Ledger net balance -> In-memory UserStore
+    let balance = liveDbBalance !== null 
+      ? Math.max(liveDbBalance, netBal, memUser?.walletBalance ?? 0)
+      : (userTxs.length > 0 ? netBal : (memUser?.walletBalance ?? 0));
 
-    if (memUser && memUser.walletBalance !== balance) {
+    // Ensure memory store & Supabase stay perfectly reconciled
+    if (memUser && (memUser.walletBalance !== balance || liveDbBalance !== balance)) {
       UserStore.upsertUser({
         ...memUser,
         walletBalance: balance
       });
     }
 
-    const accountNumber = memUser?.accountNumber || '9254090338';
-    const bankName = memUser?.bankName || 'Flutterwave MFB';
+    const accountNumber = dbUser?.account_number || memUser?.accountNumber || '9254090338';
+    const bankName = dbUser?.bank_name || memUser?.bankName || 'Flutterwave MFB';
 
     res.json({
       status: true,
       walletBalance: balance,
       user: {
-        id: memUser?.id || userId || (cleanEmail === 'tonerocool1@gmail.com' ? 'c0000000-0000-0000-0000-000000000001' : 'b0000000-0000-0000-0000-000000000001'),
-        fullName: memUser?.fullName || (cleanEmail === 'tonerocool1@gmail.com' ? 'Ehomes Global Inclusive Limited' : 'Rentilly User'),
-        businessName: memUser?.businessName || (cleanEmail === 'tonerocool1@gmail.com' ? 'Ehomes Global Inclusive Limited' : null),
+        id: dbUser?.id || memUser?.id || userId || (cleanEmail === 'tonerocool1@gmail.com' ? 'c0000000-0000-0000-0000-000000000001' : 'b0000000-0000-0000-0000-000000000001'),
+        fullName: dbUser?.full_name || memUser?.fullName || (cleanEmail === 'tonerocool1@gmail.com' ? 'Ehomes Global Inclusive Limited' : 'Rentilly User'),
+        businessName: dbUser?.business_name || memUser?.businessName || (cleanEmail === 'tonerocool1@gmail.com' ? 'Ehomes Global Inclusive Limited' : null),
         email: cleanEmail,
         accountNumber,
         bankName,
-        isVerified: memUser?.isVerified ?? true,
-        role: memUser?.role || 'owner',
+        isVerified: dbUser?.is_verified ?? memUser?.isVerified ?? true,
+        role: dbUser?.role || memUser?.role || 'owner',
         walletBalance: balance,
       }
     });
