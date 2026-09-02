@@ -761,8 +761,8 @@ export async function getWalletBalance(req: Request, res: Response) {
       walletBalance: balance,
       user: {
         id: memUser?.id || userId || (cleanEmail === 'tonerocool1@gmail.com' ? 'c0000000-0000-0000-0000-000000000001' : 'b0000000-0000-0000-0000-000000000001'),
-        fullName: memUser?.fullName || (cleanEmail === 'tonerocool1@gmail.com' ? 'Eoms Global Partner' : 'Rentilly User'),
-        businessName: memUser?.businessName || (cleanEmail === 'tonerocool1@gmail.com' ? 'Eoms Global Inclusive Limited' : null),
+        fullName: memUser?.fullName || (cleanEmail === 'tonerocool1@gmail.com' ? 'Ehomes Global Inclusive Limited' : 'Rentilly User'),
+        businessName: memUser?.businessName || (cleanEmail === 'tonerocool1@gmail.com' ? 'Ehomes Global Inclusive Limited' : null),
         email: cleanEmail,
         accountNumber,
         bankName,

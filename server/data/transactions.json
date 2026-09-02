@@ -1,1 +1,18 @@
-[]
+[
+  {
+    "id": "cf789e84-ac59-4155-a2ab-45eba9e5cd26",
+    "userId": "c0000000-0000-0000-0000-000000000001",
+    "email": "tonerocool1@gmail.com",
+    "title": "Direct Inbound Transfer — ₦2,000",
+    "type": "rent",
+    "category": "deposit",
+    "amount": 2000,
+    "isCredit": true,
+    "reference": "100004260901232426170038034521",
+    "sender": "TOMISIN OLAMIPO KOLAWOLE",
+    "beneficiary": "Eoms Global Inclusive Limited",
+    "status": "SUCCESSFUL",
+    "date": "2026-09-01T23:24:29+00:00",
+    "escrowStatus": "released_to_owner"
+  }
+]
