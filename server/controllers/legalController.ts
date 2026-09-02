@@ -1,43 +1,59 @@
 import type { Request, Response } from 'express';
 import { supabase } from '../supabaseClient';
 import type { LegalAgreement } from '../types';
+import { AdminDataStore } from '../services/adminDataStore';
 
 export async function getLegalAgreements(_req: Request, res: Response) {
   try {
-    if (!supabase) return res.json([]);
+    // Try Supabase first
+    let supabaseLegal: LegalAgreement[] = [];
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('legal_agreements')
+          .select('*, properties(*)')
+          .order('created_at', { ascending: false });
 
-    const { data, error } = await supabase
-      .from('legal_agreements')
-      .select('*, properties(*)')
-      .order('created_at', { ascending: false });
+        if (!error && data && data.length > 0) {
+          supabaseLegal = data.map((row: any) => ({
+            id: row.id,
+            propertyId: row.property_id,
+            propertyTitle: row.properties?.title || 'Property Agreement',
+            transactionId: row.transaction_id,
+            landlordId: row.landlord_id,
+            landlordName: row.landlord_name || 'Landlord',
+            tenantId: row.tenant_id,
+            tenantName: row.tenant_name || 'Tenant',
+            agreementType: row.agreement_type,
+            agreementTitle: row.agreement_title,
+            governingLaw: row.governing_law,
+            tenancyCommencementDate: row.tenancy_commencement_date,
+            tenancyExpirationDate: row.tenancy_expiration_date,
+            annualRent: Number(row.annual_rent || 0),
+            cautionDeposit: Number(row.caution_deposit || 0),
+            landlordSigned: row.landlord_signed,
+            landlordSignedAt: row.landlord_signed_at,
+            tenantSigned: row.tenant_signed,
+            tenantSignedAt: row.tenant_signed_at,
+            legalOfficerStamp: row.legal_officer_stamp,
+            pdfContractUrl: row.pdf_document_url,
+            status: row.status,
+            createdAt: row.created_at
+          }));
+        }
+      } catch (_) {}
+    }
 
-    if (error) return res.json([]);
+    // Fallback: AdminDataStore
+    const storeLegal = AdminDataStore.getLegalAgreements();
 
-    const agreements: LegalAgreement[] = (data || []).map((row: any) => ({
-      id: row.id,
-      propertyId: row.property_id,
-      propertyTitle: row.properties?.title || 'Property Agreement',
-      transactionId: row.transaction_id,
-      landlordId: row.landlord_id,
-      landlordName: row.landlord_name || 'Landlord',
-      tenantId: row.tenant_id,
-      tenantName: row.tenant_name || 'Tenant',
-      agreementType: row.agreement_type,
-      agreementTitle: row.agreement_title,
-      governingLaw: row.governing_law,
-      tenancyCommencementDate: row.tenancy_commencement_date,
-      tenancyExpirationDate: row.tenancy_expiration_date,
-      annualRent: Number(row.annual_rent || 0),
-      cautionDeposit: Number(row.caution_deposit || 0),
-      landlordSigned: row.landlord_signed,
-      tenantSigned: row.tenant_signed,
-      legalOfficerStamp: row.legal_officer_stamp,
-      pdfDocumentUrl: row.pdf_document_url,
-      status: row.status,
-      createdAt: row.created_at
-    }));
+    if (supabaseLegal.length > 0) {
+      const supabaseIds = new Set(supabaseLegal.map(l => l.id));
+      const extraStore = storeLegal.filter(l => !supabaseIds.has(l.id));
+      return res.json([...supabaseLegal, ...extraStore]);
+    }
 
-    res.json(agreements);
+    return res.json(storeLegal);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -46,54 +62,90 @@ export async function getLegalAgreements(_req: Request, res: Response) {
 export async function generateAgreement(req: Request, res: Response) {
   try {
     const { propertyId, tenantId, tenantName, commencementDate, durationMonths = 12 } = req.body;
-    if (!supabase) return res.status(500).json({ error: 'Database unavailable' });
+    const now = new Date().toISOString();
 
-    // Fetch property details
-    const { data: prop, error: propError } = await supabase
-      .from('properties')
-      .select('*')
-      .eq('id', propertyId)
-      .single();
+    // Fetch property from AdminDataStore (with Supabase fallback)
+    let prop: any = null;
 
-    if (propError || !prop) {
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.from('properties').select('*').eq('id', propertyId).single();
+        if (!error && data) prop = data;
+      } catch (_) {}
+    }
+
+    if (!prop) {
+      const storeProps = AdminDataStore.getProperties();
+      prop = storeProps.find(p => p.id === propertyId);
+    }
+
+    if (!prop) {
       return res.status(404).json({ error: 'Property not found' });
     }
 
-    const startDate = new Date(commencementDate || Date.now());
-    const expDate = new Date(startDate);
-    expDate.setMonth(expDate.getMonth() + durationMonths);
+    const commencementDateObj = new Date(commencementDate || now);
+    const expirationDate = new Date(commencementDateObj);
+    expirationDate.setMonth(expirationDate.getMonth() + Number(durationMonths));
 
-    const isRent = prop.purpose === 'rent';
-    const agreementType = isRent ? 'tenancy_agreement' : 'contract_of_sale';
-    const governingLaw = prop.state === 'Lagos' 
-      ? 'Lagos State Tenancy Law 2011' 
-      : 'Recovery of Premises Act & Laws of the Federal Capital Territory';
+    const agreementId = `legal_${Date.now()}`;
+    const agreementTitle = `${durationMonths}-Month ${prop.purpose === 'rent' ? 'Tenancy' : 'Sale'} Agreement — ${prop.title || prop.neighborhood}`;
 
-    const { data: newAgreement, error: createError } = await supabase
-      .from('legal_agreements')
-      .insert({
-        property_id: prop.id,
-        landlord_id: prop.owner_id,
-        tenant_id: tenantId || '00000000-0000-0000-0000-000000000002',
-        agreement_type: agreementType,
-        agreement_title: isRent 
-          ? 'Standard Residential Tenancy Agreement (Lagos Tenancy Law 2011 / FCT Laws)'
-          : 'Standard Contract of Sale of Real Property & Deed Transfer Covenants',
-        governing_law: governingLaw,
-        tenancy_commencement_date: startDate.toISOString().split('T')[0],
-        tenancy_expiration_date: expDate.toISOString().split('T')[0],
-        annual_rent: prop.base_price,
-        caution_deposit: prop.caution_fee,
-        landlord_signed: false,
-        tenant_signed: false,
-        legal_officer_stamp: true,
-        status: 'drafting'
-      })
-      .select()
-      .single();
+    const newAgreement: LegalAgreement = {
+      id: agreementId,
+      propertyId,
+      propertyTitle: prop.title || 'Property',
+      transactionId: `txn_${Date.now()}`,
+      landlordId: prop.owner_id || prop.ownerId || 'unknown_landlord',
+      landlordName: prop.owner_name || prop.ownerName || 'Property Owner',
+      tenantId: tenantId || `tenant_${Date.now()}`,
+      tenantName: tenantName || 'Tenant',
+      agreementType: prop.purpose === 'rent' ? 'tenancy_agreement' : 'contract_of_sale',
+      agreementTitle,
+      governingLaw: prop.state === 'FCT' ? 'Laws of the Federal Capital Territory' : `Laws of ${prop.state} State`,
+      tenancyCommencementDate: commencementDateObj.toISOString().split('T')[0],
+      tenancyExpirationDate: expirationDate.toISOString().split('T')[0],
+      annualRent: Number(prop.base_price || prop.basePrice || 0),
+      cautionDeposit: Number(prop.caution_fee || prop.cautionFee || 0),
+      landlordSigned: false,
+      tenantSigned: false,
+      legalOfficerStamp: false,
+      status: 'drafting',
+      createdAt: now,
+    };
 
-    if (createError) throw new Error(createError.message);
-    res.status(201).json(newAgreement);
+    // Try Supabase
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('legal_agreements')
+          .insert({
+            property_id: propertyId,
+            tenant_id: newAgreement.tenantId,
+            tenant_name: newAgreement.tenantName,
+            landlord_id: newAgreement.landlordId,
+            landlord_name: newAgreement.landlordName,
+            agreement_type: newAgreement.agreementType,
+            agreement_title: newAgreement.agreementTitle,
+            governing_law: newAgreement.governingLaw,
+            tenancy_commencement_date: newAgreement.tenancyCommencementDate,
+            tenancy_expiration_date: newAgreement.tenancyExpirationDate,
+            annual_rent: newAgreement.annualRent,
+            caution_deposit: newAgreement.cautionDeposit,
+            status: 'drafting',
+          })
+          .select()
+          .single();
+
+        if (!error && data) {
+          AdminDataStore.addLegalAgreement({ ...newAgreement, id: data.id });
+          return res.status(201).json({ agreement: { ...newAgreement, id: data.id }, agreementTitle });
+        }
+      } catch (_) {}
+    }
+
+    // Fallback: AdminDataStore only
+    AdminDataStore.addLegalAgreement(newAgreement);
+    res.status(201).json({ agreement: newAgreement, agreementTitle });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
