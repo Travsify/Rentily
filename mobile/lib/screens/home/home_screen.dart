@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../constants/app_colors.dart';
 import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
+import '../../services/api_service.dart';
 import '../wallet/wallet_screen.dart';
 import '../my_spaces/my_spaces_screen.dart';
 import '../bills/bills_screen.dart';
