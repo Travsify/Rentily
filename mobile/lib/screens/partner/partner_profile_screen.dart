@@ -445,16 +445,6 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
               subtitle: 'Formal dispute submissions, commission queries & arbitration desk',
               onTap: () => PartnerLegalModal.showInquiriesAndComplaints(context),
             ),
-            if (widget.onSwitchToTenant != null) ...[
-              const SizedBox(height: 4),
-              _buildTile(
-                icon: Icons.swap_horiz_rounded,
-                title: 'Switch to Consumer / Renter Mode 🔄',
-                subtitle: 'Browse properties, search rentals & manage tenancies as a consumer',
-                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.primary),
-                onTap: widget.onSwitchToTenant!,
-              ),
-            ],
             const SizedBox(height: 24),
 
             // Logout Button

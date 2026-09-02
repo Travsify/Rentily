@@ -980,16 +980,6 @@ class _LandlordProfileScreenState extends State<LandlordProfileScreen> {
               subtitle: 'Strict title confidentiality & 256-bit financial encryption terms',
               onTap: _showPrivacyPolicyModal,
             ),
-            if (widget.onSwitchToTenant != null) ...[
-              const SizedBox(height: 4),
-              _buildTile(
-                icon: Icons.swap_horiz_rounded,
-                title: 'Switch to Consumer / Renter Mode 🔄',
-                subtitle: 'Browse properties, search rentals & manage tenancies as a consumer',
-                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.primary),
-                onTap: widget.onSwitchToTenant!,
-              ),
-            ],
             const SizedBox(height: 24),
 
             // Logout Button
