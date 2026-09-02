@@ -30,7 +30,7 @@ export const IntegrationsTab: React.FC = () => {
       const res = await fetch('https://rentilly-admin-api.onrender.com/api/verify/nin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nin: testNin })
+        body: JSON.stringify({ ninNumber: testNin })
       });
       const data = await res.json();
       setIdPassResult(data);
@@ -51,7 +51,7 @@ export const IntegrationsTab: React.FC = () => {
         body: JSON.stringify({
           propertyId: 'test-prop-001',
           propertyTitle: 'Luxury 3-Bed Terrace Lekki Phase 1',
-          email: 'admin@rentilly.ng',
+          email: 'admin@myrentilly.com',
           tenantName: 'Femi Adesanya (Test Renter)',
           expectedAmount: 7500000
         })
