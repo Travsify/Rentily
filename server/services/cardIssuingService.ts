@@ -72,17 +72,7 @@ export class CardIssuingService {
    */
   static async getUserCards(email: string, fullName: string = 'Valued Partner'): Promise<VirtualCard[]> {
     const cleanEmail = (email || '').trim().toLowerCase();
-    let cards = this.loadCards().filter(c => c.email.toLowerCase() === cleanEmail);
-
-    // If user has no card yet, provision their initial default Rentilly USD Global Platinum Card
-    if (cards.length === 0) {
-      const defaultCard = this.provisionDefaultCard(cleanEmail, fullName);
-      const all = this.loadCards();
-      all.push(defaultCard);
-      this.saveCards(all);
-      cards = [defaultCard];
-    }
-
+    const cards = this.loadCards().filter(c => c.email.toLowerCase() === cleanEmail);
     return cards;
   }
 

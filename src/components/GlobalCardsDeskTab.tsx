@@ -424,100 +424,121 @@ export const GlobalCardsDeskTab: React.FC = () => {
 
         {/* Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {cards.map((card) => {
-            const isRevealed = revealedCardId === card.id;
-            return (
-              <div 
-                key={card.id}
-                className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 border border-slate-800 shadow-xl p-5 flex flex-col justify-between h-56 transition hover:border-emerald-500/40"
+          {cards.length === 0 ? (
+            <div className="p-8 rounded-2xl bg-slate-900/40 border border-slate-800/80 border-dashed text-center col-span-full space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-slate-800/80 border border-slate-700/50 flex items-center justify-center mx-auto text-slate-400">
+                <CreditCard className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white">No Virtual Cards Issued Yet</h3>
+                <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+                  Issue corporate dollar or naira debit cards for rental payments, partner spending, and vendor settlements.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowIssueModal(true)}
+                className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-xs font-semibold hover:from-emerald-500 hover:to-teal-500 transition inline-flex items-center gap-2 shadow-lg shadow-emerald-950/40"
               >
-                {/* Background Accent Gradients */}
-                <div className="absolute top-0 right-0 w-36 h-36 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
-                <div className="absolute bottom-0 left-0 w-36 h-36 bg-teal-500/10 rounded-full blur-2xl pointer-events-none" />
+                <Plus className="w-4 h-4" />
+                <span>Issue First Virtual Card</span>
+              </button>
+            </div>
+          ) : (
+            cards.map((card) => {
+              const isRevealed = revealedCardId === card.id;
+              return (
+                <div 
+                  key={card.id}
+                  className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 border border-slate-800 shadow-xl p-5 flex flex-col justify-between h-56 transition hover:border-emerald-500/40"
+                >
+                  {/* Background Accent Gradients */}
+                  <div className="absolute top-0 right-0 w-36 h-36 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
+                  <div className="absolute bottom-0 left-0 w-36 h-36 bg-teal-500/10 rounded-full blur-2xl pointer-events-none" />
 
-                {/* Card Top Row */}
-                <div className="flex items-center justify-between relative z-10">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-black tracking-wider text-emerald-400 uppercase">RENTILLY</span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-bold">
-                      {card.currency} {card.cardType.replace('_', ' ')}
+                  {/* Card Top Row */}
+                  <div className="flex items-center justify-between relative z-10">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black tracking-wider text-emerald-400 uppercase">RENTILLY</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-bold">
+                        {card.currency} {card.cardType.replace('_', ' ')}
+                      </span>
+                    </div>
+
+                    <span className="text-xs font-extrabold text-white tracking-widest">
+                      {card.brand}
                     </span>
                   </div>
 
-                  <span className="text-xs font-extrabold text-white tracking-widest">
-                    {card.brand}
-                  </span>
-                </div>
+                  {/* Card Middle (PAN) */}
+                  <div className="my-auto relative z-10 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-sm sm:text-base font-bold text-white tracking-widest">
+                        {isRevealed && card.fullPan ? card.fullPan : card.maskedPan}
+                      </span>
+                      <button
+                        onClick={() => setRevealedCardId(isRevealed ? null : card.id)}
+                        className="p-1 rounded text-slate-400 hover:text-white transition"
+                        title={isRevealed ? 'Hide PAN' : 'Reveal PAN'}
+                      >
+                        {isRevealed ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-4 text-[10px] text-slate-400 font-mono">
+                      <span>EXP: {card.expiryMonth}/{card.expiryYear}</span>
+                      <span>CVV: {isRevealed && card.cvv ? card.cvv : '•••'}</span>
+                    </div>
+                  </div>
 
-                {/* Card Middle (PAN) */}
-                <div className="my-auto relative z-10 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-sm sm:text-base font-bold text-white tracking-widest">
-                      {isRevealed && card.fullPan ? card.fullPan : card.maskedPan}
-                    </span>
+                  {/* Card Bottom Row */}
+                  <div className="flex items-end justify-between relative z-10 pt-2 border-t border-slate-800/80">
+                    <div>
+                      <span className="text-[9px] text-slate-400 uppercase block font-medium">Cardholder</span>
+                      <span className="text-xs font-bold text-white tracking-wide truncate max-w-[140px] block">
+                        {card.cardholderName}
+                      </span>
+                    </div>
+
+                    <div className="text-right">
+                      <span className="text-[9px] text-slate-400 uppercase block font-medium">Card Balance</span>
+                      <span className="text-sm font-extrabold text-emerald-400">
+                        {card.currency === 'USD' ? '$' : '₦'}{card.balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Quick Action Overlay Bar */}
+                  <div className="flex items-center justify-between pt-2 mt-2 border-t border-slate-800/50 text-xs">
                     <button
-                      onClick={() => setRevealedCardId(isRevealed ? null : card.id)}
-                      className="p-1 rounded text-slate-400 hover:text-white transition"
-                      title={isRevealed ? 'Hide PAN' : 'Reveal PAN'}
+                      onClick={() => {
+                        setSelectedCardForFund(card);
+                        setShowFundModal(true);
+                      }}
+                      className="text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 transition flex items-center gap-1"
                     >
-                      {isRevealed ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      <Plus className="w-3 h-3" /> Fund Card
+                    </button>
+
+                    <button
+                      onClick={() => handleToggleFreeze(card.id)}
+                      className={`text-[11px] font-semibold transition flex items-center gap-1 ${
+                        card.isFrozen ? 'text-amber-400 hover:text-amber-300' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {card.isFrozen ? (
+                        <>
+                          <Lock className="w-3 h-3" /> Frozen (Unfreeze)
+                        </>
+                      ) : (
+                        <>
+                          <Unlock className="w-3 h-3 text-emerald-400" /> Active (Freeze)
+                        </>
+                      )}
                     </button>
                   </div>
-                  <div className="flex items-center gap-4 text-[10px] text-slate-400 font-mono">
-                    <span>EXP: {card.expiryMonth}/{card.expiryYear}</span>
-                    <span>CVV: {isRevealed && card.cvv ? card.cvv : '•••'}</span>
-                  </div>
                 </div>
-
-                {/* Card Bottom Row */}
-                <div className="flex items-end justify-between relative z-10 pt-2 border-t border-slate-800/80">
-                  <div>
-                    <span className="text-[9px] text-slate-400 uppercase block font-medium">Cardholder</span>
-                    <span className="text-xs font-bold text-white tracking-wide truncate max-w-[140px] block">
-                      {card.cardholderName}
-                    </span>
-                  </div>
-
-                  <div className="text-right">
-                    <span className="text-[9px] text-slate-400 uppercase block font-medium">Card Balance</span>
-                    <span className="text-sm font-extrabold text-emerald-400">
-                      {card.currency === 'USD' ? '$' : '₦'}{card.balance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Quick Action Overlay Bar */}
-                <div className="flex items-center justify-between pt-2 mt-2 border-t border-slate-800/50 text-xs">
-                  <button
-                    onClick={() => {
-                      setSelectedCardForFund(card);
-                      setShowFundModal(true);
-                    }}
-                    className="text-[11px] font-semibold text-emerald-400 hover:text-emerald-300 transition flex items-center gap-1"
-                  >
-                    <Plus className="w-3 h-3" /> Fund Card
-                  </button>
-
-                  <button
-                    onClick={() => handleToggleFreeze(card.id)}
-                    className={`text-[11px] font-semibold transition flex items-center gap-1 ${
-                      card.isFrozen ? 'text-amber-400 hover:text-amber-300' : 'text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    {card.isFrozen ? (
-                      <>
-                        <Lock className="w-3 h-3" /> Frozen (Unfreeze)
-                      </>
-                    ) : (
-                      <>
-                        <Unlock className="w-3 h-3 text-emerald-400" /> Active (Freeze)
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </div>
 
