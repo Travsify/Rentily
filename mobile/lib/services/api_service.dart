@@ -348,4 +348,62 @@ class ApiService {
       return {'success': false, 'message': e.toString()};
     }
   }
+
+  /// Fetch live multi-currency accounts from Render / Korapay
+  static Future<List<Map<String, dynamic>>> fetchMultiCurrencyAccounts(String email) async {
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/wallet/multi-currency-accounts?email=$email'))
+          .timeout(const Duration(seconds: 10));
+      if (res.statusCode == 200) {
+        final data = json.decode(res.body);
+        if (data['status'] == true && data['data'] is List) {
+          return List<Map<String, dynamic>>.from(data['data']);
+        }
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  /// Fetch live virtual dollar & naira cards
+  static Future<List<Map<String, dynamic>>> fetchUserCards(String email) async {
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/cards/user-cards?email=$email'))
+          .timeout(const Duration(seconds: 10));
+      if (res.statusCode == 200) {
+        final data = json.decode(res.body);
+        if (data['status'] == true && data['data'] is List) {
+          return List<Map<String, dynamic>>.from(data['data']);
+        }
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  /// Fund virtual card from wallet
+  static Future<bool> fundVirtualCard(String email, String cardId, double amount) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/cards/fund'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'email': email, 'cardId': cardId, 'amount': amount}),
+      ).timeout(const Duration(seconds: 10));
+      return res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Freeze/Unfreeze virtual card
+  static Future<bool> toggleFreezeVirtualCard(String email, String cardId) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/cards/toggle-freeze'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'email': email, 'cardId': cardId}),
+      ).timeout(const Duration(seconds: 10));
+      return res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
 }

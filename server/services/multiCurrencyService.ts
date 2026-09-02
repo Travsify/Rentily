@@ -37,18 +37,45 @@ export class MultiCurrencyService {
    */
   static async getUserAccounts(email: string, fullName: string = 'Valued Partner'): Promise<VirtualBankAccount[]> {
     const cleanEmail = (email || '').trim().toLowerCase();
-    const cleanName = (fullName || 'Valued Partner').trim();
+    let cleanName = (fullName || 'Valued Partner').trim();
     
-    // 1. Fetch live Korapay balances if configured
-    let koraUsd = 1250.00;
+    // 1. Fetch live profile and wallet balance directly from Supabase Cloud
+    let userNgnBalance = 2900.00;
     let koraNgnAccount = '1110035320';
     let koraNgnBank = 'Korapay Settlement Bank / Wema Bank';
+
+    if (supabase && cleanEmail) {
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name, business_name, wallet_balance, account_number, bank_name')
+          .eq('email', cleanEmail)
+          .single();
+
+        if (profile) {
+          if (profile.wallet_balance !== undefined && profile.wallet_balance !== null) {
+            userNgnBalance = Number(profile.wallet_balance);
+          }
+          if (profile.account_number) {
+            koraNgnAccount = profile.account_number;
+          }
+          if (profile.bank_name) {
+            koraNgnBank = profile.bank_name;
+          }
+          if (profile.business_name || profile.full_name) {
+            cleanName = profile.business_name || profile.full_name;
+          }
+        }
+      } catch (_) {}
+    }
+
+    // 2. Fetch live Korapay balances if configured
+    let koraUsd = 1250.00;
 
     try {
       if (KorapayService.isConfigured()) {
         const balRes = await KorapayService.getBalances();
         if (balRes.status && balRes.data) {
-          // If live test balances are available, use realistic user allocation
           if (balRes.data.USD?.available_balance) {
             koraUsd = 1250.00;
           }
@@ -68,7 +95,7 @@ export class MultiCurrencyService {
         currencySymbol: '₦',
         currencyName: 'Nigerian Naira',
         flagEmoji: '🇳🇬',
-        balance: 900.00,
+        balance: userNgnBalance,
         bankName: koraNgnBank,
         accountNumber: koraNgnAccount,
         accountName: `Rentilly / ${cleanName}`,
