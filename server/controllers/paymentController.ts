@@ -738,13 +738,12 @@ export async function getWalletBalance(req: Request, res: Response) {
     // Auto-sync from Flutterwave
     await syncFlutterwaveTransactionsForUser(cleanEmail);
 
+    const userTxs = await TransactionStore.getTransactionsByEmail(cleanEmail);
     const netBal = TransactionStore.computeNetBalance(cleanEmail);
     const memUser = await UserStore.findByEmail(cleanEmail);
 
-    let balance = Math.max(
-      memUser?.walletBalance ?? 0,
-      netBal
-    );
+    // Strict Double-Entry: ledger netBal is the single authoritative source of truth
+    const balance = userTxs.length > 0 ? netBal : (memUser?.walletBalance ?? 0);
 
     if (memUser && memUser.walletBalance !== balance) {
       UserStore.upsertUser({

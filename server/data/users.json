@@ -11,8 +11,12 @@
     "bankName": "Flutterwave MFB",
     "state": "Lagos",
     "walletBalance": 0,
-    "createdAt": "2026-09-02T06:49:43.084Z",
-    "updatedAt": "2026-09-02T07:55:00.000Z"
+    "createdAt": "2026-09-02T07:53:40.172175+00:00",
+    "updatedAt": "2026-09-02T07:53:40.172175+00:00",
+    "ninNumber": null,
+    "bvnVerified": false,
+    "businessName": null,
+    "cacNumber": null
   },
   {
     "id": "c0000000-0000-0000-0000-000000000001",
@@ -23,27 +27,35 @@
     "role": "partner",
     "isVerified": true,
     "businessName": "Ehomes Global Inclusive Limited",
-    "cacNumber": null,
+    "cacNumber": "RC-1849204",
     "officeAddress": "Admiralty Way, Lekki Phase 1, Lagos",
     "partnerStatus": "verified",
     "accountNumber": "9591357072",
     "bankName": "Flutterwave MFB",
     "state": "Lagos",
-    "walletBalance": 52000,
-    "createdAt": "2026-09-02T06:49:43.084Z",
-    "updatedAt": "2026-09-02T08:08:00.000Z"
+    "walletBalance": 2000,
+    "createdAt": "2026-09-02T07:50:58.103846+00:00",
+    "updatedAt": "2026-09-02T07:56:20.724+00:00",
+    "ninNumber": null,
+    "bvnVerified": false
   },
   {
     "id": "a0000000-0000-0000-0000-000000000001",
     "email": "admin@myrentilly.com",
     "fullName": "Rentilly Super Admin",
-    "phoneNumber": "+2348000000000",
+    "phoneNumber": "",
     "passwordHash": "1a6c236645cd3cff3f5b9e7e06bfb78226a30ed3fe22266f72ff258076afff48",
     "role": "admin",
     "isVerified": true,
     "state": "Lagos",
     "walletBalance": 0,
-    "createdAt": "2026-09-02T06:49:43.084Z",
-    "updatedAt": "2026-09-02T07:55:00.000Z"
+    "createdAt": "2026-09-02T07:53:07.374682+00:00",
+    "updatedAt": "2026-09-02T07:53:07.374682+00:00",
+    "ninNumber": null,
+    "bvnVerified": false,
+    "accountNumber": null,
+    "bankName": "Flutterwave MFB",
+    "businessName": null,
+    "cacNumber": null
   }
 ]

@@ -89,7 +89,7 @@ function seedKnownUsers(): StoredUser[] {
       accountNumber: '9591357072',
       bankName: 'Flutterwave MFB',
       state: 'Lagos',
-      walletBalance: 52000,
+      walletBalance: 2000,
       createdAt: now,
       updatedAt: now,
     },
