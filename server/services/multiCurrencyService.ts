@@ -57,6 +57,10 @@ export class MultiCurrencyService {
     return { ...this.fxRates };
   }
 
+  static getRates(): Record<string, number> {
+    return this.getFxRates();
+  }
+
   static async updateFxRates(newRates: { USD_NGN?: number; GBP_NGN?: number; EUR_NGN?: number }): Promise<Record<string, number>> {
     if (newRates.USD_NGN && newRates.USD_NGN > 0) {
       this.fxRates['USD_NGN'] = newRates.USD_NGN;

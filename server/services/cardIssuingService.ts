@@ -328,6 +328,7 @@ export class CardIssuingService {
                 'issuing_app_id': bridgeAppId,
                 'Content-Type': 'application/json'
               },
+              signal: AbortSignal.timeout(3500),
               body: JSON.stringify({
                 first_name: cleanName.split(' ')[0] || 'Rentilly',
                 last_name: cleanName.split(' ').slice(1).join(' ') || 'User',
@@ -360,6 +361,7 @@ export class CardIssuingService {
                   'issuing_app_id': bridgeAppId,
                   'Content-Type': 'application/json'
                 },
+                signal: AbortSignal.timeout(3500),
                 body: JSON.stringify({
                   cardholder_id: cardholderId,
                   card_currency: currency,
@@ -445,17 +447,19 @@ export class CardIssuingService {
           updated_at: new Date().toISOString()
         });
 
-        // Save PIN in system_configs
+        console.log(`[CardIssuingService] Saved card ${uuidId} directly to Supabase.`);
+      } catch (e: any) {
+        console.error('[CardIssuingService] Supabase insert card error:', e.message);
+      }
+
+      // Optional PIN save in system_configs (isolated so it never blocks card insert)
+      try {
         await supabase.from('system_configs').upsert({
           id: 'virtual_card_pins',
           data: _cardPins,
           updated_at: new Date().toISOString()
         }, { onConflict: 'id' });
-
-        console.log(`[CardIssuingService] Saved card ${uuidId} directly to Supabase.`);
-      } catch (e: any) {
-        console.error('[CardIssuingService] Supabase insert card error:', e.message);
-      }
+      } catch (_) {}
     }
 
     // 2. Update in-memory cache

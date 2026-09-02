@@ -1307,24 +1307,92 @@ export async function fundVirtualCard(req: Request, res: Response) {
       return res.status(400).json({ error: 'Valid cardId and amount are required' });
     }
 
+    const cleanEmail = (email || 'tonerocool1@gmail.com').toString().trim().toLowerCase();
+    const fxRate = MultiCurrencyService.getFxRates().USD_NGN || 1510.0;
+    const debitAmountNgn = Number((Number(amount) * fxRate).toFixed(2));
+
+    // 1. Fund the virtual card
     const result = await CardIssuingService.fundCard(cardId, Number(amount));
     if (!result.success) {
       return res.status(400).json({ error: result.message });
     }
 
+    // 2. Debit user's Naira wallet & insert into ledger
+    const user = await UserStore.findByEmail(cleanEmail);
+    const name = user?.fullName || user?.businessName || 'Valued Partner';
+
+    if (supabase) {
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('id, wallet_balance, full_name')
+          .eq('email', cleanEmail)
+          .single();
+
+        if (profile) {
+          const currentBal = Number(profile.wallet_balance || 0);
+          const newBal = Math.max(0, currentBal - debitAmountNgn);
+
+          await supabase
+            .from('profiles')
+            .update({ wallet_balance: newBal, updated_at: new Date().toISOString() })
+            .eq('email', cleanEmail);
+
+          const txRef = `CARD_FUND_${Date.now()}`;
+          await supabase
+            .from('transactions')
+            .insert({
+              user_id: profile.id,
+              email: cleanEmail,
+              amount: debitAmountNgn,
+              type: 'debit',
+              status: 'completed',
+              reference: txRef,
+              title: `Virtual Dollar Card Top-Up ($${Number(amount).toFixed(2)} USD)`,
+              created_at: new Date().toISOString()
+            });
+
+          await TransactionStore.addTransaction({
+            id: `TX_${Date.now()}`,
+            userId: profile.id,
+            email: cleanEmail,
+            title: `Virtual Dollar Card Top-Up ($${Number(amount).toFixed(2)} USD)`,
+            type: 'Virtual Card Funding',
+            category: 'debit',
+            amount: debitAmountNgn,
+            isCredit: false,
+            reference: txRef,
+            sender: `${name} (Rentilly Wallet)`,
+            beneficiary: 'Rentilly Virtual Card Top-Up System',
+            status: 'SUCCESSFUL',
+            date: new Date().toISOString()
+          });
+        }
+      } catch (err: any) {
+        console.warn('[PaymentController] Ledger recording notice on card fund:', err.message);
+      }
+    }
+
+    if (user) {
+      const memBal = Number(user.walletBalance || 0);
+      user.walletBalance = Math.max(0, memBal - debitAmountNgn);
+    }
+
+    // 3. Dispatch Email & Push Notification
     NotificationDispatcher.dispatch({
-      email: email || 'tonerocool1@gmail.com',
-      userName: 'Valued Partner',
+      email: cleanEmail,
+      userName: name,
       category: 'wallet',
-      title: `Virtual Card Funded — ${amount}`,
-      message: result.message,
-      metadata: { cardId, amount: Number(amount), newBalance: result.newBalance }
+      title: `Virtual Dollar Card Top-Up ($${Number(amount).toFixed(2)} USD)`,
+      message: `Successfully funded $${Number(amount).toFixed(2)} USD onto your virtual card. ₦${debitAmountNgn.toLocaleString()} was debited from your wallet. New card balance: $${result.newBalance.toFixed(2)} USD.`,
+      metadata: { cardId, amountUsd: Number(amount), amountNgn: debitAmountNgn, newBalance: result.newBalance }
     });
 
     res.json({
       status: true,
       message: result.message,
-      newBalance: result.newBalance
+      newBalance: result.newBalance,
+      debitedAmountNgn: debitAmountNgn
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_constants.dart';
 import 'auth/login_screen.dart';
-import 'main_navigation_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -20,7 +20,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final List<Map<String, dynamic>> _slides = [
     {
       'icon': Icons.trending_down_rounded,
-      'iconColor': Color(0xFF10B981),
+      'iconColor': const Color(0xFF10B981),
       'tag': 'ZERO AGENT EXTORTION',
       'title': 'Keep Your 20%\nHard-Earned Money',
       'description':
@@ -30,7 +30,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     },
     {
       'icon': Icons.verified_user_rounded,
-      'iconColor': Color(0xFFF59E0B),
+      'iconColor': const Color(0xFFF59E0B),
       'tag': 'ZERO FAKE LANDLORDS',
       'title': '100% Audited Title\nDeeds & Ownership',
       'description':
@@ -40,7 +40,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     },
     {
       'icon': Icons.lock_clock_rounded,
-      'iconColor': Color(0xFF3B82F6),
+      'iconColor': const Color(0xFF3B82F6),
       'tag': 'PROTECTED ESCROW',
       'title': 'Pay Safe with 30-Day\nMove-In Guarantee',
       'description':
@@ -51,6 +51,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   ];
 
   void _finishOnboarding() async {
+    HapticFeedback.lightImpact();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(AppConstants.seenOnboardingKey, true);
 
@@ -60,42 +61,56 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
+  void _nextPage() {
+    HapticFeedback.selectionClick();
+    if (_currentPage < _slides.length - 1) {
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+      );
+    } else {
+      _finishOnboarding();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final current = _slides[_currentPage];
 
     return Scaffold(
-      backgroundColor: AppColors.backgroundDark,
+      backgroundColor: const Color(0xFF070D1B), // Solid, deep obsidian dark canvas
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           child: Column(
             children: [
-              // Top Bar: Skip button
+              // Top Bar: Brand Crest + Skip Button
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.all(6),
+                        padding: const EdgeInsets.all(7),
                         decoration: BoxDecoration(
-                          color: AppColors.primaryLight.withOpacity(0.15),
+                          color: AppColors.primary.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
                         ),
                         child: const Icon(
                           Icons.shield_rounded,
                           size: 18,
-                          color: AppColors.primaryLight,
+                          color: Color(0xFF34D399),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 10),
                       Text(
                         'Rentilly',
                         style: GoogleFonts.plusJakartaSans(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
                           color: Colors.white,
+                          letterSpacing: 0.2,
                         ),
                       ),
                     ],
@@ -107,8 +122,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         'Skip',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF94A3B8), // Readable crisp slate
                         ),
                       ),
                     ),
@@ -137,11 +152,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ),
               ),
 
-              const Spacer(),
+              const SizedBox(height: 20),
 
-              // PageView Content
-              SizedBox(
-                height: 380,
+              // PageView Slides Content
+              Expanded(
                 child: PageView.builder(
                   controller: _pageController,
                   onPageChanged: (index) {
@@ -152,89 +166,121 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   itemCount: _slides.length,
                   itemBuilder: (context, index) {
                     final slide = _slides[index];
-                    return Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        // Slide Hero Icon Circle
-                        Container(
-                          width: 100,
-                          height: 100,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: (slide['iconColor'] as Color).withOpacity(0.12),
-                            border: Border.all(
-                              color: (slide['iconColor'] as Color).withOpacity(0.3),
-                              width: 1.5,
-                            ),
-                          ),
-                          child: Center(
-                            child: Icon(
-                              slide['icon'],
-                              size: 48,
-                              color: slide['iconColor'],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
+                    final Color iconColor = slide['iconColor'];
 
-                        // Tag
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: (slide['iconColor'] as Color).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(20),
+                    return SingleChildScrollView(
+                      physics: const BouncingScrollPhysics(),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const SizedBox(height: 16),
+
+                          // Slide Hero Icon Box with High-Contrast Aura
+                          Container(
+                            width: 110,
+                            height: 110,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: iconColor.withValues(alpha: 0.15),
+                              border: Border.all(
+                                color: iconColor.withValues(alpha: 0.4),
+                                width: 2,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: iconColor.withValues(alpha: 0.25),
+                                  blurRadius: 30,
+                                  offset: const Offset(0, 10),
+                                ),
+                              ],
+                            ),
+                            child: Center(
+                              child: Icon(
+                                slide['icon'],
+                                size: 52,
+                                color: iconColor,
+                              ),
+                            ),
                           ),
-                          child: Text(
-                            slide['tag'],
+                          const SizedBox(height: 24),
+
+                          // Category Tag
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: iconColor.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: iconColor.withValues(alpha: 0.3)),
+                            ),
+                            child: Text(
+                              slide['tag'],
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1.2,
+                                color: iconColor,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Slide Title (Ultra-Bright White)
+                          Text(
+                            slide['title'],
+                            textAlign: TextAlign.center,
                             style: GoogleFonts.plusJakartaSans(
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1.1,
-                              color: slide['iconColor'],
+                              fontSize: 26,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white, // Ultra visible white
+                              height: 1.25,
+                              shadows: [
+                                Shadow(
+                                  color: Colors.black.withValues(alpha: 0.6),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 12),
+                          const SizedBox(height: 14),
 
-                        // Title
-                        Text(
-                          slide['title'],
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white,
-                            height: 1.2,
+                          // Slide Description (Super Readable Crisp Slate)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: Text(
+                              slide['description'],
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 13.5,
+                                color: const Color(0xFFE2E8F0), // Highly readable crisp light slate
+                                height: 1.5,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 12),
-
-                        // Description
-                        Text(
-                          slide['description'],
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
-                            height: 1.5,
-                          ),
-                        ),
-                      ],
+                          const SizedBox(height: 16),
+                        ],
+                      ),
                     );
                   },
                 ),
               ),
 
-              const Spacer(),
-
-              // Stat Badge Box
+              // Bottom Stat Badge Card (High-Contrast Obsidian)
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceDark,
+                  color: const Color(0xFF0F172A),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.borderDark.withOpacity(0.5)),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.2),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -242,39 +288,41 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     Text(
                       current['statLabel'],
                       style: GoogleFonts.plusJakartaSans(
-                        fontSize: 11,
-                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF94A3B8), // Readable crisp slate
                       ),
                     ),
                     Text(
                       current['statValue'],
                       style: GoogleFonts.plusJakartaSans(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
                         color: current['iconColor'],
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
 
-              // Page Indicators & Navigation Button
+              // Page Indicators & Next / Get Started Action Button
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  // Dots
+                  // Progress Dots
                   Row(
                     children: List.generate(
                       _slides.length,
-                      (index) => Container(
+                      (index) => AnimatedContainer(
+                        duration: const Duration(milliseconds: 250),
                         margin: const EdgeInsets.only(right: 6),
-                        width: _currentPage == index ? 22 : 6,
-                        height: 6,
+                        width: _currentPage == index ? 24 : 8,
+                        height: 7,
                         decoration: BoxDecoration(
                           color: _currentPage == index
-                              ? AppColors.primaryLight
-                              : AppColors.borderDark,
+                              ? const Color(0xFF34D399) // Vibrant emerald
+                              : Colors.white24,
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),
@@ -283,44 +331,36 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
                   // Next / Get Started Button
                   ElevatedButton(
-                    onPressed: () {
-                      if (_currentPage < _slides.length - 1) {
-                        _pageController.nextPage(
-                          duration: const Duration(milliseconds: 400),
-                          curve: Curves.easeInOut,
-                        );
-                      } else {
-                        _finishOnboarding();
-                      }
-                    },
+                    onPressed: _nextPage,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primaryLight,
+                      backgroundColor: AppColors.primary,
                       foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 13),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
                       elevation: 4,
-                      shadowColor: AppColors.primaryLight.withOpacity(0.4),
+                      shadowColor: AppColors.primary.withValues(alpha: 0.4),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          _currentPage == _slides.length - 1 ? 'Start Exploring' : 'Continue',
+                          _currentPage == _slides.length - 1 ? 'Enter Rentilly' : 'Continue',
                           style: GoogleFonts.plusJakartaSans(
-                            fontSize: 12,
+                            fontSize: 13.5,
                             fontWeight: FontWeight.bold,
+                            color: Colors.white,
                           ),
                         ),
-                        const SizedBox(width: 6),
-                        const Icon(Icons.arrow_forward_rounded, size: 16),
+                        const SizedBox(width: 8),
+                        const Icon(Icons.arrow_forward_rounded, size: 16, color: Colors.white),
                       ],
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
             ],
           ),
         ),
