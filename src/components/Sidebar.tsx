@@ -11,7 +11,8 @@ import {
   Smartphone,
   TrendingDown,
   Key,
-  UserX
+  UserX,
+  Headphones
 } from 'lucide-react';
 import type { AdminTab } from '../types';
 
@@ -81,6 +82,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'Fraud & Rogue Blacklist',
       icon: UserX,
       badge: 'Anti-Scam'
+    },
+    {
+      id: 'support_tickets' as AdminTab,
+      label: 'Support & Disputes Desk',
+      icon: Headphones,
+      badge: 'Arbitration'
     },
     {
       id: 'integrations' as AdminTab,

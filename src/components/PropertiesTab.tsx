@@ -27,17 +27,20 @@ export const PropertiesTab: React.FC<PropertiesTabProps> = ({
 }) => {
   const [filterPurpose, setFilterPurpose] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterRole, setFilterRole] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   const filtered = properties.filter((p) => {
     const matchesPurpose = filterPurpose === 'all' ? true : p.purpose === filterPurpose;
     const matchesStatus = filterStatus === 'all' ? true : p.status === filterStatus;
+    const matchesRole = filterRole === 'all' ? true : p.listedByRole === filterRole;
     const matchesSearch = 
       p.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.neighborhood.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.ownerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.partnerBusinessName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.state.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesPurpose && matchesStatus && matchesSearch;
+    return matchesPurpose && matchesStatus && matchesRole && matchesSearch;
   });
 
   return (
@@ -120,6 +123,17 @@ export const PropertiesTab: React.FC<PropertiesTabProps> = ({
             <option value="sold">Sold (Delisted)</option>
             <option value="rejected">Rejected</option>
           </select>
+
+          {/* Role Filter */}
+          <select
+            value={filterRole}
+            onChange={(e) => setFilterRole(e.target.value)}
+            className="px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 focus:outline-none focus:border-emerald-500"
+          >
+            <option value="all">All Stakeholders</option>
+            <option value="verified_partner">Corporate Partner Mandates 🏢</option>
+            <option value="direct_landlord">Direct Landlord Listings</option>
+          </select>
         </div>
       </div>
 
@@ -181,6 +195,12 @@ export const PropertiesTab: React.FC<PropertiesTabProps> = ({
                     <span className="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-slate-900/80 backdrop-blur-md text-slate-300 border border-slate-700/60">
                       {prop.propertyType.replace('_', ' ')}
                     </span>
+
+                    {prop.listedByRole === 'verified_partner' && (
+                      <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-amber-500 text-slate-950 shadow-sm backdrop-blur-md">
+                        Mandate: {prop.partnerBusinessName || prop.partnerName || 'Partner'}
+                      </span>
+                    )}
                   </div>
 
                   {/* Right Status Badge */}

@@ -27,15 +27,15 @@ export const PropertyModal: React.FC<PropertyModalProps> = ({ isOpen, onClose, o
     bedrooms: '3',
     bathrooms: '3',
     furnishing: 'unfurnished',
-    ownerName: 'Chief Adebayo Falana',
-    ownerPhone: '+234 802 987 6543',
+    ownerName: '',
+    ownerPhone: '',
     // KYP fields
     titleDocumentType: 'governors_consent' as TitleDocumentType,
-    titleDocumentNumber: 'VOL-42/PAGE-109/LAGOS-2026',
+    titleDocumentNumber: '',
     ownerIdType: 'NIN',
-    ownerIdNumber: '57291830492',
+    ownerIdNumber: '',
     discoProvider: 'EKEDC',
-    discoMeterNumber: '04192837461'
+    discoMeterNumber: ''
   });
 
   const basePriceNum = Number(formData.basePrice || 0);

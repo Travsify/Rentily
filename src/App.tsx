@@ -11,6 +11,7 @@ import { InspectionsTab } from './components/InspectionsTab';
 import { EscrowTab } from './components/EscrowTab';
 import { LegalAgreementsTab } from './components/LegalAgreementsTab';
 import { FraudBlacklistTab } from './components/FraudBlacklistTab';
+import { SupportDeskTab } from './components/SupportDeskTab';
 import { IntegrationsTab } from './components/IntegrationsTab';
 import { SupabaseConfigTab } from './components/SupabaseConfigTab';
 import { FlutterApiDocsTab } from './components/FlutterApiDocsTab';
@@ -229,6 +230,10 @@ export default function App() {
 
           {currentTab === 'fraud_blacklist' && (
             <FraudBlacklistTab />
+          )}
+
+          {currentTab === 'support_tickets' && (
+            <SupportDeskTab />
           )}
 
           {currentTab === 'integrations' && (

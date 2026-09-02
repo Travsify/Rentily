@@ -176,8 +176,20 @@ export const UsersTab: React.FC<UsersTabProps> = ({ users }) => {
                   return (
                     <tr key={u.id} className="hover:bg-slate-850/50 transition">
                       <td className="py-3">
-                        <div className="font-bold text-white">{u.fullName || 'Unnamed User'}</div>
-                        <div className="text-[11px] text-slate-400 font-mono">{u.email}</div>
+                        <div className="font-bold text-white flex items-center gap-1.5">
+                          <span>{u.fullName || 'Unnamed User'}</span>
+                          {anyU.businessName && (
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-blue-950 text-blue-300 border border-blue-800">
+                              {anyU.businessName}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-slate-400 font-mono flex items-center gap-2">
+                          <span>{u.email}</span>
+                          {anyU.cacNumber && (
+                            <span className="text-[10px] text-emerald-400 font-bold">CAC: {anyU.cacNumber}</span>
+                          )}
+                        </div>
                         {u.phoneNumber && (
                           <div className="text-[10px] text-slate-500">{u.phoneNumber}</div>
                         )}

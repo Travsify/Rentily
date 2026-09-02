@@ -202,6 +202,7 @@ export type AdminTab =
   | 'escrow' 
   | 'legal' 
   | 'fraud_blacklist'
+  | 'support_tickets'
   | 'integrations'
   | 'supabase_config'
   | 'flutter_api';

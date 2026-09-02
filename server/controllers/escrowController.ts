@@ -4,6 +4,7 @@ import type { Transaction } from '../types';
 import { TransactionStore } from '../services/transactionStore';
 import { AdminDataStore } from '../services/adminDataStore';
 import { NotificationDispatcher } from '../services/notificationDispatcher';
+import { UserStore } from '../services/userStore';
 
 export async function getTransactions(_req: Request, res: Response) {
   try {
@@ -98,7 +99,7 @@ export async function releaseEscrowPayout(req: Request, res: Response) {
       } catch (_) {}
     }
 
-    // Dispatch payout release alert
+    // Dispatch payout release alert to landlord
     const targetOwnerEmail = txn?.owner_name || `${id}@myrentilly.com`;
     NotificationDispatcher.dispatch({
       userId: txn?.owner_id || id,
@@ -114,7 +115,86 @@ export async function releaseEscrowPayout(req: Request, res: Response) {
       }
     });
 
-    res.json({ success: true, transaction: txn, payoutReference, payoutReleasedAt });
+    // 3. Automated Accredited Partner Commission Payout Credit
+    const propertyId = txn?.property_id;
+    const property = propertyId ? AdminDataStore.getProperties().find(p => p.id === propertyId) : null;
+    let partnerCommissionAmount = 0;
+    let creditedPartner: any = null;
+
+    if (property && (property as any).listedByRole === 'verified_partner') {
+      const partnerId = (property as any).partnerId || property.ownerId;
+      const allUsers = await UserStore.getAllUsers();
+      const partnerUser = (await UserStore.findById(partnerId)) || 
+        allUsers.find(u => u.id === partnerId || (property.ownerPhone && u.phoneNumber === property.ownerPhone) || u.email === property.ownerEmail);
+
+      if (partnerUser) {
+        const isRent = (txn?.transaction_type === 'rent') || (property.purpose === 'rent');
+        const rate = isRent ? 0.025 : 0.020;
+        const baseAmount = Number(txn?.base_price || txn?.total_amount || property.basePrice || 0);
+        partnerCommissionAmount = Math.round(baseAmount * rate);
+
+        if (partnerCommissionAmount > 0) {
+          // A. Credit the partner's wallet balance
+          const updatedBal = (partnerUser.walletBalance || 0) + partnerCommissionAmount;
+          await UserStore.upsertUser({
+            ...partnerUser,
+            walletBalance: updatedBal,
+            updatedAt: payoutReleasedAt
+          });
+
+          // B. Record credit transaction in live ledger
+          const commTxId = `TX-COMM-${Date.now()}`;
+          TransactionStore.recordTransaction({
+            id: commTxId,
+            userId: partnerUser.id,
+            userEmail: partnerUser.email,
+            amount: partnerCommissionAmount,
+            type: 'credit',
+            status: 'SUCCESSFUL',
+            category: 'commission',
+            title: `Brokerage Commission: ${property.title}`,
+            description: `${isRent ? '2.5%' : '2.0%'} mandate commission for ${property.title}. Released from escrow payout ${payoutReference}.`,
+            reference: `COMM-${payoutReference}`,
+            date: payoutReleasedAt,
+            isCredit: true,
+            escrowStatus: 'released_to_owner'
+          });
+
+          creditedPartner = {
+            id: partnerUser.id,
+            name: partnerUser.businessName || partnerUser.fullName,
+            email: partnerUser.email,
+            commissionAmount: partnerCommissionAmount,
+            rate: isRent ? '2.5%' : '2.0%'
+          };
+
+          // C. Dispatch instant notification alert to Accredited Partner
+          NotificationDispatcher.dispatch({
+            userId: partnerUser.id,
+            email: partnerUser.email,
+            userName: partnerUser.businessName || partnerUser.fullName,
+            title: `🎉 Brokerage Commission Unlocked: ₦${partnerCommissionAmount.toLocaleString()}`,
+            category: 'escrow',
+            message: `Your ${isRent ? '2.5%' : '2.0%'} commission for "${property.title}" has been released and credited to your settlement vault. Current Balance: ₦${updatedBal.toLocaleString()}.`,
+            metadata: {
+              propertyId: property.id,
+              propertyTitle: property.title,
+              commissionAmount: partnerCommissionAmount,
+              payoutReference
+            }
+          });
+        }
+      }
+    }
+
+    res.json({ 
+      success: true, 
+      transaction: txn, 
+      payoutReference, 
+      payoutReleasedAt,
+      partnerCommissionCredited: partnerCommissionAmount > 0,
+      creditedPartner
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
