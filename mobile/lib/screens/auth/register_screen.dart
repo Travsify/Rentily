@@ -493,49 +493,170 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  // STEP 0: Role Selection (Fully Contained Modern Cards with Zero Slippage)
+  // STEP 0: Role Selection (Catchy Luxury Real Estate Theme in Brand Colors)
   Widget _buildRoleSelectionStep() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // 1. Luxury Home Placement Mission Card
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF042F2E), Color(0xFF064E3B), Color(0xFF0F766E)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFF4ADE80).withValues(alpha: 0.3), width: 1.2),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF064E3B).withValues(alpha: 0.25),
+                blurRadius: 14,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF10B981), Color(0xFF059669)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF10B981).withValues(alpha: 0.35),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: const Icon(Icons.shield_rounded, color: Colors.white, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Rentilly: Built by Landlords for Every Tenant/Landlord',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.white,
+                        letterSpacing: -0.2,
+                        height: 1.25,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      'Zero 20% agent markups. 100% legal escrow protection nationwide across Nigeria.',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 9.5,
+                        color: const Color(0xFFE2E8F0),
+                        height: 1.2,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 18),
+
         Text(
-          'SELECT YOUR ACCOUNT TYPE',
+          'CHOOSE YOUR ACCOUNT PERSONA',
           style: GoogleFonts.plusJakartaSans(
-            fontSize: 8.5,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 0.9,
+            fontSize: 9,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.1,
             color: AppColors.textSecondary,
           ),
         ),
         const SizedBox(height: 12),
+
+        // Role 1: Renter / Home Buyer
         _buildRoleSelectionCard(
           id: 'renter',
           title: 'Renter / Home Buyer',
-          subtitle: 'Find and rent verified homes with zero agent fees and smart salary utility splitting.',
-          icon: Icons.home_rounded,
-          badgeText: 'POPULAR',
-          badgeColor: const Color(0xFF10B981),
-          tags: ['Zero Agent Fees', 'Salary Splitter', 'Verified Homes'],
+          tagline: 'Looking to rent or buy a verified home in Nigeria',
+          subtitle: 'Direct connection to verified property owners. Zero agency markups with 100% legal escrow security.',
+          icon: Icons.cottage_rounded,
+          badgeText: 'MOST POPULAR 🌟',
+          badgeColor: const Color(0xFF0D9488),
+          accentGradient: const [Color(0xFF0D9488), Color(0xFF059669)],
+          highlights: [
+            'Zero 20% Middleman Agent Fees',
+            '100% Rent & Purchase Escrow Protection',
+            'Smart Salary Splitter & 24/7 Power DisCo Tokens',
+          ],
+          tags: ['₦0 Agent Cut', 'Escrow Shield', 'Verified Listings'],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
+
+        // Role 2: Direct Landlord / Owner
+        _buildRoleSelectionCard(
+          id: 'owner',
+          title: 'Property Owner / Landlord',
+          tagline: 'Own or manage real estate assets in Nigeria',
+          subtitle: 'List apartments, screen verified tenants with BVN/NIN, and get direct automated rent settlements.',
+          icon: Icons.vpn_key_rounded,
+          badgeText: 'DIRECT ASSET OWNER 🏛️',
+          badgeColor: const Color(0xFFD97706),
+          accentGradient: const [Color(0xFFD97706), Color(0xFFB45309)],
+          highlights: [
+            'Direct Automated Rent Settlements to your bank',
+            'Verified Tenant Screening with Identity Check',
+            'Automated Legal Digital Leases & Tenancy Notices',
+          ],
+          tags: ['Direct Payouts', 'Verified Tenants', 'Digital Leases'],
+        ),
+        const SizedBox(height: 14),
+
+        // Role 3: Corporate Partner / Broker
         _buildRoleSelectionCard(
           id: 'partner',
           title: 'Corporate Partner / Broker',
-          subtitle: 'Lock 2.5% rent and 2.0% sales escrow commissions with verified CAC accreditation.',
+          tagline: 'CAC-accredited agency or corporate real estate broker',
+          subtitle: 'Lock mandated developer portfolios, issue certified leases, and withdraw 2.5% escrow commissions.',
           icon: Icons.business_center_rounded,
-          badgeText: '2.5% ESCROW',
-          badgeColor: AppColors.primary,
+          badgeText: '2.5% ESCROW COMMISSIONS 💼',
+          badgeColor: const Color(0xFF0A2540),
+          accentGradient: const [Color(0xFF0A2540), Color(0xFF1E3A8A)],
+          highlights: [
+            'Guaranteed 2.5% Rent & 2.0% Sales Commissions',
+            'CAC Accredited Partner Digital ID & Desk',
+            'Dedicated Commissions & Escrow Payout Vault',
+          ],
           tags: ['2.5% Commission', 'CAC Accredited', 'Dedicated Vault'],
         ),
-        const SizedBox(height: 12),
-        _buildRoleSelectionCard(
-          id: 'owner',
-          title: 'Direct Landlord / Owner',
-          subtitle: 'List apartments, screen verified tenants, and receive automated direct rent payouts.',
-          icon: Icons.real_estate_agent_rounded,
-          badgeText: 'DIRECT PAYOUTS',
-          badgeColor: AppColors.accentOrange,
-          tags: ['Direct Payouts', 'Verified Tenants', 'Zero Agency Cut'],
+        const SizedBox(height: 14),
+
+        // Trust Compliance Footer
+        Center(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.verified_user_rounded, size: 14, color: Color(0xFF10B981)),
+              const SizedBox(width: 6),
+              Text(
+                'NDPR Compliant • Nationwide Coverage Across the Federation 🇳🇬',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -544,66 +665,88 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget _buildRoleSelectionCard({
     required String id,
     required String title,
+    required String tagline,
     required String subtitle,
     required IconData icon,
     required String badgeText,
     required Color badgeColor,
+    required List<Color> accentGradient,
+    required List<String> highlights,
     required List<String> tags,
   }) {
     final isSelected = _selectedRole == id;
     return GestureDetector(
-      onTap: () => setState(() => _selectedRole = id),
+      onTap: () {
+        HapticFeedback.selectionClick();
+        setState(() => _selectedRole = id);
+      },
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeInOut,
         width: double.infinity,
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isSelected ? badgeColor.withValues(alpha: 0.06) : const Color(0xFFF8FAFC),
-          borderRadius: BorderRadius.circular(18),
+          color: isSelected ? badgeColor.withValues(alpha: 0.04) : Colors.white,
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? badgeColor : AppColors.borderDark,
-            width: isSelected ? 2.0 : 1.0,
+            color: isSelected ? badgeColor : const Color(0xFFE2E8F0),
+            width: isSelected ? 2.2 : 1.2,
           ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: badgeColor.withValues(alpha: 0.12),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ]
-              : null,
+          boxShadow: [
+            BoxShadow(
+              color: isSelected ? badgeColor.withValues(alpha: 0.15) : Colors.black.withValues(alpha: 0.03),
+              blurRadius: isSelected ? 16 : 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top Bar: Icon + Badge + Selection Checkmark
+            // Top Bar: Hero Icon Emblem + Badge + Radio Selector
             Row(
               children: [
+                // Circular Hero Icon Container
                 Container(
-                  padding: const EdgeInsets.all(8),
+                  width: 42,
+                  height: 42,
                   decoration: BoxDecoration(
-                    color: isSelected ? badgeColor : Colors.white,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: isSelected ? badgeColor : AppColors.borderDark),
+                    gradient: LinearGradient(
+                      colors: isSelected ? accentGradient : [const Color(0xFFF1F5F9), const Color(0xFFE2E8F0)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: isSelected
+                        ? [
+                            BoxShadow(
+                              color: badgeColor.withValues(alpha: 0.35),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ]
+                        : null,
                   ),
                   child: Icon(
                     icon,
-                    size: 18,
+                    size: 20,
                     color: isSelected ? Colors.white : AppColors.textPrimary,
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
+
+                // Badge Tag
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: badgeColor.withValues(alpha: 0.14),
+                    color: badgeColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: badgeColor.withValues(alpha: 0.3), width: 0.8),
                   ),
                   child: Text(
                     badgeText,
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: 8,
+                      fontSize: 8.5,
                       fontWeight: FontWeight.w900,
                       letterSpacing: 0.5,
                       color: badgeColor,
@@ -611,47 +754,101 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
                 const Spacer(),
+
+                // Radio Selector Checkmark
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
-                  width: 20,
-                  height: 20,
+                  width: 22,
+                  height: 22,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: isSelected ? badgeColor : Colors.transparent,
+                    color: isSelected ? badgeColor : Colors.white,
                     border: Border.all(
-                      color: isSelected ? badgeColor : AppColors.borderDark,
-                      width: 1.5,
+                      color: isSelected ? badgeColor : const Color(0xFFCBD5E1),
+                      width: 1.8,
                     ),
                   ),
                   child: isSelected
-                      ? const Icon(Icons.check, size: 13, color: Colors.white)
+                      ? const Center(
+                          child: Icon(Icons.check, size: 14, color: Colors.white),
+                        )
                       : null,
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
 
             // Role Title
             Text(
               title,
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 14,
-                fontWeight: FontWeight.w800,
+                fontSize: 15.5,
+                fontWeight: FontWeight.w900,
                 color: isSelected ? badgeColor : AppColors.textPrimary,
+                letterSpacing: -0.2,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 2),
 
-            // Role Description (fully contained, flexible wrapping)
+            // Tagline
+            Text(
+              tagline,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+                color: isSelected ? badgeColor.withValues(alpha: 0.85) : AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 6),
+
+            // Description
             Text(
               subtitle,
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 11,
-                color: AppColors.textSecondary,
+                color: const Color(0xFF475569),
                 height: 1.35,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
+
+            // Value Proposition Highlights (Checklist)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: isSelected ? Colors.white : const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: isSelected ? badgeColor.withValues(alpha: 0.2) : const Color(0xFFE2E8F0),
+                ),
+              ),
+              child: Column(
+                children: highlights.map((h) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2.5),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.check_circle_rounded, size: 14, color: isSelected ? badgeColor : const Color(0xFF10B981)),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            h,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: isSelected ? AppColors.textPrimary : const Color(0xFF334155),
+                              height: 1.25,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 10),
 
             // Feature Pills
             Wrap(
@@ -659,19 +856,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
               runSpacing: 4,
               children: tags.map((t) {
                 return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
                   decoration: BoxDecoration(
-                    color: isSelected ? Colors.white : const Color(0xFFF1F5F9),
+                    color: isSelected ? badgeColor.withValues(alpha: 0.1) : const Color(0xFFF1F5F9),
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(
-                      color: isSelected ? badgeColor.withValues(alpha: 0.3) : const Color(0xFFE2E8F0),
+                      color: isSelected ? badgeColor.withValues(alpha: 0.35) : const Color(0xFFE2E8F0),
                     ),
                   ),
                   child: Text(
                     t,
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 8.5,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w800,
                       color: isSelected ? badgeColor : AppColors.textSecondary,
                     ),
                   ),
