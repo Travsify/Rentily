@@ -44,7 +44,25 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     await Future.delayed(const Duration(milliseconds: 2200));
     if (!mounted) return;
 
-    // Strict Authentication Gate Check
+    // Check if user has seen onboarding
+    final prefs = await SharedPreferences.getInstance();
+    final seenOnboarding = prefs.getBool(AppConstants.seenOnboardingKey) ?? false;
+
+    if (!mounted) return;
+
+    // First-time user → show onboarding
+    if (!seenOnboarding) {
+      Navigator.of(context).pushReplacement(
+        PageRouteBuilder(
+          transitionDuration: const Duration(milliseconds: 600),
+          pageBuilder: (_, __, ___) => const OnboardingScreen(),
+          transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
+        ),
+      );
+      return;
+    }
+
+    // Returning user → check auth
     final bool loggedIn = await AuthService.isLoggedIn();
     final user = await AuthService.getCurrentUser();
 
@@ -54,7 +72,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       final isPartner = user != null && user.role == 'partner';
       final isLandlord = user != null && (user.role == 'owner' || user.role == 'landlord');
 
-      // User is authenticated -> Grant access to Home with their proper portal
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
           transitionDuration: const Duration(milliseconds: 600),
@@ -66,7 +83,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         ),
       );
     } else {
-      // User is NOT authenticated -> Strict Auth Gateway (Must Log In or Register)
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
           transitionDuration: const Duration(milliseconds: 600),
@@ -103,7 +119,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
             ),
           ),
 
-          // Center Branding
+          // Center Branding with ACTUAL Rentilly Logo
           Center(
             child: AnimatedBuilder(
               animation: _controller,
@@ -115,17 +131,12 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Shield Icon Box
+                        // Rentilly Logo Image (actual brand logo)
                         Container(
-                          width: 86,
-                          height: 86,
+                          width: 100,
+                          height: 100,
                           decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF10B981), Color(0xFF0D9488)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(26),
+                            borderRadius: BorderRadius.circular(28),
                             boxShadow: [
                               BoxShadow(
                                 color: AppColors.primaryLight.withValues(alpha: 0.35),
@@ -133,16 +144,12 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                                 offset: const Offset(0, 10),
                               ),
                             ],
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.25),
-                              width: 1.5,
-                            ),
                           ),
-                          child: const Center(
-                            child: Icon(
-                              Icons.shield_rounded,
-                              size: 48,
-                              color: Colors.white,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(28),
+                            child: Image.asset(
+                              'assets/images/logo.png',
+                              fit: BoxFit.cover,
                             ),
                           ),
                         ),

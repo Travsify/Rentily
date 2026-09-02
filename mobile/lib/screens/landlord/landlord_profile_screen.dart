@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../constants/app_colors.dart';
 import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
+import '../../services/push_notification_service.dart';
 import '../../services/payment_security_service.dart';
 import '../../services/notification_service.dart';
 import '../../widgets/verification_modal.dart';
@@ -995,6 +996,7 @@ class _LandlordProfileScreenState extends State<LandlordProfileScreen> {
               width: double.infinity,
               child: OutlinedButton.icon(
                 onPressed: () async {
+                  await PushNotificationService.clearUserTags();
                   await AuthService.logout();
                   if (!mounted) return;
                   Navigator.of(context).pushAndRemoveUntil(

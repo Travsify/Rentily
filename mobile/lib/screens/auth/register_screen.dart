@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/nigerian_states_cities.dart';
 import '../../services/auth_service.dart';
+import '../../services/push_notification_service.dart';
 import '../main_navigation_screen.dart';
 import '../../widgets/inline_otp_verification_widget.dart';
 
@@ -257,6 +258,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isLoading = false);
 
     if (result['success'] == true) {
+      // Register new user with OneSignal for push notifications
+      await PushNotificationService.setUserTags();
+
       if (!mounted) return;
       final isPartner = effectiveRole == 'partner';
       final isLandlord = effectiveRole == 'owner' || effectiveRole == 'landlord';

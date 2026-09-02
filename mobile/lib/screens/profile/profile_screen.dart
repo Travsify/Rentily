@@ -8,6 +8,7 @@ import '../../constants/app_colors.dart';
 import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
 import '../../services/biometric_service.dart';
+import '../../services/push_notification_service.dart';
 import '../../services/payment_security_service.dart';
 import '../../widgets/payment_pin_modal.dart';
 import '../../widgets/verification_modal.dart';
@@ -85,6 +86,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
 
     if (confirmed == true) {
+      await PushNotificationService.clearUserTags();
       await AuthService.logout();
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(

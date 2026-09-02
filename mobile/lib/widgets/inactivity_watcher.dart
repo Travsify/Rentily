@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../constants/app_colors.dart';
 import '../services/auth_service.dart';
+import '../services/push_notification_service.dart';
 import '../screens/auth/login_screen.dart';
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -51,6 +52,7 @@ class _InactivityWatcherState extends State<InactivityWatcher> {
     final inactiveDuration = DateTime.now().difference(_lastActivity);
     if (inactiveDuration.inMinutes >= widget.timeoutMinutes && !_isLoggedOut) {
       _isLoggedOut = true;
+      await PushNotificationService.clearUserTags();
       await AuthService.logout();
 
       final context = rootNavigatorKey.currentContext;

@@ -9,6 +9,10 @@ class AppConstants {
   static const String supabaseUrl = 'https://zuxvxuqxomsxgiljykzj.supabase.co';
   static const String supabaseAnonKey = 'sb_publishable_LiVL01tqjp7jQQZwxFTayQ_TrhSswA_';
 
+  // OneSignal Push Notifications
+  // OneSignal Push Notifications
+  static const String oneSignalAppId = '41b932e7-a242-4e35-89c4-f743b0ff005a';
+
   // Storage Keys
   static const String tokenKey = 'rentilly_user_token';
   static const String userKey = 'rentilly_user_profile';

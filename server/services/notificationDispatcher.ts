@@ -245,11 +245,12 @@ export class NotificationDispatcher {
   }
 
   /**
-   * Dispatches both an In-App Notification (Database) and an Instant Transactional Email (Resend).
+   * Dispatches In-App Notification (Database), Instant Email (Resend), AND OneSignal Push.
    */
-  static async dispatch(event: NotificationEvent): Promise<{ success: boolean; inApp: boolean; email: boolean }> {
+  static async dispatch(event: NotificationEvent): Promise<{ success: boolean; inApp: boolean; email: boolean; push: boolean }> {
     let inAppSuccess = false;
     let emailSuccess = false;
+    let pushSuccess = false;
 
     // 1. Dispatch In-App Notification (Supabase / Database)
     try {
@@ -274,43 +275,89 @@ export class NotificationDispatcher {
       const targetEmail = (event.email || (event as any).recipientEmail || (event as any).to || '').toString().trim().toLowerCase();
       if (!targetEmail || !targetEmail.includes('@')) {
         console.warn('[NotificationDispatcher] Skipping email: No valid recipient email specified');
-        return { success: inAppSuccess, inApp: inAppSuccess, email: false };
-      }
-
-      const htmlBody = this.buildHtmlEmail({
-        ...event,
-        email: targetEmail
-      });
-
-      const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${RESEND_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          from: SENDER_EMAIL,
-          to: [targetEmail],
-          subject: event.title,
-          html: htmlBody
-        })
-      });
-
-      const resData: any = await response.json();
-      if (response.ok && (resData.id || resData.data?.id)) {
-        console.log(`[NotificationDispatcher] Email successfully sent to ${targetEmail}: "${event.title}"`);
-        emailSuccess = true;
       } else {
-        console.warn('[NotificationDispatcher] Resend API response:', JSON.stringify(resData));
+        const htmlBody = this.buildHtmlEmail({
+          ...event,
+          email: targetEmail
+        });
+
+        const response = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${RESEND_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            from: SENDER_EMAIL,
+            to: [targetEmail],
+            subject: event.title,
+            html: htmlBody
+          })
+        });
+
+        const resData: any = await response.json();
+        if (response.ok && (resData.id || resData.data?.id)) {
+          console.log(`[NotificationDispatcher] Email successfully sent to ${targetEmail}: "${event.title}"`);
+          emailSuccess = true;
+        } else {
+          console.warn('[NotificationDispatcher] Resend API response:', JSON.stringify(resData));
+        }
       }
     } catch (e) {
       console.error('[NotificationDispatcher] Email dispatch exception:', e);
     }
 
+    // 3. Dispatch OneSignal Push Notification
+    try {
+      // Map category to a deep-link action
+      const actionMap: Record<string, string> = {
+        wallet: 'open_wallet',
+        escrow: 'open_wallet',
+        security: 'open_profile',
+        inspection: 'open_properties',
+        property: 'open_properties',
+        utilities: 'open_wallet',
+        broadcast: 'open_notifications',
+      };
+      const deepAction = actionMap[event.category] || 'open_notifications';
+
+      if (event.userId && supabase) {
+        // Try to get the user's OneSignal player ID from Supabase
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('onesignal_player_id')
+          .eq('id', event.userId)
+          .single();
+
+        const playerId = profile?.onesignal_player_id;
+        if (playerId) {
+          const { pushToPlayer } = await import('./onesignalService');
+          const pushResult = await pushToPlayer(playerId, event.title, event.message, { action: deepAction });
+          pushSuccess = pushResult.success;
+        } else {
+          // Fallback: send by email tag
+          const targetEmail = (event.email || '').trim().toLowerCase();
+          if (targetEmail) {
+            const { pushToEmail } = await import('./onesignalService');
+            const pushResult = await pushToEmail(targetEmail, event.title, event.message, { action: deepAction });
+            pushSuccess = pushResult.success;
+          }
+        }
+      } else if (event.email) {
+        // No userId → send by email tag
+        const { pushToEmail } = await import('./onesignalService');
+        const pushResult = await pushToEmail(event.email, event.title, event.message, { action: deepAction });
+        pushSuccess = pushResult.success;
+      }
+    } catch (e) {
+      console.warn('[NotificationDispatcher] Push notification error:', e);
+    }
+
     return {
-      success: inAppSuccess || emailSuccess,
+      success: inAppSuccess || emailSuccess || pushSuccess,
       inApp: inAppSuccess,
-      email: emailSuccess
+      email: emailSuccess,
+      push: pushSuccess,
     };
   }
 }

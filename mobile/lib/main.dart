@@ -3,9 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'constants/app_colors.dart';
 import 'screens/splash_screen.dart';
+import 'services/push_notification_service.dart';
 import 'widgets/inactivity_watcher.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
@@ -15,6 +16,10 @@ void main() {
       systemNavigationBarIconBrightness: Brightness.dark,
     ),
   );
+
+  // Initialize OneSignal Push Notifications
+  await PushNotificationService.init();
+
   runApp(const RentillyApp());
 }
 

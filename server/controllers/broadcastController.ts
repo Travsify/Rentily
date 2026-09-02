@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { UserStore } from '../services/userStore';
 import { NotificationDispatcher } from '../services/notificationDispatcher';
+import * as OneSignal from '../services/onesignalService';
 
 export interface BroadcastLog {
   id: string;
@@ -12,6 +13,7 @@ export interface BroadcastLog {
   recipientCount: number;
   sentBy: string;
   createdAt: string;
+  pushResult?: { success: boolean; id?: string; error?: string };
 }
 
 const _broadcastHistory: BroadcastLog[] = [];
@@ -37,6 +39,7 @@ export async function sendBroadcast(req: Request, res: Response) {
       targets = allUsers.filter(u => u.email.toLowerCase() === specificEmail.toLowerCase());
     }
 
+    // Dispatch in-app notifications (existing flow)
     for (const user of targets) {
       NotificationDispatcher.dispatch({
         userId: user.id,
@@ -52,6 +55,25 @@ export async function sendBroadcast(req: Request, res: Response) {
       });
     }
 
+    // ── OneSignal Real Push Notifications ──────────────────────
+    let pushResult: { success: boolean; id?: string; error?: string } = { success: false };
+
+    if (channel === 'push' || channel === 'both') {
+      if (targetGroup === 'specific' && specificEmail) {
+        // Send to specific user by email tag
+        pushResult = await OneSignal.pushToEmail(specificEmail, `📢 ${title}`, message, { action: 'open_notifications' });
+      } else if (targetGroup === 'renters') {
+        pushResult = await OneSignal.pushToRole('renter', `📢 ${title}`, message, { action: 'open_notifications' });
+      } else if (targetGroup === 'owners') {
+        pushResult = await OneSignal.pushToRole('owner', `📢 ${title}`, message, { action: 'open_notifications' });
+      } else if (targetGroup === 'partners') {
+        pushResult = await OneSignal.pushToRole('partner', `📢 ${title}`, message, { action: 'open_notifications' });
+      } else {
+        // Broadcast to ALL subscribed users
+        pushResult = await OneSignal.broadcastToAll(`📢 ${title}`, message);
+      }
+    }
+
     const logEntry: BroadcastLog = {
       id: `BC-${Date.now()}`,
       targetGroup,
@@ -61,13 +83,14 @@ export async function sendBroadcast(req: Request, res: Response) {
       channel,
       recipientCount: targets.length,
       sentBy: 'Super Admin',
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      pushResult,
     };
     _broadcastHistory.unshift(logEntry);
 
     res.json({
       success: true,
-      message: `Broadcast successfully dispatched to ${targets.length} recipients.`,
+      message: `Broadcast dispatched to ${targets.length} recipients.${pushResult.success ? ' Push notification sent ✓' : ''}`,
       broadcast: logEntry
     });
   } catch (err: any) {

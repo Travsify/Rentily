@@ -6,6 +6,7 @@ import '../../constants/app_colors.dart';
 import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
 import '../../services/biometric_service.dart';
+import '../../services/push_notification_service.dart';
 import '../main_navigation_screen.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
@@ -96,6 +97,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         final isPartner = user != null && user.role == 'partner';
         final isLandlord = user != null && (user.role == 'owner' || user.role == 'landlord');
 
+        // Register user with OneSignal for push notifications
+        await PushNotificationService.setUserTags();
+
         if (!mounted) return;
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
@@ -145,6 +149,9 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     if (result['success'] == true) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('rentilly_biometrics_enabled', true);
+
+      // Register user with OneSignal for push notifications
+      await PushNotificationService.setUserTags();
 
       final user = result['user'] as UserProfile?;
       final isPartner = user != null && (
