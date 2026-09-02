@@ -1,218 +1,354 @@
-import fs from 'fs';
-import path from 'path';
-import type { Property, KYPRecord, Inspection, LegalAgreement, Transaction } from '../types';
+import { supabase } from '../supabaseClient';
+import type { Property, KYPRecord, Inspection, LegalAgreement } from '../types';
 
-// DATA_DIR: try multiple candidate paths, use first writable one
-function getDataDir(): string {
-  const candidates = [
-    path.join(process.cwd(), 'server', 'data'),
-    path.join('/opt/render/project/src', 'server', 'data'),
-    path.join('/tmp', 'rentilly-data'),
-  ];
-  for (const dir of candidates) {
+// In-memory runtime cache hydrated and synced with Supabase Cloud
+let _propertiesCache: Property[] = [];
+let _kypCache: KYPRecord[] = [];
+let _inspectionsCache: Inspection[] = [];
+let _agreementsCache: LegalAgreement[] = [];
+
+export class AdminDataStore {
+  /**
+   * Hydrates all admin data from Supabase Cloud on server startup
+   */
+  static async initFromSupabase(): Promise<void> {
+    if (!supabase) return;
+
+    // 1. Hydrate Properties
     try {
-      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(path.join(dir, '.write_test'), 'ok', 'utf-8');
-      fs.unlinkSync(path.join(dir, '.write_test'));
-      return dir;
-    } catch { continue; }
+      const { data, error } = await supabase
+        .from('properties')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        _propertiesCache = data.map((p: any) => ({
+          id: p.id,
+          title: p.title || 'Property',
+          description: p.description || '',
+          purpose: p.purpose || 'rent',
+          propertyType: p.property_type || 'flat_apartment',
+          basePrice: Number(p.base_price || 0),
+          cautionFee: Number(p.caution_fee || 0),
+          serviceCharge: Number(p.service_charge || 0),
+          rentillyFee: Number(p.rentilly_fee || 0),
+          totalInitialPayment: Number(p.total_initial_payment || 0),
+          paymentFrequency: p.payment_frequency || 'annually',
+          address: p.address || '',
+          state: p.state || 'Lagos',
+          lga: p.lga || 'Eti-Osa',
+          neighborhood: p.neighborhood || 'Lekki',
+          bedrooms: p.bedrooms || 1,
+          bathrooms: p.bathrooms || 1,
+          toilets: p.toilets || 1,
+          furnishing: p.furnishing || 'unfurnished',
+          amenities: p.amenities || [],
+          images: p.images || [],
+          videoWalkthroughUrl: p.video_walkthrough_url,
+          status: p.status || 'pending_kyp',
+          ownerId: p.owner_id || '',
+          ownerName: 'Property Owner',
+          ownerPhone: '+2348000000000',
+          listedByRole: 'owner',
+          createdAt: p.created_at || new Date().toISOString(),
+          updatedAt: p.updated_at || new Date().toISOString(),
+        }));
+        console.log(`[AdminDataStore] Hydrated ${_propertiesCache.length} properties from Supabase.`);
+      }
+    } catch (e: any) {
+      console.warn('[AdminDataStore] Properties hydration notice:', e.message);
+    }
+
+    // 2. Hydrate Inspections
+    try {
+      const { data, error } = await supabase
+        .from('inspections')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        _inspectionsCache = data.map((i: any) => ({
+          id: i.id,
+          propertyId: i.property_id,
+          renterId: i.renter_id,
+          date: i.date || '',
+          timeSlot: i.time_slot || '',
+          type: i.type || 'physical',
+          status: i.status || 'pending',
+          propertyTitle: i.property_title || '',
+          propertyAddress: i.property_address || '',
+          renterName: i.renter_name || '',
+          renterPhone: i.renter_phone || '',
+          renterEmail: i.renter_email || '',
+          ownerNotes: i.owner_notes,
+          feedback: i.feedback,
+          rating: i.rating,
+          createdAt: i.created_at || new Date().toISOString(),
+          updatedAt: i.updated_at || new Date().toISOString(),
+        }));
+      }
+    } catch (_) {}
+
+    // 3. Hydrate Legal Agreements
+    try {
+      const { data, error } = await supabase
+        .from('legal_agreements')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        _agreementsCache = data.map((a: any) => ({
+          id: a.id,
+          propertyId: a.property_id,
+          renterId: a.renter_id,
+          ownerId: a.owner_id,
+          agreementType: a.agreement_type || 'residential_lease',
+          status: a.status || 'draft',
+          agreementText: a.agreement_text || '',
+          rentAmount: Number(a.rent_amount || 0),
+          tenancyPeriodMonths: a.tenancy_period_months || 12,
+          startDate: a.start_date || '',
+          endDate: a.end_date || '',
+          signedByRenterAt: a.signed_by_renter_at,
+          signedByOwnerAt: a.signed_by_owner_at,
+          createdAt: a.created_at || new Date().toISOString(),
+          updatedAt: a.updated_at || new Date().toISOString(),
+        }));
+      }
+    } catch (_) {}
   }
-  return '/tmp';
-}
 
-let _DATA_DIR: string | null = null;
-function DATA_DIR(): string {
-  if (!_DATA_DIR) _DATA_DIR = getDataDir();
-  return _DATA_DIR;
-}
-
-// In-memory cache — primary source of truth within this process lifetime
-const _memCache: Record<string, any[]> = {};
-
-function readFile<T>(filename: string): T[] {
-  // 1. In-memory cache (fastest)
-  if (_memCache[filename]) {
-    return _memCache[filename] as T[];
+  // ============================================================
+  // PROPERTIES
+  // ============================================================
+  static getProperties(): Property[] {
+    return _propertiesCache;
   }
-  // 2. Disk
-  try {
-    const filePath = path.join(DATA_DIR(), filename);
-    if (fs.existsSync(filePath)) {
-      const parsed = JSON.parse(fs.readFileSync(filePath, 'utf-8') || '[]');
-      if (Array.isArray(parsed)) {
-        _memCache[filename] = parsed;
-        return parsed as T[];
+
+  static async addProperty(p: Property): Promise<Property> {
+    const existingIdx = _propertiesCache.findIndex(item => item.id === p.id);
+    if (existingIdx >= 0) {
+      _propertiesCache[existingIdx] = { ..._propertiesCache[existingIdx], ...p, updatedAt: new Date().toISOString() };
+    } else {
+      _propertiesCache.unshift(p);
+    }
+
+    // Save to Supabase
+    if (supabase) {
+      try {
+        await supabase.from('properties').upsert({
+          id: p.id,
+          owner_id: p.ownerId || 'b0000000-0000-0000-0000-000000000001',
+          title: p.title,
+          description: p.description,
+          purpose: p.purpose,
+          property_type: p.propertyType,
+          base_price: p.basePrice,
+          caution_fee: p.cautionFee || 0,
+          service_charge: p.serviceCharge || 0,
+          rentilly_fee: p.rentillyFee,
+          total_initial_payment: p.totalInitialPayment,
+          payment_frequency: p.paymentFrequency || 'annually',
+          address: p.address,
+          state: p.state || 'Lagos',
+          lga: p.lga || 'Eti-Osa',
+          neighborhood: p.neighborhood || 'Lekki',
+          bedrooms: p.bedrooms || 1,
+          bathrooms: p.bathrooms || 1,
+          toilets: p.toilets || 1,
+          furnishing: p.furnishing || 'unfurnished',
+          amenities: p.amenities || [],
+          images: p.images || [],
+          video_walkthrough_url: p.videoWalkthroughUrl,
+          status: p.status || 'pending_kyp',
+          created_at: p.createdAt || new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'id' });
+      } catch (err) {
+        console.error('[AdminDataStore] Error saving property to Supabase:', err);
       }
     }
-  } catch { /* disk unavailable */ }
-  // 3. Default empty array (no mock data)
-  _memCache[filename] = [];
-  return [];
-}
 
-function writeFile<T>(filename: string, data: T[]): void {
-  _memCache[filename] = data; // always update in-memory
-  try { fs.writeFileSync(path.join(DATA_DIR(), filename), JSON.stringify(data, null, 2), 'utf-8'); } catch { /* read-only */ }
-}
-
-// ============================================================
-// ADMIN DATA STORE — Unified Real-Time Access Layer (No Mock Data)
-// ============================================================
-export class AdminDataStore {
-
-  // PROPERTIES
-  static getProperties(): Property[] {
-    return readFile<Property>('admin_properties.json');
-  }
-
-  static saveProperties(data: Property[]): void {
-    writeFile('admin_properties.json', data);
-  }
-
-  static addProperty(p: Property): Property {
-    const all = this.getProperties();
-    // Prevent duplicate entries
-    const existingIdx = all.findIndex(item => item.id === p.id);
-    if (existingIdx >= 0) {
-      all[existingIdx] = { ...all[existingIdx], ...p, updatedAt: new Date().toISOString() };
-    } else {
-      all.unshift(p);
-    }
-    this.saveProperties(all);
     return p;
   }
 
-  static updatePropertyStatus(id: string, status: Property['status']): Property | null {
-    const all = this.getProperties();
-    const idx = all.findIndex(p => p.id === id);
+  static async updatePropertyStatus(id: string, status: Property['status']): Promise<Property | null> {
+    const idx = _propertiesCache.findIndex(p => p.id === id);
     if (idx === -1) return null;
-    all[idx] = { ...all[idx], status, updatedAt: new Date().toISOString() };
-    this.saveProperties(all);
-    return all[idx];
-  }
 
-  // KYP RECORDS
-  static getKYP(status?: string): KYPRecord[] {
-    const all = readFile<KYPRecord>('admin_kyp.json');
-    if (status) return all.filter(k => k.status === status);
-    return all;
-  }
+    _propertiesCache[idx] = { ..._propertiesCache[idx], status, updatedAt: new Date().toISOString() };
 
-  static addKYP(record: KYPRecord): KYPRecord {
-    const all = readFile<KYPRecord>('admin_kyp.json');
-    const existingIdx = all.findIndex(item => item.id === record.id || item.propertyId === record.propertyId);
-    if (existingIdx >= 0) {
-      all[existingIdx] = { ...all[existingIdx], ...record };
-    } else {
-      all.unshift(record);
+    if (supabase) {
+      try {
+        await supabase
+          .from('properties')
+          .update({ status, updated_at: new Date().toISOString() })
+          .eq('id', id);
+      } catch (err) {
+        console.error('[AdminDataStore] Error updating property status in Supabase:', err);
+      }
     }
-    writeFile('admin_kyp.json', all);
+
+    return _propertiesCache[idx];
+  }
+
+  // ============================================================
+  // KYP RECORDS
+  // ============================================================
+  static getKYP(status?: string): KYPRecord[] {
+    if (status) return _kypCache.filter(k => k.status === status);
+    return _kypCache;
+  }
+
+  static async addKYP(record: KYPRecord): Promise<KYPRecord> {
+    const existingIdx = _kypCache.findIndex(item => item.id === record.id || item.propertyId === record.propertyId);
+    if (existingIdx >= 0) {
+      _kypCache[existingIdx] = { ..._kypCache[existingIdx], ...record };
+    } else {
+      _kypCache.unshift(record);
+    }
     return record;
   }
 
-  static reviewKYP(id: string, status: KYPRecord['status'], notes?: string, reason?: string): KYPRecord | null {
-    const all = readFile<KYPRecord>('admin_kyp.json');
-    const idx = all.findIndex(k => k.id === id);
+  static async reviewKYP(id: string, status: KYPRecord['status'], notes?: string, reason?: string): Promise<KYPRecord | null> {
+    const idx = _kypCache.findIndex(k => k.id === id);
     if (idx === -1) return null;
-    all[idx] = {
-      ...all[idx],
+
+    _kypCache[idx] = {
+      ..._kypCache[idx],
       status,
-      landRegistrySearchNotes: notes || all[idx].landRegistrySearchNotes,
+      landRegistrySearchNotes: notes || _kypCache[idx].landRegistrySearchNotes,
       rejectionReason: reason,
       reviewedBy: 'Rentilly Admin',
       reviewedAt: new Date().toISOString(),
     };
-    writeFile('admin_kyp.json', all);
-    return all[idx];
+
+    return _kypCache[idx];
   }
 
+  // ============================================================
   // INSPECTIONS
+  // ============================================================
   static getInspections(): Inspection[] {
-    return readFile<Inspection>('admin_inspections.json');
+    return _inspectionsCache;
   }
 
-  static addInspection(insp: Inspection): Inspection {
-    const all = this.getInspections();
-    const existingIdx = all.findIndex(item => item.id === insp.id);
+  static async addInspection(insp: Inspection): Promise<Inspection> {
+    const existingIdx = _inspectionsCache.findIndex(item => item.id === insp.id);
     if (existingIdx >= 0) {
-      all[existingIdx] = { ...all[existingIdx], ...insp };
+      _inspectionsCache[existingIdx] = { ..._inspectionsCache[existingIdx], ...insp };
     } else {
-      all.unshift(insp);
+      _inspectionsCache.unshift(insp);
     }
-    writeFile('admin_inspections.json', all);
+
+    if (supabase) {
+      try {
+        await supabase.from('inspections').upsert({
+          id: insp.id,
+          property_id: insp.propertyId,
+          renter_id: insp.renterId || 'b0000000-0000-0000-0000-000000000001',
+          date: insp.date,
+          time_slot: insp.timeSlot,
+          type: insp.type,
+          status: insp.status,
+          property_title: insp.propertyTitle,
+          property_address: insp.propertyAddress,
+          renter_name: insp.renterName,
+          renter_phone: insp.renterPhone,
+          renter_email: insp.renterEmail,
+          created_at: insp.createdAt || new Date().toISOString(),
+        }, { onConflict: 'id' });
+      } catch (_) {}
+    }
+
     return insp;
   }
 
-  static updateInspectionStatus(id: string, status: Inspection['status'], ownerNotes?: string): Inspection | null {
-    const all = this.getInspections();
-    const idx = all.findIndex(i => i.id === id);
+  static async updateInspectionStatus(id: string, status: Inspection['status'], ownerNotes?: string): Promise<Inspection | null> {
+    const idx = _inspectionsCache.findIndex(i => i.id === id);
     if (idx === -1) return null;
-    all[idx] = { ...all[idx], status, ownerNotes: ownerNotes || all[idx].ownerNotes };
-    writeFile('admin_inspections.json', all);
-    return all[idx];
-  }
 
-  // LEGAL AGREEMENTS
-  static getLegalAgreements(): LegalAgreement[] {
-    return readFile<LegalAgreement>('admin_legal.json');
-  }
+    _inspectionsCache[idx] = { ..._inspectionsCache[idx], status, ownerNotes: ownerNotes || _inspectionsCache[idx].ownerNotes };
 
-  static addLegalAgreement(a: LegalAgreement): LegalAgreement {
-    const all = this.getLegalAgreements();
-    const existingIdx = all.findIndex(item => item.id === a.id);
-    if (existingIdx >= 0) {
-      all[existingIdx] = { ...all[existingIdx], ...a };
-    } else {
-      all.unshift(a);
+    if (supabase) {
+      try {
+        await supabase
+          .from('inspections')
+          .update({ status, owner_notes: ownerNotes, updated_at: new Date().toISOString() })
+          .eq('id', id);
+      } catch (_) {}
     }
-    writeFile('admin_legal.json', all);
-    return a;
+
+    return _inspectionsCache[idx];
   }
 
-  // ESCROW & ALL ORDERS/TRANSACTIONS — built from live WalletTransactions in TransactionStore
-  static buildEscrowTransactions(walletTxs: Array<any>): Transaction[] {
-    return walletTxs.map(tx => {
-      const isDeposit = tx.isCredit === true;
-      const isEscrow = tx.category === 'escrow' || tx.category === 'rent';
-      const isPayout = tx.category === 'withdrawal';
-      const isUtility = tx.category === 'utility';
+  // ============================================================
+  // LEGAL AGREEMENTS
+  // ============================================================
+  static getLegalAgreements(): LegalAgreement[] {
+    return _agreementsCache;
+  }
 
-      let displayTitle = tx.title || 'Inbound Transaction';
-      if (isPayout) {
-        displayTitle = `Payout: ${tx.recipientAccount || 'Bank Transfer'}`;
-      } else if (isUtility) {
-        displayTitle = `Utility Payment (${tx.type || 'Disco/Airtime'})`;
-      }
+  static async addLegalAgreement(la: LegalAgreement): Promise<LegalAgreement> {
+    const existingIdx = _agreementsCache.findIndex(item => item.id === la.id);
+    if (existingIdx >= 0) {
+      _agreementsCache[existingIdx] = { ..._agreementsCache[existingIdx], ...la };
+    } else {
+      _agreementsCache.unshift(la);
+    }
 
-      // If transaction has an explicit escrowStatus, respect it
-      let escrowStatus: 'held_in_escrow' | 'released_to_owner' | 'refunded' | 'disputed' = 'held_in_escrow';
-      if (tx.escrowStatus) {
-        escrowStatus = tx.escrowStatus;
-      } else if (!isDeposit) {
-        escrowStatus = 'released_to_owner';
-      }
+    if (supabase) {
+      try {
+        await supabase.from('legal_agreements').upsert({
+          id: la.id,
+          property_id: la.propertyId,
+          renter_id: la.renterId || 'b0000000-0000-0000-0000-000000000001',
+          owner_id: la.ownerId || 'b0000000-0000-0000-0000-000000000001',
+          agreement_type: la.agreementType,
+          status: la.status,
+          agreement_text: la.agreementText,
+          rent_amount: la.rentAmount,
+          tenancy_period_months: la.tenancyPeriodMonths,
+          start_date: la.startDate,
+          end_date: la.endDate,
+          created_at: la.createdAt || new Date().toISOString(),
+        }, { onConflict: 'id' });
+      } catch (_) {}
+    }
 
-      return {
-        id: tx.id,
-        propertyId: tx.propertyId || 'wallet_ops',
-        propertyTitle: displayTitle,
-        payerId: tx.userId || tx.email,
-        payerName: tx.sender || tx.email,
-        ownerId: tx.userId || tx.email,
-        ownerName: tx.beneficiary || tx.email,
-        transactionType: (isEscrow ? 'rent' : 'sale') as 'rent' | 'sale',
-        paymentReference: tx.reference || tx.id,
-        paymentGateway: (isPayout ? 'paystack' : 'flutterwave') as any,
-        baseAmount: tx.amount,
-        rentillyLegalFee: Math.round(tx.amount * 0.1),
-        cautionFee: 0,
-        serviceCharge: 0,
-        totalAmount: tx.amount,
-        escrowStatus,
-        ownerPayoutReference: tx.ownerPayoutReference,
-        payoutReleasedAt: tx.payoutReleasedAt,
-        createdAt: tx.date || new Date().toISOString(),
-      };
-    });
+    return la;
+  }
+
+  static async signLegalAgreement(id: string, role: 'renter' | 'owner'): Promise<LegalAgreement | null> {
+    const idx = _agreementsCache.findIndex(la => la.id === id);
+    if (idx === -1) return null;
+
+    const la = _agreementsCache[idx];
+    const now = new Date().toISOString();
+
+    if (role === 'renter') la.signedByRenterAt = now;
+    if (role === 'owner') la.signedByOwnerAt = now;
+
+    if (la.signedByRenterAt && la.signedByOwnerAt) {
+      la.status = 'active';
+    } else {
+      la.status = 'pending_signatures';
+    }
+
+    if (supabase) {
+      try {
+        await supabase
+          .from('legal_agreements')
+          .update({
+            signed_by_renter_at: la.signedByRenterAt,
+            signed_by_owner_at: la.signedByOwnerAt,
+            status: la.status,
+            updated_at: now
+          })
+          .eq('id', id);
+      } catch (_) {}
+    }
+
+    return la;
   }
 }

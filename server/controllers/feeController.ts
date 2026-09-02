@@ -1,6 +1,5 @@
 import type { Request, Response } from 'express';
-import fs from 'fs';
-import path from 'path';
+import { supabase } from '../supabaseClient';
 
 export interface PlatformFeeConfig {
   withdrawalFee: number;            // ₦ flat fee on bank withdrawals (default 50)
@@ -30,53 +29,63 @@ const DEFAULT_FEES: PlatformFeeConfig = {
   updatedAt: new Date().toISOString()
 };
 
-function getFeeFilePath(): string {
-  const candidates = [
-    path.join(process.cwd(), 'server', 'data'),
-    path.join('/opt/render/project/src', 'server', 'data'),
-    path.join('/tmp', 'rentilly-data'),
-  ];
-  for (const dir of candidates) {
-    try {
-      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-      return path.join(dir, 'platform_fees.json');
-    } catch { continue; }
-  }
-  return path.join('/tmp', 'platform_fees.json');
-}
+let _feeCache: PlatformFeeConfig = { ...DEFAULT_FEES };
 
-let _feeCache: PlatformFeeConfig | null = null;
+/**
+ * Hydrates fees from Supabase Cloud on server boot
+ */
+export async function initFeesFromSupabase(): Promise<void> {
+  if (!supabase) return;
+  try {
+    const { data, error } = await supabase
+      .from('system_configs')
+      .select('data')
+      .eq('id', 'platform_fees')
+      .single();
+
+    if (!error && data && data.data) {
+      _feeCache = { ...DEFAULT_FEES, ...data.data };
+      console.log('[FeeController] Hydrated platform fees from Supabase:', _feeCache);
+    }
+  } catch (err: any) {
+    console.warn('[FeeController] Notice on fee hydration:', err.message);
+  }
+}
 
 export function getStoredFees(): PlatformFeeConfig {
-  if (_feeCache) return _feeCache;
-  try {
-    const file = getFeeFilePath();
-    if (fs.existsSync(file)) {
-      const data = JSON.parse(fs.readFileSync(file, 'utf-8'));
-      _feeCache = { ...DEFAULT_FEES, ...data };
-      return _feeCache!;
-    }
-  } catch (_) {}
-  _feeCache = { ...DEFAULT_FEES };
-  return _feeCache!;
+  return _feeCache;
 }
 
-export function saveStoredFees(fees: PlatformFeeConfig): void {
+export async function saveStoredFees(fees: PlatformFeeConfig): Promise<void> {
   _feeCache = fees;
-  try {
-    const file = getFeeFilePath();
-    fs.writeFileSync(file, JSON.stringify(fees, null, 2), 'utf-8');
-  } catch (err) {
-    console.error('Failed to save platform fees to disk:', err);
+  if (supabase) {
+    try {
+      await supabase.from('system_configs').upsert({
+        id: 'platform_fees',
+        data: fees,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id' });
+      console.log('[FeeController] Saved updated platform fees directly to Supabase.');
+    } catch (err) {
+      console.error('[FeeController] Failed to save platform fees to Supabase:', err);
+    }
   }
 }
 
-export function getFees(_req: Request, res: Response) {
-  const fees = getStoredFees();
-  res.json({ success: true, fees });
+export async function getFees(_req: Request, res: Response) {
+  // Always verify with Supabase on read
+  if (supabase) {
+    try {
+      const { data } = await supabase.from('system_configs').select('data').eq('id', 'platform_fees').single();
+      if (data && data.data) {
+        _feeCache = { ...DEFAULT_FEES, ...data.data };
+      }
+    } catch (_) {}
+  }
+  res.json({ success: true, fees: _feeCache });
 }
 
-export function updateFees(req: Request, res: Response) {
+export async function updateFees(req: Request, res: Response) {
   try {
     const current = getStoredFees();
     const updated: PlatformFeeConfig = {
@@ -84,8 +93,8 @@ export function updateFees(req: Request, res: Response) {
       ...req.body,
       updatedAt: new Date().toISOString()
     };
-    saveStoredFees(updated);
-    res.json({ success: true, message: 'Platform fees updated successfully', fees: updated });
+    await saveStoredFees(updated);
+    res.json({ success: true, message: 'Platform fees updated successfully in Supabase', fees: updated });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

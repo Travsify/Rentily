@@ -1252,6 +1252,23 @@ export async function toggleFreezeVirtualCard(req: Request, res: Response) {
   }
 }
 
+export async function deleteVirtualCard(req: Request, res: Response) {
+  try {
+    const { cardId, email } = req.body;
+    if (!cardId) {
+      return res.status(400).json({ error: 'cardId is required' });
+    }
+
+    const result = await CardIssuingService.deleteCard(cardId, email);
+    res.json({
+      status: true,
+      message: result.message
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
 export async function revealCardDetails(req: Request, res: Response) {
   try {
     const { cardId } = req.body;

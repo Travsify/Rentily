@@ -1,24 +1,7 @@
 import type { Request, Response } from 'express';
 import { supabase } from '../supabaseClient';
-import fs from 'fs';
-import path from 'path';
 
-function getDataDir(): string {
-  const candidates = [
-    path.join(process.cwd(), 'server', 'data'),
-    path.join('/opt/render/project/src', 'server', 'data'),
-    path.join('/tmp', 'rentilly-data'),
-  ];
-  for (const dir of candidates) {
-    try {
-      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-      return dir;
-    } catch { continue; }
-  }
-  return '/tmp';
-}
-
-interface BlacklistEntry {
+export interface BlacklistEntry {
   id: string;
   fullName: string;
   phoneNumber?: string;
@@ -33,148 +16,84 @@ interface BlacklistEntry {
   createdAt: string;
 }
 
-let _blacklistCache: BlacklistEntry[] | null = null;
+let _blacklistCache: BlacklistEntry[] = [];
 
-function getBlacklistFile(): string {
-  return path.join(getDataDir(), 'admin_blacklist.json');
-}
-
-function readBlacklist(): BlacklistEntry[] {
-  if (_blacklistCache !== null) {
-    return _blacklistCache;
-  }
+/**
+ * Hydrate blacklist from Supabase on server boot
+ */
+export async function initBlacklistFromSupabase(): Promise<void> {
+  if (!supabase) return;
   try {
-    const file = getBlacklistFile();
-    if (fs.existsSync(file)) {
-      const content = fs.readFileSync(file, 'utf-8');
-      const parsed = JSON.parse(content || '[]');
-      if (Array.isArray(parsed)) {
-        _blacklistCache = parsed;
-        return _blacklistCache;
-      }
+    const { data, error } = await supabase
+      .from('system_configs')
+      .select('data')
+      .eq('id', 'fraud_blacklist')
+      .single();
+
+    if (!error && data && Array.isArray(data.data)) {
+      _blacklistCache = data.data;
+      console.log(`[FraudController] Hydrated ${_blacklistCache.length} blacklisted entities from Supabase.`);
     }
-  } catch {}
-  _blacklistCache = [];
-  return _blacklistCache;
+  } catch (err: any) {
+    console.warn('[FraudController] Notice on blacklist hydration:', err.message);
+  }
 }
 
-function writeBlacklist(data: BlacklistEntry[]): void {
-  _blacklistCache = data;
-  try {
-    const file = getBlacklistFile();
-    fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf-8');
-  } catch {}
+async function saveBlacklist(entries: BlacklistEntry[]): Promise<void> {
+  _blacklistCache = entries;
+  if (supabase) {
+    try {
+      await supabase.from('system_configs').upsert({
+        id: 'fraud_blacklist',
+        data: entries,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id' });
+    } catch (e) {
+      console.error('[FraudController] Error saving blacklist to Supabase:', e);
+    }
+  }
 }
 
 export async function getBlacklist(_req: Request, res: Response) {
-  try {
-    // Primary: local store
-    const local = readBlacklist();
-
-    // Secondary: Supabase
-    if (supabase) {
-      try {
-        const { data, error } = await supabase
-          .from('fraud_blacklist')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (!error && data && data.length > 0) {
-          const supabaseMapped = data.map((row: any) => ({
-            id: row.id,
-            fullName: row.full_name,
-            phoneNumber: row.phone_number,
-            bvn: row.bvn,
-            nin: row.nin,
-            bankAccountNumber: row.bank_account_number,
-            bankName: row.bank_name,
-            flagReason: row.flag_reason,
-            severity: row.severity,
-            flaggedBy: row.flagged_by,
-            isActive: row.is_active,
-            createdAt: row.created_at
-          }));
-          const localIds = new Set(local.map(e => e.id));
-          const missing = supabaseMapped.filter(e => !localIds.has(e.id));
-          return res.json([...local, ...missing]);
-        }
-      } catch (_) {}
-    }
-
-    res.json(local);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
+  if (supabase) {
+    try {
+      const { data } = await supabase.from('system_configs').select('data').eq('id', 'fraud_blacklist').single();
+      if (data && Array.isArray(data.data)) {
+        _blacklistCache = data.data;
+      }
+    } catch (_) {}
   }
+  res.json({ success: true, count: _blacklistCache.length, blacklist: _blacklistCache });
 }
 
 export async function addToBlacklist(req: Request, res: Response) {
   try {
-    const { fullName, phoneNumber, bvn, nin, bankAccountNumber, bankName, flagReason, severity } = req.body;
+    const { fullName, phoneNumber, bvn, nin, bankAccountNumber, bankName, flagReason, severity = 'high', flaggedBy = 'Rentilly Admin' } = req.body;
 
     if (!fullName || !flagReason) {
       return res.status(400).json({ error: 'Full name and flag reason are required.' });
     }
 
     const newEntry: BlacklistEntry = {
-      id: `bl_${Date.now()}`,
-      fullName: String(fullName).toUpperCase(),
+      id: `BLK-${Date.now()}`,
+      fullName,
       phoneNumber,
       bvn,
       nin,
       bankAccountNumber,
       bankName,
       flagReason,
-      severity: severity || 'high',
-      flaggedBy: 'Rentilly Anti-Fraud Desk (Admin)',
+      severity,
+      flaggedBy,
       isActive: true,
-      createdAt: new Date().toISOString(),
+      createdAt: new Date().toISOString()
     };
 
-    // Save locally
-    const all = readBlacklist();
-    all.unshift(newEntry);
-    writeBlacklist(all);
+    const current = [..._blacklistCache];
+    current.unshift(newEntry);
+    await saveBlacklist(current);
 
-    // Save to Supabase if available
-    if (supabase) {
-      try {
-        await supabase
-          .from('fraud_blacklist')
-          .insert({
-            id: newEntry.id,
-            full_name: newEntry.fullName,
-            phone_number: newEntry.phoneNumber || null,
-            bvn: newEntry.bvn || null,
-            nin: newEntry.nin || null,
-            bank_account_number: newEntry.bankAccountNumber || null,
-            bank_name: newEntry.bankName || null,
-            flag_reason: newEntry.flagReason,
-            severity: newEntry.severity,
-            flagged_by: newEntry.flaggedBy,
-          });
-      } catch (_) {}
-    }
-
-    res.status(201).json(newEntry);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
-}
-
-export async function deleteFromBlacklist(req: Request, res: Response) {
-  try {
-    const { id } = req.params;
-
-    const all = readBlacklist().filter(e => e.id !== id);
-    writeBlacklist(all);
-
-    if (supabase) {
-      try {
-        await supabase.from('fraud_blacklist').delete().eq('id', id);
-      } catch (_) {}
-    }
-
-    res.json({ success: true, message: 'Entity removed from blacklist.' });
+    res.json({ success: true, message: `${fullName} has been added to the fraud blacklist in Supabase.`, entry: newEntry });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -182,33 +101,23 @@ export async function deleteFromBlacklist(req: Request, res: Response) {
 
 export async function checkBlacklist(req: Request, res: Response) {
   try {
-    const { phone, bvn, nin } = req.body;
-    const all = readBlacklist();
+    const { phoneNumber, bvn, nin, bankAccountNumber } = req.query;
+    const all = _blacklistCache;
 
-    let match: BlacklistEntry | undefined;
-    if (phone) match = all.find(e => e.phoneNumber === phone && e.isActive);
-    if (!match && bvn) match = all.find(e => e.bvn === bvn && e.isActive);
-    if (!match && nin) match = all.find(e => e.nin === nin && e.isActive);
+    const matched = all.filter(entry => {
+      if (!entry.isActive) return false;
+      if (phoneNumber && entry.phoneNumber && entry.phoneNumber.includes(phoneNumber.toString())) return true;
+      if (bvn && entry.bvn && entry.bvn === bvn.toString()) return true;
+      if (nin && entry.nin && entry.nin === nin.toString()) return true;
+      if (bankAccountNumber && entry.bankAccountNumber && entry.bankAccountNumber === bankAccountNumber.toString()) return true;
+      return false;
+    });
 
-    if (match) {
-      return res.json({ isBlacklisted: true, record: match });
-    }
-
-    if (supabase) {
-      try {
-        let query = supabase.from('fraud_blacklist').select('*').eq('is_active', true);
-        if (phone) query = query.eq('phone_number', phone);
-        else if (bvn) query = query.eq('bvn', bvn);
-        else if (nin) query = query.eq('nin', nin);
-
-        const { data } = await query;
-        if (data && data.length > 0) {
-          return res.json({ isBlacklisted: true, record: data[0] });
-        }
-      } catch (_) {}
-    }
-
-    res.json({ isBlacklisted: false });
+    res.json({
+      isFlagged: matched.length > 0,
+      matchCount: matched.length,
+      matches: matched
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

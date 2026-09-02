@@ -21,11 +21,6 @@ export interface VirtualBankAccount {
   railType: string;
 }
 
-import fs from 'fs';
-import path from 'path';
-
-const FX_RATES_FILE = path.join(process.cwd(), 'server', 'data', 'fx_rates.json');
-
 export class MultiCurrencyService {
   // Exchange Rates relative to NGN
   private static fxRates: Record<string, number> = {
@@ -37,24 +32,24 @@ export class MultiCurrencyService {
     'NGN_EUR': 1 / 1660.00,
   };
 
-  static {
-    // Load persisted rates on init
+  /**
+   * Hydrates live FX rates from Supabase Cloud on server boot
+   */
+  static async initFromSupabase(): Promise<void> {
+    if (!supabase) return;
     try {
-      if (fs.existsSync(FX_RATES_FILE)) {
-        const fileData = JSON.parse(fs.readFileSync(FX_RATES_FILE, 'utf8'));
-        this.fxRates = { ...this.fxRates, ...fileData };
-      }
-    } catch (_) {}
-  }
+      const { data, error } = await supabase
+        .from('system_configs')
+        .select('data')
+        .eq('id', 'system_fx_rates')
+        .single();
 
-  static async initFromSupabase() {
-    if (supabase) {
-      try {
-        const { data } = await supabase.from('system_configs').select('data').eq('id', 'system_fx_rates').single();
-        if (data && data.data) {
-          this.fxRates = { ...this.fxRates, ...data.data };
-        }
-      } catch (_) {}
+      if (!error && data && data.data) {
+        this.fxRates = { ...this.fxRates, ...data.data };
+        console.log('[MultiCurrencyService] Hydrated live FX rates from Supabase:', this.fxRates);
+      }
+    } catch (e: any) {
+      console.warn('[MultiCurrencyService] Notice on FX hydration:', e.message);
     }
   }
 
@@ -62,7 +57,7 @@ export class MultiCurrencyService {
     return { ...this.fxRates };
   }
 
-  static updateFxRates(newRates: { USD_NGN?: number; GBP_NGN?: number; EUR_NGN?: number }): Record<string, number> {
+  static async updateFxRates(newRates: { USD_NGN?: number; GBP_NGN?: number; EUR_NGN?: number }): Promise<Record<string, number>> {
     if (newRates.USD_NGN && newRates.USD_NGN > 0) {
       this.fxRates['USD_NGN'] = newRates.USD_NGN;
       this.fxRates['NGN_USD'] = 1 / newRates.USD_NGN;
@@ -76,189 +71,55 @@ export class MultiCurrencyService {
       this.fxRates['NGN_EUR'] = 1 / newRates.EUR_NGN;
     }
 
-    try {
-      const dataDir = path.dirname(FX_RATES_FILE);
-      if (!fs.existsSync(dataDir)) {
-        fs.mkdirSync(dataDir, { recursive: true });
-      }
-      fs.writeFileSync(FX_RATES_FILE, JSON.stringify(this.fxRates, null, 2), 'utf8');
-    } catch (_) {}
-
     if (supabase) {
-      supabase.from('system_configs').upsert({
+      await supabase.from('system_configs').upsert({
         id: 'system_fx_rates',
         data: this.fxRates,
         updated_at: new Date().toISOString()
-      }, { onConflict: 'id' }).then(() => {}).catch(() => {});
+      }, { onConflict: 'id' });
+      console.log('[MultiCurrencyService] Saved updated FX rates directly to Supabase.');
     }
 
     return { ...this.fxRates };
   }
 
   /**
-   * Generates or retrieves institutional multi-currency virtual accounts for a user via Korapay & partner rails
+   * Generates or retrieves institutional multi-currency virtual accounts for a user via Korapay & Supabase
    */
-  static async getUserAccounts(email: string, fullName: string = 'Valued Partner'): Promise<VirtualBankAccount[]> {
+  static async getUserMultiCurrencyAccounts(email: string, fullName: string): Promise<VirtualBankAccount[]> {
     const cleanEmail = (email || '').trim().toLowerCase();
-    let cleanName = (fullName || 'Valued Partner').trim();
-    
-    // 1. Fetch live profile and wallet balance directly from Supabase Cloud
-    let userNgnBalance = 2900.00;
-    let koraNgnAccount = '1110035320';
-    let koraNgnBank = 'Korapay Settlement Bank / Wema Bank';
+    const cleanName = (fullName || 'Valued User').trim();
 
+    // 1. Query Supabase virtual_bank_accounts first
     if (supabase && cleanEmail) {
       try {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('full_name, business_name, wallet_balance, account_number, bank_name')
-          .eq('email', cleanEmail)
-          .single();
+        const { data: dbAccounts } = await supabase
+          .from('virtual_bank_accounts')
+          .select('*')
+          .eq('email', cleanEmail);
 
-        if (profile) {
-          if (profile.wallet_balance !== undefined && profile.wallet_balance !== null) {
-            userNgnBalance = Number(profile.wallet_balance);
-          }
-          if (profile.account_number) {
-            koraNgnAccount = profile.account_number;
-          }
-          if (profile.bank_name) {
-            koraNgnBank = profile.bank_name;
-          }
-          if (profile.business_name || profile.full_name) {
-            cleanName = profile.business_name || profile.full_name;
-          }
-        }
-      } catch (_) {}
-    }
-
-    // 2. Fetch live Korapay balances if configured
-    let koraUsd = 1250.00;
-
-    try {
-      if (KorapayService.isConfigured()) {
-        const balRes = await KorapayService.getBalances();
-        if (balRes.status && balRes.data) {
-          if (balRes.data.USD?.available_balance) {
-            koraUsd = 1250.00;
-          }
-        }
-      }
-    } catch (_) {}
-
-    // Deterministic unique numbers for reliable demo/production display
-    const seed = Math.abs(this.hashCode(cleanEmail));
-    const usdAcc = (8800000000 + (seed % 99999999)).toString();
-    const gbpAcc = (40000000 + (seed % 9999999)).toString();
-    const eurIban = `LU98${(seed % 8999 + 1000)}${(seed % 899999999999 + 100000000000)}`;
-
-    const accounts: VirtualBankAccount[] = [
-      {
-        currency: 'NGN',
-        currencySymbol: '₦',
-        currencyName: 'Nigerian Naira',
-        flagEmoji: '🇳🇬',
-        balance: userNgnBalance,
-        bankName: koraNgnBank,
-        accountNumber: koraNgnAccount,
-        accountName: `Rentilly / ${cleanName}`,
-        status: 'ACTIVE',
-        railType: 'Korapay & NIP / Instant NUBAN Transfer'
-      },
-      {
-        currency: 'USD',
-        currencySymbol: '$',
-        currencyName: 'US Dollar',
-        flagEmoji: '🇺🇸',
-        balance: 0.00,
-        bankName: 'Lead Bank (USA)',
-        accountNumber: usdAcc,
-        accountName: `Rentilly Global / ${cleanName}`,
-        routingNumber: '101000019',
-        swiftBic: 'LEADUS33XXX',
-        status: 'ACTIVE',
-        railType: 'Korapay Cross-Border / US Domestic ACH / Fedwire'
-      },
-      {
-        currency: 'GBP',
-        currencySymbol: '£',
-        currencyName: 'British Pound',
-        flagEmoji: '🇬🇧',
-        balance: 0.00,
-        bankName: 'ClearBank / Barclays (UK)',
-        accountNumber: gbpAcc,
-        accountName: `Rentilly UK / ${cleanName}`,
-        sortCode: '04-00-04',
-        swiftBic: 'CLRBGB21XXX',
-        status: 'ACTIVE',
-        railType: 'UK Faster Payments / CHAPS / BACS'
-      },
-      {
-        currency: 'EUR',
-        currencySymbol: '€',
-        currencyName: 'Euro',
-        flagEmoji: '🇪🇺',
-        balance: 0.00,
-        bankName: 'Banque Internationale à Luxembourg',
-        accountNumber: eurIban.slice(-10),
-        accountName: `Rentilly EU / ${cleanName}`,
-        iban: eurIban,
-        swiftBic: 'BILLLUFLLXXX',
-        status: 'ACTIVE',
-        railType: 'SEPA Instant / Target2 Euro Transfer'
-      }
-    ];
-
-    // Sync to Supabase if configured
-    if (supabase) {
-      try {
-        for (const acc of accounts) {
-          await supabase.from('virtual_bank_accounts').upsert({
-            email: cleanEmail,
+        if (dbAccounts && dbAccounts.length > 0) {
+          const result: VirtualBankAccount[] = dbAccounts.map((acc: any) => ({
             currency: acc.currency,
-            account_number: acc.accountNumber,
-            bank_name: acc.bankName,
-            account_name: acc.accountName,
-            routing_number: acc.routingNumber || null,
-            status: acc.status,
-            updated_at: new Date().toISOString()
-          }, { onConflict: 'email,currency' });
+            currencySymbol: acc.currency === 'USD' ? '$' : acc.currency === 'GBP' ? '£' : acc.currency === 'EUR' ? '€' : '₦',
+            currencyName: acc.currency === 'USD' ? 'US Dollars' : acc.currency === 'GBP' ? 'British Pounds' : acc.currency === 'EUR' ? 'Euros' : 'Nigerian Naira',
+            flagEmoji: acc.currency === 'USD' ? '🇺🇸' : acc.currency === 'GBP' ? '🇬🇧' : acc.currency === 'EUR' ? '🇪🇺' : '🇳🇬',
+            balance: 0.00,
+            bankName: acc.bank_name || 'Standard Chartered (Intl)',
+            accountNumber: acc.account_number || '',
+            accountName: acc.account_name || cleanName,
+            routingNumber: acc.routing_number,
+            sortCode: acc.sort_code,
+            iban: acc.iban,
+            swiftBic: acc.swift_bic,
+            status: (acc.status || 'ACTIVE') as 'ACTIVE' | 'PENDING' | 'MAINTENANCE',
+            railType: acc.rail_type || 'Direct Inbound Rail'
+          }));
+          return result;
         }
       } catch (_) {}
     }
 
-    return accounts;
-  }
-
-  /**
-   * Convert funds between vaults
-   */
-  static convert(fromCurrency: string, toCurrency: string, amount: number): {
-    success: boolean;
-    convertedAmount: number;
-    rate: number;
-    fee: number;
-  } {
-    const pair = `${fromCurrency.toUpperCase()}_${toCurrency.toUpperCase()}`;
-    const rate = this.fxRates[pair] || 1;
-    const gross = amount * rate;
-    const fee = gross * 0.005; // 0.5% conversion tariff
-    const convertedAmount = Number((gross - fee).toFixed(2));
-
-    return {
-      success: true,
-      convertedAmount,
-      rate,
-      fee: Number(fee.toFixed(2))
-    };
-  }
-
-  private static hashCode(str: string): number {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      hash = (hash << 5) - hash + str.charCodeAt(i);
-      hash |= 0;
-    }
-    return hash;
+    return [];
   }
 }

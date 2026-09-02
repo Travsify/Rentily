@@ -8,6 +8,13 @@ import { apiRouter } from './routes/apiRouter';
 import { renderPartnerVerificationPage, renderLandlordInvitePage } from './controllers/publicPartnerPages';
 import { isSupabaseConfigured } from './supabaseClient';
 import { AutoReconciliationWorker } from './services/autoReconciliationWorker';
+import { MultiCurrencyService } from './services/multiCurrencyService';
+import { CardIssuingService } from './services/cardIssuingService';
+import { AdminDataStore } from './services/adminDataStore';
+import { initFeesFromSupabase } from './controllers/feeController';
+import { initBlacklistFromSupabase } from './controllers/fraudController';
+import { initBroadcastsFromSupabase } from './controllers/broadcastController';
+import { UserStore } from './services/userStore';
 
 dotenv.config();
 
@@ -24,8 +31,7 @@ app.get('/invite/landlord', renderLandlordInvitePage);
 // 2. Mount API Router under /api
 app.use('/api', apiRouter);
 
-
-// 2. Serve Frontend Static Production Assets & SPA Fallback
+// 3. Serve Frontend Static Production Assets & SPA Fallback
 const distPath = path.join(process.cwd(), 'dist');
 if (fs.existsSync(distPath)) {
   app.use(express.static(distPath));
@@ -55,14 +61,32 @@ if (fs.existsSync(distPath)) {
   });
 }
 
+// Function to hydrate all stores from Supabase on boot
+async function hydrateAllStores() {
+  console.log('[Supabase Overhaul] Hydrating all data stores from Supabase Cloud...');
+  await Promise.allSettled([
+    initFeesFromSupabase(),
+    MultiCurrencyService.initFromSupabase(),
+    CardIssuingService.initFromSupabase(),
+    AdminDataStore.initFromSupabase(),
+    initBlacklistFromSupabase(),
+    initBroadcastsFromSupabase(),
+    UserStore.syncFromSupabase(),
+  ]);
+  console.log('[Supabase Overhaul] All stores hydrated successfully from Supabase! 🚀');
+}
+
 // Start Server
 if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, () => {
+  app.listen(PORT, async () => {
     console.log(`=================================================`);
     console.log(`🚀 Rentilly Admin Backend running on port ${PORT}`);
     console.log(`🛡️ KYP Verification & Escrow Engine Active`);
     console.log(`📦 Supabase Live Connection: ${isSupabaseConfigured() ? 'Connected ✅' : 'Waiting for Credentials ⚡'}`);
     console.log(`=================================================`);
+
+    // Hydrate everything from Supabase Cloud (Zero Ephemeral Character)
+    await hydrateAllStores();
 
     // Start Autonomous Omni-Sync Worker (Reconciles all fintechs every 5s)
     AutoReconciliationWorker.start();

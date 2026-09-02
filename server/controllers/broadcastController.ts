@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { UserStore } from '../services/userStore';
 import { NotificationDispatcher } from '../services/notificationDispatcher';
 import * as OneSignal from '../services/onesignalService';
+import { supabase } from '../supabaseClient';
 
 export interface BroadcastLog {
   id: string;
@@ -16,7 +17,43 @@ export interface BroadcastLog {
   pushResult?: { success: boolean; id?: string; error?: string };
 }
 
-const _broadcastHistory: BroadcastLog[] = [];
+let _broadcastHistory: BroadcastLog[] = [];
+
+/**
+ * Hydrates broadcasts from Supabase on server boot
+ */
+export async function initBroadcastsFromSupabase(): Promise<void> {
+  if (!supabase) return;
+  try {
+    const { data, error } = await supabase
+      .from('system_configs')
+      .select('data')
+      .eq('id', 'broadcast_history')
+      .single();
+
+    if (!error && data && Array.isArray(data.data)) {
+      _broadcastHistory = data.data;
+      console.log(`[BroadcastController] Hydrated ${_broadcastHistory.length} broadcasts from Supabase.`);
+    }
+  } catch (err: any) {
+    console.warn('[BroadcastController] Notice on broadcast hydration:', err.message);
+  }
+}
+
+async function saveBroadcasts(history: BroadcastLog[]): Promise<void> {
+  _broadcastHistory = history;
+  if (supabase) {
+    try {
+      await supabase.from('system_configs').upsert({
+        id: 'broadcast_history',
+        data: history,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id' });
+    } catch (e) {
+      console.error('[BroadcastController] Error saving broadcasts to Supabase:', e);
+    }
+  }
+}
 
 export async function sendBroadcast(req: Request, res: Response) {
   try {
@@ -39,7 +76,7 @@ export async function sendBroadcast(req: Request, res: Response) {
       targets = allUsers.filter(u => u.email.toLowerCase() === specificEmail.toLowerCase());
     }
 
-    // Dispatch in-app notifications (existing flow)
+    // Dispatch in-app notifications
     for (const user of targets) {
       NotificationDispatcher.dispatch({
         userId: user.id,
@@ -55,12 +92,11 @@ export async function sendBroadcast(req: Request, res: Response) {
       });
     }
 
-    // ── OneSignal Real Push Notifications ──────────────────────
+    // OneSignal Push Notification
     let pushResult: { success: boolean; id?: string; error?: string } = { success: false };
 
     if (channel === 'push' || channel === 'both') {
       if (targetGroup === 'specific' && specificEmail) {
-        // Send to specific user by email tag
         pushResult = await OneSignal.pushToEmail(specificEmail, `📢 ${title}`, message, { action: 'open_notifications' });
       } else if (targetGroup === 'renters') {
         pushResult = await OneSignal.pushToRole('renter', `📢 ${title}`, message, { action: 'open_notifications' });
@@ -69,7 +105,6 @@ export async function sendBroadcast(req: Request, res: Response) {
       } else if (targetGroup === 'partners') {
         pushResult = await OneSignal.pushToRole('partner', `📢 ${title}`, message, { action: 'open_notifications' });
       } else {
-        // Broadcast to ALL subscribed users
         pushResult = await OneSignal.broadcastToAll(`📢 ${title}`, message);
       }
     }
@@ -86,7 +121,10 @@ export async function sendBroadcast(req: Request, res: Response) {
       createdAt: new Date().toISOString(),
       pushResult,
     };
-    _broadcastHistory.unshift(logEntry);
+
+    const current = [..._broadcastHistory];
+    current.unshift(logEntry);
+    await saveBroadcasts(current);
 
     res.json({
       success: true,
@@ -98,7 +136,15 @@ export async function sendBroadcast(req: Request, res: Response) {
   }
 }
 
-export function getBroadcastHistory(_req: Request, res: Response) {
+export async function getBroadcastHistory(_req: Request, res: Response) {
+  if (supabase) {
+    try {
+      const { data } = await supabase.from('system_configs').select('data').eq('id', 'broadcast_history').single();
+      if (data && Array.isArray(data.data)) {
+        _broadcastHistory = data.data;
+      }
+    } catch (_) {}
+  }
   res.json({
     success: true,
     history: _broadcastHistory
