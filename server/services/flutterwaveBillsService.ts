@@ -64,7 +64,7 @@ export class FlutterwaveBillsService {
     operator: string;
     email?: string;
   }): Promise<{ status: boolean; data?: any; message?: string }> {
-    const txRef = `RENTILLY_AIRTIME_${params.phoneNumber.slice(-4)}_${Date.now()}`;
+    const txRef = `RNT_AIR_${Date.now()}`;
     let cleanPhone = params.phoneNumber.replace(/[^0-9]/g, '');
     if (cleanPhone.startsWith('234') && cleanPhone.length > 10) {
       cleanPhone = '0' + cleanPhone.substring(3);
@@ -127,7 +127,7 @@ export class FlutterwaveBillsService {
     operator: string;
     email?: string;
   }): Promise<{ status: boolean; data?: any; message?: string }> {
-    const txRef = `RENTILLY_DATA_${params.phoneNumber.slice(-4)}_${Date.now()}`;
+    const txRef = `RNT_DAT_${Date.now()}`;
     let cleanPhone = params.phoneNumber.replace(/[^0-9]/g, '');
     if (cleanPhone.startsWith('234') && cleanPhone.length > 10) {
       cleanPhone = '0' + cleanPhone.substring(3);
@@ -202,7 +202,7 @@ export class FlutterwaveBillsService {
     };
     message?: string;
   }> {
-    const txRef = `RENTILLY_POWER_${params.meterNumber.slice(-4)}_${Date.now()}`;
+    const txRef = `RNT_PWR_${Date.now()}`;
 
     try {
       const response = await fetch(`${FLW_BASE_URL}/bills`, {
@@ -269,7 +269,7 @@ export class FlutterwaveBillsService {
     amount: number;
     provider: string;
   }): Promise<{ status: boolean; data?: any; message?: string }> {
-    const txRef = `RENTILLY_CABLE_${params.smartcardNumber.slice(-4)}_${Date.now()}`;
+    const txRef = `RNT_CBL_${Date.now()}`;
 
     return {
       status: true,
