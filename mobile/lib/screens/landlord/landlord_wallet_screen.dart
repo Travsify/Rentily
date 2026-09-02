@@ -576,12 +576,18 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
     }
 
     final isVerified = _user?.isVerified ?? true;
-    final name = _user?.fullName ?? 'Property Owner';
+    final name = _user?.fullName ?? _user?.businessName ?? 'Property Owner';
     final String symbol = _selectedCurrency == 'USD' ? '\$' : _selectedCurrency == 'GBP' ? '£' : _selectedCurrency == 'EUR' ? '€' : '₦';
-    final double operationalBalance = _selectedCurrency == 'USD' ? 1250.00 : _selectedCurrency == 'GBP' ? 450.00 : _selectedCurrency == 'EUR' ? 320.00 : (_user?.walletBalance ?? 2000.0);
+    final double operationalBalance = _selectedCurrency == 'NGN' ? (_user?.walletBalance ?? 0.0) : 0.00;
     final escrowBalance = 0.00;
-    final accountNumber = _selectedCurrency == 'USD' ? '8849204912' : _selectedCurrency == 'GBP' ? '40882914' : _selectedCurrency == 'EUR' ? 'LU98 4920 1829 4829' : (_user?.accountNumber ?? '9591357072');
-    final bankName = _selectedCurrency == 'USD' ? 'Lead Bank (USA) • ACH/Wire' : _selectedCurrency == 'GBP' ? 'ClearBank (UK) • Sort: 04-00-04' : _selectedCurrency == 'EUR' ? 'Banque Internationale (EU)' : (_user?.bankName ?? 'Flutterwave MFB');
+    final accountNumber = _selectedCurrency == 'NGN' ? (_user?.accountNumber ?? '') : '';
+    final bankName = _selectedCurrency == 'USD' 
+        ? 'Lead Bank (USA) • ACH/Wire' 
+        : _selectedCurrency == 'GBP' 
+        ? 'ClearBank (UK) • Sort: 04-00-04' 
+        : _selectedCurrency == 'EUR' 
+        ? 'Banque Internationale (EU)' 
+        : (_user?.bankName ?? 'Flutterwave MFB');
     final String accountLabel = _selectedCurrency == 'USD' 
         ? 'US CHECKING (ACH / ROUTING: 101000019)' 
         : _selectedCurrency == 'GBP' 
@@ -881,62 +887,61 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                     decoration: BoxDecoration(
-                      color: AppColors.primaryLight.withOpacity(0.12),
+                      color: Colors.grey.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      'Bridgecard Connected',
+                      'Not Issued',
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 8.5,
                         fontWeight: FontWeight.w700,
-                        color: AppColors.primary,
+                        color: AppColors.textMuted,
                       ),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 10),
-              VirtualCardWidget(
-                cardholderName: name,
-                maskedPan: '4829 •••• •••• 7194',
-                fullPan: '4829 9102 3847 7194',
-                expiryMonth: '08',
-                expiryYear: '29',
-                cvv: '819',
-                balance: _cardBalance,
-                currency: 'USD',
-                brand: 'VISA',
-                isFrozen: _isCardFrozen,
-                onFundCard: () {
-                  setState(() => _cardBalance += 250.0);
-                  HapticFeedback.mediumImpact();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Successfully funded \$250.00 from rental vault! New Balance: \$${_cardBalance.toStringAsFixed(2)}',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.borderDark),
+                ),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryLight.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      backgroundColor: AppColors.primary,
-                      behavior: SnackBarBehavior.floating,
-                      duration: const Duration(seconds: 2),
+                      child: const Icon(Icons.credit_card_rounded, color: AppColors.primary, size: 22),
                     ),
-                  );
-                },
-                onToggleFreeze: () {
-                  setState(() => _isCardFrozen = !_isCardFrozen);
-                  HapticFeedback.mediumImpact();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        _isCardFrozen ? 'Virtual Card has been frozen for security.' : 'Virtual Card is active and ready.',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                    const SizedBox(height: 10),
+                    Text(
+                      'No Virtual Card Active',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
                       ),
-                      backgroundColor: _isCardFrozen ? AppColors.accentOrange : AppColors.primary,
-                      behavior: SnackBarBehavior.floating,
-                      duration: const Duration(seconds: 2),
                     ),
-                  );
-                },
+                    const SizedBox(height: 4),
+                    Text(
+                      'Issue a dedicated virtual dollar card for rental maintenance and utility payments.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 11,
+                        color: AppColors.textSecondary,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 20),
 

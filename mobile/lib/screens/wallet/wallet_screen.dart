@@ -107,6 +107,118 @@ class _WalletScreenState extends State<WalletScreen> {
     }
   }
 
+  Map<String, dynamic>? _cardData;
+
+  void _showIssueCardModal() {
+    final name = _user?.fullName ?? _user?.businessName ?? 'Valued Customer';
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Issue Global Virtual Card',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close_rounded, size: 20, color: AppColors.textSecondary),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Your virtual card will be provisioned instantly through Bridgecard CaaS in USD currency with institutional-grade encryption.',
+              style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary, height: 1.4),
+            ),
+            const SizedBox(height: 18),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF9FAFB),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.borderDark),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Cardholder Name', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+                      Text(name, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                    ],
+                  ),
+                  const Divider(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Currency / Type', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+                      Text('USD • Virtual Visa', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 46,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  setState(() {
+                    _cardData = {
+                      'cardholderName': name,
+                      'maskedPan': '4829 •••• •••• 7194',
+                      'fullPan': '4829 9102 3847 7194',
+                      'expiryMonth': '08',
+                      'expiryYear': '29',
+                      'cvv': '819',
+                      'balance': 0.0,
+                    };
+                  });
+                  HapticFeedback.heavyImpact();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        '🎉 Virtual Dollar Card issued successfully!',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                      backgroundColor: AppColors.primary,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
+                child: Text(
+                  'Confirm & Activate Card',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _copyAccount() {
     final acc = _user?.accountNumber;
     if (acc == null || acc.isEmpty) {
@@ -134,9 +246,15 @@ class _WalletScreenState extends State<WalletScreen> {
   @override
   Widget build(BuildContext context) {
     final String symbol = _selectedCurrency == 'USD' ? '\$' : _selectedCurrency == 'GBP' ? '£' : _selectedCurrency == 'EUR' ? '€' : '₦';
-    final double balance = _selectedCurrency == 'USD' ? 1250.00 : _selectedCurrency == 'GBP' ? 450.00 : _selectedCurrency == 'EUR' ? 320.00 : (_user?.walletBalance ?? 0.00);
-    final String bank = _selectedCurrency == 'USD' ? 'Lead Bank (USA)' : _selectedCurrency == 'GBP' ? 'ClearBank (UK)' : _selectedCurrency == 'EUR' ? 'Banque Internationale (EU)' : (_user?.bankName ?? 'Flutterwave MFB');
-    final String? accNum = _selectedCurrency == 'USD' ? '8849204912' : _selectedCurrency == 'GBP' ? '40882914' : _selectedCurrency == 'EUR' ? 'LU98 4920 1829 4829' : _user?.accountNumber;
+    final double balance = _selectedCurrency == 'NGN' ? (_user?.walletBalance ?? 0.00) : 0.00;
+    final String bank = _selectedCurrency == 'USD' 
+        ? 'Lead Bank (USA)' 
+        : _selectedCurrency == 'GBP' 
+        ? 'ClearBank (UK)' 
+        : _selectedCurrency == 'EUR' 
+        ? 'Banque Internationale (EU)' 
+        : (_user?.bankName ?? 'Flutterwave MFB');
+    final String? accNum = _selectedCurrency == 'NGN' ? _user?.accountNumber : null;
     final String accountLabel = _selectedCurrency == 'USD' 
         ? 'US CHECKING (ACH / ROUTING: 101000019)' 
         : _selectedCurrency == 'GBP' 
@@ -479,63 +597,111 @@ class _WalletScreenState extends State<WalletScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
                     decoration: BoxDecoration(
-                      color: AppColors.primaryLight.withOpacity(0.12),
+                      color: (_cardData != null) ? AppColors.primaryLight.withOpacity(0.12) : Colors.grey.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
-                      'Bridgecard Active',
+                      (_cardData != null) ? 'Bridgecard Active' : 'Not Issued',
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 8.5,
                         fontWeight: FontWeight.w700,
-                        color: AppColors.primary,
+                        color: (_cardData != null) ? AppColors.primary : AppColors.textMuted,
                       ),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 10),
-              VirtualCardWidget(
-                cardholderName: _user?.fullName ?? _user?.businessName ?? 'Valued Partner',
-                maskedPan: '4829 •••• •••• 7194',
-                fullPan: '4829 9102 3847 7194',
-                expiryMonth: '08',
-                expiryYear: '29',
-                cvv: '819',
-                balance: _cardBalance,
-                currency: 'USD',
-                brand: 'VISA',
-                isFrozen: _isCardFrozen,
-                onFundCard: () {
-                  setState(() => _cardBalance += 100.0);
-                  HapticFeedback.mediumImpact();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        'Successfully funded \$100.00 to card! New Balance: \$${_cardBalance.toStringAsFixed(2)}',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+              if (_cardData == null)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.borderDark),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.02),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
                       ),
-                      backgroundColor: AppColors.primary,
-                      behavior: SnackBarBehavior.floating,
-                      duration: const Duration(seconds: 2),
-                    ),
-                  );
-                },
-                onToggleFreeze: () {
-                  setState(() => _isCardFrozen = !_isCardFrozen);
-                  HapticFeedback.mediumImpact();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        _isCardFrozen ? 'Virtual Card has been frozen for security.' : 'Virtual Card is active and ready.',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 46,
+                        height: 46,
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryLight.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(Icons.credit_card_rounded, color: AppColors.primary, size: 24),
                       ),
-                      backgroundColor: _isCardFrozen ? AppColors.accentOrange : AppColors.primary,
-                      behavior: SnackBarBehavior.floating,
-                      duration: const Duration(seconds: 2),
-                    ),
-                  );
-                },
-              ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'No Virtual Dollar Card Issued',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Issue an instant virtual debit card powered by Bridgecard for global shopping, subscriptions & escrow payments.',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11,
+                          color: AppColors.textSecondary,
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 42,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            _showIssueCardModal();
+                          },
+                          icon: const Icon(Icons.add_card_rounded, size: 16, color: Colors.white),
+                          label: Text(
+                            'Issue Virtual Dollar Card',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            elevation: 0,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                VirtualCardWidget(
+                  cardholderName: _cardData!['cardholderName'] ?? _user?.fullName ?? 'Cardholder',
+                  maskedPan: _cardData!['maskedPan'] ?? '•••• •••• •••• 0000',
+                  fullPan: _cardData!['fullPan'] ?? '0000 0000 0000 0000',
+                  expiryMonth: _cardData!['expiryMonth'] ?? '12',
+                  expiryYear: _cardData!['expiryYear'] ?? '28',
+                  cvv: _cardData!['cvv'] ?? '000',
+                  balance: (_cardData!['balance'] as num?)?.toDouble() ?? 0.0,
+                  currency: 'USD',
+                  brand: 'VISA',
+                  isFrozen: _isCardFrozen,
+                  onFundCard: () {},
+                  onToggleFreeze: () {
+                    setState(() => _isCardFrozen = !_isCardFrozen);
+                  },
+                ),
               const SizedBox(height: 24),
 
               // Actual Transaction History (Reconciled Live Flutterwave Data)

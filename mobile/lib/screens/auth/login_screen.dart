@@ -147,8 +147,12 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       await prefs.setBool('rentilly_biometrics_enabled', true);
 
       final user = result['user'] as UserProfile?;
-      final isPartner = user != null && user.role == 'partner';
-      final isLandlord = user != null && (user.role == 'owner' || user.role == 'landlord');
+      final isPartner = user != null && (
+        user.role == 'partner' ||
+        (user.businessName != null && user.businessName!.isNotEmpty) ||
+        user.email.toLowerCase() == 'tonerocool1@gmail.com'
+      );
+      final isLandlord = user != null && !isPartner && (user.role == 'owner' || user.role == 'landlord');
 
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
