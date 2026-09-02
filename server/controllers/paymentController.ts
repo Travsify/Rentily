@@ -87,6 +87,7 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
 
     // Check user true net balance from TransactionStore
     const currentBal = TransactionStore.computeNetBalance(cleanEmail);
+    const memUser = await UserStore.findByEmail(cleanEmail);
     console.log(`[Withdrawal] Verifying user ${cleanEmail} true balance: ₦${currentBal} vs requested: ₦${numAmount}`);
 
     if (currentBal < numAmount) {
@@ -97,7 +98,7 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
 
     // Step A: Create Paystack Transfer Recipient
     const recipientRes = await PaystackService.createTransferRecipient({
-      name: accountName || 'Patrick Achua',
+      name: accountName || memUser?.fullName || 'Account Holder',
       accountNumber: accountNumber.toString(),
       bankCode: bankCode.toString(),
       description: cleanReason
@@ -121,7 +122,7 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
       // Record in TransactionStore
       await TransactionStore.addTransaction({
         id: `TX_WD_${Date.now()}`,
-        userId: userId || memUser?.id || 'usr_patrick_achua_live',
+        userId: userId || memUser?.id || `usr_${cleanEmail}`,
         email: cleanEmail,
         title: `Bank Transfer Payout to ${accountName || 'Bank Account'}`,
         type: 'Instant Direct Bank Payout',
@@ -129,20 +130,26 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
         amount: numAmount,
         isCredit: false,
         reference: txRef,
-        sender: `${memUser?.fullName || 'Patrick Achua'} (Rentilly Living Escrow)`,
-        beneficiary: accountName || 'Patrick Achua',
+        sender: `${memUser?.fullName || memUser?.businessName || 'Rentilly Partner'} (Rentilly Living Escrow)`,
+        beneficiary: accountName || 'Bank Account',
         recipientAccount: accountNumber.toString(),
         recipientBank: 'Direct Bank Transfer',
         status: 'SUCCESSFUL',
         date: new Date().toISOString(),
       });
 
-      // Update UserStore
+      // Update UserStore and Supabase
       if (memUser) {
         UserStore.upsertUser({
           ...memUser,
-          walletBalance: newBal
+          walletBalance: newBal,
+          updatedAt: new Date().toISOString()
         });
+      }
+      if (supabase) {
+        try {
+          await supabase.from('users').update({ wallet_balance: newBal }).eq('email', cleanEmail);
+        } catch (_) {}
       }
 
       // Dispatch In-App Alert & Resend HTML Email
