@@ -119,6 +119,16 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
           });
         }
       }
+
+      // Sync live Virtual Dollar Card from Supabase
+      try {
+        final cards = await ApiService.fetchUserCards(email);
+        if (mounted) {
+          setState(() {
+            _cardData = cards.isNotEmpty ? cards.first : null;
+          });
+        }
+      } catch (_) {}
     } catch (_) {}
   }
 
@@ -134,6 +144,16 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
       final commissions = await ApiService.fetchPartnerCommissions(user.id, user.email);
       final live = await ApiService.fetchLiveBalance(user.email);
       final liveTxns = await ApiService.fetchLiveTransactions(user.email);
+
+      // Fetch live Virtual Dollar Card from Supabase
+      try {
+        final cards = await ApiService.fetchUserCards(user.email);
+        if (mounted) {
+          setState(() {
+            _cardData = cards.isNotEmpty ? cards.first : null;
+          });
+        }
+      } catch (_) {}
 
       UserProfile effectiveUser = user;
       if (live != null) {

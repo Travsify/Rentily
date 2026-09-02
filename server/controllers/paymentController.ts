@@ -1196,32 +1196,104 @@ export async function issueVirtualCard(req: Request, res: Response) {
     const user = await UserStore.findByEmail(cleanEmail);
     const name = cardholderName || user?.fullName || user?.businessName || 'Valued Partner';
 
+    // 1. Calculate issuance fee in NGN
+    const pricing = CardIssuingService.getCardPricing();
+    const issuanceFeeUsd = pricing.issuanceFeeUsd || 3.00;
+    const fxRate = MultiCurrencyService.getRates().USD_NGN || 1510.0;
+    const initialUsd = Number(initialFunding || 0);
+    const totalDebitUsd = issuanceFeeUsd + initialUsd;
+    const totalDebitNgn = Number((totalDebitUsd * fxRate).toFixed(2));
+
+    // 2. Issue the virtual card in Supabase
     const card = await CardIssuingService.issueCard({
       email: cleanEmail,
       cardholderName: name,
       currency: currency || 'USD',
       brand: brand || 'VISA',
-      initialFunding: Number(initialFunding || 0)
+      initialFunding: initialUsd
     });
 
+    // 3. Debit individual user balance in Supabase & record in ledger
+    let resolvedUserId = user?.id;
+    if (supabase) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, wallet_balance, full_name')
+        .eq('email', cleanEmail)
+        .single();
+
+      if (profile) {
+        resolvedUserId = profile.id;
+        const currentBal = Number(profile.wallet_balance || 0);
+        const newBal = Math.max(0, currentBal - totalDebitNgn);
+
+        await supabase
+          .from('profiles')
+          .update({ wallet_balance: newBal, updated_at: new Date().toISOString() })
+          .eq('email', cleanEmail);
+
+        // Record debit transaction in Supabase
+        const txRef = `RENTILLY_CARD_ISSUE_${Date.now()}`;
+        await supabase
+          .from('transactions')
+          .insert({
+            user_id: profile.id,
+            email: cleanEmail,
+            amount: totalDebitNgn,
+            type: 'debit',
+            status: 'completed',
+            reference: txRef,
+            title: `Virtual Dollar Card Issuance Fee ($${issuanceFeeUsd.toFixed(2)} USD)`,
+            created_at: new Date().toISOString()
+          });
+
+        await TransactionStore.addTransaction({
+          id: `TX_${Date.now()}`,
+          userId: profile.id,
+          email: cleanEmail,
+          title: `Virtual Dollar Card Issuance Fee ($${issuanceFeeUsd.toFixed(2)} USD)`,
+          type: 'Virtual Card Issuance',
+          category: 'debit',
+          amount: totalDebitNgn,
+          isCredit: false,
+          reference: txRef,
+          sender: `${name} (Rentilly Wallet)`,
+          beneficiary: 'Rentilly Virtual Card Issuance System',
+          status: 'SUCCESSFUL',
+          date: new Date().toISOString()
+        });
+      }
+    }
+
+    if (user) {
+      const memBal = Number(user.walletBalance || 0);
+      user.walletBalance = Math.max(0, memBal - totalDebitNgn);
+      UserStore.upsertUser(user);
+    }
+
+    // 4. Dispatch Realtime Push & Branded HTML Email
     NotificationDispatcher.dispatch({
+      userId: resolvedUserId,
       email: cleanEmail,
       userName: name,
       category: 'wallet',
-      title: `Virtual ${card.currency} ${card.brand} Card Issued! 💳`,
-      message: `Your new virtual card ending in ${card.maskedPan.slice(-4)} is active and ready for online spending.`,
+      title: `Virtual USD Visa Card Issued! 💳`,
+      message: `Your new virtual card ending in ${card.maskedPan.slice(-4)} is active. Issuance fee of $${issuanceFeeUsd.toFixed(2)} USD (₦${totalDebitNgn.toLocaleString()}) was debited from your wallet balance.`,
       metadata: {
         cardId: card.id,
         maskedPan: card.maskedPan,
         currency: card.currency,
-        brand: card.brand
+        brand: card.brand,
+        amount: totalDebitNgn,
+        reference: `CARD_ISSUE_${card.id}`
       }
     });
 
     res.json({
       status: true,
-      message: `Virtual ${card.currency} card issued successfully!`,
-      data: card
+      message: `Virtual ${card.currency} card issued successfully! ₦${totalDebitNgn.toLocaleString()} debited from wallet.`,
+      data: card,
+      debitedAmount: totalDebitNgn,
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

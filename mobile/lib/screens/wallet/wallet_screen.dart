@@ -128,6 +128,16 @@ class _WalletScreenState extends State<WalletScreen> {
           });
         }
       } catch (_) {}
+
+      // Fetch live Virtual Dollar Card from Supabase
+      try {
+        final cards = await ApiService.fetchUserCards(u.email);
+        if (mounted) {
+          setState(() {
+            _cardData = cards.isNotEmpty ? cards.first : null;
+          });
+        }
+      } catch (_) {}
     }
   }
 

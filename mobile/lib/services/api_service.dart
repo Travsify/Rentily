@@ -437,7 +437,24 @@ class ApiService {
     final cleanEmail = email.trim().toLowerCase();
     final cleanName = cardholderName.trim().toUpperCase();
 
-    // 1. Direct Supabase Cloud REST (Instant, Zero Ephemeral Wipe)
+    // 1. Render Core Backend API (Executes Wallet Balance Debit, Transaction Logging & Email/Push)
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/cards/create'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'email': cleanEmail,
+          'cardholderName': cleanName,
+          'currency': currency,
+          'brand': brand,
+          'initialFunding': initialFunding,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      if (res.statusCode == 200 || res.statusCode == 201) return true;
+    } catch (_) {}
+
+    // 2. Direct Supabase Cloud REST Fallback with Balance Debit & Ledger Recording
     try {
       final prefix = brand == 'VISA' ? '4829' : '5399';
       final mid1 = (1000 + (DateTime.now().microsecond % 8999)).toString();
@@ -471,27 +488,29 @@ class ApiService {
         }),
       ).timeout(const Duration(seconds: 5));
 
+      // Record issuance fee debit in Supabase transactions ledger
+      final feeNgn = 4530.0;
+      await http.post(
+        Uri.parse('${AppConstants.supabaseUrl}/rest/v1/transactions'),
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': AppConstants.supabaseAnonKey,
+          'Authorization': 'Bearer ${AppConstants.supabaseAnonKey}',
+          'Prefer': 'return=minimal',
+        },
+        body: json.encode({
+          'email': cleanEmail,
+          'title': 'Virtual Dollar Card Issuance Fee (\$3.00 USD)',
+          'type': 'debit',
+          'status': 'completed',
+          'amount': feeNgn,
+          'reference': 'CARD_FEE_${DateTime.now().millisecondsSinceEpoch}',
+        }),
+      ).timeout(const Duration(seconds: 5));
+
       if (sbRes.statusCode == 200 || sbRes.statusCode == 201) return true;
     } catch (_) {}
 
-    // 2. Render Core API Fallback
-    try {
-      final res = await http.post(
-        Uri.parse('$baseUrl/cards/create'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'email': cleanEmail,
-          'cardholderName': cleanName,
-          'currency': currency,
-          'brand': brand,
-          'initialFunding': initialFunding,
-        }),
-      ).timeout(const Duration(seconds: 10));
-
-      if (res.statusCode == 200) {
-        final data = json.decode(res.body);
-        return data['status'] == true;
-      }
     } catch (_) {}
 
     return false;

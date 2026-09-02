@@ -150,6 +150,7 @@ export class AutoReconciliationWorker {
                     date: new Date().toISOString()
                   }
                 });
+              }
             }
           }
         }
