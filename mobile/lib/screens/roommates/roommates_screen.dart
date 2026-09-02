@@ -139,7 +139,7 @@ class _RoommatesScreenState extends State<RoommatesScreen> {
     Share.share(
       'Check out this verified co-living request on Rentilly Split-the-Scroll:\n\n'
       '${post.userName} is looking for a flatmate for a ${post.bedroomType} in ${post.location} (₦${_currencyFormat.format(post.budgetShare)}/yr per share • ${post.splitCount}-person split).\n\n'
-      'Connect securely with 0% caution fees on Rentilly: https://rentilly.ng/roommates/${post.id}',
+      'Connect securely with 0% caution fees on Rentilly: https://myrentilly.com/roommates/${post.id}',
     );
   }
 

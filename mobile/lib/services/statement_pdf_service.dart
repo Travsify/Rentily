@@ -206,7 +206,7 @@ class StatementPdfService {
                     ),
                     pw.BarcodeWidget(
                       barcode: pw.Barcode.qrCode(),
-                      data: 'https://rentilly.ng/verify-receipt/$txRef',
+                      data: 'https://myrentilly.com/verify-receipt/$txRef',
                       width: 42,
                       height: 42,
                     ),

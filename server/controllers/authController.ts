@@ -84,6 +84,9 @@ export async function login(req: Request, res: Response) {
 
     // 1. Direct Admin Account validation
     const validAdminAccounts = [
+      { email: 'admin@myrentilly.com', name: 'Rentilly Super Admin' },
+      { email: 'travsify@myrentilly.com', name: 'Travsify Admin Director' },
+      { email: 'info@myrentilly.com', name: 'Rentilly Executive Admin' },
       { email: 'admin@rentilly.ng', name: 'Rentilly Super Admin' },
       { email: 'travsify@rentilly.ng', name: 'Travsify Admin Director' },
       { email: 'superadmin@rentilly.ng', name: 'Principal Administrator' }

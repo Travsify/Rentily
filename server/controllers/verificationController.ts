@@ -96,7 +96,7 @@ export async function verifyAndProvision(req: Request, res: Response) {
     // Step 2: Instant Flutterwave Dedicated NUBAN Virtual Account Generation with Live BVN
     const bankResult = await FlutterwaveService.createPermanentUserVirtualAccount({
       userId: userId || `usr_${Date.now()}`,
-      email: email || 'user@rentilly.ng',
+      email: email || 'user@myrentilly.com',
       fullName: cleanName,
       businessName: partnerBizName,
       role: role || (isPartner ? 'partner' : 'renter'),

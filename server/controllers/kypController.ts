@@ -28,7 +28,7 @@ export async function getKYPRecords(req: Request, res: Response) {
       propertyNeighborhood: row.properties ? `${row.properties.neighborhood}, ${row.properties.state}` : 'Lagos',
       ownerId: row.owner_id,
       ownerName: row.owner_name || 'Property Owner',
-      ownerEmail: row.owner_email || 'owner@rentilly.ng',
+      ownerEmail: row.owner_email || 'owner@myrentilly.com',
       ownerPhone: row.owner_phone || '+2348000000000',
       titleDocumentType: row.title_document_type,
       titleDocumentNumber: row.title_document_number,

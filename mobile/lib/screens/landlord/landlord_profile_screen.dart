@@ -300,7 +300,7 @@ class _LandlordProfileScreenState extends State<LandlordProfileScreen> {
                   ),
                   pw.BarcodeWidget(
                     barcode: pw.Barcode.qrCode(),
-                    data: 'https://rentilly.ng/legal/notice/$tenantName',
+                    data: 'https://myrentilly.com/legal/notice/$tenantName',
                     width: 50,
                     height: 50,
                   ),

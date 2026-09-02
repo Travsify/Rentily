@@ -367,7 +367,7 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                     '🔑 Gate Pass Code: $code\n'
                     '👤 Listed By: ${widget.property.listedByRole == "verified_partner" ? "Corporate Partner (" + (widget.property.partnerBusinessName ?? "Verified Partner") + " • " + (widget.property.partnerCacNumber ?? "CAC Verified") + ")" : "Direct Landlord"}\n'
                     '🛡️ Safety Rule: I will demand the host presents their official Rentilly Digital ID before entry.\n\n'
-                    'Live Verification: https://rentilly.ng/safety/inspection/$code',
+                    'Live Verification: https://myrentilly.com/safety/inspection/$code',
                   );
                 },
                 icon: const Icon(Icons.share_location_rounded, size: 16, color: AppColors.primary),

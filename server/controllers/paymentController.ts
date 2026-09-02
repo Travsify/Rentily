@@ -18,7 +18,7 @@ export async function createVirtualAccount(req: Request, res: Response) {
     const result = await FlutterwaveService.createVirtualAccount({
       propertyId,
       propertyTitle: propertyTitle || 'Property Transaction',
-      email: email || 'renter@rentilly.ng',
+      email: email || 'renter@myrentilly.com',
       tenantName: tenantName || 'Prospective Tenant',
       phoneNumber,
       expectedAmount: Number(expectedAmount)

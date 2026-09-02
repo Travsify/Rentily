@@ -60,7 +60,7 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
       '🔑 Gate Pass Code: ${insp.inspectionPassCode}\n'
       '👤 Host Type: Verified Rentilly Landlord / Corporate Partner\n'
       '🛡️ Emergency Safety Rule: I will demand the host presents their official Rentilly Digital ID before entry.\n\n'
-      'Live Inspection Verification: https://rentilly.ng/safety/inspection/${insp.id}',
+      'Live Inspection Verification: https://myrentilly.com/safety/inspection/${insp.id}',
     );
   }
 

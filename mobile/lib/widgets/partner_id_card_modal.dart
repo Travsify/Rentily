@@ -295,7 +295,7 @@ class PartnerIdCardModal extends StatelessWidget {
                         ),
                         pw.BarcodeWidget(
                           barcode: pw.Barcode.qrCode(),
-                          data: 'https://rentilly.ng/verify/$digitalId',
+                          data: 'https://myrentilly.com/verify/$digitalId',
                           width: 28,
                           height: 28,
                         ),

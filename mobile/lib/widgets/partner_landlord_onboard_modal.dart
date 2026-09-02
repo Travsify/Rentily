@@ -76,7 +76,7 @@ class _PartnerLandlordOnboardModalState extends State<PartnerLandlordOnboardModa
         ? widget.user.businessName!.trim()
         : (widget.user.fullName.trim().isNotEmpty ? widget.user.fullName.trim() : 'Accredited Partner Enterprise');
     final partnerId = 'RNT-PTR-${widget.user.id.replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0').substring(0, 4)}';
-    final inviteLink = 'https://rentilly.ng/invite/landlord?partner_id=$partnerId';
+    final inviteLink = 'https://myrentilly.com/invite/landlord?partner_id=$partnerId';
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.88,

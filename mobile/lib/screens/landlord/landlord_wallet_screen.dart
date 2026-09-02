@@ -294,7 +294,7 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                     ),
                     pw.BarcodeWidget(
                       barcode: pw.Barcode.qrCode(),
-                      data: 'https://rentilly.ng/receipt/$ref',
+                      data: 'https://myrentilly.com/receipt/$ref',
                       width: 32,
                       height: 32,
                     ),
@@ -481,7 +481,7 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                   ),
                   pw.BarcodeWidget(
                     barcode: pw.Barcode.qrCode(),
-                    data: 'https://rentilly.ng/statement/$acc',
+                    data: 'https://myrentilly.com/statement/$acc',
                     width: 44,
                     height: 44,
                   ),
