@@ -460,6 +460,7 @@ export async function payBill(req: Request, res: Response) {
 
     // Check user true net balance from TransactionStore
     const currentBal = TransactionStore.computeNetBalance(cleanEmail);
+    const memUser = await UserStore.findByEmail(cleanEmail);
 
     if (currentBal < numAmount) {
       return res.status(400).json({
@@ -555,12 +556,18 @@ export async function payBill(req: Request, res: Response) {
         date: new Date().toISOString(),
       });
 
-      // Update UserStore
+      // Update UserStore and Supabase
       if (memUser) {
         UserStore.upsertUser({
           ...memUser,
-          walletBalance: newBal
+          walletBalance: newBal,
+          updatedAt: new Date().toISOString()
         });
+      }
+      if (supabase) {
+        try {
+          await supabase.from('users').update({ wallet_balance: newBal }).eq('email', cleanEmail);
+        } catch (_) {}
       }
 
       return res.json({

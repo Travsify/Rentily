@@ -70,7 +70,11 @@ export class FlutterwaveBillsService {
       cleanPhone = '0' + cleanPhone.substring(3);
     }
 
-    const op = (params.operator || 'MTN').toUpperCase().trim();
+    const opRaw = (params.operator || 'AIRTIME').toUpperCase().trim();
+    const opType = opRaw.includes('AIRTEL') ? 'AIRTEL VTU' :
+                   opRaw.includes('MTN') ? 'MTN VTU' :
+                   opRaw.includes('GLO') ? 'GLO VTU' :
+                   opRaw.includes('9MOBILE') || opRaw.includes('ETISALAT') ? '9MOBILE VTU' : 'AIRTIME';
 
     try {
       const payload = {
@@ -78,19 +82,39 @@ export class FlutterwaveBillsService {
         customer: cleanPhone,
         amount: params.amount,
         recurrence: 'ONCE',
-        type: `${op} AIRTIME`,
+        type: opType,
         reference: txRef
       };
 
       console.log('Dispatching Flutterwave Airtime Payload:', payload);
-      const response = await fetch(`${FLW_BASE_URL}/bills`, {
+      let response = await fetch(`${FLW_BASE_URL}/bills`, {
         method: 'POST',
         headers: this.getHeaders(),
         body: JSON.stringify(payload)
       });
 
-      const resJson: any = await response.json();
+      let resJson: any = await response.json();
       console.log('Flutterwave /bills Airtime Response:', resJson);
+
+      // If network-specific VTU type fails, immediately retry with universal AIRTIME type
+      if (!response.ok || (resJson.status !== 'success' && resJson.data?.status !== 'successful')) {
+        console.log('Network specific VTU failed, retrying with universal AIRTIME biller...');
+        const retryPayload = {
+          country: 'NG',
+          customer: cleanPhone,
+          amount: params.amount,
+          recurrence: 'ONCE',
+          type: 'AIRTIME',
+          reference: `${txRef}_ALT`
+        };
+        response = await fetch(`${FLW_BASE_URL}/bills`, {
+          method: 'POST',
+          headers: this.getHeaders(),
+          body: JSON.stringify(retryPayload)
+        });
+        resJson = await response.json();
+        console.log('Flutterwave /bills Airtime Fallback Response:', resJson);
+      }
 
       if (response.ok && (resJson.status === 'success' || resJson.data?.status === 'successful')) {
         return {
@@ -105,38 +129,6 @@ export class FlutterwaveBillsService {
           },
           message: `Airtime recharge successful! ₦${params.amount.toLocaleString()} sent to ${cleanPhone}`
         };
-      }
-
-      // Retry with generic AIRTIME type if specific network was rejected
-      if (!response.ok || resJson.status !== 'success') {
-        const retryPayload = {
-          country: 'NG',
-          customer: cleanPhone,
-          amount: params.amount,
-          recurrence: 'ONCE',
-          type: 'AIRTIME',
-          reference: `${txRef}_RETRY`
-        };
-        const retryRes = await fetch(`${FLW_BASE_URL}/bills`, {
-          method: 'POST',
-          headers: this.getHeaders(),
-          body: JSON.stringify(retryPayload)
-        });
-        const retryJson: any = await retryRes.json();
-        if (retryRes.ok && (retryJson.status === 'success' || retryJson.data?.status === 'successful')) {
-          return {
-            status: true,
-            data: {
-              txRef: txRef,
-              amount: params.amount,
-              phoneNumber: cleanPhone,
-              operator: params.operator,
-              status: 'SUCCESSFUL',
-              flwRef: retryJson.data?.flw_ref || `FLW_${Date.now()}`
-            },
-            message: `Airtime recharge successful! ₦${params.amount.toLocaleString()} sent to ${cleanPhone}`
-          };
-        }
       }
 
       return {
