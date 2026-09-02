@@ -958,18 +958,20 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                 )
               else
                 VirtualCardWidget(
-                  cardData: _cardData!,
-                  cardBalance: (_cardData!['balance'] as num?)?.toDouble() ?? 0.0,
-                  isCardFrozen: _cardData!['isFrozen'] == true,
+                  cardholderName: _cardData!['cardholderName'] ?? 'Corporate Partner',
+                  maskedPan: _cardData!['maskedPan'] ?? '4829 •••• •••• 7194',
+                  fullPan: _cardData!['fullPan'] ?? '4829 9102 3847 7194',
+                  expiryMonth: _cardData!['expiryMonth'] ?? '08',
+                  expiryYear: _cardData!['expiryYear'] ?? '29',
+                  cvv: _cardData!['cvv'] ?? '819',
+                  balance: (_cardData!['balance'] as num?)?.toDouble() ?? 0.0,
+                  currency: 'USD',
+                  brand: 'VISA',
+                  isFrozen: _cardData!['isFrozen'] == true,
+                  onFundCard: () {},
                   onToggleFreeze: () {
                     setState(() {
                       _cardData!['isFrozen'] = !(_cardData!['isFrozen'] == true);
-                    });
-                  },
-                  onFundCard: () {},
-                  onCardUpdated: (updated) {
-                    setState(() {
-                      _cardData = updated;
                     });
                   },
                 ),
