@@ -511,8 +511,6 @@ class ApiService {
       if (sbRes.statusCode == 200 || sbRes.statusCode == 201) return true;
     } catch (_) {}
 
-    } catch (_) {}
-
     return false;
   }
 
