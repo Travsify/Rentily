@@ -291,10 +291,10 @@ export const GlobalCardsDeskTab: React.FC = () => {
             <DollarSign className="w-4 h-4 text-emerald-400" />
           </div>
           <div className="text-2xl font-bold text-white tracking-tight">
-            ${accounts.find(a => a.currency === 'USD')?.balance.toLocaleString() || '1,250.00'}
+            ${(accounts.find(a => a.currency === 'USD')?.balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
           <span className="text-[10px] text-emerald-400 flex items-center gap-1 mt-1 font-medium">
-            <ShieldCheck className="w-3 h-3" /> Lead Bank (US) Active
+            <ShieldCheck className="w-3 h-3" /> {accounts.some(a => a.currency === 'USD') ? 'Lead Bank (US) Active' : 'Multi-Currency Vault'}
           </span>
         </div>
 
