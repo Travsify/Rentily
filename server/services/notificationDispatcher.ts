@@ -241,8 +241,16 @@ export class NotificationDispatcher {
 
     // 2. Dispatch Branded HTML Email via Resend
     try {
-      const cleanEmail = event.email.trim().toLowerCase();
-      const htmlBody = this.buildHtmlEmail(event);
+      const targetEmail = (event.email || (event as any).recipientEmail || (event as any).to || '').toString().trim().toLowerCase();
+      if (!targetEmail || !targetEmail.includes('@')) {
+        console.warn('[NotificationDispatcher] Skipping email: No valid recipient email specified');
+        return { success: inAppSuccess, inApp: inAppSuccess, email: false };
+      }
+
+      const htmlBody = this.buildHtmlEmail({
+        ...event,
+        email: targetEmail
+      });
 
       const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
@@ -252,7 +260,7 @@ export class NotificationDispatcher {
         },
         body: JSON.stringify({
           from: SENDER_EMAIL,
-          to: [cleanEmail],
+          to: [targetEmail],
           subject: event.title,
           html: htmlBody
         })
@@ -260,10 +268,10 @@ export class NotificationDispatcher {
 
       const resData: any = await response.json();
       if (response.ok && (resData.id || resData.data?.id)) {
-        console.log(`[NotificationDispatcher] Email successfully sent to ${cleanEmail}: "${event.title}"`);
+        console.log(`[NotificationDispatcher] Email successfully sent to ${targetEmail}: "${event.title}"`);
         emailSuccess = true;
       } else {
-        console.warn('[NotificationDispatcher] Resend API error:', JSON.stringify(resData));
+        console.warn('[NotificationDispatcher] Resend API response:', JSON.stringify(resData));
       }
     } catch (e) {
       console.error('[NotificationDispatcher] Email dispatch exception:', e);

@@ -593,11 +593,11 @@ export async function payBill(req: Request, res: Response) {
 
       // Dispatch in-app and email notification
       NotificationDispatcher.dispatch({
-        type: 'utility_payment',
+        email: cleanEmail,
+        userName: memUser?.fullName || memUser?.businessName || 'Valued Partner',
+        category: 'utilities',
         title: `${title} — Successful`,
         message: `Your utility payment of ₦${numAmount.toLocaleString()} (${type}) for ${customerNumber} has been delivered successfully.${tokenOutput ? ` Token: ${tokenOutput}` : ''}`,
-        recipientEmail: cleanEmail,
-        amount: numAmount,
         metadata: {
           reference: txRef,
           category,
