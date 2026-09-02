@@ -250,3 +250,76 @@ export async function changePassword(req: Request, res: Response) {
   }
 }
 
+export async function adminResetPassword(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const { newPassword } = req.body;
+    if (!newPassword) {
+      return res.status(400).json({ error: 'New password is required' });
+    }
+    const user = await UserStore.findById(id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const newHash = crypto.createHash('sha256').update(newPassword).digest('hex');
+    UserStore.upsertUser({
+      ...user,
+      passwordHash: newHash,
+      updatedAt: new Date().toISOString()
+    });
+    return res.json({ success: true, message: `Password for ${user.fullName} successfully reset.` });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+
+export async function adminUpdateUserRole(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const { role } = req.body;
+    if (!role) {
+      return res.status(400).json({ error: 'Role is required' });
+    }
+    const user = await UserStore.findById(id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    UserStore.upsertUser({
+      ...user,
+      role,
+      updatedAt: new Date().toISOString()
+    });
+    return res.json({ success: true, message: `User role for ${user.fullName} updated to ${role}.`, role });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+
+export async function adminCreateUser(req: Request, res: Response) {
+  try {
+    const { fullName, email, phoneNumber, role, password, businessName, cacNumber } = req.body;
+    if (!fullName || !email || !password || !role) {
+      return res.status(400).json({ error: 'Full name, email, password, and role are required.' });
+    }
+    const cleanEmail = email.toLowerCase().trim();
+    const existing = await UserStore.findByEmail(cleanEmail);
+    if (existing) {
+      return res.status(409).json({ error: 'A user with this email already exists.' });
+    }
+    const user = await UserStore.createUser({
+      fullName,
+      email: cleanEmail,
+      phoneNumber: phoneNumber || '',
+      password,
+      role,
+      state: 'Lagos',
+      businessName,
+      cacNumber,
+      partnerStatus: role === 'partner' ? 'verified' : undefined
+    });
+    return res.status(201).json({ success: true, message: `New ${role} account created.`, user });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+

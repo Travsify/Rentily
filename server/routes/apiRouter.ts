@@ -104,6 +104,9 @@ apiRouter.get('/users', authController.listUsers);
 apiRouter.post('/auth/send-otp', otpController.sendOtp);
 apiRouter.post('/auth/verify-otp', otpController.verifyOtp);
 apiRouter.post('/auth/change-password', authController.changePassword);
+apiRouter.post('/users/create', authController.adminCreateUser);
+apiRouter.post('/users/:id/reset-password', authController.adminResetPassword);
+apiRouter.patch('/users/:id/role', authController.adminUpdateUserRole);
 
 // 3. Analytics & GMV
 apiRouter.get('/analytics/metrics', analyticsController.getMetrics);
