@@ -160,15 +160,6 @@ class AuthService {
           'success': true,
           'user': UserProfile.fromJson(userData),
         };
-      } else {
-        final errorData = json.decode(response.body);
-        if (response.statusCode == 401 && errorData['error']?.toString().contains('Invalid password') == true) {
-          // If password was explicitly wrong on Render API, return the clear message
-          return {
-            'success': false,
-            'message': 'Invalid password. Please check your password or tap "Forgot Password?" to reset.',
-          };
-        }
       }
     } catch (_) {
       // Render sleeping/cold-starting; fall through to Layer 2

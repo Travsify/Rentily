@@ -111,7 +111,7 @@ export class CardIssuingService {
       expiryMonth: '08',
       expiryYear: '29',
       cvv: Math.floor(100 + Math.random() * 900).toString(),
-      balance: params.initialFunding || (currency === 'USD' ? 250.00 : 50000.00),
+      balance: params.initialFunding || 0.00,
       spendingLimit: currency === 'USD' ? 5000.00 : 2000000.00,
       isFrozen: false,
       status: 'ACTIVE',

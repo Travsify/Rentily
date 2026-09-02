@@ -115,6 +115,21 @@ export class NotificationDispatcher {
           </tr>
         `;
       }
+      // Check for OTP code in metadata
+      const otpCode = metadata.otp || metadata['One-Time Code (OTP)'] || metadata.otpCode;
+      
+      // Dynamic rendering of other metadata
+      for (const [k, v] of Object.entries(metadata)) {
+        if (!['otp', 'One-Time Code (OTP)', 'otpCode', 'amount', 'reference', 'propertyTitle', 'gateCode', 'token', 'bankName'].includes(k)) {
+          metaRows += `
+            <tr>
+              <td style="padding: 10px 0; color: #94A3B8; font-size: 13px; border-bottom: 1px solid #1E293B;">${k}:</td>
+              <td style="padding: 10px 0; color: #FFFFFF; font-size: 13px; font-weight: 600; text-align: right; border-bottom: 1px solid #1E293B;">${v}</td>
+            </tr>
+          `;
+        }
+      }
+
       metaRows += `
         <tr>
           <td style="padding: 10px 0; color: #94A3B8; font-size: 13px;">Date & Time:</td>
@@ -122,6 +137,8 @@ export class NotificationDispatcher {
         </tr>
       `;
     }
+
+    const otpCode = metadata ? (metadata.otp || metadata['One-Time Code (OTP)'] || metadata.otpCode) : null;
 
     return `
 <!DOCTYPE html>
@@ -165,6 +182,19 @@ export class NotificationDispatcher {
                 Hello <strong>${displayName}</strong>,<br>
                 ${message}
               </p>
+
+              ${otpCode ? `
+              <!-- 6-Digit OTP Hero Container -->
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background: linear-gradient(135deg, #064E3B 0%, #065F46 100%); border: 2px dashed #10B981; border-radius: 16px; margin: 20px 0 24px 0; padding: 20px; text-align: center;">
+                <tr>
+                  <td align="center" style="padding: 18px 12px;">
+                    <p style="margin: 0 0 6px 0; color: #A7F3D0; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px;">6-Digit Verification Code</p>
+                    <div style="color: #FFFFFF; font-size: 36px; font-weight: 900; letter-spacing: 12px; font-family: 'Courier New', Courier, monospace; margin: 8px 0;">${otpCode}</div>
+                    <p style="margin: 6px 0 0 0; color: #6EE7B7; font-size: 11.5px; font-weight: 600;">Valid for 10 minutes. Never share this code with anyone.</p>
+                  </td>
+                </tr>
+              </table>
+              ` : ''}
 
               ${metaRows ? `
               <!-- Activity Summary Box -->

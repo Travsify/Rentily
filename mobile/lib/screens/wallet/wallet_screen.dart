@@ -168,6 +168,14 @@ class _WalletScreenState extends State<WalletScreen> {
                       Text('USD • Virtual Visa', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary)),
                     ],
                   ),
+                  const Divider(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Card Issuance Fee', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+                      Text('\$3.00 (₦4,550)', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.accentOrange)),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -193,7 +201,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(
-                        '🎉 Virtual Dollar Card issued successfully!',
+                        '🎉 Virtual Dollar Card issued successfully! (\$3.00 fee processed)',
                         style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
                       ),
                       backgroundColor: AppColors.primary,
@@ -207,7 +215,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   elevation: 0,
                 ),
                 child: Text(
-                  'Confirm & Activate Card',
+                  'Pay \$3.00 & Activate Card',
                   style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
                 ),
               ),
