@@ -754,7 +754,11 @@ async function syncFlutterwaveTransactionsForUser(cleanEmail: string) {
 export async function getUserTransactions(req: Request, res: Response) {
   try {
     const { email } = req.query;
-    const cleanEmail = (email || 'patrickachua3@gmail.com').toString().toLowerCase().trim();
+    const cleanEmail = (email || '').toString().toLowerCase().trim();
+
+    if (!cleanEmail) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
 
     // Auto-sync from Flutterwave
     await syncFlutterwaveTransactionsForUser(cleanEmail);
@@ -773,7 +777,10 @@ export async function getUserTransactions(req: Request, res: Response) {
 export async function getWalletBalance(req: Request, res: Response) {
   try {
     const { userId, email } = req.query;
-    const cleanEmail = email?.toString().toLowerCase().trim() || 'patrickachua3@gmail.com';
+    const cleanEmail = email?.toString().toLowerCase().trim() || '';
+    if (!cleanEmail) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
 
     // 1. Fetch live profile directly from Supabase Cloud
     let dbUser: any = null;

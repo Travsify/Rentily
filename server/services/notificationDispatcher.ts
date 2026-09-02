@@ -255,7 +255,7 @@ export class NotificationDispatcher {
     // 1. Dispatch In-App Notification (Supabase / Database)
     try {
       if (supabase && event.userId) {
-        await supabase.from('notifications').insert({
+        const { error: notifError } = await supabase.from('notifications').insert({
           user_id: event.userId,
           title: event.title,
           category: event.category,
@@ -264,7 +264,14 @@ export class NotificationDispatcher {
           read: false,
           created_at: new Date().toISOString()
         });
-        inAppSuccess = true;
+        if (notifError) {
+          // Table may not exist yet — log but don't crash
+          if (!notifError.message?.includes('does not exist')) {
+            console.warn('[NotificationDispatcher] In-App insert error:', notifError.message);
+          }
+        } else {
+          inAppSuccess = true;
+        }
       }
     } catch (e) {
       console.warn('[NotificationDispatcher] In-App database save error:', e);
