@@ -591,18 +591,29 @@ export async function payBill(req: Request, res: Response) {
         date: new Date().toISOString(),
       });
 
+      // Dispatch in-app and email notification
+      NotificationDispatcher.dispatch({
+        type: 'utility_payment',
+        title: `${title} — Successful`,
+        message: `Your utility payment of ₦${numAmount.toLocaleString()} (${type}) for ${customerNumber} has been delivered successfully.${tokenOutput ? ` Token: ${tokenOutput}` : ''}`,
+        recipientEmail: cleanEmail,
+        amount: numAmount,
+        metadata: {
+          reference: txRef,
+          category,
+          token: tokenOutput,
+          units: unitsOutput,
+          customer: customerNumber
+        }
+      });
+
       // Update UserStore and Supabase
       if (memUser) {
-        UserStore.upsertUser({
+        await UserStore.upsertUser({
           ...memUser,
           walletBalance: newBal,
           updatedAt: new Date().toISOString()
         });
-      }
-      if (supabase) {
-        try {
-          await supabase.from('users').update({ wallet_balance: newBal }).eq('email', cleanEmail);
-        } catch (_) {}
       }
 
       return res.json({
