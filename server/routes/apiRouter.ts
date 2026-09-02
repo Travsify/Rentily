@@ -213,6 +213,8 @@ apiRouter.get('/wallet/fx-rates', paymentController.getFxRatesHandler);
 apiRouter.post('/wallet/fx-rates', paymentController.updateFxRatesHandler);
 
 // 22. Virtual Card Issuing & Management
+apiRouter.get('/cards/pricing', paymentController.getCardPricingHandler);
+apiRouter.post('/cards/pricing', paymentController.updateCardPricingHandler);
 apiRouter.get('/cards/user-cards', paymentController.getUserCards);
 apiRouter.post('/cards/create', paymentController.issueVirtualCard);
 apiRouter.post('/cards/fund', paymentController.fundVirtualCard);

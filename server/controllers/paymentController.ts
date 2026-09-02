@@ -1316,3 +1316,28 @@ export async function updateFxRatesHandler(req: Request, res: Response) {
   }
 }
 
+export async function getCardPricingHandler(req: Request, res: Response) {
+  try {
+    const pricing = CardIssuingService.getCardPricing();
+    res.json({
+      status: true,
+      data: pricing
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+export async function updateCardPricingHandler(req: Request, res: Response) {
+  try {
+    const updated = CardIssuingService.updateCardPricing(req.body);
+    res.json({
+      status: true,
+      message: 'Card pricing and fees updated successfully',
+      data: updated
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+}
+

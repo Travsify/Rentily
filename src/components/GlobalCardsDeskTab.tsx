@@ -63,11 +63,25 @@ export const GlobalCardsDeskTab: React.FC = () => {
   const [showIssueModal, setShowIssueModal] = useState(false);
   const [showFundModal, setShowFundModal] = useState(false);
   const [showFxModal, setShowFxModal] = useState(false);
+  const [showCardPricingModal, setShowCardPricingModal] = useState(false);
   const [fxRates, setFxRates] = useState({ USD_NGN: 1510, GBP_NGN: 1980, EUR_NGN: 1660 });
   const [fxUsd, setFxUsd] = useState('1510');
   const [fxGbp, setFxGbp] = useState('1980');
   const [fxEur, setFxEur] = useState('1660');
   const [savingFx, setSavingFx] = useState(false);
+  const [cardPricing, setCardPricing] = useState({
+    issuanceFeeUsd: 3.00,
+    fundingFeePercent: 1.5,
+    monthlyMaintenanceUsd: 1.00,
+    minFundingUsd: 5.00,
+    liquidationFeePercent: 1.0,
+  });
+  const [pricingIssuance, setPricingIssuance] = useState('3.00');
+  const [pricingFunding, setPricingFunding] = useState('1.5');
+  const [pricingMaintenance, setPricingMaintenance] = useState('1.00');
+  const [pricingMinFunding, setPricingMinFunding] = useState('5.00');
+  const [pricingLiquidation, setPricingLiquidation] = useState('1.0');
+  const [savingCardPricing, setSavingCardPricing] = useState(false);
   const [selectedCardForFund, setSelectedCardForFund] = useState<VirtualCard | null>(null);
   const [fundAmount, setFundAmount] = useState('100');
   const [newCardholder, setNewCardholder] = useState('');
@@ -77,10 +91,11 @@ export const GlobalCardsDeskTab: React.FC = () => {
 
   const fetchData = async () => {
     try {
-      const [accRes, cardRes, fxRes] = await Promise.all([
+      const [accRes, cardRes, fxRes, pricingRes] = await Promise.all([
         fetch('/api/wallet/multi-currency-accounts?email=tonerocool1@gmail.com'),
         fetch('/api/cards/user-cards?email=tonerocool1@gmail.com'),
-        fetch('/api/wallet/fx-rates')
+        fetch('/api/wallet/fx-rates'),
+        fetch('/api/cards/pricing')
       ]);
 
       if (accRes.ok) {
@@ -98,6 +113,17 @@ export const GlobalCardsDeskTab: React.FC = () => {
           setFxUsd((d.data.USD_NGN || 1510).toString());
           setFxGbp((d.data.GBP_NGN || 1980).toString());
           setFxEur((d.data.EUR_NGN || 1660).toString());
+        }
+      }
+      if (pricingRes.ok) {
+        const d = await pricingRes.json();
+        if (d.data) {
+          setCardPricing(d.data);
+          setPricingIssuance((d.data.issuanceFeeUsd ?? 3.00).toString());
+          setPricingFunding((d.data.fundingFeePercent ?? 1.5).toString());
+          setPricingMaintenance((d.data.monthlyMaintenanceUsd ?? 1.00).toString());
+          setPricingMinFunding((d.data.minFundingUsd ?? 5.00).toString());
+          setPricingLiquidation((d.data.liquidationFeePercent ?? 1.0).toString());
         }
       }
     } catch (_) {}
@@ -131,6 +157,33 @@ export const GlobalCardsDeskTab: React.FC = () => {
       }
     } catch (_) {}
     setSavingFx(false);
+  };
+
+  const handleSaveCardPricing = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingCardPricing(true);
+    try {
+      const res = await fetch('/api/cards/pricing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          issuanceFeeUsd: Number(pricingIssuance),
+          fundingFeePercent: Number(pricingFunding),
+          monthlyMaintenanceUsd: Number(pricingMaintenance),
+          minFundingUsd: Number(pricingMinFunding),
+          liquidationFeePercent: Number(pricingLiquidation),
+        })
+      });
+      if (res.ok) {
+        const d = await res.json();
+        if (d.data) {
+          setCardPricing(d.data);
+        }
+        setShowCardPricingModal(false);
+        fetchData();
+      }
+    } catch (_) {}
+    setSavingCardPricing(false);
   };
 
   const handleCopy = (text: string, key: string) => {
@@ -231,7 +284,7 @@ export const GlobalCardsDeskTab: React.FC = () => {
       </div>
 
       {/* Top Metrics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
         <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-sm">
           <div className="flex items-center justify-between text-slate-400 mb-2">
             <span className="text-xs font-medium">USD Vault Liquidity</span>
@@ -273,7 +326,7 @@ export const GlobalCardsDeskTab: React.FC = () => {
 
         <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-sm relative group">
           <div className="flex items-center justify-between text-slate-400 mb-2">
-            <span className="text-xs font-medium">Live FX Exchange Benchmark</span>
+            <span className="text-xs font-medium">Live FX Benchmark</span>
             <button
               onClick={() => setShowFxModal(true)}
               className="px-2 py-0.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold transition flex items-center gap-1"
@@ -285,8 +338,27 @@ export const GlobalCardsDeskTab: React.FC = () => {
           <div className="text-xl font-bold text-white tracking-tight">
             $1 = ₦{(fxRates.USD_NGN || 1510).toLocaleString()}
           </div>
-          <span className="text-[10px] text-slate-400 mt-1 block">
+          <span className="text-[10px] text-slate-400 mt-1 block truncate">
             £1 = ₦{(fxRates.GBP_NGN || 1980).toLocaleString()} | €1 = ₦{(fxRates.EUR_NGN || 1660).toLocaleString()}
+          </span>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-sm relative group">
+          <div className="flex items-center justify-between text-slate-400 mb-2">
+            <span className="text-xs font-medium">Card Issuance Fee</span>
+            <button
+              onClick={() => setShowCardPricingModal(true)}
+              className="px-2 py-0.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] font-bold transition flex items-center gap-1"
+              title="Edit Card Fees"
+            >
+              <span>Edit Fees</span>
+            </button>
+          </div>
+          <div className="text-xl font-bold text-amber-400 tracking-tight">
+            ${(cardPricing.issuanceFeeUsd ?? 3.00).toFixed(2)}
+          </div>
+          <span className="text-[10px] text-slate-400 mt-1 block">
+            Top-up: {cardPricing.fundingFeePercent ?? 1.5}% | Min: ${cardPricing.minFundingUsd ?? 5.00}
           </span>
         </div>
       </div>
@@ -746,6 +818,141 @@ export const GlobalCardsDeskTab: React.FC = () => {
                 >
                   {savingFx ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                   <span>Save Rates</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Card Pricing & Revenue Configuration Modal */}
+      {showCardPricingModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                  <CreditCard className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Card Pricing & Revenue Fees</h3>
+                  <p className="text-xs text-slate-400">Configure virtual card issuance, top-up margin & limits</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowCardPricingModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCardPricing} className="space-y-4 text-xs">
+              <div>
+                <label className="text-slate-300 font-medium block mb-1">
+                  Card Issuance Fee (USD)
+                  <span className="text-slate-500 font-normal ml-1">(Wholesale: $2.00)</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-slate-500 font-bold">$</span>
+                  <input
+                    type="number"
+                    step="0.10"
+                    required
+                    min="0"
+                    value={pricingIssuance}
+                    onChange={(e) => setPricingIssuance(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-3 py-2 text-white font-mono font-bold focus:outline-none focus:border-amber-500 text-sm"
+                  />
+                </div>
+                <p className="text-[10px] text-emerald-400 mt-1">
+                  Net profit per card: +${(Number(pricingIssuance) - 2.00 > 0 ? Number(pricingIssuance) - 2.00 : 0).toFixed(2)} USD
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-slate-300 font-medium block mb-1">Top-Up Spread Fee (%)</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.1"
+                      required
+                      min="0"
+                      value={pricingFunding}
+                      onChange={(e) => setPricingFunding(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-3 pr-7 py-2 text-white font-mono font-bold focus:outline-none focus:border-amber-500 text-sm"
+                    />
+                    <span className="absolute right-3 top-2.5 text-slate-500 font-bold">%</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-slate-300 font-medium block mb-1">Monthly Maintenance (USD)</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-slate-500 font-bold">$</span>
+                    <input
+                      type="number"
+                      step="0.10"
+                      required
+                      min="0"
+                      value={pricingMaintenance}
+                      onChange={(e) => setPricingMaintenance(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-3 py-2 text-white font-mono font-bold focus:outline-none focus:border-amber-500 text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-slate-300 font-medium block mb-1">Min Initial Funding (USD)</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-slate-500 font-bold">$</span>
+                    <input
+                      type="number"
+                      step="1"
+                      required
+                      min="0"
+                      value={pricingMinFunding}
+                      onChange={(e) => setPricingMinFunding(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-3 py-2 text-white font-mono font-bold focus:outline-none focus:border-amber-500 text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-slate-300 font-medium block mb-1">Card Unload / Liquidation (%)</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.1"
+                      required
+                      min="0"
+                      value={pricingLiquidation}
+                      onChange={(e) => setPricingLiquidation(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-3 pr-7 py-2 text-white font-mono font-bold focus:outline-none focus:border-amber-500 text-sm"
+                    />
+                    <span className="absolute right-3 top-2.5 text-slate-500 font-bold">%</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowCardPricingModal(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingCardPricing}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-semibold flex items-center gap-2 disabled:opacity-50"
+                >
+                  {savingCardPricing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  <span>Save Card Pricing</span>
                 </button>
               </div>
             </form>

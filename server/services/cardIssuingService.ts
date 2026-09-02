@@ -44,10 +44,66 @@ export interface CardTransaction {
 }
 
 const CARDS_FILE = path.join(process.cwd(), 'server', 'data', 'virtual_cards.json');
+const CARD_PRICING_FILE = path.join(process.cwd(), 'server', 'data', 'card_pricing.json');
+
+export interface CardPricingConfig {
+  issuanceFeeUsd: number;
+  fundingFeePercent: number;
+  monthlyMaintenanceUsd: number;
+  minFundingUsd: number;
+  liquidationFeePercent: number;
+}
 
 export class CardIssuingService {
   private static readonly BRIDGECARD_APP_ID = process.env.BRIDGECARD_ISSUING_APP_ID || 'b754a092-fafa-4180-b097-bb38f3530b1f';
   private static readonly BRIDGECARD_TOKEN = process.env.BRIDGECARD_SECRET_KEY || 'sk_live_VTJGc2RHVmtYMTg1eXdGekZaVytDNXpkR0JNUGJha040bTJYcnpYUkZ5amZFTG0zZkZhR1ZjaFBiY1djakV6Y3I3ZE9wY3lMK3pPV0ZadUQvMWVBQmZoWjYvY1RrMEdUbmQ3UTJzdWQ0ZG9pWW0rcndKS1pSTHdxcGYwdmNPRjVvUmhTU0lBUWxQTXZ3QVN3NDE5akxReFh3aGljUXVDTy9nSWYycjlSZzNRWW1iK01sN2JPVkN3a2ZncWE5dnVIalc1c3dnLzFLNWtnRlZuWDZNQnNDYlJNQVBTT2loL25iZWliTFdscmhJRzBHOGZjOXBqL09aUzE5a1ZYdDNjYkJNTWMvZk5UUDNIcU5kTmxLZHg0U1BUUDYwQmp0Z0lFMDNQQnJaU1BqUWlvTHJ2Y2NLd213MnhMYkhCOG9DWjcwZDl3M2t4ZEtYTDZFekFQMlpodFI5THJJU0ZhajdmdnB2UVJocTB1QmVvZ3NRNXU1aVB1d2hwR3J3UXNRQ0lOcHduNm5vN0F0OWNiYW1HTUwwRnFUUk03QXk2cFVTc1F2bHcvSTN0T2ZhY3JmbWNCTnlZSnVnWlpGdzd1cFRkaGdYUGhhaGVTMVI3OGJ2MWI4RTZKOXN0eEhQZFJvMmRKa0xkUVB5V0I1eFE9';
+
+  private static cardPricing: CardPricingConfig = {
+    issuanceFeeUsd: 3.00,
+    fundingFeePercent: 1.5,
+    monthlyMaintenanceUsd: 1.00,
+    minFundingUsd: 5.00,
+    liquidationFeePercent: 1.0,
+  };
+
+  static {
+    try {
+      if (fs.existsSync(CARD_PRICING_FILE)) {
+        const d = JSON.parse(fs.readFileSync(CARD_PRICING_FILE, 'utf8'));
+        this.cardPricing = { ...this.cardPricing, ...d };
+      }
+    } catch (_) {}
+  }
+
+  static getCardPricing(): CardPricingConfig {
+    return { ...this.cardPricing };
+  }
+
+  static updateCardPricing(newConfig: Partial<CardPricingConfig>): CardPricingConfig {
+    if (newConfig.issuanceFeeUsd !== undefined && newConfig.issuanceFeeUsd >= 0) {
+      this.cardPricing.issuanceFeeUsd = Number(newConfig.issuanceFeeUsd);
+    }
+    if (newConfig.fundingFeePercent !== undefined && newConfig.fundingFeePercent >= 0) {
+      this.cardPricing.fundingFeePercent = Number(newConfig.fundingFeePercent);
+    }
+    if (newConfig.monthlyMaintenanceUsd !== undefined && newConfig.monthlyMaintenanceUsd >= 0) {
+      this.cardPricing.monthlyMaintenanceUsd = Number(newConfig.monthlyMaintenanceUsd);
+    }
+    if (newConfig.minFundingUsd !== undefined && newConfig.minFundingUsd >= 0) {
+      this.cardPricing.minFundingUsd = Number(newConfig.minFundingUsd);
+    }
+    if (newConfig.liquidationFeePercent !== undefined && newConfig.liquidationFeePercent >= 0) {
+      this.cardPricing.liquidationFeePercent = Number(newConfig.liquidationFeePercent);
+    }
+
+    try {
+      const dir = path.dirname(CARD_PRICING_FILE);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(CARD_PRICING_FILE, JSON.stringify(this.cardPricing, null, 2), 'utf8');
+    } catch (_) {}
+
+    return { ...this.cardPricing };
+  }
 
   private static loadCards(): VirtualCard[] {
     try {
