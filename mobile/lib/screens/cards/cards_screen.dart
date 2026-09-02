@@ -1161,7 +1161,7 @@ class _CardsScreenState extends State<CardsScreen> {
       );
     } else {
       return RentillyBottomBar(
-        currentIndex: 2,
+        currentIndex: 3,
         onTap: (i) => Navigator.pop(context),
       );
     }

@@ -54,8 +54,9 @@ class RentillyBottomBar extends StatelessWidget {
             children: [
               _buildNavItem(context, 0, Icons.home_outlined, Icons.home_rounded, 'Home'),
               _buildNavItem(context, 1, Icons.apartment_outlined, Icons.apartment_rounded, 'Properties'),
-              _buildNavItem(context, 2, Icons.savings_outlined, Icons.savings_rounded, 'Vaults'),
-              _buildNavItem(context, 3, Icons.person_outline_rounded, Icons.person_rounded, 'Profile'),
+              _buildNavItem(context, 2, Icons.qr_code_scanner_rounded, Icons.qr_code_scanner_rounded, 'Gate Pass'),
+              _buildNavItem(context, 3, Icons.account_balance_wallet_outlined, Icons.account_balance_wallet_rounded, 'Vaults'),
+              _buildNavItem(context, 4, Icons.person_outline_rounded, Icons.person_rounded, 'Profile'),
             ],
           ),
         ),

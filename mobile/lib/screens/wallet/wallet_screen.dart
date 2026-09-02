@@ -446,7 +446,7 @@ class _WalletScreenState extends State<WalletScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: const RentillyBottomBar(currentIndex: 0),
+      bottomNavigationBar: const RentillyBottomBar(currentIndex: 3),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _loadData,
