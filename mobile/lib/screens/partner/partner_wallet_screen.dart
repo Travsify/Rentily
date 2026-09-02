@@ -16,6 +16,9 @@ import '../../widgets/withdrawal_modal.dart';
 import '../../widgets/quick_utilities_modal.dart';
 import '../../widgets/currency_selector_widget.dart';
 import '../../widgets/virtual_card_widget.dart';
+import '../../widgets/transaction_receipt_modal.dart';
+import '../../widgets/statement_export_modal.dart';
+import '../cards/cards_screen.dart';
 import '../bills/bills_screen.dart';
 
 class PartnerWalletScreen extends StatefulWidget {
@@ -491,6 +494,22 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
         ),
         backgroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf_rounded, color: AppColors.primary, size: 22),
+            tooltip: 'Export Statement',
+            onPressed: () {
+              if (_user != null) {
+                StatementExportModal.show(
+                  context,
+                  user: _user!,
+                  transactions: _commissionTxns.whereType<Map<String, dynamic>>().toList(),
+                  initialCurrency: _selectedCurrency,
+                );
+              }
+            },
+          ),
+        ],
       ),
       body: SafeArea(
         child: RefreshIndicator(
@@ -592,28 +611,38 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                     Container(height: 1, color: Colors.white.withValues(alpha: 0.15)),
                     const SizedBox(height: 12),
 
-                    // Escrow Commission Balance (Only on NGN)
+                    // Escrow Commission Balance (Only on NGN) - Zero Spillover Layout
                     if (_selectedCurrency == 'NGN') ...[
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('COMMISSIONS IN ESCROW (2.5% RENT / 2.0% SALE)', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white60)),
-                              const SizedBox(height: 2),
-                              Text('₦${_currencyFormat.format(escrowCommission)}', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w900, color: const Color(0xFFFBBF24))),
-                            ],
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'COMMISSIONS IN ESCROW',
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white60, letterSpacing: 0.4),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '₦${_currencyFormat.format(escrowCommission)}',
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w900, color: const Color(0xFFFBBF24)),
+                                ),
+                              ],
+                            ),
                           ),
+                          const SizedBox(width: 6),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
                             decoration: BoxDecoration(
                               color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
-                              'RELEASES ON KEY HANDOVER',
-                              style: GoogleFonts.plusJakartaSans(fontSize: 7.5, fontWeight: FontWeight.w900, color: const Color(0xFFFBBF24)),
+                              'RELEASE ON KEY HANDOVER',
+                              style: GoogleFonts.plusJakartaSans(fontSize: 7, fontWeight: FontWeight.w900, color: const Color(0xFFFBBF24)),
                             ),
                           ),
                         ],
@@ -1052,48 +1081,78 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                         ),
                       ),
                       const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 42,
-                        child: ElevatedButton.icon(
-                          onPressed: _showIssueCardModal,
-                          icon: const Icon(Icons.add_card_rounded, size: 16, color: Colors.white),
-                          label: Text(
-                            '+ Request Virtual Dollar Card (\$3.00)',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: _showIssueCardModal,
+                              icon: const Icon(Icons.add_card_rounded, size: 16, color: Colors.white),
+                              label: Text(
+                                '+ Request Card (\$${_cardIssuanceFeeUsd.toStringAsFixed(2)})',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.primary,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
                             ),
                           ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            elevation: 0,
+                          const SizedBox(width: 8),
+                          OutlinedButton.icon(
+                            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CardsScreen())),
+                            icon: const Icon(Icons.launch_rounded, size: 16, color: AppColors.primary),
+                            label: Text(
+                              'Cards Desk',
+                              style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: AppColors.primary, width: 1.2),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                            ),
                           ),
-                        ),
+                        ],
                       ),
                     ],
                   ),
                 )
               else
-                VirtualCardWidget(
-                  cardholderName: _cardData!['cardholderName'] ?? 'Corporate Partner',
-                  maskedPan: _cardData!['maskedPan'] ?? '4829 •••• •••• 7194',
-                  fullPan: _cardData!['fullPan'] ?? '4829 9102 3847 7194',
-                  expiryMonth: _cardData!['expiryMonth'] ?? '08',
-                  expiryYear: _cardData!['expiryYear'] ?? '29',
-                  cvv: _cardData!['cvv'] ?? '819',
-                  balance: (_cardData!['balance'] as num?)?.toDouble() ?? 0.0,
-                  currency: 'USD',
-                  brand: 'VISA',
-                  isFrozen: _cardData!['isFrozen'] == true,
-                  onFundCard: () {},
-                  onToggleFreeze: () {
-                    setState(() {
-                      _cardData!['isFrozen'] = !(_cardData!['isFrozen'] == true);
-                    });
-                  },
+                Column(
+                  children: [
+                    VirtualCardWidget(
+                      cardholderName: _cardData!['cardholderName'] ?? 'Corporate Partner',
+                      maskedPan: _cardData!['maskedPan'] ?? '4829 •••• •••• 7194',
+                      fullPan: _cardData!['fullPan'] ?? '4829 9102 3847 7194',
+                      expiryMonth: _cardData!['expiryMonth'] ?? '08',
+                      expiryYear: _cardData!['expiryYear'] ?? '29',
+                      cvv: _cardData!['cvv'] ?? '819',
+                      balance: (_cardData!['balance'] as num?)?.toDouble() ?? 0.0,
+                      currency: 'USD',
+                      brand: 'VISA',
+                      isFrozen: _cardData!['isFrozen'] == true,
+                      onFundCard: () {},
+                      onToggleFreeze: () {
+                        setState(() {
+                          _cardData!['isFrozen'] = !(_cardData!['isFrozen'] == true);
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CardsScreen())),
+                        icon: const Icon(Icons.arrow_forward_rounded, size: 14, color: AppColors.primary),
+                        label: Text('Open Full Cards Screen', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                      ),
+                    ),
+                  ],
                 ),
               const SizedBox(height: 24),
 
@@ -1106,7 +1165,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                     style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                   ),
                   Text(
-                    '${_commissionTxns.length} Records',
+                    '${_commissionTxns.length} Records • Tap for PDF',
                     style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
                   ),
                 ],
@@ -1117,75 +1176,88 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                 Column(
                   children: _commissionTxns.map((tx) {
                     final isMap = tx is Map;
+                    final txMap = isMap ? Map<String, dynamic>.from(tx) : <String, dynamic>{};
                     final title = isMap ? (tx['title'] ?? tx['description'] ?? 'Commission Payout') : 'Commission Payout';
                     final amount = isMap ? ((tx['amount'] as num?)?.toDouble() ?? 0.0) : 0.0;
                     final isCredit = amount >= 0;
                     final date = isMap ? (tx['date'] ?? tx['createdAt'] ?? '') : '';
                     final ref = isMap ? (tx['reference'] ?? tx['id'] ?? '') : '';
 
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 10),
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: AppColors.borderDark),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: (isCredit ? const Color(0xFF16A34A) : Colors.red).withValues(alpha: 0.1),
-                              shape: BoxShape.circle,
+                    return GestureDetector(
+                      onTap: () {
+                        if (_user != null) {
+                          TransactionReceiptModal.show(
+                            context,
+                            transaction: txMap.isNotEmpty ? txMap : {'title': title, 'amount': amount, 'reference': ref, 'date': date},
+                            user: _user!,
+                            currency: _selectedCurrency,
+                          );
+                        }
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: AppColors.borderDark),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: (isCredit ? const Color(0xFF16A34A) : Colors.red).withValues(alpha: 0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(
+                                isCredit ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
+                                color: isCredit ? const Color(0xFF16A34A) : Colors.red,
+                                size: 18,
+                              ),
                             ),
-                            child: Icon(
-                              isCredit ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
-                              color: isCredit ? const Color(0xFF16A34A) : Colors.red,
-                              size: 18,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  title,
-                                  style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                if (ref.isNotEmpty)
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
                                   Text(
-                                    'Ref: $ref',
-                                    style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textMuted),
+                                    title,
+                                    style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
+                                  if (ref.isNotEmpty)
+                                    Text(
+                                      'Ref: $ref • Receipt 📄',
+                                      style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textMuted),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  '${isCredit ? '+' : '-'}₦${_currencyFormat.format(amount.abs())}',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w800,
+                                    color: isCredit ? const Color(0xFF16A34A) : Colors.red,
+                                  ),
+                                ),
+                                if (date.isNotEmpty)
+                                  Text(
+                                    date.length > 10 ? date.substring(0, 10) : date,
+                                    style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textMuted),
+                                  ),
                               ],
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                '${isCredit ? '+' : '-'}₦${_currencyFormat.format(amount.abs())}',
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w800,
-                                  color: isCredit ? const Color(0xFF16A34A) : Colors.red,
-                                ),
-                              ),
-                              if (date.isNotEmpty)
-                                Text(
-                                  date.length > 10 ? date.substring(0, 10) : date,
-                                  style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textMuted),
-                                ),
-                            ],
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     );
                   }).toList(),

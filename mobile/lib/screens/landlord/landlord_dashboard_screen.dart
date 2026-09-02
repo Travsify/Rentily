@@ -19,6 +19,7 @@ import '../inspections/inspections_screen.dart';
 import 'landlord_wallet_screen.dart';
 import 'landlord_profile_screen.dart';
 import 'landlord_digital_leases_screen.dart';
+import '../cards/cards_screen.dart';
 import '../../services/notification_service.dart';
 import '../shared/notification_center_screen.dart';
 import '../shared/chat_inbox_screen.dart';
@@ -582,6 +583,16 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
                         } else {
                           Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LandlordWalletScreen()));
                         }
+                      },
+                    ),
+                    _buildGridCard(
+                      icon: Icons.credit_card_rounded,
+                      title: 'Dollar Cards Desk',
+                      subtitle: 'Virtual USD Visa (Bridgecard)',
+                      badge: 'GLOBAL',
+                      color: const Color(0xFF0284C7),
+                      onTap: () {
+                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CardsScreen()));
                       },
                     ),
                   ],

@@ -11,6 +11,7 @@ import '../bills/bills_screen.dart';
 import '../messages/messages_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../roommates/roommates_screen.dart';
+import '../cards/cards_screen.dart';
 import '../main_navigation_screen.dart';
 import '../../services/notification_service.dart';
 import '../../widgets/add_money_modal.dart';
@@ -707,6 +708,64 @@ class _HomeScreenState extends State<HomeScreen> {
                     },
                   ),
                 ],
+              ),
+              const SizedBox(height: 12),
+
+              // Dollar Cards Desk - Full Width Quick Action
+              GestureDetector(
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const CardsScreen()),
+                  );
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF0284C7), Color(0xFF0F172A)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF0284C7).withValues(alpha: 0.2),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.credit_card_rounded, color: Colors.white, size: 22),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Virtual Dollar Card',
+                              style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
+                            Text(
+                              'USD Visa • Shop globally, subscribe & pay online',
+                              style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: Colors.white70),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.white54),
+                    ],
+                  ),
+                ),
               ),
               const SizedBox(height: 18),
 

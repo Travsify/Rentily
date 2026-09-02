@@ -17,6 +17,9 @@ import '../../widgets/verification_modal.dart';
 import '../../widgets/withdrawal_modal.dart';
 import '../../widgets/currency_selector_widget.dart';
 import '../../widgets/virtual_card_widget.dart';
+import '../../widgets/transaction_receipt_modal.dart';
+import '../../widgets/statement_export_modal.dart';
+import '../cards/cards_screen.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
@@ -406,6 +409,22 @@ class _WalletScreenState extends State<WalletScreen> {
                 onPressed: () => Navigator.of(context).pop(),
               )
             : null,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf_rounded, color: AppColors.primary, size: 22),
+            tooltip: 'Export Statement',
+            onPressed: () {
+              if (_user != null) {
+                StatementExportModal.show(
+                  context,
+                  user: _user!,
+                  transactions: _transactions,
+                  initialCurrency: _selectedCurrency,
+                );
+              }
+            },
+          ),
+        ],
       ),
       bottomNavigationBar: const RentillyBottomBar(currentIndex: 0),
       body: SafeArea(
@@ -1289,84 +1308,11 @@ class _WalletScreenState extends State<WalletScreen> {
 
   void _showTransactionReceiptSheet(Map<String, dynamic> tx) {
     if (_user == null) return;
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Transaction Receipt', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                IconButton(icon: const Icon(Icons.close_rounded, size: 20), onPressed: () => Navigator.of(ctx).pop()),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF9FAFB),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.borderDark),
-              ),
-              child: Column(
-                children: [
-                  Text('AMOUNT', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
-                  const SizedBox(height: 4),
-                  Text('₦${_currencyFormat.format((tx['amount'] as num?)?.toDouble() ?? 0.0)}', style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                  const SizedBox(height: 4),
-                  Text(tx['title'] ?? 'Deposit / Settlement', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: () async {
-                      Navigator.of(ctx).pop();
-                      await StatementPdfService.shareReceipt(transaction: tx, user: _user!);
-                    },
-                    icon: const Icon(Icons.share_rounded, size: 16, color: AppColors.primary),
-                    label: Text('Share', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.primary),
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: () async {
-                      Navigator.of(ctx).pop();
-                      await StatementPdfService.downloadOrPrintReceipt(context, transaction: tx, user: _user!);
-                    },
-                    icon: const Icon(Icons.download_rounded, size: 16, color: Colors.white),
-                    label: Text('Download PDF', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-          ],
-        ),
-      ),
+    TransactionReceiptModal.show(
+      context,
+      transaction: tx,
+      user: _user!,
+      currency: _selectedCurrency,
     );
   }
 }

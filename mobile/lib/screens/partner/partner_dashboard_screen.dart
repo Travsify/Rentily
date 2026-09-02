@@ -21,6 +21,7 @@ import '../inspections/inspections_screen.dart';
 import 'partner_wallet_screen.dart';
 import 'partner_profile_screen.dart';
 import 'partner_mandates_screen.dart';
+import '../cards/cards_screen.dart';
 import '../../widgets/app_avatar.dart';
 import '../../services/notification_service.dart';
 import '../shared/notification_center_screen.dart';
@@ -719,6 +720,16 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
                       color: const Color(0xFF7C3AED),
                       onTap: () {
                         Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PartnerWalletScreen()));
+                      },
+                    ),
+                    _buildGridCard(
+                      icon: Icons.credit_card_rounded,
+                      title: 'Dollar Cards Desk',
+                      subtitle: 'Virtual USD Visa (Bridgecard)',
+                      badge: 'GLOBAL',
+                      color: const Color(0xFF0284C7),
+                      onTap: () {
+                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CardsScreen()));
                       },
                     ),
                   ],
