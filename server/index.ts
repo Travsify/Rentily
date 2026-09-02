@@ -7,6 +7,7 @@ import fs from 'fs';
 import { apiRouter } from './routes/apiRouter';
 import { renderPartnerVerificationPage, renderLandlordInvitePage } from './controllers/publicPartnerPages';
 import { isSupabaseConfigured } from './supabaseClient';
+import { AutoReconciliationWorker } from './services/autoReconciliationWorker';
 
 dotenv.config();
 
@@ -62,6 +63,9 @@ if (process.env.NODE_ENV !== 'test') {
     console.log(`🛡️ KYP Verification & Escrow Engine Active`);
     console.log(`📦 Supabase Live Connection: ${isSupabaseConfigured() ? 'Connected ✅' : 'Waiting for Credentials ⚡'}`);
     console.log(`=================================================`);
+
+    // Start Autonomous Omni-Sync Worker (Reconciles all fintechs every 5s)
+    AutoReconciliationWorker.start();
   });
 }
 
