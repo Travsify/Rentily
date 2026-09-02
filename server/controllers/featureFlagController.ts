@@ -48,6 +48,8 @@ export function getStoredFeatureFlags(): FeatureFlagsConfig {
   return _flagCache;
 }
 
+export const getFeatureFlags = getStoredFeatureFlags;
+
 export async function saveFeatureFlags(flags: Partial<FeatureFlagsConfig>): Promise<FeatureFlagsConfig> {
   _flagCache = {
     ..._flagCache,
