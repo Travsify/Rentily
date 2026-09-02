@@ -128,8 +128,21 @@ export async function getLedgerStats(_req: Request, res: Response) {
 
 export async function getUtilityTransactions(_req: Request, res: Response) {
   try {
+    await TransactionStore.syncFromSupabase();
     const all = TransactionStore.getAllTransactions();
-    const utilities = all.filter(t => t.category === 'utility' || t.title.toLowerCase().includes('electricity') || t.title.toLowerCase().includes('airtime') || t.title.toLowerCase().includes('data'));
+    const utilities = all.filter(t => 
+      t.category === 'utility' || 
+      t.type?.toLowerCase().includes('utility') ||
+      t.type?.toLowerCase().includes('airtime') ||
+      t.type?.toLowerCase().includes('data') ||
+      t.type?.toLowerCase().includes('electricity') ||
+      t.type?.toLowerCase().includes('cable') ||
+      t.title?.toLowerCase().includes('electricity') || 
+      t.title?.toLowerCase().includes('airtime') || 
+      t.title?.toLowerCase().includes('data') ||
+      t.title?.toLowerCase().includes('cable') ||
+      t.title?.toLowerCase().includes('token')
+    );
 
     res.json({
       success: true,
