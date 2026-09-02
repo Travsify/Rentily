@@ -114,6 +114,28 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ),
                 ],
               ),
+              const SizedBox(height: 12),
+
+              // Official Core Mission Statement Banner
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                ),
+                child: Text(
+                  'Rentilly: Built by Landlords for Every Tenant/Landlord',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.bold,
+                    color: const Color(0xFF34D399),
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ),
 
               const Spacer(),
 

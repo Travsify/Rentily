@@ -172,11 +172,24 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 4),
+
+                            // Official Core Mission Statement
+                            Text(
+                              'Built by Landlords for Every Tenant/Landlord',
+                              textAlign: TextAlign.center,
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF34D399), // High-visibility bright emerald
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
 
                             // 3. High-Contrast Tagline Pill (Federal & Nationwide)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
                               decoration: BoxDecoration(
                                 color: AppColors.primary.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(24),
@@ -188,10 +201,10 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                               child: Text(
                                 'NATIONWIDE DIRECT RENTALS • ZERO AGENTS • ESCROW SAFE',
                                 style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 10.5,
+                                  fontSize: 10,
                                   fontWeight: FontWeight.w800,
-                                  letterSpacing: 1.2,
-                                  color: const Color(0xFF34D399), // High-visibility bright emerald
+                                  letterSpacing: 1.1,
+                                  color: Colors.white,
                                 ),
                               ),
                             ),
