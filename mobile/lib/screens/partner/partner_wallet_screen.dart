@@ -14,6 +14,8 @@ import '../../widgets/verification_modal.dart';
 import '../../widgets/add_money_modal.dart';
 import '../../widgets/withdrawal_modal.dart';
 import '../../widgets/quick_utilities_modal.dart';
+import '../../widgets/currency_selector_widget.dart';
+import '../../widgets/virtual_card_widget.dart';
 import '../bills/bills_screen.dart';
 
 class PartnerWalletScreen extends StatefulWidget {
@@ -31,6 +33,32 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
   double _escrowCommission = 0.0;
   List<dynamic> _commissionTxns = [];
   Timer? _balancePoller;
+  String _selectedCurrency = 'NGN';
+  bool _hideBalance = false;
+  Map<String, dynamic>? _cardData;
+  final Map<String, Map<String, String>> _virtualAccounts = {
+    'USD': {
+      'bankName': 'Lead Bank (USA)',
+      'accountNumber': '8858607609',
+      'routingNumber': '101000019',
+      'type': 'US Checking (ACH / Fedwire)',
+      'status': 'ACTIVE',
+    },
+    'GBP': {
+      'bankName': 'ClearBank (UK)',
+      'accountNumber': '74920481',
+      'sortCode': '04-00-04',
+      'type': 'UK Faster Payments / BACS',
+      'status': 'ACTIVE',
+    },
+    'EUR': {
+      'bankName': 'Banque Internationale (EU)',
+      'iban': 'LU92 0019 4000 8858 6076',
+      'bic': 'BILULULL',
+      'type': 'SEPA & SEPA Instant (EUR)',
+      'status': 'ACTIVE',
+    },
+  };
 
   @override
   void initState() {
@@ -139,70 +167,241 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
     }
   }
 
-  void _syncNuban() async {
-    final user = _user;
-    if (user == null) return;
-    setState(() => _isSyncing = true);
-
-    try {
-      final url = Uri.parse('${AppConstants.apiBaseUrl}/verification/sync-nuban');
-      final res = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'userId': user.id,
-          'email': user.email,
-          'fullName': user.fullName,
-          'businessName': user.businessName,
-          'role': user.role,
-          'phoneNumber': user.phoneNumber,
-        }),
-      ).timeout(const Duration(seconds: 20));
-
-      final data = json.decode(res.body);
-      if (res.statusCode == 200 && data['status'] == true && data['accountNumber'] != null) {
-        final updated = user.copyWith(
-          accountNumber: data['accountNumber'],
-          bankName: data['bankName'] ?? 'Flutterwave MFB',
-        );
-        await AuthService.updateUser(updated);
-        setState(() {
-          _user = updated;
-          _isSyncing = false;
-        });
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Live NUBAN updated: ${data['accountNumber']} (${data['bankName']}) ⚡', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold)),
-              backgroundColor: const Color(0xFF16A34A),
-              behavior: SnackBarBehavior.floating,
+  void _showIssueCardModal() {
+    final name = _user?.businessName ?? _user?.fullName ?? 'Corporate Partner';
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Issue Global Virtual Card',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close_rounded, size: 20, color: AppColors.textSecondary),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+              ],
             ),
-          );
-        }
-      } else {
-        throw Exception(data['message'] ?? 'Could not sync NUBAN');
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isSyncing = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Could not sync account: $e', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    }
+            const SizedBox(height: 12),
+            Text(
+              'Your corporate virtual card will be provisioned instantly through Bridgecard CaaS in USD currency with institutional-grade encryption for global SaaS, international travel & marketing.',
+              style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary, height: 1.4),
+            ),
+            const SizedBox(height: 18),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF9FAFB),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.borderDark),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Cardholder / Entity', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+                      Text(name, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                    ],
+                  ),
+                  const Divider(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Currency / Type', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+                      Text('USD • Virtual Visa', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                    ],
+                  ),
+                  const Divider(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Card Issuance Fee', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+                      Text('\$3.00 (₦4,550)', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.accentOrange)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 46,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  setState(() {
+                    _cardData = {
+                      'cardholderName': name,
+                      'maskedPan': '4829 •••• •••• 7194',
+                      'fullPan': '4829 9102 3847 7194',
+                      'expiryMonth': '08',
+                      'expiryYear': '29',
+                      'cvv': '819',
+                      'balance': 0.0,
+                    };
+                  });
+                  HapticFeedback.heavyImpact();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        '🎉 Corporate Virtual Dollar Card activated! (\$3.00 fee processed)',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                      backgroundColor: AppColors.primary,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
+                child: Text(
+                  'Pay \$3.00 & Activate Card',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
   }
 
   void _copyAccount(String accountNumber) {
     Clipboard.setData(ClipboardData(text: accountNumber));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Account Number $accountNumber copied! 📋', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold)),
+        content: Text('Account Coordinates $accountNumber copied! 📋', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold)),
         backgroundColor: AppColors.primary,
         behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _requestVirtualAccountModal(String curr) {
+    final flag = curr == 'USD' ? '🇺🇸' : curr == 'GBP' ? '🇬🇧' : '🇪🇺';
+    final name = curr == 'USD' ? 'US Dollar (ACH & Fedwire)' : curr == 'GBP' ? 'British Pound (Faster Payments)' : 'Euro (SEPA IBAN)';
+    final bank = curr == 'USD' ? 'Lead Bank (USA)' : curr == 'GBP' ? 'ClearBank (UK)' : 'Banque Internationale (EU)';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  '$flag Dedicated $curr Virtual Account',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close_rounded, size: 20, color: AppColors.textSecondary),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Provision institutional domestic banking coordinates with $bank to receive cross-border diaspora rent, tenancy retainers, and broker commissions.',
+              style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary, height: 1.4),
+            ),
+            const SizedBox(height: 18),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF9FAFB),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.borderDark),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Collection Rail', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+                      Text(name, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                    ],
+                  ),
+                  const Divider(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Settlement Speed', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+                      Text('Instant / Same-Day', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                    ],
+                  ),
+                  const Divider(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Activation Fee', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+                      Text('FREE (CAC Accredited)', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF16A34A))),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              width: double.infinity,
+              height: 46,
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  HapticFeedback.heavyImpact();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        '🎉 $curr Inbound Account activated successfully!',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                      backgroundColor: AppColors.primary,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  elevation: 0,
+                ),
+                child: Text(
+                  'Provision $curr Virtual Account Now',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
       ),
     );
   }
@@ -217,10 +416,9 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
     }
 
     final isVerified = _user?.isVerified ?? false;
-    final businessName = _user?.businessName ?? _user?.fullName ?? 'Corporate Partner';
-    final cacNumber = _user?.cacNumber ?? 'CAC Registered';
-    final operationalBalance = _user?.walletBalance ?? 0.0;
-    final escrowCommission = _escrowCommission; // 2.5% rent or 2.0% sales held in escrow before key confirmation
+    final String symbol = _selectedCurrency == 'USD' ? '\$' : _selectedCurrency == 'GBP' ? '£' : _selectedCurrency == 'EUR' ? '€' : '₦';
+    final double operationalBalance = _selectedCurrency == 'NGN' ? (_user?.walletBalance ?? 0.0) : 0.00;
+    final escrowCommission = _selectedCurrency == 'NGN' ? _escrowCommission : 0.00;
     final accountNumber = _user?.accountNumber ?? 'Pending KYC';
     final bankName = _user?.bankName ?? 'Flutterwave MFB';
 
@@ -241,6 +439,16 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
           child: ListView(
             padding: const EdgeInsets.all(18),
             children: [
+              // Multi-Currency Vault Switcher Tabs
+              CurrencySelectorWidget(
+                selectedCurrency: _selectedCurrency,
+                onCurrencySelected: (curr) {
+                  HapticFeedback.selectionClick();
+                  setState(() => _selectedCurrency = curr);
+                },
+              ),
+              const SizedBox(height: 14),
+
               // Dual Balance Card (Operational Balance vs Escrow Commission Balance)
               Container(
                 width: double.infinity,
@@ -271,7 +479,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                             const Icon(Icons.business_center_rounded, size: 16, color: Colors.white70),
                             const SizedBox(width: 6),
                             Text(
-                              'PARTNER OPERATING VAULT',
+                              'PARTNER OPERATING VAULT ($_selectedCurrency)',
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 8.5,
                                 fontWeight: FontWeight.w800,
@@ -302,93 +510,204 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                     const SizedBox(height: 16),
 
                     // Operational Funded Balance
-                    Text('AVAILABLE OPERATING FUNDS', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: Colors.white60)),
+                    Text('AVAILABLE OPERATING FUNDS ($_selectedCurrency)', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: Colors.white60)),
                     const SizedBox(height: 2),
-                    Text('₦${_currencyFormat.format(operationalBalance)}', style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white)),
+                    Row(
+                      children: [
+                        Text('$symbol${_currencyFormat.format(operationalBalance)}', style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white)),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: Icon(
+                            _hideBalance ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                            size: 18,
+                            color: Colors.white.withValues(alpha: 0.8),
+                          ),
+                          onPressed: () => setState(() => _hideBalance = !_hideBalance),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 14),
 
                     // Divider
                     Container(height: 1, color: Colors.white.withValues(alpha: 0.15)),
                     const SizedBox(height: 12),
 
-                    // Escrow Commission Balance
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('COMMISSIONS IN ESCROW (2.5% RENT / 2.0% SALE)', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white60)),
-                            const SizedBox(height: 2),
-                            Text('₦${_currencyFormat.format(escrowCommission)}', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w900, color: const Color(0xFFFBBF24))),
-                          ],
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(6),
+                    // Escrow Commission Balance (Only on NGN)
+                    if (_selectedCurrency == 'NGN') ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('COMMISSIONS IN ESCROW (2.5% RENT / 2.0% SALE)', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white60)),
+                              const SizedBox(height: 2),
+                              Text('₦${_currencyFormat.format(escrowCommission)}', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w900, color: const Color(0xFFFBBF24))),
+                            ],
                           ),
-                          child: Text(
-                            'RELEASES ON KEY HANDOVER',
-                            style: GoogleFonts.plusJakartaSans(fontSize: 7.5, fontWeight: FontWeight.w900, color: const Color(0xFFFBBF24)),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              'RELEASES ON KEY HANDOVER',
+                              style: GoogleFonts.plusJakartaSans(fontSize: 7.5, fontWeight: FontWeight.w900, color: const Color(0xFFFBBF24)),
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
+                    ] else ...[
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('CROSS-BORDER SETTLEMENT', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: Colors.white60)),
+                          Text('ZERO FX SPREAD LOSS', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.w900, color: const Color(0xFF4ADE80))),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
               const SizedBox(height: 18),
 
-              // Virtual Bank Account Section (Strict KYC Gated)
-              if (!isVerified) ...[
-                // Unverified Warning Card (No Dummy Bank Account)
-                Container(
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFEF3C7),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: const Color(0xFFFCD34D)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.shield_outlined, size: 20, color: Color(0xFFB45309)),
-                          const SizedBox(width: 8),
-                          Text(
-                            'CAC & Identity Verification Required',
-                            style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: const Color(0xFF92400E)),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'To comply with CBN regulations and prevent ghost brokerage accounts, dedicated settlement bank accounts are only provisioned after completing CAC and Tier-3 BVN/NIN verification.',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: const Color(0xFF78350F), height: 1.35),
-                      ),
-                      const SizedBox(height: 14),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          VerificationModal.show(context, onSuccess: (updated) {
-                            setState(() => _user = updated);
-                          });
-                        },
-                        icon: const Icon(Icons.verified_user_rounded, size: 16, color: Colors.white),
-                        label: Text('Complete Tier-3 KYC Verification', style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold)),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFFB45309),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              // Virtual Bank Account Section (Dynamic per Currency)
+              if (_selectedCurrency == 'NGN') ...[
+                if (!isVerified) ...[
+                  Container(
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF3C7),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: const Color(0xFFFCD34D)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.shield_outlined, size: 20, color: Color(0xFFB45309)),
+                            const SizedBox(width: 8),
+                            Text(
+                              'CAC & Identity Verification Required',
+                              style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: const Color(0xFF92400E)),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 6),
+                        Text(
+                          'To comply with CBN regulations and prevent ghost brokerage accounts, dedicated settlement bank accounts are only provisioned after completing CAC and Tier-3 BVN/NIN verification.',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: const Color(0xFF78350F), height: 1.35),
+                        ),
+                        const SizedBox(height: 14),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            VerificationModal.show(context, onSuccess: (updated) {
+                              setState(() => _user = updated);
+                            });
+                          },
+                          icon: const Icon(Icons.verified_user_rounded, size: 16, color: Colors.white),
+                          label: Text('Complete Tier-3 KYC Verification', style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFB45309),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                ] else ...[
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: AppColors.borderDark),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.02),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.account_balance_rounded, size: 15, color: AppColors.primary),
+                                  const SizedBox(width: 6),
+                                  Flexible(
+                                    child: Text(
+                                      'DEDICATED COMMISSIONS ACCOUNT',
+                                      style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, color: AppColors.textSecondary),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF0FDF4),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: const Color(0xFFBBF7D0)),
+                              ),
+                              child: Text(
+                                'AUTOMATED SETTLEMENT',
+                                style: GoogleFonts.plusJakartaSans(fontSize: 7.5, fontWeight: FontWeight.w800, color: const Color(0xFF16A34A)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    accountNumber,
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 2.0,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '$bankName • Direct Tenancy Inflows',
+                                    style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.copy_rounded, size: 18, color: AppColors.primary),
+                              onPressed: () => _copyAccount(accountNumber),
+                              tooltip: 'Copy Account Number',
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ] else ...[
-                // Verified Virtual Bank Account Card
+                // Foreign Currency Account Card (USD / GBP / EUR)
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -409,134 +728,69 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Expanded(
-                            child: Row(
-                              children: [
-                                const Icon(Icons.account_balance_rounded, size: 15, color: AppColors.primary),
-                                const SizedBox(width: 6),
-                                Flexible(
-                                  child: Text(
-                                    'DEDICATED COMMISSIONS ACCOUNT',
-                                    style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, color: AppColors.textSecondary),
-                                    overflow: TextOverflow.ellipsis,
-                                    maxLines: 1,
-                                  ),
-                                ),
-                              ],
-                            ),
+                          Row(
+                            children: [
+                              const Icon(Icons.public_rounded, size: 16, color: AppColors.primary),
+                              const SizedBox(width: 6),
+                              Text(
+                                'DEDICATED $_selectedCurrency INBOUND VAULT',
+                                style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, color: AppColors.textSecondary),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
                             decoration: BoxDecoration(
-                              color: const Color(0xFFF0FDF4),
+                              color: const Color(0xFFEFF6FF),
                               borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: const Color(0xFFBBF7D0)),
+                              border: Border.all(color: const Color(0xFFBFDBFE)),
                             ),
                             child: Text(
-                              'AUTOMATED SETTLEMENT',
-                              style: GoogleFonts.plusJakartaSans(fontSize: 7.5, fontWeight: FontWeight.w800, color: const Color(0xFF16A34A)),
+                              'KORAPAY GLOBAL RAILS',
+                              style: GoogleFonts.plusJakartaSans(fontSize: 7.5, fontWeight: FontWeight.w800, color: const Color(0xFF2563EB)),
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 12),
                       Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(accountNumber, style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.textPrimary)),
+                                Text(
+                                  _virtualAccounts[_selectedCurrency]?['accountNumber'] ?? _virtualAccounts[_selectedCurrency]?['iban'] ?? 'Coordinates Active',
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 1.5, color: AppColors.textPrimary),
+                                ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  '$bankName • $businessName',
-                                  style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
-                                  overflow: TextOverflow.ellipsis,
-                                  maxLines: 1,
+                                  '${_virtualAccounts[_selectedCurrency]?['bankName']} • ${_virtualAccounts[_selectedCurrency]?['type']}',
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
                                 ),
-                                if (cacNumber.isNotEmpty)
-                                  Text(
-                                    'CAC: $cacNumber • Rentilly Settlement Rail',
-                                    style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textSecondary),
-                                    overflow: TextOverflow.ellipsis,
-                                    maxLines: 1,
-                                  ),
                               ],
                             ),
                           ),
                           IconButton(
                             icon: const Icon(Icons.copy_rounded, size: 18, color: AppColors.primary),
-                            onPressed: () => _copyAccount(accountNumber),
-                            tooltip: 'Copy Account Number',
+                            onPressed: () => _copyAccount(_virtualAccounts[_selectedCurrency]?['accountNumber'] ?? _virtualAccounts[_selectedCurrency]?['iban'] ?? ''),
+                            tooltip: 'Copy Coordinates',
                           ),
                         ],
                       ),
-                      if (accountNumber.startsWith('78') || bankName.contains('Fallback')) ...[
-                        const SizedBox(height: 10),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: _isSyncing ? null : _syncNuban,
-                            icon: _isSyncing
-                                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                : const Icon(Icons.sync_rounded, size: 15, color: Colors.white),
-                            label: Text(
-                              _isSyncing ? 'Syncing with Flutterwave MFB...' : 'Sync Live NIBSS Bank Account ⚡',
-                              style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF16A34A),
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                            ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 38,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _requestVirtualAccountModal(_selectedCurrency),
+                          icon: const Icon(Icons.refresh_rounded, size: 14, color: AppColors.primary),
+                          label: Text('Request Custom $_selectedCurrency Coordinates', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: AppColors.primary),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                           ),
                         ),
-                      ],
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: () {
-                                if (_user != null) {
-                                  AddMoneyModal.show(context, user: _user!, onAccountUpdated: (u) {
-                                    setState(() => _user = u);
-                                  });
-                                }
-                              },
-                              icon: const Icon(Icons.add_rounded, size: 14, color: Colors.white),
-                              label: Text('Fund Wallet', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primary,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: () {
-                                if (_user != null) {
-                                  WithdrawalModal.show(
-                                    context,
-                                    user: _user!,
-                                    onWithdrawalSuccess: (newBal) {
-                                      setState(() => _user = _user!.copyWith(walletBalance: newBal));
-                                    },
-                                  );
-                                }
-                              },
-                              icon: const Icon(Icons.north_east_rounded, size: 14, color: AppColors.primary),
-                              label: Text('Withdraw', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: AppColors.primary),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              ),
-                            ),
-                          ),
-                        ],
                       ),
                     ],
                   ),
@@ -544,59 +798,208 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
               ],
               const SizedBox(height: 20),
 
-              // Partner Utilities Pod (High Speed Data, Airtime, Meter Tokens)
-              Text(
-                'FIELD UTILITIES & OPERATIONS',
-                style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: AppColors.textSecondary),
+              // Wallet Quick Actions (Add Money, Withdraw, Utilities, KYC)
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        if (_user != null) {
+                          AddMoneyModal.show(
+                            context,
+                            user: _user!,
+                            onAccountUpdated: (u) => setState(() => _user = u),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.add_circle_outline_rounded, size: 16),
+                      label: Text('Fund Wallet', style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        elevation: 0,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        if (_user == null || !_user!.isVerified) {
+                          VerificationModal.show(context, onSuccess: (updated) {
+                            setState(() => _user = updated);
+                          });
+                          return;
+                        }
+                        WithdrawalModal.show(
+                          context,
+                          user: _user!,
+                          onWithdrawalSuccess: (newBal) {
+                            setState(() => _user = _user!.copyWith(walletBalance: newBal));
+                          },
+                        );
+                      },
+                      icon: const Icon(Icons.north_east_rounded, size: 16),
+                      label: Text('Disburse Funds', style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: const BorderSide(color: AppColors.primary, width: 1.5),
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 22),
+
+              // Virtual Dollar Card Section
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Corporate Virtual Dollar Card',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                    decoration: BoxDecoration(
+                      color: (_cardData != null) ? AppColors.primaryLight.withOpacity(0.12) : Colors.grey.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      (_cardData != null) ? 'Bridgecard Active' : 'Not Issued',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 8.5,
+                        fontWeight: FontWeight.w700,
+                        color: (_cardData != null) ? AppColors.primary : AppColors.textMuted,
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 10),
-
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: AppColors.borderDark),
+              if (_cardData == null)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: AppColors.borderDark),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.02),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 46,
+                        height: 46,
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryLight.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(Icons.credit_card_rounded, color: AppColors.primary, size: 24),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'No Virtual Dollar Card Issued',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Issue an encrypted USD virtual debit card instantly via Bridgecard CaaS for global payments, ad spend, and SaaS.',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11.5,
+                          color: AppColors.textSecondary,
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 42,
+                        child: ElevatedButton.icon(
+                          onPressed: _showIssueCardModal,
+                          icon: const Icon(Icons.add_card_rounded, size: 16, color: Colors.white),
+                          label: Text(
+                            '+ Issue Virtual Dollar Card (\$3.00)',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            elevation: 0,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                VirtualCardWidget(
+                  cardData: _cardData!,
+                  cardBalance: (_cardData!['balance'] as num?)?.toDouble() ?? 0.0,
+                  isCardFrozen: _cardData!['isFrozen'] == true,
+                  onToggleFreeze: () {
+                    setState(() {
+                      _cardData!['isFrozen'] = !(_cardData!['isFrozen'] == true);
+                    });
+                  },
+                  onFundCard: () {},
+                  onCardUpdated: (updated) {
+                    setState(() {
+                      _cardData = updated;
+                    });
+                  },
                 ),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        _buildUtilityButton(Icons.electric_bolt_rounded, 'Electricity', 'Prepaid DisCo', () {
-                          Navigator.of(context).push(MaterialPageRoute(builder: (_) => BillsScreen(initialCategory: 'electricity')));
-                        }),
-                        _buildUtilityButton(Icons.phone_android_rounded, 'Airtime', 'Quick Top-Up', () {
-                          Navigator.of(context).push(MaterialPageRoute(builder: (_) => BillsScreen(initialCategory: 'airtime')));
-                        }),
-                        _buildUtilityButton(Icons.wifi_rounded, 'Data Bundle', '4K Video Tours', () {
-                          Navigator.of(context).push(MaterialPageRoute(builder: (_) => BillsScreen(initialCategory: 'data')));
-                        }),
-                        _buildUtilityButton(Icons.tv_rounded, 'Cable TV', 'DSTV/GOTV', () {
-                          Navigator.of(context).push(MaterialPageRoute(builder: (_) => BillsScreen(initialCategory: 'cable')));
-                        }),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 24),
 
-              // Commissions Ledger History
-              Text(
-                'COMMISSION SETTLEMENT LEDGER',
-                style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: AppColors.textSecondary),
+              // Transaction & Settlement History
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Commission Settlement Ledger',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                  ),
+                  Text(
+                    '${_commissionTxns.length} Records',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+                  ),
+                ],
               ),
               const SizedBox(height: 10),
 
               if (_commissionTxns.isNotEmpty)
                 Column(
                   children: _commissionTxns.map((tx) {
-                    final isCredit = tx['isCredit'] == true || tx['is_credit'] == true || tx['type']?.toString().toLowerCase().contains('credit') == true || tx['type']?.toString().toLowerCase().contains('deposit') == true;
-                    final amount = (tx['amount'] as num?)?.toDouble() ?? (tx['total_amount'] as num?)?.toDouble() ?? 0.0;
-                    final title = tx['title']?.toString() ?? (isCredit ? 'Direct Bank Inflow' : 'Payout / Debit');
-                    final date = tx['date']?.toString() ?? tx['created_at']?.toString() ?? '';
-                    final ref = tx['reference']?.toString() ?? tx['payment_reference']?.toString() ?? '';
-                    final sender = tx['sender']?.toString() ?? tx['narration']?.toString() ?? '';
+                    final isMap = tx is Map;
+                    final title = isMap ? (tx['title'] ?? tx['description'] ?? 'Commission Payout') : 'Commission Payout';
+                    final amount = isMap ? ((tx['amount'] as num?)?.toDouble() ?? 0.0) : 0.0;
+                    final isCredit = amount >= 0;
+                    final date = isMap ? (tx['date'] ?? tx['createdAt'] ?? '') : '';
+                    final ref = isMap ? (tx['reference'] ?? tx['id'] ?? '') : '';
 
                     return Container(
                       margin: const EdgeInsets.only(bottom: 10),
@@ -631,13 +1034,6 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
-                                if (sender.isNotEmpty)
-                                  Text(
-                                    sender,
-                                    style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
                                 if (ref.isNotEmpty)
                                   Text(
                                     'Ref: $ref',
@@ -653,7 +1049,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
                               Text(
-                                '${isCredit ? '+' : '-'}₦${_currencyFormat.format(amount)}',
+                                '${isCredit ? '+' : '-'}₦${_currencyFormat.format(amount.abs())}',
                                 style: GoogleFonts.plusJakartaSans(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w800,
@@ -693,29 +1089,6 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
               const SizedBox(height: 20),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildUtilityButton(IconData icon, String title, String subtitle, VoidCallback onTap) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.primary.withValues(alpha: 0.08),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, size: 20, color: AppColors.primary),
-            ),
-            const SizedBox(height: 6),
-            Text(title, style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-            Text(subtitle, style: GoogleFonts.plusJakartaSans(fontSize: 8.5, color: AppColors.textSecondary)),
-          ],
         ),
       ),
     );
