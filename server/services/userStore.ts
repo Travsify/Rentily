@@ -214,26 +214,27 @@ export class UserStore {
   }
 
   static async findById(id: string): Promise<StoredUser | null> {
+    if (!id) return null;
     const users = this.getAllUsers();
-    const user = users.find(u => u.id === id);
-    if (user) return user;
+    const localUser = users.find(u => u.id === id);
 
     if (supabase) {
       try {
-        const { data } = await supabase.from('profiles').select('*').eq('id', id).maybeSingle();
-        if (data) {
+        const { data, error } = await supabase.from('profiles').select('*').eq('id', id).maybeSingle();
+        if (!error && data) {
           const resolvedRole = (data.business_name || data.cac_number) ? 'partner' : (data.role || 'renter');
           const stored: StoredUser = {
             id: data.id,
             email: data.email,
             fullName: data.full_name || '',
             phoneNumber: data.phone_number || '',
+            passwordHash: localUser?.passwordHash,
             role: resolvedRole,
             isVerified: Boolean(data.is_verified),
             ninNumber: data.nin_number,
             bvnVerified: Boolean(data.bvn_verified),
             accountNumber: data.account_number,
-            bankName: data.bank_name,
+            bankName: data.bank_name || 'Flutterwave MFB',
             state: data.state || 'Lagos',
             walletBalance: Number(data.wallet_balance || 0),
             businessName: data.business_name,
@@ -246,27 +247,30 @@ export class UserStore {
           this.upsertUser(stored);
           return stored;
         }
-      } catch (_) {}
+      } catch (e: any) {
+        console.warn('[UserStore] Supabase findById fallback to local cache:', e?.message);
+      }
     }
 
-    return null;
+    return localUser || null;
   }
 
   static async findByEmail(email: string): Promise<StoredUser | null> {
     const cleanEmail = (email || '').toLowerCase().trim();
+    if (!cleanEmail) return null;
+
     const users = this.getAllUsers();
     const localUser = users.find(u => u.email.toLowerCase() === cleanEmail);
-    if (localUser) return localUser;
 
     if (supabase) {
       try {
-        const { data: user } = await supabase
+        const { data: user, error } = await supabase
           .from('profiles')
           .select('*')
           .eq('email', cleanEmail)
           .maybeSingle();
 
-        if (user) {
+        if (!error && user) {
           const resolvedRole = (user.business_name || user.cac_number) ? 'partner' : (user.role || 'renter');
           const stored: StoredUser = {
             id: user.id,
@@ -279,7 +283,7 @@ export class UserStore {
             ninNumber: user.nin_number,
             bvnVerified: Boolean(user.bvn_verified),
             accountNumber: user.account_number,
-            bankName: user.bank_name,
+            bankName: user.bank_name || 'Flutterwave MFB',
             state: user.state || 'Lagos',
             walletBalance: Number(user.wallet_balance || 0),
             businessName: user.business_name,
@@ -292,11 +296,15 @@ export class UserStore {
           this.upsertUser(stored);
           return stored;
         }
-      } catch (_) {}
+      } catch (e: any) {
+        console.warn('[UserStore] Supabase findByEmail fallback to local cache:', e?.message);
+      }
     }
 
-    return null;
+    return localUser || null;
   }
+
+
 
   static upsertUser(user: StoredUser): StoredUser {
     // Ensure valid UUID

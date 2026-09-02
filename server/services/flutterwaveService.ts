@@ -258,9 +258,22 @@ export class FlutterwaveService {
       });
 
       const resJson: any = await response.json();
-      if (response.ok && resJson.status === 'success' && Array.isArray(resJson.data)) {
+      if (response.ok && resJson.status === 'success' && Array.isArray(resJson.data) && resJson.data.length > 0) {
         return resJson.data;
       }
+
+      // If customer_email query returned empty, fetch recent successful transactions
+      // so transactions routed via mismatched virtual accounts can still be found and verified
+      if (email) {
+        const fbRes = await fetch(`${FLW_BASE_URL}/transactions?status=successful`, {
+          headers: this.getHeaders()
+        });
+        const fbJson: any = await fbRes.json();
+        if (fbRes.ok && fbJson.status === 'success' && Array.isArray(fbJson.data)) {
+          return fbJson.data;
+        }
+      }
+
       return [];
     } catch (error) {
       console.error('[Flutterwave] Failed to fetch transactions:', error);

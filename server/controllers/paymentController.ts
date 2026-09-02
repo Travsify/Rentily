@@ -650,11 +650,24 @@ async function syncFlutterwaveTransactionsForUser(cleanEmail: string) {
       const txRef = (flwTx.tx_ref || flwTx.flw_ref || '').toString();
       const virtualAccNo = (flwTx.meta?.virtualaccountnumber || '').toString().replace(/\s/g, '');
 
+      // CRITICAL FIX: The ₦5,000 transfer from PATRICK OTU ACHUA (ref: 100004260902142253170089915568)
+      // belongs to patrickachua3@gmail.com, NOT tonerocool1@gmail.com, even though Flutterwave tagged it under tonerocool1.
+      const isPatrickTransfer = flwTx.flw_ref === '100004260902142253170089915568' || 
+                                (flwTx.meta?.originatorname && flwTx.meta.originatorname.toUpperCase().includes('PATRICK'));
+
+      if (isPatrickTransfer) {
+        if (cleanEmail !== 'patrickachua3@gmail.com') {
+          continue; // Do NOT credit anyone except Patrick
+        }
+      } else if (cleanEmail === 'patrickachua3@gmail.com') {
+        continue; // Only Patrick's own transfers go to Patrick
+      }
+
       // Match by: exact email OR virtual account number belonging to this user
       const emailMatch = flwEmail === cleanEmail;
       const accMatch = user?.accountNumber && virtualAccNo && user.accountNumber.replace(/\s/g, '') === virtualAccNo;
 
-      if (!emailMatch && !accMatch) {
+      if (!emailMatch && !accMatch && !isPatrickTransfer) {
         continue;
       }
 
