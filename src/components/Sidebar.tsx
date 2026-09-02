@@ -16,7 +16,10 @@ import {
   Zap,
   Sliders,
   Megaphone,
-  Eye
+  Eye,
+  Calendar,
+  Scale,
+  Activity
 } from 'lucide-react';
 import type { AdminTab } from '../types';
 
@@ -75,6 +78,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
           icon: CalendarCheck,
           badge: activeInspectionsCount > 0 ? `${activeInspectionsCount}` : null,
           badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+        },
+        {
+          id: 'lease_renewals',
+          label: 'Lease Expiry & Renewals',
+          icon: Calendar,
+          badge: 'Annual'
+        },
+        {
+          id: 'statutory_notices',
+          label: 'Statutory Notices (Lagos/FCT)',
+          icon: Scale,
+          badge: 'Legal'
         }
       ]
     },
@@ -118,10 +133,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
           badgeColor: 'bg-blue-500/20 text-blue-300 border-blue-500/30'
         },
         {
+          id: 'caution_claims',
+          label: 'Caution Fees & Damage Claims',
+          icon: ShieldAlert,
+          badge: 'Refunds'
+        },
+        {
           id: 'master_ledger',
           label: 'Master Financial Ledger',
           icon: Wallet,
           badge: 'Live Flows'
+        },
+        {
+          id: 'reconciliation',
+          label: 'Daily Banking Audit',
+          icon: Activity,
+          badge: 'Settlement'
         },
         {
           id: 'bills_operations',
@@ -139,7 +166,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           id: 'legal',
           label: 'Tenancy Leases (10%/5%)',
           icon: FileText,
-          badge: 'Legal Engine'
+          badge: 'Contracts'
         }
       ]
     },
@@ -169,7 +196,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   ];
 
   return (
-    <aside className="w-64 bg-[#090d16] border-r border-slate-800 flex flex-col justify-between p-4 min-h-[calc(100vh-61px)] font-sans select-none">
+    <aside className="w-64 bg-[#090d16] border-r border-slate-800 flex flex-col justify-between p-4 sticky top-[61px] h-[calc(100vh-61px)] overflow-y-auto overflow-x-hidden font-sans select-none scrollbar-thin scrollbar-thumb-slate-800 hover:scrollbar-thumb-slate-700">
       <div className="space-y-5">
         {/* Zero-Agent Value Proposition Banner */}
         <div className="p-3.5 rounded-2xl bg-gradient-to-br from-emerald-950/60 to-slate-900 border border-emerald-800/40 space-y-1">

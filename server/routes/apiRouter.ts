@@ -16,6 +16,10 @@ import * as feeController from '../controllers/feeController';
 import * as ledgerController from '../controllers/ledgerController';
 import * as chatOversightController from '../controllers/chatOversightController';
 import * as broadcastController from '../controllers/broadcastController';
+import * as cautionController from '../controllers/cautionController';
+import * as legalNoticesController from '../controllers/legalNoticesController';
+import * as renewalController from '../controllers/renewalController';
+import * as reconciliationController from '../controllers/reconciliationController';
 import { isSupabaseConfigured, reconfigureSupabase, supabase } from '../supabaseClient';
 import { IdentitypassService } from '../services/identitypassService';
 import { FlutterwaveService } from '../services/flutterwaveService';
@@ -183,4 +187,20 @@ apiRouter.get('/chat/oversight', chatOversightController.getChatOversight);
 // 16. Broadcast & Push Communications
 apiRouter.post('/broadcast/send', broadcastController.sendBroadcast);
 apiRouter.get('/broadcast/history', broadcastController.getBroadcastHistory);
+
+// 17. Caution Deposit & Move-Out Damage Claims
+apiRouter.get('/caution/deposits', cautionController.getCautionDeposits);
+apiRouter.post('/caution/claim', cautionController.submitDamageClaim);
+apiRouter.post('/caution/resolve', cautionController.resolveCautionDeposit);
+
+// 18. Statutory Tenancy Legal Notices Generator
+apiRouter.post('/legal/statutory-notice', legalNoticesController.generateStatutoryNotice);
+apiRouter.get('/legal/statutory-notices', legalNoticesController.listStatutoryNotices);
+
+// 19. Lease Expiry & Tenancy Renewal Calendar
+apiRouter.get('/renewals/upcoming', renewalController.getUpcomingRenewals);
+apiRouter.post('/renewals/dispatch-reminder', renewalController.dispatchRenewalReminder);
+
+// 20. Daily Banking Reconciliation Audit
+apiRouter.get('/reconciliation/audit', reconciliationController.runReconciliationAudit);
 

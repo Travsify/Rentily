@@ -17,6 +17,10 @@ import { FeeSettingsTab } from './components/FeeSettingsTab';
 import { BillsDeskTab } from './components/BillsDeskTab';
 import { ChatOversightTab } from './components/ChatOversightTab';
 import { BroadcastTab } from './components/BroadcastTab';
+import { CautionClaimsTab } from './components/CautionClaimsTab';
+import { StatutoryNoticesTab } from './components/StatutoryNoticesTab';
+import { LeaseRenewalsTab } from './components/LeaseRenewalsTab';
+import { ReconciliationTab } from './components/ReconciliationTab';
 import { IntegrationsTab } from './components/IntegrationsTab';
 import { SupabaseConfigTab } from './components/SupabaseConfigTab';
 import { FlutterApiDocsTab } from './components/FlutterApiDocsTab';
@@ -235,6 +239,22 @@ export default function App() {
 
           {currentTab === 'master_ledger' && (
             <MasterLedgerTab />
+          )}
+
+          {currentTab === 'caution_claims' && (
+            <CautionClaimsTab />
+          )}
+
+          {currentTab === 'reconciliation' && (
+            <ReconciliationTab />
+          )}
+
+          {currentTab === 'statutory_notices' && (
+            <StatutoryNoticesTab />
+          )}
+
+          {currentTab === 'lease_renewals' && (
+            <LeaseRenewalsTab />
           )}
 
           {currentTab === 'fee_settings' && (
