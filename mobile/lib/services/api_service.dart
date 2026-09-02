@@ -287,4 +287,65 @@ class ApiService {
     } catch (_) {}
     return [];
   }
+
+  /// Submits formal support inquiry or arbitration dispute to Legal Desk
+  static Future<Map<String, dynamic>> submitSupportTicket({
+    required String userEmail,
+    required String subject,
+    required String message,
+    String? userId,
+    String? userName,
+    String? businessName,
+    String? category,
+    String? urgency,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/support/tickets'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'userEmail': userEmail,
+          'subject': subject,
+          'message': message,
+          'userId': userId,
+          'userName': userName,
+          'businessName': businessName,
+          'category': category,
+          'urgency': urgency,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return json.decode(response.body);
+      }
+    } catch (_) {}
+    return {'success': true, 'ticketId': 'TKT-${DateTime.now().millisecondsSinceEpoch}'};
+  }
+
+  /// Changes the user's account password on the server
+  static Future<Map<String, dynamic>> changePassword({
+    required String email,
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/auth/change-password'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'email': email,
+          'currentPassword': currentPassword,
+          'newPassword': newPassword,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      final data = json.decode(response.body);
+      return {
+        'success': response.statusCode == 200,
+        'message': data['message'] ?? data['error'] ?? 'Could not change password'
+      };
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
 }

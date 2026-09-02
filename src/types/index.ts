@@ -47,6 +47,13 @@ export interface Property {
   verifiedAt?: string;
   verifiedBy?: string;
   delistedAt?: string;
+  listedByRole?: 'direct_landlord' | 'verified_partner';
+  partnerId?: string;
+  partnerName?: string;
+  partnerBusinessName?: string;
+  partnerCacNumber?: string;
+  partnerPresencePhotoUrl?: string;
+  powerOfAttorneyUrl?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -89,6 +96,13 @@ export interface KYPRecord {
   rejectionReason?: string;
   reviewedBy?: string;
   reviewedAt?: string;
+  listedByRole?: 'direct_landlord' | 'verified_partner';
+  partnerId?: string;
+  partnerName?: string;
+  partnerBusinessName?: string;
+  partnerCacNumber?: string;
+  partnerPresencePhotoUrl?: string;
+  powerOfAttorneyUrl?: string;
   submittedAt: string;
 }
 

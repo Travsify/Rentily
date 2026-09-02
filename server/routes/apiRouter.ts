@@ -11,6 +11,7 @@ import * as paymentController from '../controllers/paymentController';
 import * as fraudController from '../controllers/fraudController';
 import * as otpController from '../controllers/otpController';
 import * as rnplController from '../controllers/rnplController';
+import * as supportController from '../controllers/supportController';
 import { shippingRouter } from './shippingRouter';
 import { isSupabaseConfigured, reconfigureSupabase, supabase } from '../supabaseClient';
 import { IdentitypassService } from '../services/identitypassService';
@@ -99,6 +100,7 @@ apiRouter.get('/auth/me', authController.getMe);
 apiRouter.get('/users', authController.listUsers);
 apiRouter.post('/auth/send-otp', otpController.sendOtp);
 apiRouter.post('/auth/verify-otp', otpController.verifyOtp);
+apiRouter.post('/auth/change-password', authController.changePassword);
 
 // 3. Analytics & GMV
 apiRouter.get('/analytics/metrics', analyticsController.getMetrics);
@@ -162,4 +164,8 @@ apiRouter.post('/rent-now-pay-later/mandate', rnplController.submitMandate);
 
 // 13. Cross-Border Multi-Carrier Shipping & Toy Manifest Engine (UK -> Dubai)
 apiRouter.use('/shipping', shippingRouter);
+
+// 14. Partner & User Support / Dispute Tickets
+apiRouter.post('/support/tickets', supportController.submitTicket);
+apiRouter.get('/support/tickets', supportController.listTickets);
 

@@ -442,7 +442,13 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
       videoWalkthroughUrl: _uploadedVideoPath,
       status: 'available',
       listedByRole: _isDirectLandlord ? 'direct_landlord' : 'verified_partner',
+      partnerId: _isDirectLandlord ? null : widget.user.id,
+      partnerName: _isDirectLandlord ? null : widget.user.fullName,
+      partnerBusinessName: _isDirectLandlord ? null : widget.user.businessName,
+      partnerCacNumber: _isDirectLandlord ? null : widget.user.cacNumber,
       partnerCommissionRate: _isDirectLandlord ? 0.0 : (_purpose == 'rent' ? 0.025 : 0.02),
+      partnerPresencePhotoUrl: _presencePhotoPath,
+      powerOfAttorneyUrl: _powerOfAttorneyPath,
       inspectionFee: inspection,
       propertyAddressHash: addressHash,
     );

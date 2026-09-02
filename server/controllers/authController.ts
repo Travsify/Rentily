@@ -222,3 +222,31 @@ export async function listUsers(_req: Request, res: Response) {
   }
 }
 
+export async function changePassword(req: Request, res: Response) {
+  try {
+    const { email, currentPassword, newPassword } = req.body;
+    if (!email || !newPassword) {
+      return res.status(400).json({ error: 'Email and new password are required' });
+    }
+    const cleanEmail = email.toLowerCase().trim();
+    const user = await UserStore.findByEmail(cleanEmail);
+    if (!user) {
+      return res.status(404).json({ error: 'Account not found' });
+    }
+    if (currentPassword && user.passwordHash) {
+      const currentHash = crypto.createHash('sha256').update(currentPassword).digest('hex');
+      if (user.passwordHash !== currentHash && user.passwordHash !== currentPassword) {
+        return res.status(401).json({ error: 'Current password does not match' });
+      }
+    }
+    const newHash = crypto.createHash('sha256').update(newPassword).digest('hex');
+    UserStore.upsertUser({
+      ...user,
+      passwordHash: newHash
+    });
+    return res.json({ success: true, message: 'Password updated successfully' });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+

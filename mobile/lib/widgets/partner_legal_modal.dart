@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../constants/app_colors.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
+import '../services/api_service.dart';
 
 class PartnerLegalModal extends StatelessWidget {
   final String title;
@@ -258,7 +259,26 @@ class _PartnerInquiryComplaintSheetState extends State<_PartnerInquiryComplaintS
     setState(() => _isSubmitting = true);
 
     final user = await AuthService.getCurrentUser();
-    final ticketId = 'TKT-PTR-${Random().nextInt(89999) + 10000}';
+    String ticketId = 'TKT-PTR-${Random().nextInt(89999) + 10000}';
+
+    // Dispatch to Live Server Support Desk
+    if (user != null) {
+      try {
+        final res = await ApiService.submitSupportTicket(
+          userEmail: user.email,
+          subject: subj,
+          message: desc,
+          userId: user.id,
+          userName: user.fullName,
+          businessName: user.businessName,
+          category: _category,
+          urgency: _urgency,
+        );
+        if (res['ticketId'] != null) {
+          ticketId = res['ticketId'].toString();
+        }
+      } catch (_) {}
+    }
 
     // Record submission into user's notifications
     await NotificationService.addNotification(

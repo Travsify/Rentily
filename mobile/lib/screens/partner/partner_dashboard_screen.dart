@@ -20,6 +20,7 @@ import '../properties/properties_screen.dart';
 import '../inspections/inspections_screen.dart';
 import 'partner_wallet_screen.dart';
 import 'partner_profile_screen.dart';
+import 'partner_mandates_screen.dart';
 import '../../services/notification_service.dart';
 import '../shared/notification_center_screen.dart';
 import '../shared/chat_inbox_screen.dart';
@@ -44,7 +45,7 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
         onGoToWallet: () => setState(() => _currentIndex = 2),
         onGoToMandates: () => setState(() => _currentIndex = 1),
       ),
-      const PropertiesScreen(initialPurpose: 'all'),
+      const PartnerMandatesScreen(),
       const PartnerWalletScreen(),
       PartnerProfileScreen(onSwitchToTenant: widget.onSwitchToTenant),
     ];
@@ -137,7 +138,11 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
       setState(() {
         _user = effectiveUser;
         _escrowCommission = escBal;
-        _mandateProperties = allProps.where((p) => p.listedByRole == 'verified_partner').toList();
+        _mandateProperties = allProps.where((p) {
+          if (effectiveUser == null) return false;
+          return (p.partnerId == effectiveUser.id || p.ownerId == effectiveUser.id || p.ownerPhone == effectiveUser.phoneNumber) &&
+              p.listedByRole == 'verified_partner';
+        }).toList();
         _isLoading = false;
       });
     }

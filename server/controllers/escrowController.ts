@@ -123,71 +123,72 @@ export async function releaseEscrowPayout(req: Request, res: Response) {
 export async function getPartnerCommissions(req: Request, res: Response) {
   try {
     const { partnerId, email } = req.query;
+    const cleanEmail = email ? String(email).toLowerCase().trim() : '';
+    const cleanId = partnerId ? String(partnerId).trim() : '';
 
-    if (email) {
-      const partnerEmail = String(email).toLowerCase().trim();
-      const walletTxs = await TransactionStore.getTransactionsByEmail(partnerEmail);
-      const creditTxs = walletTxs.filter(t => t.isCredit && t.status === 'SUCCESSFUL');
-      const settledTxs = walletTxs.filter(t => !t.isCredit && t.status === 'SUCCESSFUL');
+    // 1. Get properties listed by this partner from AdminDataStore
+    const allProperties = AdminDataStore.getProperties();
+    const partnerProps = allProperties.filter(p => 
+      (cleanId && ((p as any).partnerId === cleanId || (p as any).ownerId === cleanId)) ||
+      (cleanEmail && ((p as any).ownerEmail && (p as any).ownerEmail.toLowerCase() === cleanEmail))
+    );
+    const partnerPropIds = new Set(partnerProps.map(p => p.id));
 
-      const escrowBalance = creditTxs.reduce((sum, t) => sum + Math.round(t.amount * 0.025), 0);
-      const settledCommissions = settledTxs.reduce((sum, t) => sum + Math.round(t.amount * 0.025), 0);
+    // 2. Get direct commission credits in wallet
+    const walletTxs = cleanEmail ? await TransactionStore.getTransactionsByEmail(cleanEmail) : [];
+    const directCommissions = walletTxs.filter(t => 
+      t.isCredit && (t.category === 'commission' || (t.title && t.title.toLowerCase().includes('commission')))
+    );
 
-      return res.json({
-        status: true,
-        escrowBalance,
-        settledCommissions,
-        transactions: creditTxs.map(t => ({
-          id: t.id,
-          propertyTitle: t.title || 'Partner Commission',
-          commissionAmount: Math.round(t.amount * 0.025),
-          commissionRate: '2.5%',
-          escrowStatus: t.escrowStatus || 'held_in_escrow',
-          createdAt: t.date
-        }))
-      });
-    }
-
-    if (!supabase) {
-      return res.json({ status: true, escrowBalance: 0, settledCommissions: 0, transactions: [] });
-    }
-
-    const { data: txns, error } = await supabase
-      .from('transactions')
-      .select('*, properties(*)')
-      .or(`recipient_owner_id.eq.${partnerId},payer_id.eq.${partnerId}`)
-      .order('created_at', { ascending: false });
-
-    if (error || !txns) {
-      return res.json({ status: true, escrowBalance: 0, settledCommissions: 0, transactions: [] });
-    }
+    // 3. Get all platform escrow transactions
+    const allEscrowTxs = AdminDataStore.buildEscrowTransactions(TransactionStore.getAllTransactions());
+    const propertyTxns = allEscrowTxs.filter(t => partnerPropIds.has(t.propertyId));
 
     let escrowBalance = 0;
     let settledCommissions = 0;
+    const formattedTxns: any[] = [];
 
-    const formattedTxns = txns.map((t: any) => {
-      const base = Number(t.base_price || t.total_amount || 0);
-      const isRent = t.transaction_type === 'rent_deposit' || t.transaction_type === 'rent_renewal';
-      const commissionRate = isRent ? 0.025 : 0.020;
-      const commissionAmount = Math.round(base * commissionRate);
+    // Include direct credited commissions
+    for (const d of directCommissions) {
+      settledCommissions += d.amount;
+      formattedTxns.push({
+        id: d.id,
+        propertyTitle: d.title || 'Corporate Brokerage Commission',
+        commissionAmount: d.amount,
+        commissionRate: '2.5%',
+        escrowStatus: 'released_to_owner',
+        createdAt: d.date
+      });
+    }
 
-      if (t.escrow_status === 'held_in_escrow') {
-        escrowBalance += commissionAmount;
-      } else if (t.escrow_status === 'released_to_owner' || t.escrow_status === 'settled') {
-        settledCommissions += commissionAmount;
+    // Include property transactions on partner's mandates
+    for (const pt of propertyTxns) {
+      const isRent = pt.transactionType === 'rent';
+      const rate = isRent ? 0.025 : 0.020;
+      const commAmount = Math.round(pt.baseAmount * rate);
+
+      if (pt.escrowStatus === 'held_in_escrow') {
+        escrowBalance += commAmount;
+      } else {
+        settledCommissions += commAmount;
       }
 
-      return {
-        id: t.id,
-        propertyTitle: t.properties?.title || 'Mandate Listing',
-        commissionAmount,
+      formattedTxns.push({
+        id: pt.id,
+        propertyTitle: pt.propertyTitle || 'Mandate Listing',
+        commissionAmount: commAmount,
         commissionRate: isRent ? '2.5%' : '2.0%',
-        escrowStatus: t.escrow_status,
-        createdAt: t.created_at
-      };
-    });
+        escrowStatus: pt.escrowStatus,
+        createdAt: pt.createdAt
+      });
+    }
 
-    return res.json({ status: true, escrowBalance, settledCommissions, transactions: formattedTxns });
+    return res.json({
+      status: true,
+      escrowBalance,
+      settledCommissions,
+      transactions: formattedTxns
+    });
   } catch (err: any) {
     return res.json({ status: true, escrowBalance: 0, settledCommissions: 0, transactions: [] });
   }

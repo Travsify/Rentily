@@ -148,6 +148,13 @@ export async function createProperty(req: Request, res: Response) {
       images: body.images || [],
       videoWalkthroughUrl: body.videoWalkthroughUrl,
       status: body.status || 'pending_kyp',
+      listedByRole: body.listedByRole || 'direct_landlord',
+      partnerId: body.partnerId,
+      partnerName: body.partnerName,
+      partnerBusinessName: body.partnerBusinessName,
+      partnerCacNumber: body.partnerCacNumber,
+      partnerPresencePhotoUrl: body.partnerPresencePhotoUrl,
+      powerOfAttorneyUrl: body.powerOfAttorneyUrl,
       createdAt: now,
       updatedAt: now,
     };
@@ -175,6 +182,13 @@ export async function createProperty(req: Request, res: Response) {
       utilityBillUrl: body.utilityBillUrl || '',
       landRegistrySearchStatus: 'pending',
       status: 'pending',
+      listedByRole: body.listedByRole || 'direct_landlord',
+      partnerId: body.partnerId,
+      partnerName: body.partnerName,
+      partnerBusinessName: body.partnerBusinessName,
+      partnerCacNumber: body.partnerCacNumber,
+      partnerPresencePhotoUrl: body.partnerPresencePhotoUrl,
+      powerOfAttorneyUrl: body.powerOfAttorneyUrl,
       submittedAt: now,
     };
 

@@ -9,7 +9,8 @@ import {
   XCircle, 
   ExternalLink,
   MapPin,
-  FileCheck2
+  FileCheck2,
+  Briefcase
 } from 'lucide-react';
 import type { KYPRecord } from '../types';
 
@@ -34,7 +35,7 @@ export const KYPModal: React.FC<KYPModalProps> = ({ kyp, onClose, onReview }) =>
       : 'Searched at Lagos Lands Bureau (Alausa). Governor Consent verified under registered file. No family dispute or encumbrance.')
   );
   const [rejectionReason, setRejectionReason] = useState('');
-  const [activeDocTab, setActiveDocTab] = useState<'title' | 'id' | 'utility'>('title');
+  const [activeDocTab, setActiveDocTab] = useState<'title' | 'id' | 'utility' | 'partner'>('title');
 
   const handleApprove = () => {
     onReview(kyp.id, 'approved', searchNotes);
@@ -146,6 +147,20 @@ export const KYPModal: React.FC<KYPModalProps> = ({ kyp, onClose, onReview }) =>
                 <Zap className="w-4 h-4" />
                 <span>3. Utility Bill ({kyp.discoProvider})</span>
               </button>
+
+              {kyp.listedByRole === 'verified_partner' && (
+                <button
+                  onClick={() => setActiveDocTab('partner')}
+                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition ${
+                    activeDocTab === 'partner'
+                      ? 'bg-amber-600 text-white'
+                      : 'text-amber-400 hover:text-white hover:bg-slate-800'
+                  }`}
+                >
+                  <Briefcase className="w-4 h-4" />
+                  <span>4. Partner Mandate & Selfie 🛡️</span>
+                </button>
+              )}
             </div>
 
             {/* Document Viewer Box */}
@@ -233,6 +248,70 @@ export const KYPModal: React.FC<KYPModalProps> = ({ kyp, onClose, onReview }) =>
                       <p className="font-semibold text-white">Physical Possession & Meter Verification</p>
                       <p className="text-slate-400">Address on bill matches: <span className="text-emerald-400 font-medium">{kyp.propertyNeighborhood}</span></p>
                       <p className="text-slate-400">Disco provider: {kyp.discoProvider}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeDocTab === 'partner' && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between text-xs">
+                    <div>
+                      <span className="text-slate-400 font-medium">Corporate Brokerage Firm: </span>
+                      <span className="text-amber-400 font-bold">{kyp.partnerBusinessName || kyp.partnerName || 'Accredited Partner'}</span>
+                    </div>
+                    <span className="px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 font-mono text-[11px]">
+                      CAC: {kyp.partnerCacNumber || 'Verified Entity'} • ID: {kyp.partnerId || 'RNT-PTR'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Ghost Shield Presence Photo */}
+                    <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-300 font-bold">Presence Selfie (Ghost Shield)</span>
+                        <span className="text-emerald-400 text-[10px] font-bold">PHYSICAL PROOF</span>
+                      </div>
+                      <div className="h-48 rounded-lg overflow-hidden border border-slate-800 bg-black flex items-center justify-center">
+                        {kyp.partnerPresencePhotoUrl ? (
+                          <img
+                            src={kyp.partnerPresencePhotoUrl}
+                            alt="Partner Presence Proof"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span className="text-xs text-slate-500">Selfie Recorded at Property</span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-400">Impromptu photo taken on-site inside or immediately fronting the premises.</p>
+                    </div>
+
+                    {/* Power of Attorney Mandate Document */}
+                    <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-300 font-bold">Power of Attorney Mandate</span>
+                        <span className="text-amber-400 text-[10px] font-bold">LEGAL MANDATE</span>
+                      </div>
+                      <div className="h-48 rounded-lg overflow-hidden border border-slate-800 bg-black flex items-center justify-center p-4">
+                        {kyp.powerOfAttorneyUrl ? (
+                          <div className="text-center space-y-3">
+                            <FileText className="w-10 h-10 text-amber-400 mx-auto" />
+                            <p className="text-xs text-slate-300 font-semibold">Executed Representation Mandate</p>
+                            <a
+                              href={kyp.powerOfAttorneyUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                              <span>Inspect Mandate Document</span>
+                            </a>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-500">Representation Deed Verified</span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-400">Grants accredited firm legal mandate to represent property owner.</p>
                     </div>
                   </div>
                 </div>

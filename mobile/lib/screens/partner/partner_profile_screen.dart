@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../constants/app_colors.dart';
 import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
+import '../../services/api_service.dart';
 import '../../services/payment_security_service.dart';
 import '../../widgets/payment_pin_modal.dart';
 import '../../widgets/verification_modal.dart';
@@ -158,7 +159,8 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
             child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: AppColors.textSecondary)),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
+              final curP = currentPassController.text.trim();
               final newP = newPassController.text.trim();
               final confP = confirmPassController.text.trim();
               if (newP.length < 6) {
@@ -173,10 +175,21 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
                 );
                 return;
               }
-              Navigator.of(ctx).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Password updated successfully! 🔒', style: GoogleFonts.plusJakartaSans(fontSize: 11)), backgroundColor: AppColors.primary),
-              );
+              if (_user != null) {
+                final res = await ApiService.changePassword(
+                  email: _user!.email,
+                  currentPassword: curP,
+                  newPassword: newP,
+                );
+                if (!mounted) return;
+                Navigator.of(ctx).pop();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(res['message'] ?? (res['success'] == true ? 'Password updated successfully! 🔒' : 'Failed to update password'), style: GoogleFonts.plusJakartaSans(fontSize: 11)),
+                    backgroundColor: res['success'] == true ? AppColors.primary : Colors.red,
+                  ),
+                );
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
