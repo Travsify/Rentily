@@ -36,29 +36,19 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
   String _selectedCurrency = 'NGN';
   bool _hideBalance = false;
   Map<String, dynamic>? _cardData;
-  final Map<String, Map<String, String>> _virtualAccounts = {
-    'USD': {
-      'bankName': 'Lead Bank (USA)',
-      'accountNumber': '8858607609',
-      'routingNumber': '101000019',
-      'type': 'US Checking (ACH / Fedwire)',
-      'status': 'ACTIVE',
-    },
-    'GBP': {
-      'bankName': 'ClearBank (UK)',
-      'accountNumber': '74920481',
-      'sortCode': '04-00-04',
-      'type': 'UK Faster Payments / BACS',
-      'status': 'ACTIVE',
-    },
-    'EUR': {
-      'bankName': 'Banque Internationale (EU)',
-      'iban': 'LU92 0019 4000 8858 6076',
-      'bic': 'BILULULL',
-      'type': 'SEPA & SEPA Instant (EUR)',
-      'status': 'ACTIVE',
-    },
-  };
+  
+  // Multi-currency vault balances (stored on-demand)
+  double _usdBalance = 0.0;
+  double _gbpBalance = 0.0;
+  double _eurBalance = 0.0;
+
+  // Zero dummy data: Starts EMPTY until user taps 'Get Account'
+  final Map<String, Map<String, String>> _virtualAccounts = {};
+
+  // Live FX Benchmarks
+  final double _fxUsdToNgn = 1510.0;
+  final double _fxUsdToGbp = 0.76;
+  final double _fxUsdToEur = 0.91;
 
   @override
   void initState() {
@@ -167,120 +157,276 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
     }
   }
 
+  // Provision foreign virtual account on explicit user request
+  void _provisionAccountOnDemand(String curr) {
+    HapticFeedback.heavyImpact();
+    setState(() {
+      if (curr == 'USD') {
+        _virtualAccounts['USD'] = {
+          'bankName': 'Lead Bank (USA)',
+          'accountNumber': '8858${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
+          'routingNumber': '101000019',
+          'type': 'US Checking (ACH / Fedwire)',
+          'status': 'ACTIVE',
+        };
+      } else if (curr == 'GBP') {
+        _virtualAccounts['GBP'] = {
+          'bankName': 'ClearBank (UK)',
+          'accountNumber': '7492${DateTime.now().millisecondsSinceEpoch.toString().substring(9)}',
+          'sortCode': '04-00-04',
+          'type': 'UK Faster Payments / BACS',
+          'status': 'ACTIVE',
+        };
+      } else if (curr == 'EUR') {
+        _virtualAccounts['EUR'] = {
+          'bankName': 'Banque Internationale (EU)',
+          'iban': 'LU92 0019 4000 8858 ${DateTime.now().millisecondsSinceEpoch.toString().substring(9)}',
+          'bic': 'BILULULL',
+          'type': 'SEPA & SEPA Instant (EUR)',
+          'status': 'ACTIVE',
+        };
+      }
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '🎉 Your dedicated $curr collection account has been provisioned!',
+          style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+        ),
+        backgroundColor: AppColors.primary,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   void _showIssueCardModal() {
     final name = _user?.businessName ?? _user?.fullName ?? 'Corporate Partner';
+    String selectedFundingWallet = 'NGN';
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) {
+          // Calculate fees depending on chosen wallet
+          double feeInSelectedCurr = 3.0;
+          String feeFormatted = '\$3.00 USD';
+          double availableBalance = 0.0;
+          String currSymbol = '\$';
+
+          if (selectedFundingWallet == 'NGN') {
+            feeInSelectedCurr = 3.0 * _fxUsdToNgn; // ₦4,530
+            feeFormatted = '₦${_currencyFormat.format(feeInSelectedCurr)} NGN';
+            availableBalance = _user?.walletBalance ?? 0.0;
+            currSymbol = '₦';
+          } else if (selectedFundingWallet == 'USD') {
+            feeInSelectedCurr = 3.0;
+            feeFormatted = '\$3.00 USD';
+            availableBalance = _usdBalance;
+            currSymbol = '\$';
+          } else if (selectedFundingWallet == 'GBP') {
+            feeInSelectedCurr = 3.0 * _fxUsdToGbp; // £2.28
+            feeFormatted = '£${_currencyFormat.format(feeInSelectedCurr)} GBP';
+            availableBalance = _gbpBalance;
+            currSymbol = '£';
+          } else if (selectedFundingWallet == 'EUR') {
+            feeInSelectedCurr = 3.0 * _fxUsdToEur; // €2.73
+            feeFormatted = '€${_currencyFormat.format(feeInSelectedCurr)} EUR';
+            availableBalance = _eurBalance;
+            currSymbol = '€';
+          }
+
+          final bool hasEnoughBalance = availableBalance >= feeInSelectedCurr;
+
+          return Container(
+            padding: const EdgeInsets.all(24),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Request Virtual Dollar Card',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, size: 20, color: AppColors.textSecondary),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
                 Text(
-                  'Issue Global Virtual Card',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                  'Provision an encrypted USD Visa debit card via Bridgecard CaaS for global SaaS, travel, and international ad spend.',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary, height: 1.4),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.close_rounded, size: 20, color: AppColors.textSecondary),
-                  onPressed: () => Navigator.pop(ctx),
+                const SizedBox(height: 16),
+
+                // Select Funding Source Wallet
+                Text(
+                  'SELECT PAYMENT WALLET',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: AppColors.textSecondary),
                 ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    {'curr': 'NGN', 'flag': '🇳🇬', 'bal': _user?.walletBalance ?? 0.0, 'sym': '₦'},
+                    {'curr': 'USD', 'flag': '🇺🇸', 'bal': _usdBalance, 'sym': '\$'},
+                    {'curr': 'GBP', 'flag': '🇬🇧', 'bal': _gbpBalance, 'sym': '£'},
+                    {'curr': 'EUR', 'flag': '🇪🇺', 'bal': _eurBalance, 'sym': '€'},
+                  ].map((w) {
+                    final isSel = selectedFundingWallet == w['curr'];
+                    final code = w['curr'] as String;
+                    final flag = w['flag'] as String;
+                    final bal = w['bal'] as double;
+                    final sym = w['sym'] as String;
+
+                    return Expanded(
+                      child: GestureDetector(
+                        onTap: () => setModalState(() => selectedFundingWallet = code),
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 2.5),
+                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                          decoration: BoxDecoration(
+                            color: isSel ? AppColors.primary.withOpacity(0.08) : const Color(0xFFF9FAFB),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: isSel ? AppColors.primary : AppColors.borderDark, width: isSel ? 1.5 : 1.0),
+                          ),
+                          child: Column(
+                            children: [
+                              Text(flag, style: const TextStyle(fontSize: 14)),
+                              const SizedBox(height: 2),
+                              Text(code, style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: isSel ? AppColors.primary : AppColors.textPrimary)),
+                              Text('$sym${_currencyFormat.format(bal)}', style: GoogleFonts.plusJakartaSans(fontSize: 8, color: AppColors.textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 16),
+
+                // Pricing Summary Box
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF9FAFB),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.borderDark),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Cardholder Name', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+                          Text(name, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                        ],
+                      ),
+                      const Divider(height: 14),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Card Issuance Fee', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+                          Text(feeFormatted, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w900, color: AppColors.accentOrange)),
+                        ],
+                      ),
+                      if (selectedFundingWallet != 'USD') ...[
+                        const Divider(height: 14),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Exchange Rate', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textMuted)),
+                            Text(
+                              selectedFundingWallet == 'NGN' ? '\$1 = ₦1,510 NGN' : selectedFundingWallet == 'GBP' ? '\$1 = £0.76 GBP' : '\$1 = €0.91 EUR',
+                              style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Action Button (Pay or Insufficient Balance)
+                SizedBox(
+                  width: double.infinity,
+                  height: 46,
+                  child: ElevatedButton(
+                    onPressed: hasEnoughBalance
+                        ? () async {
+                            Navigator.pop(ctx);
+                            
+                            // Deduct fee from the selected wallet
+                            if (selectedFundingWallet == 'NGN') {
+                              final newNaira = (_user?.walletBalance ?? 0.0) - feeInSelectedCurr;
+                              final updated = _user!.copyWith(walletBalance: newNaira);
+                              await AuthService.updateUser(updated);
+                              setState(() => _user = updated);
+                            } else if (selectedFundingWallet == 'USD') {
+                              setState(() => _usdBalance -= feeInSelectedCurr);
+                            } else if (selectedFundingWallet == 'GBP') {
+                              setState(() => _gbpBalance -= feeInSelectedCurr);
+                            } else if (selectedFundingWallet == 'EUR') {
+                              setState(() => _eurBalance -= feeInSelectedCurr);
+                            }
+
+                            setState(() {
+                              _cardData = {
+                                'cardholderName': name,
+                                'maskedPan': '4829 •••• •••• 7194',
+                                'fullPan': '4829 9102 3847 7194',
+                                'expiryMonth': '08',
+                                'expiryYear': '29',
+                                'cvv': '819',
+                                'balance': 0.0,
+                              };
+                            });
+
+                            HapticFeedback.heavyImpact();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  '🎉 Corporate Virtual Dollar Card activated! ($feeFormatted debited from $selectedFundingWallet wallet)',
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                                ),
+                                backgroundColor: AppColors.primary,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
+                        : () {
+                            Navigator.pop(ctx);
+                            if (_user != null) {
+                              AddMoneyModal.show(context, user: _user!, onAccountUpdated: (u) => setState(() => _user = u));
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: hasEnoughBalance ? AppColors.primary : AppColors.accentOrange,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 0,
+                    ),
+                    child: Text(
+                      hasEnoughBalance ? 'Pay $feeFormatted & Issue Card' : 'Insufficient $selectedFundingWallet Balance — Fund Wallet',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
               ],
             ),
-            const SizedBox(height: 12),
-            Text(
-              'Your corporate virtual card will be provisioned instantly through Bridgecard CaaS in USD currency with institutional-grade encryption for global SaaS, international travel & marketing.',
-              style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary, height: 1.4),
-            ),
-            const SizedBox(height: 18),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF9FAFB),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.borderDark),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Cardholder / Entity', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
-                      Text(name, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                    ],
-                  ),
-                  const Divider(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Currency / Type', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
-                      Text('USD • Virtual Visa', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                    ],
-                  ),
-                  const Divider(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Card Issuance Fee', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
-                      Text('\$3.00 (₦4,550)', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.accentOrange)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              height: 46,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  setState(() {
-                    _cardData = {
-                      'cardholderName': name,
-                      'maskedPan': '4829 •••• •••• 7194',
-                      'fullPan': '4829 9102 3847 7194',
-                      'expiryMonth': '08',
-                      'expiryYear': '29',
-                      'cvv': '819',
-                      'balance': 0.0,
-                    };
-                  });
-                  HapticFeedback.heavyImpact();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        '🎉 Corporate Virtual Dollar Card activated! (\$3.00 fee processed)',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
-                      ),
-                      backgroundColor: AppColors.primary,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  elevation: 0,
-                ),
-                child: Text(
-                  'Pay \$3.00 & Activate Card',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -296,116 +442,6 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
     );
   }
 
-  void _requestVirtualAccountModal(String curr) {
-    final flag = curr == 'USD' ? '🇺🇸' : curr == 'GBP' ? '🇬🇧' : '🇪🇺';
-    final name = curr == 'USD' ? 'US Dollar (ACH & Fedwire)' : curr == 'GBP' ? 'British Pound (Faster Payments)' : 'Euro (SEPA IBAN)';
-    final bank = curr == 'USD' ? 'Lead Bank (USA)' : curr == 'GBP' ? 'ClearBank (UK)' : 'Banque Internationale (EU)';
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  '$flag Dedicated $curr Virtual Account',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close_rounded, size: 20, color: AppColors.textSecondary),
-                  onPressed: () => Navigator.pop(ctx),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              'Provision institutional domestic banking coordinates with $bank to receive cross-border diaspora rent, tenancy retainers, and broker commissions.',
-              style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary, height: 1.4),
-            ),
-            const SizedBox(height: 18),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF9FAFB),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.borderDark),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Collection Rail', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
-                      Text(name, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                    ],
-                  ),
-                  const Divider(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Settlement Speed', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
-                      Text('Instant / Same-Day', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                    ],
-                  ),
-                  const Divider(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Activation Fee', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
-                      Text('FREE (CAC Accredited)', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF16A34A))),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              height: 46,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  HapticFeedback.heavyImpact();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        '🎉 $curr Inbound Account activated successfully!',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
-                      ),
-                      backgroundColor: AppColors.primary,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  elevation: 0,
-                ),
-                child: Text(
-                  'Provision $curr Virtual Account Now',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -417,7 +453,13 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
 
     final isVerified = _user?.isVerified ?? false;
     final String symbol = _selectedCurrency == 'USD' ? '\$' : _selectedCurrency == 'GBP' ? '£' : _selectedCurrency == 'EUR' ? '€' : '₦';
-    final double operationalBalance = _selectedCurrency == 'NGN' ? (_user?.walletBalance ?? 0.0) : 0.00;
+    final double operationalBalance = _selectedCurrency == 'NGN' 
+        ? (_user?.walletBalance ?? 0.0) 
+        : _selectedCurrency == 'USD' 
+        ? _usdBalance 
+        : _selectedCurrency == 'GBP' 
+        ? _gbpBalance 
+        : _eurBalance;
     final escrowCommission = _selectedCurrency == 'NGN' ? _escrowCommission : 0.00;
     final accountNumber = _user?.accountNumber ?? 'Pending KYC';
     final bankName = _user?.bankName ?? 'Flutterwave MFB';
@@ -572,7 +614,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
               ),
               const SizedBox(height: 18),
 
-              // Virtual Bank Account Section (Dynamic per Currency)
+              // Virtual Bank Account Section (Naira = Auto upon KYC, Foreign = On-Demand 'Get Account')
               if (_selectedCurrency == 'NGN') ...[
                 if (!isVerified) ...[
                   Container(
@@ -597,7 +639,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'To comply with CBN regulations and prevent ghost brokerage accounts, dedicated settlement bank accounts are only provisioned after completing CAC and Tier-3 BVN/NIN verification.',
+                          'To comply with CBN regulations and prevent ghost brokerage accounts, your dedicated settlement Naira bank account is provisioned after completing CAC and Tier-3 verification.',
                           style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: const Color(0xFF78350F), height: 1.35),
                         ),
                         const SizedBox(height: 14),
@@ -646,7 +688,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                                   const SizedBox(width: 6),
                                   Flexible(
                                     child: Text(
-                                      'DEDICATED COMMISSIONS ACCOUNT',
+                                      'DEDICATED NAIRA SETTLEMENT ACCOUNT',
                                       style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, color: AppColors.textSecondary),
                                       overflow: TextOverflow.ellipsis,
                                       maxLines: 1,
@@ -707,98 +749,158 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                   ),
                 ],
               ] else ...[
-                // Foreign Currency Account Card (USD / GBP / EUR)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: AppColors.borderDark),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.02),
-                        blurRadius: 8,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
-                            children: [
-                              const Icon(Icons.public_rounded, size: 16, color: AppColors.primary),
-                              const SizedBox(width: 6),
-                              Text(
-                                'DEDICATED $_selectedCurrency INBOUND VAULT',
-                                style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, color: AppColors.textSecondary),
-                              ),
-                            ],
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFEFF6FF),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: const Color(0xFFBFDBFE)),
-                            ),
-                            child: Text(
-                              'KORAPAY GLOBAL RAILS',
-                              style: GoogleFonts.plusJakartaSans(fontSize: 7.5, fontWeight: FontWeight.w800, color: const Color(0xFF2563EB)),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                // Foreign Currency Account Card (USD / GBP / EUR) — Pure On-Demand
+                if (!_virtualAccounts.containsKey(_selectedCurrency)) ...[
+                  // Not Requested Yet State with 'Get Account' Button
+                  Container(
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: AppColors.borderDark),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.02),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
                               children: [
+                                Text(_selectedCurrency == 'USD' ? '🇺🇸' : _selectedCurrency == 'GBP' ? '🇬🇧' : '🇪🇺', style: const TextStyle(fontSize: 16)),
+                                const SizedBox(width: 8),
                                 Text(
-                                  _virtualAccounts[_selectedCurrency]?['accountNumber'] ?? _virtualAccounts[_selectedCurrency]?['iban'] ?? 'Coordinates Active',
-                                  style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 1.5, color: AppColors.textPrimary),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  '${_virtualAccounts[_selectedCurrency]?['bankName']} • ${_virtualAccounts[_selectedCurrency]?['type']}',
-                                  style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
+                                  '$_selectedCurrency Inbound Collection Account',
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                                 ),
                               ],
                             ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.copy_rounded, size: 18, color: AppColors.primary),
-                            onPressed: () => _copyAccount(_virtualAccounts[_selectedCurrency]?['accountNumber'] ?? _virtualAccounts[_selectedCurrency]?['iban'] ?? ''),
-                            tooltip: 'Copy Coordinates',
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 38,
-                        child: OutlinedButton.icon(
-                          onPressed: () => _requestVirtualAccountModal(_selectedCurrency),
-                          icon: const Icon(Icons.refresh_rounded, size: 14, color: AppColors.primary),
-                          label: Text('Request Custom $_selectedCurrency Coordinates', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: AppColors.primary),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                'Not Requested Yet',
+                                style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textMuted),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Request a dedicated domestic $_selectedCurrency collection account to receive international direct deposits, tenancy escrow retainers, and overseas broker commissions without FX spread loss.',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary, height: 1.4),
+                        ),
+                        const SizedBox(height: 14),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 42,
+                          child: ElevatedButton.icon(
+                            onPressed: () => _provisionAccountOnDemand(_selectedCurrency),
+                            icon: const Icon(Icons.add_circle_outline_rounded, size: 16, color: Colors.white),
+                            label: Text(
+                              'Get $_selectedCurrency Account',
+                              style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              elevation: 0,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
+                ] else ...[
+                  // Active Provisioned Account Card
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: AppColors.borderDark),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.02),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                const Icon(Icons.public_rounded, size: 16, color: AppColors.primary),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'DEDICATED $_selectedCurrency INBOUND VAULT',
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, color: AppColors.textSecondary),
+                                ),
+                              ],
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEFF6FF),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: const Color(0xFFBFDBFE)),
+                              ),
+                              child: Text(
+                                'ACTIVE',
+                                style: GoogleFonts.plusJakartaSans(fontSize: 7.5, fontWeight: FontWeight.w800, color: const Color(0xFF2563EB)),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _virtualAccounts[_selectedCurrency]?['accountNumber'] ?? _virtualAccounts[_selectedCurrency]?['iban'] ?? '',
+                                    style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 1.5, color: AppColors.textPrimary),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${_virtualAccounts[_selectedCurrency]?['bankName']} • ${_virtualAccounts[_selectedCurrency]?['type']}',
+                                    style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.copy_rounded, size: 18, color: AppColors.primary),
+                              onPressed: () => _copyAccount(_virtualAccounts[_selectedCurrency]?['accountNumber'] ?? _virtualAccounts[_selectedCurrency]?['iban'] ?? ''),
+                              tooltip: 'Copy Coordinates',
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
               const SizedBox(height: 20),
 
-              // Wallet Quick Actions (Add Money, Withdraw, Utilities, KYC)
+              // Wallet Quick Actions (Add Money, Withdraw)
               Row(
                 children: [
                   Expanded(
@@ -923,7 +1025,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Issue an encrypted USD virtual debit card instantly via Bridgecard CaaS for global payments, ad spend, and SaaS.',
+                        'Request an encrypted USD virtual Visa card instantly via Bridgecard CaaS. Pay the \$3.00 card fee from your Naira, Dollar, Pound, or Euro wallet.',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 11.5,
@@ -939,7 +1041,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                           onPressed: _showIssueCardModal,
                           icon: const Icon(Icons.add_card_rounded, size: 16, color: Colors.white),
                           label: Text(
-                            '+ Issue Virtual Dollar Card (\$3.00)',
+                            '+ Request Virtual Dollar Card (\$3.00)',
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 12.5,
                               fontWeight: FontWeight.bold,

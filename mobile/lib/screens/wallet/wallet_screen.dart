@@ -111,118 +111,220 @@ class _WalletScreenState extends State<WalletScreen> {
 
   void _showIssueCardModal() {
     final name = _user?.fullName ?? _user?.businessName ?? 'Valued Customer';
+    String selectedFundingWallet = 'NGN';
+    const double fxUsdToNgn = 1510.0;
+    const double fxUsdToGbp = 0.76;
+    const double fxUsdToEur = 0.91;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) {
+          double feeInSelectedCurr = 3.0;
+          String feeFormatted = '\$3.00 USD';
+          double availableBalance = 0.0;
+
+          if (selectedFundingWallet == 'NGN') {
+            feeInSelectedCurr = 3.0 * fxUsdToNgn; // ₦4,530
+            feeFormatted = '₦${_currencyFormat.format(feeInSelectedCurr)} NGN';
+            availableBalance = _user?.walletBalance ?? 0.0;
+          } else if (selectedFundingWallet == 'USD') {
+            feeInSelectedCurr = 3.0;
+            feeFormatted = '\$3.00 USD';
+            availableBalance = 0.0;
+          } else if (selectedFundingWallet == 'GBP') {
+            feeInSelectedCurr = 3.0 * fxUsdToGbp; // £2.28
+            feeFormatted = '£${_currencyFormat.format(feeInSelectedCurr)} GBP';
+            availableBalance = 0.0;
+          } else if (selectedFundingWallet == 'EUR') {
+            feeInSelectedCurr = 3.0 * fxUsdToEur; // €2.73
+            feeFormatted = '€${_currencyFormat.format(feeInSelectedCurr)} EUR';
+            availableBalance = 0.0;
+          }
+
+          final bool hasEnoughBalance = availableBalance >= feeInSelectedCurr;
+
+          return Container(
+            padding: const EdgeInsets.all(24),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Request Virtual Dollar Card',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, size: 20, color: AppColors.textSecondary),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
                 Text(
-                  'Issue Global Virtual Card',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                  'Provision an encrypted USD Visa debit card via Bridgecard CaaS for global subscriptions, shopping, and international travel.',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary, height: 1.4),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.close_rounded, size: 20, color: AppColors.textSecondary),
-                  onPressed: () => Navigator.pop(ctx),
+                const SizedBox(height: 16),
+
+                // Select Funding Source Wallet
+                Text(
+                  'SELECT PAYMENT WALLET',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: AppColors.textSecondary),
                 ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    {'curr': 'NGN', 'flag': '🇳🇬', 'bal': _user?.walletBalance ?? 0.0, 'sym': '₦'},
+                    {'curr': 'USD', 'flag': '🇺🇸', 'bal': 0.0, 'sym': '\$'},
+                    {'curr': 'GBP', 'flag': '🇬🇧', 'bal': 0.0, 'sym': '£'},
+                    {'curr': 'EUR', 'flag': '🇪🇺', 'bal': 0.0, 'sym': '€'},
+                  ].map((w) {
+                    final isSel = selectedFundingWallet == w['curr'];
+                    final code = w['curr'] as String;
+                    final flag = w['flag'] as String;
+                    final bal = w['bal'] as double;
+                    final sym = w['sym'] as String;
+
+                    return Expanded(
+                      child: GestureDetector(
+                        onTap: () => setModalState(() => selectedFundingWallet = code),
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 2.5),
+                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                          decoration: BoxDecoration(
+                            color: isSel ? AppColors.primary.withOpacity(0.08) : const Color(0xFFF9FAFB),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: isSel ? AppColors.primary : AppColors.borderDark, width: isSel ? 1.5 : 1.0),
+                          ),
+                          child: Column(
+                            children: [
+                              Text(flag, style: const TextStyle(fontSize: 14)),
+                              const SizedBox(height: 2),
+                              Text(code, style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: isSel ? AppColors.primary : AppColors.textPrimary)),
+                              Text('$sym${_currencyFormat.format(bal)}', style: GoogleFonts.plusJakartaSans(fontSize: 8, color: AppColors.textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 16),
+
+                // Pricing Summary Box
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF9FAFB),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.borderDark),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Cardholder Name', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+                          Text(name, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                        ],
+                      ),
+                      const Divider(height: 14),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Card Issuance Fee', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+                          Text(feeFormatted, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w900, color: AppColors.accentOrange)),
+                        ],
+                      ),
+                      if (selectedFundingWallet != 'USD') ...[
+                        const Divider(height: 14),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Exchange Rate', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textMuted)),
+                            Text(
+                              selectedFundingWallet == 'NGN' ? '\$1 = ₦1,510 NGN' : selectedFundingWallet == 'GBP' ? '\$1 = £0.76 GBP' : '\$1 = €0.91 EUR',
+                              style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Action Button (Pay or Insufficient Balance)
+                SizedBox(
+                  width: double.infinity,
+                  height: 46,
+                  child: ElevatedButton(
+                    onPressed: hasEnoughBalance
+                        ? () async {
+                            Navigator.pop(ctx);
+                            if (selectedFundingWallet == 'NGN') {
+                              final newNaira = (_user?.walletBalance ?? 0.0) - feeInSelectedCurr;
+                              final updated = _user!.copyWith(walletBalance: newNaira);
+                              await AuthService.updateUser(updated);
+                              setState(() => _user = updated);
+                            }
+
+                            setState(() {
+                              _cardData = {
+                                'cardholderName': name,
+                                'maskedPan': '4829 •••• •••• 7194',
+                                'fullPan': '4829 9102 3847 7194',
+                                'expiryMonth': '08',
+                                'expiryYear': '29',
+                                'cvv': '819',
+                                'balance': 0.0,
+                              };
+                            });
+
+                            HapticFeedback.heavyImpact();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  '🎉 Virtual Dollar Card issued successfully! ($feeFormatted processed)',
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                                ),
+                                backgroundColor: AppColors.primary,
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          }
+                        : () {
+                            Navigator.pop(ctx);
+                            if (_user != null) {
+                              AddMoneyModal.show(context, user: _user!, onAccountUpdated: (u) => setState(() => _user = u));
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: hasEnoughBalance ? AppColors.primary : AppColors.accentOrange,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      elevation: 0,
+                    ),
+                    child: Text(
+                      hasEnoughBalance ? 'Pay $feeFormatted & Issue Card' : 'Insufficient $selectedFundingWallet Balance — Fund Wallet',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
               ],
             ),
-            const SizedBox(height: 12),
-            Text(
-              'Your virtual card will be provisioned instantly through Bridgecard CaaS in USD currency with institutional-grade encryption.',
-              style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary, height: 1.4),
-            ),
-            const SizedBox(height: 18),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF9FAFB),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.borderDark),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Cardholder Name', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
-                      Text(name, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                    ],
-                  ),
-                  const Divider(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Currency / Type', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
-                      Text('USD • Virtual Visa', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                    ],
-                  ),
-                  const Divider(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Card Issuance Fee', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
-                      Text('\$3.00 (₦4,550)', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.accentOrange)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              height: 46,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  setState(() {
-                    _cardData = {
-                      'cardholderName': name,
-                      'maskedPan': '4829 •••• •••• 7194',
-                      'fullPan': '4829 9102 3847 7194',
-                      'expiryMonth': '08',
-                      'expiryYear': '29',
-                      'cvv': '819',
-                      'balance': 0.0,
-                    };
-                  });
-                  HapticFeedback.heavyImpact();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        '🎉 Virtual Dollar Card issued successfully! (\$3.00 fee processed)',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
-                      ),
-                      backgroundColor: AppColors.primary,
-                      behavior: SnackBarBehavior.floating,
-                    ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  elevation: 0,
-                ),
-                child: Text(
-                  'Pay \$3.00 & Activate Card',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
