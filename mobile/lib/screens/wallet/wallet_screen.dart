@@ -774,12 +774,12 @@ class _WalletScreenState extends State<WalletScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.surfaceDark,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.borderDark),
+                    border: Border.all(color: Colors.white12),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.02),
+                        color: Colors.black.withValues(alpha: 0.2),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
@@ -791,43 +791,46 @@ class _WalletScreenState extends State<WalletScreen> {
                         width: 46,
                         height: 46,
                         decoration: BoxDecoration(
-                          color: AppColors.primaryLight.withOpacity(0.12),
+                          color: AppColors.primary.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(14),
                         ),
-                        child: const Icon(Icons.credit_card_rounded, color: AppColors.primary, size: 24),
+                        child: const Icon(Icons.credit_card_rounded, color: Color(0xFF34D399), size: 24),
                       ),
                       const SizedBox(height: 12),
                       Text(
                         'No Virtual Dollar Card Issued',
                         style: GoogleFonts.plusJakartaSans(
-                          fontSize: 13.5,
+                          fontSize: 14,
                           fontWeight: FontWeight.w800,
-                          color: AppColors.textPrimary,
+                          color: Colors.white, // Ultra visible white
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
                       Text(
                         'Issue an instant virtual debit card powered by Bridgecard for global shopping, subscriptions & escrow payments.',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.plusJakartaSans(
-                          fontSize: 11,
-                          color: AppColors.textSecondary,
+                          fontSize: 11.5,
+                          color: const Color(0xFF94A3B8), // Readable crisp slate
                           height: 1.4,
                         ),
                       ),
                       const SizedBox(height: 16),
                       SizedBox(
                         width: double.infinity,
-                        height: 42,
+                        height: 44,
                         child: ElevatedButton.icon(
                           onPressed: () {
-                            _showIssueCardModal();
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const CardsScreen()),
+                            ).then((_) => _loadData());
                           },
                           icon: const Icon(Icons.add_card_rounded, size: 16, color: Colors.white),
                           label: Text(
-                            'Issue Virtual Dollar Card',
+                            'Open Card Desk / Issue Card',
                             style: GoogleFonts.plusJakartaSans(
-                              fontSize: 12,
+                              fontSize: 12.5,
                               fontWeight: FontWeight.w700,
                               color: Colors.white,
                             ),
@@ -843,21 +846,34 @@ class _WalletScreenState extends State<WalletScreen> {
                   ),
                 )
               else
-                VirtualCardWidget(
-                  cardholderName: _cardData!['cardholderName'] ?? _user?.fullName ?? 'Cardholder',
-                  maskedPan: _cardData!['maskedPan'] ?? '•••• •••• •••• 0000',
-                  fullPan: _cardData!['fullPan'] ?? '0000 0000 0000 0000',
-                  expiryMonth: _cardData!['expiryMonth'] ?? '12',
-                  expiryYear: _cardData!['expiryYear'] ?? '28',
-                  cvv: _cardData!['cvv'] ?? '000',
-                  balance: (_cardData!['balance'] as num?)?.toDouble() ?? 0.0,
-                  currency: 'USD',
-                  brand: 'VISA',
-                  isFrozen: _isCardFrozen,
-                  onFundCard: () {},
-                  onToggleFreeze: () {
-                    setState(() => _isCardFrozen = !_isCardFrozen);
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const CardsScreen()),
+                    ).then((_) => _loadData());
                   },
+                  child: VirtualCardWidget(
+                    cardholderName: _cardData!['cardholderName'] ?? _user?.fullName ?? 'Cardholder',
+                    maskedPan: _cardData!['maskedPan'] ?? '•••• •••• •••• 0000',
+                    fullPan: _cardData!['fullPan'] ?? '0000 0000 0000 0000',
+                    expiryMonth: _cardData!['expiryMonth'] ?? '12',
+                    expiryYear: _cardData!['expiryYear'] ?? '28',
+                    cvv: _cardData!['cvv'] ?? '000',
+                    balance: (_cardData!['balance'] as num?)?.toDouble() ?? 0.0,
+                    currency: 'USD',
+                    brand: 'VISA',
+                    isFrozen: _isCardFrozen,
+                    onFundCard: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const CardsScreen()),
+                      ).then((_) => _loadData());
+                    },
+                    onToggleFreeze: () {
+                      setState(() => _isCardFrozen = !_isCardFrozen);
+                    },
+                  ),
                 ),
               const SizedBox(height: 24),
 

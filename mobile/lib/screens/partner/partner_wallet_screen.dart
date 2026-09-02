@@ -1059,12 +1059,12 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.surfaceDark,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.borderDark),
+                    border: Border.all(color: Colors.white12),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.02),
+                        color: Colors.black.withValues(alpha: 0.2),
                         blurRadius: 10,
                         offset: const Offset(0, 4),
                       ),
@@ -1076,10 +1076,10 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                         width: 46,
                         height: 46,
                         decoration: BoxDecoration(
-                          color: AppColors.primaryLight.withOpacity(0.12),
+                          color: AppColors.primary.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(14),
                         ),
-                        child: const Icon(Icons.credit_card_rounded, color: AppColors.primary, size: 24),
+                        child: const Icon(Icons.credit_card_rounded, color: Color(0xFF34D399), size: 24),
                       ),
                       const SizedBox(height: 12),
                       Text(
@@ -1087,57 +1087,45 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
+                          color: Colors.white,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 6),
                       Text(
                         'Request an encrypted USD virtual Visa card instantly via Bridgecard CaaS. Pay the \$3.00 card fee from your Naira, Dollar, Pound, or Euro wallet.',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 11.5,
-                          color: AppColors.textSecondary,
+                          color: const Color(0xFF94A3B8),
                           height: 1.4,
                         ),
                       ),
                       const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              onPressed: _showIssueCardModal,
-                              icon: const Icon(Icons.add_card_rounded, size: 16, color: Colors.white),
-                              label: Text(
-                                '+ Request Card (\$${_cardIssuanceFeeUsd.toStringAsFixed(2)})',
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.primary,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                elevation: 0,
-                                padding: const EdgeInsets.symmetric(vertical: 12),
-                              ),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 44,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const CardsScreen()),
+                            ).then((_) => _syncLiveBalance());
+                          },
+                          icon: const Icon(Icons.add_card_rounded, size: 16, color: Colors.white),
+                          label: Text(
+                            'Open Card Desk / Issue Card',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
                             ),
                           ),
-                          const SizedBox(width: 8),
-                          OutlinedButton.icon(
-                            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CardsScreen())),
-                            icon: const Icon(Icons.launch_rounded, size: 16, color: AppColors.primary),
-                            label: Text(
-                              'Cards Desk',
-                              style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: AppColors.primary, width: 1.2),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
-                            ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            elevation: 0,
                           ),
-                        ],
+                        ),
                       ),
                     ],
                   ),
