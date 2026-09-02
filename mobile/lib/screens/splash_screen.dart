@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_constants.dart';
 import '../services/auth_service.dart';
+import '../services/api_service.dart';
 import 'auth/login_screen.dart';
 import 'onboarding_screen.dart';
 import 'main_navigation_screen.dart';
@@ -42,6 +43,10 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   }
 
   void _checkAuthGate() async {
+    // Proactively fetch remote feature flags so they are cached before reaching dashboard
+    try {
+      await ApiService.fetchFeatureFlags();
+    } catch (_) {}
     await Future.delayed(const Duration(milliseconds: 2600));
     _proceedToNextScreen();
   }

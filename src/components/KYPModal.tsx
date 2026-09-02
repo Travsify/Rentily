@@ -13,6 +13,7 @@ import {
   Briefcase
 } from 'lucide-react';
 import type { KYPRecord } from '../types';
+import { formatOpsId } from '../utils/idGenerator';
 
 interface KYPModalProps {
   kyp: KYPRecord | null;
@@ -261,7 +262,7 @@ export const KYPModal: React.FC<KYPModalProps> = ({ kyp, onClose, onReview }) =>
                       <span className="text-amber-400 font-bold">{kyp.partnerBusinessName || kyp.partnerName || 'Accredited Partner'}</span>
                     </div>
                     <span className="px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 font-mono text-[11px]">
-                      CAC: {kyp.partnerCacNumber || 'Verified Entity'} • ID: {kyp.partnerId || 'RNT-PTR'}
+                      CAC: {kyp.partnerCacNumber || 'Verified Entity'} • ID: {formatOpsId(kyp.partnerId, true)}
                     </span>
                   </div>
 

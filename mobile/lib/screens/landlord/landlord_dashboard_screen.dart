@@ -20,6 +20,7 @@ import 'landlord_wallet_screen.dart';
 import 'landlord_profile_screen.dart';
 import 'landlord_digital_leases_screen.dart';
 import '../cards/cards_screen.dart';
+import '../../utils/id_utils.dart';
 import '../../services/notification_service.dart';
 import '../shared/notification_center_screen.dart';
 import '../shared/chat_inbox_screen.dart';
@@ -113,6 +114,9 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
   void _loadData() async {
     final user = await AuthService.getCurrentUser();
     final allProps = await ApiService.fetchProperties();
+    try {
+      await ApiService.fetchFeatureFlags();
+    } catch (_) {}
     if (mounted) {
       setState(() {
         _user = user;
@@ -144,7 +148,7 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
 
     final isVerified = _user?.isVerified ?? false;
     final name = _user?.fullName ?? 'Property Owner';
-    final landlordId = 'RNT-LLD-${_user?.id.replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0').substring(0, 4) ?? "0018"}';
+    final landlordId = IdUtils.formatOpsId(_user?.id, isPartner: false);
     final operationalBalance = _user?.walletBalance ?? 0.0;
     final escrowBalance = 0.00;
     final accountNumber = _user?.accountNumber ?? '9823481234';
@@ -585,16 +589,17 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
                         }
                       },
                     ),
-                    _buildGridCard(
-                      icon: Icons.credit_card_rounded,
-                      title: 'Dollar Cards Desk',
-                      subtitle: 'Virtual USD Visa (Bridgecard)',
-                      badge: 'GLOBAL',
-                      color: const Color(0xFF0284C7),
-                      onTap: () {
-                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CardsScreen()));
-                      },
-                    ),
+                    if (ApiService.featureFlags.enableVirtualCards)
+                      _buildGridCard(
+                        icon: Icons.credit_card_rounded,
+                        title: 'Dollar Cards Desk',
+                        subtitle: 'Virtual USD Visa (Bridgecard)',
+                        badge: 'GLOBAL',
+                        color: const Color(0xFF0284C7),
+                        onTap: () {
+                          Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CardsScreen()));
+                        },
+                      ),
                   ],
                 ),
                 const SizedBox(height: 22),

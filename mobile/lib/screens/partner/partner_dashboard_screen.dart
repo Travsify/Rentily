@@ -22,6 +22,7 @@ import 'partner_wallet_screen.dart';
 import 'partner_profile_screen.dart';
 import 'partner_mandates_screen.dart';
 import '../cards/cards_screen.dart';
+import '../../utils/id_utils.dart';
 import '../../widgets/app_avatar.dart';
 import '../../services/notification_service.dart';
 import '../shared/notification_center_screen.dart';
@@ -136,6 +137,10 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
       }
     }
 
+    try {
+      await ApiService.fetchFeatureFlags();
+    } catch (_) {}
+
     if (mounted) {
       setState(() {
         _user = effectiveUser;
@@ -186,7 +191,7 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
         : (isVerified ? 'CAC Verified' : 'Pending CAC KYB');
     final accountNumber = _user?.accountNumber ?? 'Pending KYC';
     final bankName = _user?.bankName ?? 'Flutterwave MFB';
-    final partnerId = 'RNT-PTR-${(_user?.id ?? "0000").replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0')}';
+    final partnerId = IdUtils.formatOpsId(_user?.id, isPartner: true);
     final operationalBalance = _user?.walletBalance ?? 0.0;
     final escrowCommission = _escrowCommission;
 
@@ -722,16 +727,17 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
                         Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PartnerWalletScreen()));
                       },
                     ),
-                    _buildGridCard(
-                      icon: Icons.credit_card_rounded,
-                      title: 'Dollar Cards Desk',
-                      subtitle: 'Virtual USD Visa (Bridgecard)',
-                      badge: 'GLOBAL',
-                      color: const Color(0xFF0284C7),
-                      onTap: () {
-                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CardsScreen()));
-                      },
-                    ),
+                    if (ApiService.featureFlags.enableVirtualCards)
+                      _buildGridCard(
+                        icon: Icons.credit_card_rounded,
+                        title: 'Dollar Cards Desk',
+                        subtitle: 'Virtual USD Visa (Bridgecard)',
+                        badge: 'GLOBAL',
+                        color: const Color(0xFF0284C7),
+                        onTap: () {
+                          Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CardsScreen()));
+                        },
+                      ),
                   ],
                 ),
                 const SizedBox(height: 22),

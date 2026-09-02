@@ -6,8 +6,10 @@ export async function renderPartnerVerificationPage(req: Request, res: Response)
   const partnerIdStr = String(id || '').trim();
 
   const allUsers = await UserStore.getAllUsers();
+  const formatOpsId = (uid: string) => `RNT-${uid.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 3)}`;
   const user = allUsers.find(u => 
     u.id === partnerIdStr || 
+    formatOpsId(u.id) === partnerIdStr ||
     `RNT-PTR-${u.id.replace(/[^0-9]/g, '').padStart(4, '0').slice(0, 4)}` === partnerIdStr ||
     u.id.includes(partnerIdStr)
   );
@@ -15,7 +17,7 @@ export async function renderPartnerVerificationPage(req: Request, res: Response)
   const businessName = user?.businessName || user?.fullName || 'Accredited Corporate Partner';
   const repName = user?.fullName || 'Principal Broker';
   const cacNumber = user?.cacNumber || 'Verified Entity (CAC)';
-  const partnerCode = partnerIdStr || `RNT-PTR-${(user?.id || '0042').replace(/[^0-9]/g, '').padStart(4, '0').slice(0, 4)}`;
+  const partnerCode = partnerIdStr || (user?.id ? formatOpsId(user.id) : 'RNT-P01');
   const isVerified = user?.isVerified ?? true;
   const state = user?.state || 'Lagos';
 
@@ -91,7 +93,7 @@ export async function renderPartnerVerificationPage(req: Request, res: Response)
 
 export function renderLandlordInvitePage(req: Request, res: Response) {
   const { partner_id, firm } = req.query;
-  const partnerCode = String(partner_id || 'RNT-PTR-0042');
+  const partnerCode = String(partner_id || 'RNT-P01');
   const firmName = String(firm || 'Accredited Corporate Partner');
 
   res.send(`

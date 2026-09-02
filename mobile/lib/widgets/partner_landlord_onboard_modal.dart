@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:share_plus/share_plus.dart';
 import '../constants/app_colors.dart';
 import '../models/user_profile.dart';
+import '../utils/id_utils.dart';
 
 class PartnerLandlordOnboardModal extends StatefulWidget {
   final UserProfile user;
@@ -38,7 +39,7 @@ class _PartnerLandlordOnboardModalState extends State<PartnerLandlordOnboardModa
     final businessName = widget.user.businessName != null && widget.user.businessName!.trim().isNotEmpty
         ? widget.user.businessName!.trim()
         : (widget.user.fullName.trim().isNotEmpty ? widget.user.fullName.trim() : 'Accredited Partner Enterprise');
-    final partnerId = 'RNT-PTR-${widget.user.id.replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0').substring(0, 4)}';
+    final partnerId = IdUtils.formatOpsId(widget.user.id, isPartner: true);
     final inviteLink = 'https://myrentilly.com/invite/landlord?partner_id=$partnerId&firm=${Uri.encodeComponent(businessName)}';
 
     final message = 'Dear Property Owner,\n\n'
@@ -58,7 +59,7 @@ class _PartnerLandlordOnboardModalState extends State<PartnerLandlordOnboardModa
     final businessName = widget.user.businessName != null && widget.user.businessName!.trim().isNotEmpty
         ? widget.user.businessName!.trim()
         : (widget.user.fullName.trim().isNotEmpty ? widget.user.fullName.trim() : 'Accredited Partner Enterprise');
-    final partnerId = 'RNT-PTR-${widget.user.id.replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0').substring(0, 4)}';
+    final partnerId = IdUtils.formatOpsId(widget.user.id, isPartner: true);
     final inviteLink = 'https://myrentilly.com/invite/landlord?partner_id=$partnerId&firm=${Uri.encodeComponent(businessName)}';
 
     Clipboard.setData(ClipboardData(text: inviteLink));
@@ -75,7 +76,7 @@ class _PartnerLandlordOnboardModalState extends State<PartnerLandlordOnboardModa
     final businessName = widget.user.businessName != null && widget.user.businessName!.trim().isNotEmpty
         ? widget.user.businessName!.trim()
         : (widget.user.fullName.trim().isNotEmpty ? widget.user.fullName.trim() : 'Accredited Partner Enterprise');
-    final partnerId = 'RNT-PTR-${widget.user.id.replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0').substring(0, 4)}';
+    final partnerId = IdUtils.formatOpsId(widget.user.id, isPartner: true);
     final inviteLink = 'https://myrentilly.com/invite/landlord?partner_id=$partnerId';
 
     return Container(

@@ -15,6 +15,7 @@ import {
   SlidersHorizontal
 } from 'lucide-react';
 import type { UserProfile } from '../types';
+import { formatOpsId } from '../utils/idGenerator';
 
 interface UsersTabProps {
   users: UserProfile[];
@@ -331,8 +332,11 @@ export const UsersTab: React.FC<UsersTabProps> = ({ users }) => {
                   return (
                     <tr key={u.id} className="hover:bg-slate-850/50 transition">
                       <td className="py-3 px-4">
-                        <div className="font-bold text-white flex items-center gap-1.5">
+                        <div className="font-bold text-white flex items-center gap-1.5 flex-wrap">
                           <span>{u.fullName || 'Unnamed User'}</span>
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                            {formatOpsId(u.id, u.role === ('partner' as any))}
+                          </span>
                           {anyU.businessName && (
                             <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-blue-950 text-blue-300 border border-blue-800">
                               {anyU.businessName}

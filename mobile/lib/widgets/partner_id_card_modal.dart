@@ -7,6 +7,7 @@ import 'package:printing/printing.dart';
 import '../constants/app_colors.dart';
 import '../models/user_profile.dart';
 import '../services/auth_service.dart';
+import '../utils/id_utils.dart';
 
 class PartnerIdCardModal extends StatelessWidget {
   final UserProfile user;
@@ -39,8 +40,7 @@ class PartnerIdCardModal extends StatelessWidget {
             : (isVerified ? 'CAC Registered' : 'Pending CAC KYB'))
         : (isVerified ? 'Deed & Land Registry Audited' : 'Pending Land Registry Audit');
 
-    final prefix = isPartner ? 'RNT-PTR' : 'RNT-LLD';
-    final digitalId = '$prefix-${effectiveUser.id.replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0').substring(0, 4)}';
+    final digitalId = IdUtils.formatOpsId(effectiveUser.id, isPartner: isPartner);
     
     final rawState = (effectiveUser.state != null && effectiveUser.state!.trim().isNotEmpty) ? effectiveUser.state!.trim() : 'Lagos';
     final cleanState = rawState.toLowerCase().contains('fct') || rawState.toLowerCase().contains('abuja')
@@ -343,8 +343,7 @@ class PartnerIdCardModal extends StatelessWidget {
             : (isVerified ? 'CAC Registered' : 'Pending CAC KYB'))
         : (isVerified ? 'Deed & Land Registry Audited' : 'Pending Land Registry Audit');
 
-    final prefix = isPartner ? 'RNT-PTR' : 'RNT-LLD';
-    final digitalId = '$prefix-${effectiveUser.id.replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0').substring(0, 4)}';
+    final digitalId = IdUtils.formatOpsId(effectiveUser.id, isPartner: isPartner);
     
     final rawState = (effectiveUser.state != null && effectiveUser.state!.trim().isNotEmpty) ? effectiveUser.state!.trim() : 'Lagos';
     final cleanState = rawState.toLowerCase().contains('fct') || rawState.toLowerCase().contains('abuja')

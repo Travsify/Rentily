@@ -17,6 +17,7 @@ import '../../widgets/verification_modal.dart';
 import '../../widgets/payment_pin_modal.dart';
 import '../../widgets/partner_id_card_modal.dart';
 import '../../widgets/app_avatar.dart';
+import '../../utils/id_utils.dart';
 import '../auth/login_screen.dart';
 
 class LandlordProfileScreen extends StatefulWidget {
@@ -785,7 +786,7 @@ class _LandlordProfileScreenState extends State<LandlordProfileScreen> {
 
     final isVerified = _user?.isVerified ?? false;
     final name = _user?.fullName ?? 'Property Owner';
-    final landlordId = 'RNT-LLD-${_user?.id.replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0').substring(0, 4) ?? "0018"}';
+    final landlordId = IdUtils.formatOpsId(_user?.id, isPartner: false);
     final avatarUrl = _user?.avatarUrl;
 
     return Scaffold(

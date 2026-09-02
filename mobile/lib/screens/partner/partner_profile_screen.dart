@@ -16,6 +16,7 @@ import '../../widgets/partner_id_card_modal.dart';
 import '../../widgets/partner_landlord_onboard_modal.dart';
 import '../../widgets/partner_legal_modal.dart';
 import '../../widgets/app_avatar.dart';
+import '../../utils/id_utils.dart';
 import '../auth/login_screen.dart';
 
 class PartnerProfileScreen extends StatefulWidget {
@@ -230,7 +231,7 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
     final cacNumber = _user?.cacNumber != null && _user!.cacNumber!.trim().isNotEmpty
         ? _user!.cacNumber!.trim()
         : (isVerified ? 'CAC Verified' : 'Pending CAC KYB');
-    final partnerId = 'RNT-PTR-${_user?.id.replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0').substring(0, 4) ?? "0042"}';
+    final partnerId = IdUtils.formatOpsId(_user?.id, isPartner: true);
     final rawState = _user?.state ?? 'Lagos';
     final officeAddress = _user?.officeAddress != null && _user!.officeAddress!.trim().isNotEmpty
         ? _user!.officeAddress!.trim()

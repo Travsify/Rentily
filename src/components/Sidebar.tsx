@@ -30,6 +30,7 @@ interface SidebarProps {
   pendingKypCount: number;
   activeInspectionsCount: number;
   escrowTotalAmount: number;
+  enableVirtualCards?: boolean;
 }
 
 interface NavSection {
@@ -48,7 +49,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setCurrentTab,
   pendingKypCount,
   activeInspectionsCount,
-  escrowTotalAmount
+  escrowTotalAmount,
+  enableVirtualCards = false
 }) => {
   const sections: NavSection[] = [
     {
@@ -155,7 +157,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           id: 'global_cards',
           label: 'Global FX & Virtual Cards',
           icon: Globe,
-          badge: 'USD/Cards'
+          badge: enableVirtualCards ? 'USD/Cards' : 'Disabled',
+          badgeColor: enableVirtualCards ? 'text-emerald-400 border-emerald-800' : 'text-slate-500 border-slate-800'
         },
         {
           id: 'bills_operations',

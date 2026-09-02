@@ -7,6 +7,7 @@ import '../../models/user_profile.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/partner_id_card_modal.dart';
+import '../../utils/id_utils.dart';
 import '../main_navigation_screen.dart';
 
 class InspectionsScreen extends StatefulWidget {
@@ -65,9 +66,7 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
   }
 
   void _shareHostGatePass(Inspection insp) {
-    final hostId = _user?.role == 'partner'
-        ? 'RNT-PTR-${_user?.id.replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0').substring(0, 4) ?? "0042"}'
-        : 'RNT-LLD-${_user?.id.replaceAll(RegExp(r'[^0-9]'), '').padLeft(4, '0').substring(0, 4) ?? "0018"}';
+    final hostId = IdUtils.formatOpsId(_user?.id, isPartner: _user?.role == 'partner');
 
     Share.share(
       '🔑 RENTILLY ESTATE ACCESS GATE PASS\n\n'

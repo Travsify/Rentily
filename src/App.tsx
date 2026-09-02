@@ -48,6 +48,7 @@ export default function App() {
 
   // Server & Supabase connection status
   const [serverStatus, setServerStatus] = useState({ connected: false, supabase: false });
+  const [featureFlags, setFeatureFlags] = useState<{ enableVirtualCards?: boolean }>({ enableVirtualCards: false });
   const [loading, setLoading] = useState(true);
 
   // Check existing login session & server status on mount
@@ -90,6 +91,15 @@ export default function App() {
       if (health) {
         setServerStatus({ connected: true, supabase: health.supabaseConnected });
       }
+
+      // Fetch remote feature flags
+      try {
+        const flagsRes = await fetch('/api/config/features');
+        if (flagsRes.ok) {
+          const flagsData = await flagsRes.json();
+          if (flagsData?.flags) setFeatureFlags(flagsData.flags);
+        }
+      } catch (_) {}
     } catch (e) {
       console.error('Failed loading Rentilly data', e);
     } finally {
@@ -183,6 +193,7 @@ export default function App() {
           pendingKypCount={pendingKypCount}
           activeInspectionsCount={activeInspectionsCount}
           escrowTotalAmount={escrowTotalAmount}
+          enableVirtualCards={featureFlags.enableVirtualCards}
         />
 
         {/* Dynamic Content Viewport */}
