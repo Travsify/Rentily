@@ -66,12 +66,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       if (u != null) {
         setState(() {
           _user = u;
-          final isPartner = u.role == 'partner' || (u.businessName != null && u.businessName!.isNotEmpty) || u.email.toLowerCase() == 'tonerocool1@gmail.com';
-          if (isPartner) {
-            _activeViewMode = 'partner';
-          } else if (u.role == 'owner' || u.role == 'landlord') {
-            _activeViewMode = 'landlord';
-          }
         });
       }
     }
@@ -88,12 +82,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     if (mounted && user != null) {
       setState(() {
         _user = user;
-        final isPartner = user.role == 'partner' || (user.businessName != null && user.businessName!.isNotEmpty) || user.email.toLowerCase() == 'tonerocool1@gmail.com';
-        if (isPartner) {
-          _activeViewMode = 'partner';
-        } else if (user.role == 'owner' || user.role == 'landlord') {
-          _activeViewMode = 'landlord';
-        }
       });
     }
   }

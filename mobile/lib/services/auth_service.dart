@@ -201,9 +201,7 @@ class AuthService {
           final user = users[0];
           final token = 'rentilly_sb_${DateTime.now().millisecondsSinceEpoch}';
 
-          final isPartner = (user['business_name'] != null && user['business_name'].toString().isNotEmpty) ||
-              user['role'] == 'partner' ||
-              cleanEmail == 'tonerocool1@gmail.com';
+          final isPartner = user['role'] == 'partner';
 
           final prefs = await SharedPreferences.getInstance();
           final cachedAvatar = prefs.getString('rentilly_avatar_$cleanEmail') ?? prefs.getString('rentilly_persistent_avatar_url');
@@ -213,7 +211,7 @@ class AuthService {
             'fullName': user['full_name'] ?? user['fullName'] ?? '',
             'email': user['email'] ?? cleanEmail,
             'phoneNumber': user['phone_number'] ?? user['phoneNumber'] ?? '',
-            'role': isPartner ? 'partner' : (user['role'] ?? 'renter'),
+            'role': user['role'] ?? (isPartner ? 'partner' : 'renter'),
             'avatarUrl': user['avatar_url'] ?? user['avatarUrl'] ?? cachedAvatar,
             'businessName': user['business_name'] ?? user['businessName'],
             'cacNumber': user['cac_number'] ?? user['cacNumber'],
@@ -436,11 +434,7 @@ class AuthService {
     }
     userMap['fullName'] = cleanName;
 
-    final isKnownPartner = userMap['role'] == 'partner' ||
-        userMap['businessName'] != null ||
-        userMap['business_name'] != null ||
-        email.contains('partner') ||
-        email == 'tonerocool1@gmail.com';
+    final isKnownPartner = userMap['role'] == 'partner' || email.contains('partner');
 
     if (isKnownPartner) {
       userMap['role'] = 'partner';
