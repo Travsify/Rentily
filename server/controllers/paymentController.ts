@@ -9,6 +9,7 @@ import { NotificationDispatcher } from '../services/notificationDispatcher';
 import { getStoredFees } from './feeController';
 import { MultiCurrencyService } from '../services/multiCurrencyService';
 import { CardIssuingService } from '../services/cardIssuingService';
+import { getFeatureFlags } from './featureFlagController';
 
 export async function createVirtualAccount(req: Request, res: Response) {
   try {
@@ -1125,9 +1126,15 @@ export async function getMultiCurrencyAccounts(req: Request, res: Response) {
       ngnAcc.balance = trueNgn;
     }
 
+    // Filter foreign accounts (USD, GBP, EUR) if Multi-Currency Vault is toggled OFF by admin
+    const flags = getFeatureFlags();
+    const effectiveAccounts = flags.enableMultiCurrencyVault
+      ? accounts
+      : accounts.filter(a => a.currency === 'NGN');
+
     res.json({
       status: true,
-      data: accounts
+      data: effectiveAccounts
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

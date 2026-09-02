@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../constants/app_colors.dart';
+import '../services/api_service.dart';
 
 class CurrencySelectorWidget extends StatelessWidget {
   final String selectedCurrency;
@@ -21,6 +22,12 @@ class CurrencySelectorWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // When multi-currency is toggled off by Admin, foreign accounts (USD, GBP, EUR) disappear,
+    // leaving only Nigerian Naira (NGN). Since only 1 currency remains, hide the switcher.
+    if (!ApiService.featureFlags.enableMultiCurrencyVault) {
+      return const SizedBox.shrink();
+    }
+
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
@@ -43,7 +50,7 @@ class CurrencySelectorWidget extends StatelessWidget {
                   boxShadow: isSelected
                       ? [
                           BoxShadow(
-                            color: AppColors.primary.withOpacity(0.25),
+                            color: AppColors.primary.withValues(alpha: 0.25),
                             blurRadius: 6,
                             offset: const Offset(0, 2),
                           ),

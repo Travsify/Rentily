@@ -498,15 +498,16 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
     }
 
     final isVerified = _user?.isVerified ?? false;
-    final String symbol = _selectedCurrency == 'USD' ? '\$' : _selectedCurrency == 'GBP' ? '£' : _selectedCurrency == 'EUR' ? '€' : '₦';
-    final double operationalBalance = _selectedCurrency == 'NGN' 
+    final String effectiveCurrency = ApiService.featureFlags.enableMultiCurrencyVault ? _selectedCurrency : 'NGN';
+    final String symbol = effectiveCurrency == 'USD' ? '\$' : effectiveCurrency == 'GBP' ? '£' : effectiveCurrency == 'EUR' ? '€' : '₦';
+    final double operationalBalance = effectiveCurrency == 'NGN' 
         ? (_user?.walletBalance ?? 0.0) 
-        : _selectedCurrency == 'USD' 
+        : effectiveCurrency == 'USD' 
         ? _usdBalance 
-        : _selectedCurrency == 'GBP' 
+        : effectiveCurrency == 'GBP' 
         ? _gbpBalance 
         : _eurBalance;
-    final escrowCommission = _selectedCurrency == 'NGN' ? _escrowCommission : 0.00;
+    final escrowCommission = effectiveCurrency == 'NGN' ? _escrowCommission : 0.00;
     final accountNumber = _user?.accountNumber ?? 'Pending KYC';
     final bankName = _user?.bankName ?? 'Flutterwave MFB';
 
@@ -529,7 +530,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                   context,
                   user: _user!,
                   transactions: _commissionTxns.whereType<Map<String, dynamic>>().toList(),
-                  initialCurrency: _selectedCurrency,
+                  initialCurrency: effectiveCurrency,
                 );
               }
             },
@@ -543,15 +544,17 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
           child: ListView(
             padding: const EdgeInsets.all(18),
             children: [
-              // Multi-Currency Vault Switcher Tabs
-              CurrencySelectorWidget(
-                selectedCurrency: _selectedCurrency,
-                onCurrencySelected: (curr) {
-                  HapticFeedback.selectionClick();
-                  setState(() => _selectedCurrency = curr);
-                },
-              ),
-              const SizedBox(height: 14),
+              // Multi-Currency Vault Switcher Tabs (Only when Multi-Currency feature is enabled)
+              if (ApiService.featureFlags.enableMultiCurrencyVault) ...[
+                CurrencySelectorWidget(
+                  selectedCurrency: effectiveCurrency,
+                  onCurrencySelected: (curr) {
+                    HapticFeedback.selectionClick();
+                    setState(() => _selectedCurrency = curr);
+                  },
+                ),
+                const SizedBox(height: 14),
+              ],
 
               // Dual Balance Card (Operational Balance vs Escrow Commission Balance)
               Container(
@@ -583,7 +586,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                             const Icon(Icons.business_center_rounded, size: 16, color: Colors.white70),
                             const SizedBox(width: 6),
                             Text(
-                              'PARTNER OPERATING VAULT ($_selectedCurrency)',
+                              'PARTNER OPERATING VAULT ($effectiveCurrency)',
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 8.5,
                                 fontWeight: FontWeight.w800,
@@ -614,7 +617,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                     const SizedBox(height: 16),
 
                     // Operational Funded Balance
-                    Text('AVAILABLE OPERATING FUNDS ($_selectedCurrency)', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: Colors.white60)),
+                    Text('AVAILABLE OPERATING FUNDS ($effectiveCurrency)', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: Colors.white60)),
                     const SizedBox(height: 2),
                     Row(
                       children: [
@@ -637,7 +640,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                     const SizedBox(height: 12),
 
                     // Escrow Commission Balance (Only on NGN) - Zero Spillover Layout
-                    if (_selectedCurrency == 'NGN') ...[
+                    if (effectiveCurrency == 'NGN') ...[
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         crossAxisAlignment: CrossAxisAlignment.center,
@@ -687,7 +690,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
               const SizedBox(height: 18),
 
               // Virtual Bank Account Section (Naira = Auto upon KYC, Foreign = On-Demand 'Get Account')
-              if (_selectedCurrency == 'NGN') ...[
+              if (effectiveCurrency == 'NGN') ...[
                 if (!isVerified) ...[
                   Container(
                     padding: const EdgeInsets.all(18),
@@ -820,9 +823,9 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                     ),
                   ),
                 ],
-              ] else ...[
+              ] else if (ApiService.featureFlags.enableMultiCurrencyVault) ...[
                 // Foreign Currency Account Card (USD / GBP / EUR) — Pure On-Demand
-                if (!_virtualAccounts.containsKey(_selectedCurrency)) ...[
+                if (!_virtualAccounts.containsKey(effectiveCurrency)) ...[
                   // Not Requested Yet State with 'Get Account' Button
                   Container(
                     padding: const EdgeInsets.all(18),

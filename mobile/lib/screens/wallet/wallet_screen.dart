@@ -73,6 +73,10 @@ class _WalletScreenState extends State<WalletScreen> {
       });
     }
 
+    try {
+      await ApiService.fetchFeatureFlags();
+    } catch (_) {}
+
     if (u != null) {
       try {
         final url = Uri.parse('${AppConstants.apiBaseUrl}/wallet/balance?userId=${u.id}&email=${u.email}');
@@ -391,21 +395,22 @@ class _WalletScreenState extends State<WalletScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final String symbol = _selectedCurrency == 'USD' ? '\$' : _selectedCurrency == 'GBP' ? '£' : _selectedCurrency == 'EUR' ? '€' : '₦';
-    final double balance = _selectedCurrency == 'NGN' ? (_user?.walletBalance ?? 0.00) : 0.00;
-    final String bank = _selectedCurrency == 'USD' 
+    final String effectiveCurrency = ApiService.featureFlags.enableMultiCurrencyVault ? _selectedCurrency : 'NGN';
+    final String symbol = effectiveCurrency == 'USD' ? '\$' : effectiveCurrency == 'GBP' ? '£' : effectiveCurrency == 'EUR' ? '€' : '₦';
+    final double balance = effectiveCurrency == 'NGN' ? (_user?.walletBalance ?? 0.00) : 0.00;
+    final String bank = effectiveCurrency == 'USD' 
         ? 'Lead Bank (USA)' 
-        : _selectedCurrency == 'GBP' 
+        : effectiveCurrency == 'GBP' 
         ? 'ClearBank (UK)' 
-        : _selectedCurrency == 'EUR' 
+        : effectiveCurrency == 'EUR' 
         ? 'Banque Internationale (EU)' 
         : (_user?.bankName ?? 'Flutterwave MFB');
-    final String? accNum = _selectedCurrency == 'NGN' ? _user?.accountNumber : null;
-    final String accountLabel = _selectedCurrency == 'USD' 
+    final String? accNum = effectiveCurrency == 'NGN' ? _user?.accountNumber : null;
+    final String accountLabel = effectiveCurrency == 'USD' 
         ? 'US CHECKING (ACH / ROUTING: 101000019)' 
-        : _selectedCurrency == 'GBP' 
+        : effectiveCurrency == 'GBP' 
         ? 'UK ACCOUNT (SORT CODE: 04-00-04)' 
-        : _selectedCurrency == 'EUR' 
+        : effectiveCurrency == 'EUR' 
         ? 'EUROPEAN IBAN (SEPA INSTANT)' 
         : 'DEDICATED NUBAN ACCOUNT';
 
@@ -434,7 +439,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   context,
                   user: _user!,
                   transactions: _transactions,
-                  initialCurrency: _selectedCurrency,
+                  initialCurrency: effectiveCurrency,
                 );
               }
             },
@@ -452,15 +457,17 @@ class _WalletScreenState extends State<WalletScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Multi-Currency Vault Switcher Tabs
-              CurrencySelectorWidget(
-                selectedCurrency: _selectedCurrency,
-                onCurrencySelected: (curr) {
-                  HapticFeedback.selectionClick();
-                  setState(() => _selectedCurrency = curr);
-                },
-              ),
-              const SizedBox(height: 12),
+              // Multi-Currency Vault Switcher Tabs (Only when Multi-Currency feature is enabled)
+              if (ApiService.featureFlags.enableMultiCurrencyVault) ...[
+                CurrencySelectorWidget(
+                  selectedCurrency: effectiveCurrency,
+                  onCurrencySelected: (curr) {
+                    HapticFeedback.selectionClick();
+                    setState(() => _selectedCurrency = curr);
+                  },
+                ),
+                const SizedBox(height: 12),
+              ],
 
               // Main Debit Wallet Card (Emerald Teal & Deep Pine with Gold/Amber Accents)
               Container(
@@ -527,7 +534,7 @@ class _WalletScreenState extends State<WalletScreen> {
 
                     // Balance Display
                     Text(
-                      'TOTAL AVAILABLE BALANCE ($_selectedCurrency)',
+                      'TOTAL AVAILABLE BALANCE ($effectiveCurrency)',
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 8.5,
                         fontWeight: FontWeight.bold,

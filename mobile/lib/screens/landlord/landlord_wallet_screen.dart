@@ -234,22 +234,23 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
 
     final isVerified = _user?.isVerified ?? true;
     final name = _user?.fullName ?? _user?.businessName ?? 'Property Owner';
-    final String symbol = _selectedCurrency == 'USD' ? '\$' : _selectedCurrency == 'GBP' ? '£' : _selectedCurrency == 'EUR' ? '€' : '₦';
-    final double operationalBalance = _selectedCurrency == 'NGN' ? (_user?.walletBalance ?? 0.0) : 0.00;
+    final String effectiveCurrency = ApiService.featureFlags.enableMultiCurrencyVault ? _selectedCurrency : 'NGN';
+    final String symbol = effectiveCurrency == 'USD' ? '\$' : effectiveCurrency == 'GBP' ? '£' : effectiveCurrency == 'EUR' ? '€' : '₦';
+    final double operationalBalance = effectiveCurrency == 'NGN' ? (_user?.walletBalance ?? 0.0) : 0.00;
     final escrowBalance = 0.00;
-    final accountNumber = _selectedCurrency == 'NGN' ? (_user?.accountNumber ?? '') : '';
-    final bankName = _selectedCurrency == 'USD' 
+    final accountNumber = effectiveCurrency == 'NGN' ? (_user?.accountNumber ?? '') : '';
+    final bankName = effectiveCurrency == 'USD' 
         ? 'Lead Bank (USA) • ACH/Wire' 
-        : _selectedCurrency == 'GBP' 
+        : effectiveCurrency == 'GBP' 
         ? 'ClearBank (UK) • Sort: 04-00-04' 
-        : _selectedCurrency == 'EUR' 
+        : effectiveCurrency == 'EUR' 
         ? 'Banque Internationale (EU)' 
         : (_user?.bankName ?? 'Flutterwave MFB');
-    final String accountLabel = _selectedCurrency == 'USD' 
+    final String accountLabel = effectiveCurrency == 'USD' 
         ? 'US CHECKING (ACH / ROUTING: 101000019)' 
-        : _selectedCurrency == 'GBP' 
+        : effectiveCurrency == 'GBP' 
         ? 'UK ACCOUNT (SORT CODE: 04-00-04)' 
-        : _selectedCurrency == 'EUR' 
+        : effectiveCurrency == 'EUR' 
         ? 'EUROPEAN IBAN (SEPA INSTANT)' 
         : 'DEDICATED SETTLEMENT NUBAN';
 
@@ -288,15 +289,17 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
           child: ListView(
             padding: const EdgeInsets.all(18),
             children: [
-              // Multi-Currency Vault Switcher
-              CurrencySelectorWidget(
-                selectedCurrency: _selectedCurrency,
-                onCurrencySelected: (curr) {
-                  HapticFeedback.selectionClick();
-                  setState(() => _selectedCurrency = curr);
-                },
-              ),
-              const SizedBox(height: 12),
+              // Multi-Currency Vault Switcher (Only when enabled)
+              if (ApiService.featureFlags.enableMultiCurrencyVault) ...[
+                CurrencySelectorWidget(
+                  selectedCurrency: effectiveCurrency,
+                  onCurrencySelected: (curr) {
+                    HapticFeedback.selectionClick();
+                    setState(() => _selectedCurrency = curr);
+                  },
+                ),
+                const SizedBox(height: 12),
+              ],
 
               // Dual Balance Card (Styled 100% in Rentilly Brand Green with Emerald & Gold Accents)
               Container(
@@ -329,7 +332,7 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                             const Icon(Icons.account_balance_wallet_rounded, size: 16, color: Color(0xFF4ADE80)),
                             const SizedBox(width: 6),
                             Text(
-                              'LANDLORD GLOBAL VAULT ($_selectedCurrency)',
+                              'LANDLORD GLOBAL VAULT ($effectiveCurrency)',
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 8.5,
                                 fontWeight: FontWeight.w800,
@@ -360,7 +363,7 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                     const SizedBox(height: 16),
 
                     // Operational Funded Balance
-                    Text('AVAILABLE OPERATING FUNDS ($_selectedCurrency)', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: Colors.white70)),
+                    Text('AVAILABLE OPERATING FUNDS ($effectiveCurrency)', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: Colors.white70)),
                     const SizedBox(height: 2),
                     Text('$symbol${_currencyFormat.format(operationalBalance)}', style: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.w900, color: Colors.white)),
                     const SizedBox(height: 14),

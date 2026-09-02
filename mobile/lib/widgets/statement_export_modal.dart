@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../constants/app_colors.dart';
 import '../models/user_profile.dart';
 import '../services/statement_pdf_service.dart';
+import '../services/api_service.dart';
 
 class StatementExportModal extends StatefulWidget {
   final UserProfile user;
@@ -243,10 +244,13 @@ class _StatementExportModalState extends State<StatementExportModal> {
             child: Row(
               children: [
                 {'id': 'NGN', 'label': '🇳🇬 NGN Wallet'},
-                {'id': 'USD', 'label': '🇺🇸 USD Wallet'},
-                {'id': 'GBP', 'label': '🇬🇧 GBP Wallet'},
-                {'id': 'EUR', 'label': '🇪🇺 EUR Wallet'},
-                {'id': 'CARD', 'label': '💳 Virtual Dollar Card'},
+                if (ApiService.featureFlags.enableMultiCurrencyVault) ...[
+                  {'id': 'USD', 'label': '🇺🇸 USD Wallet'},
+                  {'id': 'GBP', 'label': '🇬🇧 GBP Wallet'},
+                  {'id': 'EUR', 'label': '🇪🇺 EUR Wallet'},
+                ],
+                if (ApiService.featureFlags.enableVirtualCards)
+                  {'id': 'CARD', 'label': '💳 Virtual Dollar Card'},
               ].map((opt) {
                 final isSelected = _selectedScope == opt['id'];
                 return Padding(
