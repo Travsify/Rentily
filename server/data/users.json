@@ -1,6 +1,6 @@
 [
   {
-    "id": "usr_patrick_achua",
+    "id": "b0000000-0000-0000-0000-000000000001",
     "email": "patrickachua3@gmail.com",
     "fullName": "Patrick Achua",
     "phoneNumber": "+2348026990956",
@@ -12,29 +12,29 @@
     "state": "Lagos",
     "walletBalance": 0,
     "createdAt": "2026-09-02T06:49:43.084Z",
-    "updatedAt": "2026-09-02T06:49:43.084Z"
+    "updatedAt": "2026-09-02T07:55:00.000Z"
   },
   {
-    "id": "usr_1788303582852",
+    "id": "c0000000-0000-0000-0000-000000000001",
     "email": "tonerocool1@gmail.com",
-    "fullName": "Anthony O.",
+    "fullName": "Eoms Global Partner",
     "phoneNumber": "+2348011223344",
     "passwordHash": "7d1e7d9746ac6d15aa55e22d7b6aca74d9be9b50b62375a3cdcbf7127f50a1b5",
     "role": "partner",
     "isVerified": true,
-    "businessName": "Rentilly Elite Partner Agency",
+    "businessName": "Eoms Global Inclusive Limited",
     "cacNumber": "RC-1849204",
     "officeAddress": "Admiralty Way, Lekki Phase 1, Lagos",
     "partnerStatus": "verified",
     "accountNumber": "9591357072",
     "bankName": "Flutterwave MFB",
     "state": "Lagos",
-    "walletBalance": 2000,
+    "walletBalance": 50000,
     "createdAt": "2026-09-02T06:49:43.084Z",
-    "updatedAt": "2026-09-02T06:49:43.084Z"
+    "updatedAt": "2026-09-02T07:55:00.000Z"
   },
   {
-    "id": "usr_admin_root",
+    "id": "a0000000-0000-0000-0000-000000000001",
     "email": "admin@myrentilly.com",
     "fullName": "Rentilly Super Admin",
     "phoneNumber": "+2348000000000",
@@ -44,6 +44,6 @@
     "state": "Lagos",
     "walletBalance": 0,
     "createdAt": "2026-09-02T06:49:43.084Z",
-    "updatedAt": "2026-09-02T06:49:43.084Z"
+    "updatedAt": "2026-09-02T07:55:00.000Z"
   }
 ]

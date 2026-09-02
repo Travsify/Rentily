@@ -547,7 +547,7 @@ export async function payBill(req: Request, res: Response) {
       // Record in TransactionStore
       const newTx = await TransactionStore.addTransaction({
         id: `TX_${Date.now()}`,
-        userId: memUser?.id || 'usr_patrick_achua_live',
+        userId: memUser?.id || (cleanEmail === 'tonerocool1@gmail.com' ? 'c0000000-0000-0000-0000-000000000001' : 'b0000000-0000-0000-0000-000000000001'),
         email: cleanEmail,
         title: title,
         type: type,
@@ -555,7 +555,7 @@ export async function payBill(req: Request, res: Response) {
         amount: numAmount,
         isCredit: false,
         reference: txRef,
-        sender: `${memUser?.fullName || 'Patrick Achua'} (Rentilly Living Escrow)`,
+        sender: `${memUser?.businessName || memUser?.fullName || 'Rentilly User'} (Rentilly Wallet)`,
         beneficiary: customerNumber,
         status: 'SUCCESSFUL',
         token: tokenOutput,
@@ -760,8 +760,9 @@ export async function getWalletBalance(req: Request, res: Response) {
       status: true,
       walletBalance: balance,
       user: {
-        id: memUser?.id || userId || 'usr_patrick_achua_live',
-        fullName: memUser?.fullName || 'Patrick Achua',
+        id: memUser?.id || userId || (cleanEmail === 'tonerocool1@gmail.com' ? 'c0000000-0000-0000-0000-000000000001' : 'b0000000-0000-0000-0000-000000000001'),
+        fullName: memUser?.fullName || (cleanEmail === 'tonerocool1@gmail.com' ? 'Eoms Global Partner' : 'Rentilly User'),
+        businessName: memUser?.businessName || (cleanEmail === 'tonerocool1@gmail.com' ? 'Eoms Global Inclusive Limited' : null),
         email: cleanEmail,
         accountNumber,
         bankName,
