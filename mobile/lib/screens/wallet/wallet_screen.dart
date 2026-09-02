@@ -8,6 +8,7 @@ import '../../constants/app_colors.dart';
 import '../../constants/app_constants.dart';
 import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
+import '../../services/api_service.dart';
 import '../../services/statement_pdf_service.dart';
 import '../vaults/vaults_screen.dart';
 import '../../widgets/add_money_modal.dart';
