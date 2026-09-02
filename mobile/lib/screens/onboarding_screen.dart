@@ -34,7 +34,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       'tag': 'ZERO FAKE LANDLORDS',
       'title': '100% Audited Title\nDeeds & Ownership',
       'description':
-          'Every property is audited at the State Land Registry (Alausa & AGIS) and cross-checked with the landlord\'s NIN & Disco electricity meter.',
+          'Every property is audited across State Land Registries & the FCT Geographic Information Systems (AGIS) and cross-checked with the landlord\'s NIN & national Disco meter.',
       'statLabel': 'Land Title Clearance',
       'statValue': 'C of O / Gov. Consent',
     },

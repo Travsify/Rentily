@@ -19,17 +19,18 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
   late Animation<double> _opacityAnimation;
+  bool _navigated = false;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1400),
+      duration: const Duration(milliseconds: 1200),
     );
 
-    _scaleAnimation = Tween<double>(begin: 0.85, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
+    _scaleAnimation = Tween<double>(begin: 0.88, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
     );
 
     _opacityAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
@@ -41,8 +42,13 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   }
 
   void _checkAuthGate() async {
-    await Future.delayed(const Duration(milliseconds: 2200));
-    if (!mounted) return;
+    await Future.delayed(const Duration(milliseconds: 2600));
+    _proceedToNextScreen();
+  }
+
+  void _proceedToNextScreen() async {
+    if (_navigated || !mounted) return;
+    _navigated = true;
 
     // Check if user has seen onboarding
     final prefs = await SharedPreferences.getInstance();
@@ -54,7 +60,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     if (!seenOnboarding) {
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
-          transitionDuration: const Duration(milliseconds: 600),
+          transitionDuration: const Duration(milliseconds: 500),
           pageBuilder: (_, __, ___) => const OnboardingScreen(),
           transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
         ),
@@ -74,7 +80,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
-          transitionDuration: const Duration(milliseconds: 600),
+          transitionDuration: const Duration(milliseconds: 500),
           pageBuilder: (_, __, ___) => MainNavigationScreen(
             initialPartnerMode: isPartner,
             initialLandlordMode: isLandlord,
@@ -85,7 +91,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     } else {
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(
-          transitionDuration: const Duration(milliseconds: 600),
+          transitionDuration: const Duration(milliseconds: 500),
           pageBuilder: (_, __, ___) => const LoginScreen(),
           transitionsBuilder: (_, animation, __, child) => FadeTransition(opacity: animation, child: child),
         ),
@@ -102,120 +108,250 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.backgroundDark,
-      body: Stack(
-        children: [
-          // Background subtle radiant glow
-          Positioned(
-            top: MediaQuery.of(context).size.height * 0.25,
-            left: MediaQuery.of(context).size.width * 0.1,
-            right: MediaQuery.of(context).size.width * 0.1,
-            child: Container(
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.primaryLight.withValues(alpha: 0.08),
+      backgroundColor: const Color(0xFF070D1B), // Deep, ultra-clean solid dark surface
+      body: SafeArea(
+        child: Stack(
+          children: [
+            // Center Branding & Value Proposition
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 28),
+                child: AnimatedBuilder(
+                  animation: _controller,
+                  builder: (context, child) {
+                    return Opacity(
+                      opacity: _opacityAnimation.value,
+                      child: Transform.scale(
+                        scale: _scaleAnimation.value,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // 1. Rentilly Logo with High-Contrast Emerald Glow
+                            Container(
+                              width: 108,
+                              height: 108,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(30),
+                                border: Border.all(
+                                  color: AppColors.primary.withValues(alpha: 0.5),
+                                  width: 2,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.primary.withValues(alpha: 0.35),
+                                    blurRadius: 36,
+                                    spreadRadius: 2,
+                                    offset: const Offset(0, 10),
+                                  ),
+                                ],
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(28),
+                                child: Image.asset(
+                                  'assets/images/logo.png',
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+
+                            // 2. Main Title in ULTRA-BRIGHT Pure White
+                            Text(
+                              AppConstants.appName,
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 38,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: -0.5,
+                                color: Colors.white, // Ultra-visible pure white
+                                shadows: [
+                                  Shadow(
+                                    color: Colors.black.withValues(alpha: 0.6),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+
+                            // 3. High-Contrast Tagline Pill (Federal & Nationwide)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(24),
+                                border: Border.all(
+                                  color: AppColors.primary.withValues(alpha: 0.4),
+                                  width: 1.2,
+                                ),
+                              ),
+                              child: Text(
+                                'NATIONWIDE DIRECT RENTALS • ZERO AGENTS • ESCROW SAFE',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 1.2,
+                                  color: const Color(0xFF34D399), // High-visibility bright emerald
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 28),
+
+                            // 4. Key Value Guidance Pillars (Resonating across all 36 States & FCT)
+                            _buildFeaturePill(
+                              icon: Icons.verified_user_rounded,
+                              title: 'Verified Landlords Nationwide',
+                              subtitle: 'Direct owner listings across all 36 States & the FCT',
+                            ),
+                            const SizedBox(height: 10),
+                            _buildFeaturePill(
+                              icon: Icons.shield_rounded,
+                              title: 'Protected Rent Escrow',
+                              subtitle: 'Rent held safe nationwide until physical key handover',
+                            ),
+                            const SizedBox(height: 10),
+                            _buildFeaturePill(
+                              icon: Icons.credit_card_rounded,
+                              title: 'Virtual Dollar Cards',
+                              subtitle: 'Institutional USD Visa for global subscriptions & spend',
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
-          ),
 
-          // Center Branding with ACTUAL Rentilly Logo
-          Center(
-            child: AnimatedBuilder(
-              animation: _controller,
-              builder: (context, child) {
-                return Opacity(
-                  opacity: _opacityAnimation.value,
-                  child: Transform.scale(
-                    scale: _scaleAnimation.value,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Rentilly Logo Image (actual brand logo)
-                        Container(
-                          width: 100,
-                          height: 100,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(28),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AppColors.primaryLight.withValues(alpha: 0.35),
-                                blurRadius: 30,
-                                offset: const Offset(0, 10),
-                              ),
-                            ],
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(28),
-                            child: Image.asset(
-                              'assets/images/logo.png',
-                              fit: BoxFit.cover,
-                            ),
-                          ),
+            // Bottom Loading Indicator & Tap-to-Continue Action
+            Positioned(
+              bottom: 24,
+              left: 24,
+              right: 24,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF34D399)),
                         ),
-                        const SizedBox(height: 24),
-
-                        // Title (Ink Black)
-                        Text(
-                          AppConstants.appName,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 34,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.5,
-                            color: AppColors.textPrimary,
-                          ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'Securing connection to Rentilly Federal Escrow...',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFFE2E8F0), // High-contrast crisp light grey
                         ),
-                        const SizedBox(height: 6),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
 
-                        // Tagline Pill
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: AppColors.primary.withValues(alpha: 0.08),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: AppColors.primary.withValues(alpha: 0.2),
-                            ),
-                          ),
-                          child: Text(
-                            'ZERO AGENTS • DIRECT OWNERS',
+                  // Quick Action button if user wants to enter immediately
+                  GestureDetector(
+                    onTap: _proceedToNextScreen,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.06),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.white12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Tap to Enter',
                             style: GoogleFonts.plusJakartaSans(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1.2,
-                              color: AppColors.primary,
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
                             ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 6),
+                          const Icon(Icons.arrow_forward_rounded, size: 14, color: Color(0xFF34D399)),
+                        ],
+                      ),
                     ),
                   ),
-                );
-              },
-            ),
-          ),
+                  const SizedBox(height: 12),
 
-          // Bottom Indicator
-          Positioned(
-            bottom: 40,
-            left: 0,
-            right: 0,
+                  // Legal Compliance Guarantee Text (Federal Republic of Nigeria)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.gavel_rounded, size: 12, color: Color(0xFF94A3B8)),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Empowered by the Laws of the Federal Republic of Nigeria & FCT',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF94A3B8), // Readable muted slate
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeaturePill({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: const Color(0xFF34D399), size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryLight),
+                Text(
+                  title,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white, // Ultra visible white
                   ),
                 ),
-                const SizedBox(height: 12),
                 Text(
-                  'Empowered by Nigerian Land Law & Escrow',
+                  subtitle,
                   style: GoogleFonts.plusJakartaSans(
-                    fontSize: 11,
-                    color: AppColors.textMuted,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xFF94A3B8), // Clear readable slate
                   ),
                 ),
               ],
