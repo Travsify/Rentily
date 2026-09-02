@@ -14,6 +14,8 @@ import { shippingRouter } from './shippingRouter';
 import { isSupabaseConfigured } from '../supabaseClient';
 import { IdentitypassService } from '../services/identitypassService';
 import { FlutterwaveService } from '../services/flutterwaveService';
+import { AdminDataStore } from '../services/adminDataStore';
+import { TransactionStore } from '../services/transactionStore';
 
 export const apiRouter = Router();
 
@@ -27,6 +29,24 @@ apiRouter.get('/health', (_req, res) => {
     identitypassConfigured: IdentitypassService.isConfigured(),
     flutterwaveConfigured: FlutterwaveService.isConfigured(),
     timestamp: new Date().toISOString()
+  });
+});
+
+// 1b. Debug: verify AdminDataStore seed data loading
+apiRouter.get('/debug/store', (_req, res) => {
+  const properties = AdminDataStore.getProperties();
+  const kyp = AdminDataStore.getKYP();
+  const inspections = AdminDataStore.getInspections();
+  const legal = AdminDataStore.getLegalAgreements();
+  const walletTxs = TransactionStore.getAllTransactions();
+  res.json({
+    propertiesCount: properties.length,
+    kypCount: kyp.length,
+    inspectionsCount: inspections.length,
+    legalCount: legal.length,
+    walletTransactionsCount: walletTxs.length,
+    firstProperty: properties[0]?.title || 'none',
+    firstKYP: kyp[0]?.propertyTitle || 'none',
   });
 });
 

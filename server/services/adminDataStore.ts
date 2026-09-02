@@ -2,42 +2,61 @@ import fs from 'fs';
 import path from 'path';
 import type { Property, KYPRecord, Inspection, LegalAgreement, Transaction } from '../types';
 
-const DATA_DIR = path.join(process.cwd(), 'server', 'data');
-
-function ensureDir() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
+// DATA_DIR: try multiple candidate paths, use first writable one
+function getDataDir(): string {
+  const candidates = [
+    path.join(process.cwd(), 'server', 'data'),
+    path.join('/opt/render/project/src', 'server', 'data'),
+    path.join('/tmp', 'rentilly-data'),
+  ];
+  for (const dir of candidates) {
+    try {
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, '.write_test'), 'ok', 'utf-8');
+      fs.unlinkSync(path.join(dir, '.write_test'));
+      return dir;
+    } catch { continue; }
   }
+  return '/tmp';
 }
 
+let _DATA_DIR: string | null = null;
+function DATA_DIR(): string {
+  if (!_DATA_DIR) _DATA_DIR = getDataDir();
+  return _DATA_DIR;
+}
+
+// In-memory cache — primary source of truth within this process lifetime
+const _memCache: Record<string, any[]> = {};
+
 function readFile<T>(filename: string, seedFn: () => T[]): T[] {
-  ensureDir();
-  const filePath = path.join(DATA_DIR, filename);
-  if (!fs.existsSync(filePath)) {
-    const seed = seedFn();
-    fs.writeFileSync(filePath, JSON.stringify(seed, null, 2), 'utf-8');
-    return seed;
+  // 1. In-memory cache (fastest)
+  if (_memCache[filename] && _memCache[filename].length > 0) {
+    return _memCache[filename] as T[];
   }
+  // 2. Disk
   try {
-    const content = fs.readFileSync(filePath, 'utf-8');
-    const parsed = JSON.parse(content || '[]');
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-      const seed = seedFn();
-      fs.writeFileSync(filePath, JSON.stringify(seed, null, 2), 'utf-8');
-      return seed;
+    const filePath = path.join(DATA_DIR(), filename);
+    if (fs.existsSync(filePath)) {
+      const parsed = JSON.parse(fs.readFileSync(filePath, 'utf-8') || '[]');
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        _memCache[filename] = parsed;
+        return parsed as T[];
+      }
     }
-    return parsed;
-  } catch {
-    const seed = seedFn();
-    fs.writeFileSync(filePath, JSON.stringify(seed, null, 2), 'utf-8');
-    return seed;
-  }
+  } catch { /* disk unavailable */ }
+  // 3. Seed data (always works)
+  const seed = seedFn();
+  _memCache[filename] = seed;
+  try { fs.writeFileSync(path.join(DATA_DIR(), filename), JSON.stringify(seed, null, 2), 'utf-8'); } catch { /* read-only */ }
+  return seed;
 }
 
 function writeFile<T>(filename: string, data: T[]): void {
-  ensureDir();
-  fs.writeFileSync(path.join(DATA_DIR, filename), JSON.stringify(data, null, 2), 'utf-8');
+  _memCache[filename] = data; // always update in-memory
+  try { fs.writeFileSync(path.join(DATA_DIR(), filename), JSON.stringify(data, null, 2), 'utf-8'); } catch { /* read-only */ }
 }
+
 
 // ============================================================
 // SEED DATA — Realistic Nigerian Properties
