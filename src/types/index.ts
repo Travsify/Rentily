@@ -214,5 +214,6 @@ export type AdminTab =
   | 'fraud_blacklist'
   | 'support_tickets'
   | 'integrations'
+  | 'feature_flags'
   | 'supabase_config'
   | 'flutter_api';

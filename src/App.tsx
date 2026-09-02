@@ -23,6 +23,7 @@ import { LeaseRenewalsTab } from './components/LeaseRenewalsTab';
 import { ReconciliationTab } from './components/ReconciliationTab';
 import { GlobalCardsDeskTab } from './components/GlobalCardsDeskTab';
 import { IntegrationsTab } from './components/IntegrationsTab';
+import { FeatureFlagsTab } from './components/FeatureFlagsTab';
 import { SupabaseConfigTab } from './components/SupabaseConfigTab';
 import { FlutterApiDocsTab } from './components/FlutterApiDocsTab';
 import { AdminLoginPage } from './components/AdminLoginPage';
@@ -288,6 +289,10 @@ export default function App() {
 
           {currentTab === 'integrations' && (
             <IntegrationsTab />
+          )}
+
+          {currentTab === 'feature_flags' && (
+            <FeatureFlagsTab />
           )}
 
           {currentTab === 'supabase_config' && (

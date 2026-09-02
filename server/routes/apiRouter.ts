@@ -20,6 +20,7 @@ import * as cautionController from '../controllers/cautionController';
 import * as legalNoticesController from '../controllers/legalNoticesController';
 import * as renewalController from '../controllers/renewalController';
 import * as reconciliationController from '../controllers/reconciliationController';
+import * as featureFlagController from '../controllers/featureFlagController';
 import { isSupabaseConfigured, reconfigureSupabase, supabase } from '../supabaseClient';
 import { IdentitypassService } from '../services/identitypassService';
 import { FlutterwaveService } from '../services/flutterwaveService';
@@ -177,6 +178,10 @@ apiRouter.get('/support/tickets', supportController.listTickets);
 // 13. Platform Fee & Tariff Configuration
 apiRouter.get('/config/fees', feeController.getFees);
 apiRouter.post('/config/fees', feeController.updateFees);
+
+// 13b. Dynamic Remote Feature Flags & App Rollout
+apiRouter.get('/config/features', featureFlagController.getFeatureFlagsHandler);
+apiRouter.post('/config/features', featureFlagController.updateFeatureFlagsHandler);
 
 // 14. Master Financial Ledger & Wallet Movement
 apiRouter.get('/ledger/transactions', ledgerController.getMasterLedger);

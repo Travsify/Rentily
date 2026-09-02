@@ -746,4 +746,73 @@ class ApiService {
       'liquidationFeePercent': 1.0,
     };
   }
+
+  // --- REMOTE FEATURE FLAGS ENGINE ---
+  static FeatureFlags _cachedFeatureFlags = const FeatureFlags();
+  static FeatureFlags get featureFlags => _cachedFeatureFlags;
+
+  /// Fetches remote feature flags from server with Supabase fallback
+  static Future<FeatureFlags> fetchFeatureFlags() async {
+    // 1. Direct Supabase Cloud REST
+    try {
+      final sbRes = await http.get(
+        Uri.parse('https://zuxvxuqxomsxgiljykzj.supabase.co/rest/v1/system_configs?id=eq.app_feature_flags&select=data'),
+        headers: {
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp1eHZ4dXF4b21zeGdpbGp5a3pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwODAzNTMsImV4cCI6MjEwMzY1NjM1M30.4g6-vT5q7Oa6kQ-3_M76Zk-r8S26u_gM69W4G_7w6A8',
+        },
+      ).timeout(const Duration(seconds: 4));
+
+      if (sbRes.statusCode == 200) {
+        final List<dynamic> list = json.decode(sbRes.body);
+        if (list.isNotEmpty && list[0]['data'] != null) {
+          _cachedFeatureFlags = FeatureFlags.fromJson(Map<String, dynamic>.from(list[0]['data']));
+          return _cachedFeatureFlags;
+        }
+      }
+    } catch (_) {}
+
+    // 2. Render Core Backend Fallback
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/config/features')).timeout(const Duration(seconds: 6));
+      if (res.statusCode == 200) {
+        final data = json.decode(res.body);
+        if (data['success'] == true && data['flags'] != null) {
+          _cachedFeatureFlags = FeatureFlags.fromJson(Map<String, dynamic>.from(data['flags']));
+          return _cachedFeatureFlags;
+        }
+      }
+    } catch (_) {}
+
+    return _cachedFeatureFlags;
+  }
 }
+
+class FeatureFlags {
+  final bool enableVirtualCards;
+  final bool enableMultiCurrencyVault;
+  final bool enableUtilityBills;
+  final bool enableStatutoryNotices;
+  final bool enableCautionClaims;
+  final bool maintenanceMode;
+
+  const FeatureFlags({
+    this.enableVirtualCards = false,          // Off by default pending live provider activation
+    this.enableMultiCurrencyVault = false,    // Off by default pending live banking coordinates
+    this.enableUtilityBills = true,
+    this.enableStatutoryNotices = true,
+    this.enableCautionClaims = true,
+    this.maintenanceMode = false,
+  });
+
+  factory FeatureFlags.fromJson(Map<String, dynamic> json) {
+    return FeatureFlags(
+      enableVirtualCards: json['enableVirtualCards'] == true,
+      enableMultiCurrencyVault: json['enableMultiCurrencyVault'] == true,
+      enableUtilityBills: json['enableUtilityBills'] != false,
+      enableStatutoryNotices: json['enableStatutoryNotices'] != false,
+      enableCautionClaims: json['enableCautionClaims'] != false,
+      maintenanceMode: json['maintenanceMode'] == true,
+    );
+  }
+}
+

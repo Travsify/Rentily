@@ -14,6 +14,7 @@ import { AdminDataStore } from './services/adminDataStore';
 import { initFeesFromSupabase } from './controllers/feeController';
 import { initBlacklistFromSupabase } from './controllers/fraudController';
 import { initBroadcastsFromSupabase } from './controllers/broadcastController';
+import { initFeatureFlagsFromSupabase } from './controllers/featureFlagController';
 import { UserStore } from './services/userStore';
 
 dotenv.config();
@@ -71,6 +72,7 @@ async function hydrateAllStores() {
     AdminDataStore.initFromSupabase(),
     initBlacklistFromSupabase(),
     initBroadcastsFromSupabase(),
+    initFeatureFlagsFromSupabase(),
     UserStore.syncFromSupabase(),
   ]);
   console.log('[Supabase Overhaul] All stores hydrated successfully from Supabase! 🚀');

@@ -187,6 +187,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           badge: 'Alerts'
         },
         {
+          id: 'feature_flags',
+          label: 'Feature Toggles / Rollout',
+          icon: Sliders,
+          badge: 'Live Switch'
+        },
+        {
           id: 'supabase_config',
           label: 'Cloud DB & Gateways',
           icon: Database,

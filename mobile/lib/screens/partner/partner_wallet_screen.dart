@@ -145,6 +145,11 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
       final live = await ApiService.fetchLiveBalance(user.email);
       final liveTxns = await ApiService.fetchLiveTransactions(user.email);
 
+      // Fetch remote feature flags
+      try {
+        await ApiService.fetchFeatureFlags();
+      } catch (_) {}
+
       // Fetch live Virtual Dollar Card from Supabase
       try {
         final cards = await ApiService.fetchUserCards(user.email);
@@ -1024,145 +1029,148 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
               ),
               const SizedBox(height: 22),
 
-              // Virtual Dollar Card Section
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Corporate Virtual Dollar Card',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                    decoration: BoxDecoration(
-                      color: (_cardData != null) ? AppColors.primaryLight.withOpacity(0.12) : Colors.grey.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      (_cardData != null) ? 'Bridgecard Active' : 'Not Issued',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 8.5,
-                        fontWeight: FontWeight.w700,
-                        color: (_cardData != null) ? AppColors.primary : AppColors.textMuted,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              if (_cardData == null)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceDark,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.white12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.2),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 46,
-                        height: 46,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: const Icon(Icons.credit_card_rounded, color: Color(0xFF34D399), size: 24),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'No Virtual Dollar Card Issued',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Request an encrypted USD virtual Visa card instantly via Bridgecard CaaS. Pay the \$3.00 card fee from your Naira, Dollar, Pound, or Euro wallet.',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 11.5,
-                          color: const Color(0xFF94A3B8),
-                          height: 1.4,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 44,
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const CardsScreen()),
-                            ).then((_) => _syncLiveBalance());
-                          },
-                          icon: const Icon(Icons.add_card_rounded, size: 16, color: Colors.white),
-                          label: Text(
-                            'Open Card Desk / Issue Card',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            elevation: 0,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                Column(
+              // Virtual Dollar Card Section (Controlled Dynamically by Admin Remote Feature Flags)
+              if (ApiService.featureFlags.enableVirtualCards) ...[
+                const SizedBox(height: 22),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    VirtualCardWidget(
-                      cardholderName: _cardData!['cardholderName'] ?? 'Corporate Partner',
-                      maskedPan: _cardData!['maskedPan'] ?? '4829 •••• •••• 7194',
-                      fullPan: _cardData!['fullPan'] ?? '4829 9102 3847 7194',
-                      expiryMonth: _cardData!['expiryMonth'] ?? '08',
-                      expiryYear: _cardData!['expiryYear'] ?? '29',
-                      cvv: _cardData!['cvv'] ?? '819',
-                      balance: (_cardData!['balance'] as num?)?.toDouble() ?? 0.0,
-                      currency: 'USD',
-                      brand: 'VISA',
-                      isFrozen: _cardData!['isFrozen'] == true,
-                      onFundCard: () {},
-                      onToggleFreeze: () {
-                        setState(() {
-                          _cardData!['isFrozen'] = !(_cardData!['isFrozen'] == true);
-                        });
-                      },
+                    Text(
+                      'Corporate Virtual Dollar Card',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
-                    const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton.icon(
-                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CardsScreen())),
-                        icon: const Icon(Icons.arrow_forward_rounded, size: 14, color: AppColors.primary),
-                        label: Text('Open Full Cards Screen', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                      decoration: BoxDecoration(
+                        color: (_cardData != null) ? AppColors.primaryLight.withOpacity(0.12) : Colors.grey.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        (_cardData != null) ? 'Bridgecard Active' : 'Not Issued',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.w700,
+                          color: (_cardData != null) ? AppColors.primary : AppColors.textMuted,
+                        ),
                       ),
                     ),
                   ],
                 ),
-              const SizedBox(height: 24),
+                const SizedBox(height: 10),
+                if (_cardData == null)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceDark,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.white12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.2),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      children: [
+                        Container(
+                          width: 46,
+                          height: 46,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Icon(Icons.credit_card_rounded, color: Color(0xFF34D399), size: 24),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'No Virtual Dollar Card Issued',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          'Request an encrypted USD virtual Visa card instantly via Bridgecard CaaS. Pay the \$3.00 card fee from your Naira, Dollar, Pound, or Euro wallet.',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11.5,
+                            color: const Color(0xFF94A3B8),
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 44,
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (_) => const CardsScreen()),
+                              ).then((_) => _syncLiveBalance());
+                            },
+                            icon: const Icon(Icons.add_card_rounded, size: 16, color: Colors.white),
+                            label: Text(
+                              'Open Card Desk / Issue Card',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              elevation: 0,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  Column(
+                    children: [
+                      VirtualCardWidget(
+                        cardholderName: _cardData!['cardholderName'] ?? 'Corporate Partner',
+                        maskedPan: _cardData!['maskedPan'] ?? '4829 •••• •••• 7194',
+                        fullPan: _cardData!['fullPan'] ?? '4829 9102 3847 7194',
+                        expiryMonth: _cardData!['expiryMonth'] ?? '08',
+                        expiryYear: _cardData!['expiryYear'] ?? '29',
+                        cvv: _cardData!['cvv'] ?? '819',
+                        balance: (_cardData!['balance'] as num?)?.toDouble() ?? 0.0,
+                        currency: 'USD',
+                        brand: 'VISA',
+                        isFrozen: _cardData!['isFrozen'] == true,
+                        onFundCard: () {},
+                        onToggleFreeze: () {
+                          setState(() {
+                            _cardData!['isFrozen'] = !(_cardData!['isFrozen'] == true);
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton.icon(
+                          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CardsScreen())),
+                          icon: const Icon(Icons.arrow_forward_rounded, size: 14, color: AppColors.primary),
+                          label: Text('Open Full Cards Screen', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                        ),
+                      ),
+                    ],
+                  ),
+                const SizedBox(height: 24),
+              ],
 
               // Transaction & Settlement History
               Row(
