@@ -221,7 +221,7 @@ export const FraudBlacklistTab: React.FC = () => {
                 type="submit"
                 className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold shadow-md"
               >
-                Permanently Blacklist Entity
+                Save Changes & Submit to Blacklist
               </button>
             </div>
           </form>

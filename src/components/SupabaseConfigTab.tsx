@@ -122,7 +122,7 @@ export const SupabaseConfigTab: React.FC<SupabaseConfigTabProps> = () => {
                     className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold text-xs shadow-md transition flex items-center gap-1.5"
                   >
                     {isSaving && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-                    <span>{isSaving ? 'Validating Connection...' : 'Save & Validate Connection'}</span>
+                    <span>{isSaving ? 'Saving Changes & Connecting...' : 'Save Changes & Validate Connection'}</span>
                   </button>
 
                   {saveSuccess && (

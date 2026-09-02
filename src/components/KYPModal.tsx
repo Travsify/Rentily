@@ -364,7 +364,7 @@ export const KYPModal: React.FC<KYPModalProps> = ({ kyp, onClose, onReview }) =>
               className="px-4 py-2 rounded-xl bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/40 text-xs font-bold transition flex items-center gap-1.5"
             >
               <XCircle className="w-4 h-4" />
-              <span>Reject Listing</span>
+              <span>Save & Reject Listing</span>
             </button>
 
             <button
@@ -372,7 +372,7 @@ export const KYPModal: React.FC<KYPModalProps> = ({ kyp, onClose, onReview }) =>
               className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-900/30 transition flex items-center gap-1.5"
             >
               <CheckCircle className="w-4 h-4" />
-              <span>Approve & Issue Verified Badge</span>
+              <span>Save Changes & Approve Badge</span>
             </button>
           </div>
         </div>

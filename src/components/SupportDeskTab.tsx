@@ -318,18 +318,18 @@ export const SupportDeskTab: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-2 pt-2 border-t border-slate-800">
-                <span className="text-slate-400 font-medium">Update Status:</span>
+                <span className="text-slate-400 font-medium">Save Status:</span>
                 <button
                   onClick={() => handleUpdateStatus(selectedTicket.id, 'in_review')}
-                  className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs"
+                  className="px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow transition"
                 >
-                  Mark In Review
+                  Save Changes (In Review)
                 </button>
                 <button
                   onClick={() => handleUpdateStatus(selectedTicket.id, 'resolved')}
-                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs"
+                  className="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow transition"
                 >
-                  Mark Resolved ✓
+                  Save Changes & Resolve ✓
                 </button>
               </div>
             </div>

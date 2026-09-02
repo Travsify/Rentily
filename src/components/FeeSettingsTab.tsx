@@ -268,7 +268,7 @@ export const FeeSettingsTab: React.FC = () => {
           className="px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg shadow-emerald-950/60 transition flex items-center gap-2 disabled:opacity-50"
         >
           <Save className="w-4 h-4" />
-          <span>{saving ? 'Saving Tariffs...' : 'Save & Update Platform Tariffs'}</span>
+          <span>{saving ? 'Saving Changes...' : 'Save Changes & Update Platform Tariffs'}</span>
         </button>
       </form>
     </div>
