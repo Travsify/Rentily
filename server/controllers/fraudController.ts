@@ -122,3 +122,14 @@ export async function checkBlacklist(req: Request, res: Response) {
     res.status(500).json({ error: err.message });
   }
 }
+
+export async function deleteFromBlacklist(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const current = _blacklistCache.filter(b => b.id !== id);
+    await saveBlacklist(current);
+    res.json({ success: true, message: 'Entity removed from blacklist successfully.' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+}

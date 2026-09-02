@@ -601,6 +601,20 @@ class ApiService {
     }
   }
 
+  /// Set or update 4-digit card PIN
+  static Future<bool> setCardPin(String email, String cardId, String newPin) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/cards/set-pin'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'email': email, 'cardId': cardId, 'pin': newPin}),
+      ).timeout(const Duration(seconds: 10));
+      return res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Fetch live system FX rates (Supabase Cloud Layer 1 with Render fallback)
   static Future<Map<String, double>> fetchFxRates() async {
     // 1. Direct Supabase Cloud REST

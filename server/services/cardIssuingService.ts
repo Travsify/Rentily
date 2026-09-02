@@ -17,6 +17,7 @@ export interface VirtualCard {
   expiryMonth: string;
   expiryYear: string;
   cvv?: string;
+  pin?: string; // 4-digit ATM/POS/3DS PIN
   balance: number;
   spendingLimit: number;
   isFrozen: boolean;
@@ -55,6 +56,7 @@ export interface CardPricingConfig {
 // In-memory runtime cache synced with Supabase
 const _runtimeCardCache: Map<string, VirtualCard[]> = new Map();
 const _runtimeTxCache: Map<string, CardTransaction[]> = new Map();
+let _cardPins: Record<string, string> = {};
 
 export class CardIssuingService {
   private static cardPricing: CardPricingConfig = {
@@ -75,7 +77,7 @@ export class CardIssuingService {
   };
 
   /**
-   * Hydrates card pricing and active cards from Supabase Cloud on boot
+   * Hydrates card pricing, PINs, and active cards from Supabase Cloud on boot
    */
   static async initFromSupabase(): Promise<void> {
     if (!supabase) return;
@@ -96,7 +98,21 @@ export class CardIssuingService {
       console.warn('[CardIssuingService] Notice on pricing hydration:', e.message);
     }
 
-    // 2. Hydrate Virtual Cards from Supabase
+    // 2. Hydrate 4-Digit Card PINs
+    try {
+      const { data: pinData, error: pinErr } = await supabase
+        .from('system_configs')
+        .select('data')
+        .eq('id', 'virtual_card_pins')
+        .single();
+
+      if (!pinErr && pinData && pinData.data) {
+        _cardPins = pinData.data;
+        console.log('[CardIssuingService] Hydrated virtual card PINs from Supabase.');
+      }
+    } catch (_) {}
+
+    // 3. Hydrate Virtual Cards from Supabase
     try {
       const { data: cards, error } = await supabase
         .from('virtual_cards')
@@ -106,9 +122,12 @@ export class CardIssuingService {
         _runtimeCardCache.clear();
         for (const c of cards) {
           const email = (c.email || '').toLowerCase().trim();
+          const cardKey = c.card_id || c.id;
+          const assignedPin = _cardPins[cardKey] || _cardPins[c.id] || '2491';
+
           const cardObj: VirtualCard = {
             id: c.id,
-            cardId: c.card_id || c.id,
+            cardId: cardKey,
             cardholderName: c.cardholder_name,
             email: email,
             currency: (c.currency || 'USD') as 'USD' | 'NGN',
@@ -118,7 +137,8 @@ export class CardIssuingService {
             fullPan: c.full_pan,
             expiryMonth: c.expiry_month || '12',
             expiryYear: c.expiry_year || '28',
-            cvv: c.cvv || '719',
+            cvv: c.cvv || '819',
+            pin: assignedPin,
             balance: Number(c.balance || 0),
             spendingLimit: 10000.00,
             isFrozen: c.is_frozen === true,
@@ -186,26 +206,32 @@ export class CardIssuingService {
           .eq('email', cleanEmail);
 
         if (!error && data) {
-          const cards: VirtualCard[] = data.map((c: any) => ({
-            id: c.id,
-            cardId: c.card_id || c.id,
-            cardholderName: c.cardholder_name,
-            email: cleanEmail,
-            currency: (c.currency || 'USD') as 'USD' | 'NGN',
-            brand: (c.brand || 'VISA') as 'VISA' | 'MASTERCARD',
-            cardType: 'VIRTUAL_DEBIT',
-            maskedPan: c.masked_pan,
-            fullPan: c.full_pan || (c.masked_pan ? c.masked_pan.replace(/•/g, '8') : undefined),
-            expiryMonth: c.expiry_month || '12',
-            expiryYear: c.expiry_year || '28',
-            cvv: c.cvv || '819',
-            balance: Number(c.balance || 0),
-            spendingLimit: 10000.00,
-            isFrozen: c.is_frozen === true,
-            status: (c.status || 'ACTIVE') as 'ACTIVE' | 'INACTIVE' | 'BLOCKED',
-            billingAddress: this.DEFAULT_BILLING_ADDRESS,
-            createdAt: c.created_at || new Date().toISOString(),
-          }));
+          const cards: VirtualCard[] = data.map((c: any) => {
+            const cardKey = c.card_id || c.id;
+            const assignedPin = _cardPins[cardKey] || _cardPins[c.id] || '2491';
+
+            return {
+              id: c.id,
+              cardId: cardKey,
+              cardholderName: c.cardholder_name,
+              email: cleanEmail,
+              currency: (c.currency || 'USD') as 'USD' | 'NGN',
+              brand: (c.brand || 'VISA') as 'VISA' | 'MASTERCARD',
+              cardType: 'VIRTUAL_DEBIT',
+              maskedPan: c.masked_pan,
+              fullPan: c.full_pan || (c.masked_pan ? c.masked_pan.replace(/•/g, '8') : undefined),
+              expiryMonth: c.expiry_month || '12',
+              expiryYear: c.expiry_year || '28',
+              cvv: c.cvv || '819',
+              pin: assignedPin,
+              balance: Number(c.balance || 0),
+              spendingLimit: 10000.00,
+              isFrozen: c.is_frozen === true,
+              status: (c.status || 'ACTIVE') as 'ACTIVE' | 'INACTIVE' | 'BLOCKED',
+              billingAddress: this.DEFAULT_BILLING_ADDRESS,
+              createdAt: c.created_at || new Date().toISOString(),
+            };
+          });
 
           _runtimeCardCache.set(cleanEmail, cards);
           return cards;
@@ -217,6 +243,47 @@ export class CardIssuingService {
 
     // 2. Return in-memory cached cards or empty list
     return _runtimeCardCache.get(cleanEmail) || [];
+  }
+
+  /**
+   * Sets or updates a 4-digit card PIN
+   */
+  static async setCardPin(cardId: string, newPin: string): Promise<{ success: boolean; message: string; pin?: string }> {
+    const cleanPin = (newPin || '').trim();
+    if (!/^\d{4}$/.test(cleanPin)) {
+      return { success: false, message: 'Card PIN must be exactly 4 digits (0-9).' };
+    }
+
+    _cardPins[cardId] = cleanPin;
+
+    // Persist to Supabase
+    if (supabase) {
+      try {
+        await supabase.from('system_configs').upsert({
+          id: 'virtual_card_pins',
+          data: _cardPins,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'id' });
+        console.log(`[CardIssuingService] Updated PIN for card ${cardId} in Supabase.`);
+      } catch (err: any) {
+        console.error('[CardIssuingService] Error saving card PIN:', err.message);
+      }
+    }
+
+    // Update in-memory runtime cards
+    for (const [_, cards] of _runtimeCardCache.entries()) {
+      for (const c of cards) {
+        if (c.id === cardId || c.cardId === cardId) {
+          c.pin = cleanPin;
+        }
+      }
+    }
+
+    return {
+      success: true,
+      message: 'Card PIN updated successfully.',
+      pin: cleanPin,
+    };
   }
 
   /**
@@ -246,7 +313,12 @@ export class CardIssuingService {
     const expMonth = '12';
     const expYear = '28';
     const cvv = Math.floor(100 + Math.random() * 900).toString();
+    const initialPin = Math.floor(1000 + Math.random() * 9000).toString();
     const initialBal = Number(params.initialFunding || 0.00);
+
+    // Record PIN
+    _cardPins[uuidId] = initialPin;
+    _cardPins[cardIdStr] = initialPin;
 
     const newCard: VirtualCard = {
       id: uuidId,
@@ -261,6 +333,7 @@ export class CardIssuingService {
       expiryMonth: expMonth,
       expiryYear: expYear,
       cvv: cvv,
+      pin: initialPin,
       balance: initialBal,
       spendingLimit: 10000.00,
       isFrozen: false,
@@ -289,6 +362,14 @@ export class CardIssuingService {
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         });
+
+        // Save PIN in system_configs
+        await supabase.from('system_configs').upsert({
+          id: 'virtual_card_pins',
+          data: _cardPins,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'id' });
+
         console.log(`[CardIssuingService] Saved card ${uuidId} directly to Supabase.`);
       } catch (e: any) {
         console.error('[CardIssuingService] Supabase insert card error:', e.message);
@@ -308,7 +389,6 @@ export class CardIssuingService {
    */
   static async fundCard(cardId: string, amount: number): Promise<{ success: boolean; newBalance: number; message: string }> {
     let currentBalance = 0;
-    let cardCurrency = 'USD';
     let cardLast4 = 'card';
     let cardEmail = '';
 
@@ -322,7 +402,6 @@ export class CardIssuingService {
 
       if (!error && data) {
         currentBalance = Number(data.balance || 0);
-        cardCurrency = data.currency || 'USD';
         cardLast4 = (data.masked_pan || '').slice(-4);
         cardEmail = data.email || '';
       }
@@ -417,6 +496,8 @@ export class CardIssuingService {
       _runtimeCardCache.set(cleanEmail, list);
     }
 
+    delete _cardPins[cardId];
+
     return {
       success: true,
       message: 'Virtual card was successfully deleted and deactivated.'
@@ -424,11 +505,12 @@ export class CardIssuingService {
   }
 
   /**
-   * Reveals complete card PAN, CVV, and Delaware Billing Address
+   * Reveals complete card PAN, CVV, PIN, and Delaware Billing Address
    */
   static async revealDetails(cardId: string): Promise<{
     fullPan: string;
     cvv: string;
+    pin: string;
     expiryMonth: string;
     expiryYear: string;
     cardholderName: string;
@@ -444,9 +526,13 @@ export class CardIssuingService {
       if (!error && data) {
         const masked = data.masked_pan || '4829 •••• •••• 7194';
         const fullPan = data.full_pan || masked.replace(/•/g, '8');
+        const cardKey = data.card_id || data.id;
+        const assignedPin = _cardPins[cardKey] || _cardPins[data.id] || '2491';
+
         return {
           fullPan: fullPan,
           cvv: data.cvv || '819',
+          pin: assignedPin,
           expiryMonth: data.expiry_month || '12',
           expiryYear: data.expiry_year || '28',
           cardholderName: data.cardholder_name || 'Cardholder',

@@ -381,6 +381,189 @@ class _CardsScreenState extends State<CardsScreen> {
     );
   }
 
+  // --- 4b. CHANGE CARD PIN MODAL ---
+  void _showChangePinModal() {
+    final card = _currentCard;
+    if (card == null || _user == null) return;
+
+    final pinController = TextEditingController();
+    final confirmController = TextEditingController();
+    String? errorText;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Container(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+          ),
+          decoration: const BoxDecoration(
+            color: AppColors.surfaceDark,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.white24,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.purple.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.pin_rounded, color: Colors.purpleAccent, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Set 4-Digit Card PIN',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        Text(
+                          'Used for 3D-Secure web checkouts & POS authorizations',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11.5,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+
+              Text(
+                'New 4-Digit Card PIN',
+                style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white70),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: pinController,
+                keyboardType: TextInputType.number,
+                maxLength: 4,
+                obscureText: true,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.sourceCodePro(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 8, color: Colors.white),
+                decoration: InputDecoration(
+                  counterText: '',
+                  filled: true,
+                  fillColor: AppColors.backgroundDark,
+                  hintText: '••••',
+                  hintStyle: const TextStyle(letterSpacing: 8, color: Colors.white30),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              Text(
+                'Confirm 4-Digit Card PIN',
+                style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white70),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: confirmController,
+                keyboardType: TextInputType.number,
+                maxLength: 4,
+                obscureText: true,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.sourceCodePro(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 8, color: Colors.white),
+                decoration: InputDecoration(
+                  counterText: '',
+                  filled: true,
+                  fillColor: AppColors.backgroundDark,
+                  hintText: '••••',
+                  hintStyle: const TextStyle(letterSpacing: 8, color: Colors.white30),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                ),
+              ),
+
+              if (errorText != null) ...[
+                const SizedBox(height: 10),
+                Text(errorText!, style: const TextStyle(color: Colors.redAccent, fontSize: 12)),
+              ],
+              const SizedBox(height: 20),
+
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    final p1 = pinController.text.trim();
+                    final p2 = confirmController.text.trim();
+                    if (p1.length != 4 || int.tryParse(p1) == null) {
+                      setModalState(() => errorText = 'PIN must be exactly 4 digits');
+                      return;
+                    }
+                    if (p1 != p2) {
+                      setModalState(() => errorText = 'PINs do not match');
+                      return;
+                    }
+
+                    Navigator.pop(ctx);
+                    setState(() => _isLoading = true);
+
+                    final cardId = card['id'] ?? card['cardId'];
+                    final success = await ApiService.setCardPin(_user!.email, cardId, p1);
+
+                    if (mounted) {
+                      setState(() {
+                        if (success) {
+                          card['pin'] = p1;
+                        }
+                        _isLoading = false;
+                      });
+
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(success ? '✅ 4-Digit Card PIN updated successfully!' : 'Failed to update PIN. Please try again.'),
+                          backgroundColor: success ? AppColors.primary : Colors.red,
+                        ),
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: Text(
+                    'Save 4-Digit Card PIN',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   // --- 5. ISSUE NEW VIRTUAL CARD MODAL ---
   void _showIssueCardModal() {
     if (_user == null) return;
@@ -873,6 +1056,13 @@ class _CardsScreenState extends State<CardsScreen> {
                         Text(_showCardDetails ? cvv : '•••', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
                       ],
                     ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('PIN', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, color: Colors.white60, letterSpacing: 1.0)),
+                        Text(_showCardDetails ? (card['pin']?.toString() ?? '2491') : '••••', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+                      ],
+                    ),
                     Text(
                       'VISA',
                       style: GoogleFonts.plusJakartaSans(
@@ -893,7 +1083,7 @@ class _CardsScreenState extends State<CardsScreen> {
     );
   }
 
-  // --- 3. 4 CORE ACTION BUTTONS ---
+  // --- 3. 5 CORE ACTION BUTTONS (Details, Top-Up, PIN, Freeze, Delete) ---
   Widget _buildCardActionButtons(bool isFrozen) {
     return Row(
       children: [
@@ -906,7 +1096,7 @@ class _CardsScreenState extends State<CardsScreen> {
             onTap: _toggleRevealDetails,
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 6),
 
         // 2. Top-Up Card
         Expanded(
@@ -917,9 +1107,20 @@ class _CardsScreenState extends State<CardsScreen> {
             onTap: _showFundCardModal,
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 6),
 
-        // 3. Freeze / Unfreeze
+        // 3. Card PIN
+        Expanded(
+          child: _buildActionButton(
+            icon: Icons.pin_rounded,
+            label: 'PIN',
+            color: Colors.purple.shade300,
+            onTap: _showChangePinModal,
+          ),
+        ),
+        const SizedBox(width: 6),
+
+        // 4. Freeze / Unfreeze
         Expanded(
           child: _buildActionButton(
             icon: isFrozen ? Icons.lock_open_rounded : Icons.lock_outline_rounded,
@@ -928,9 +1129,9 @@ class _CardsScreenState extends State<CardsScreen> {
             onTap: _toggleFreeze,
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 6),
 
-        // 4. Delete Card
+        // 5. Delete Card
         Expanded(
           child: _buildActionButton(
             icon: Icons.delete_outline_rounded,

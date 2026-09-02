@@ -1269,6 +1269,28 @@ export async function deleteVirtualCard(req: Request, res: Response) {
   }
 }
 
+export async function setCardPin(req: Request, res: Response) {
+  try {
+    const { cardId, pin } = req.body;
+    if (!cardId || !pin) {
+      return res.status(400).json({ error: 'cardId and a 4-digit pin are required' });
+    }
+
+    const result = await CardIssuingService.setCardPin(cardId, pin.toString());
+    if (!result.success) {
+      return res.status(400).json({ error: result.message });
+    }
+
+    res.json({
+      status: true,
+      message: result.message,
+      pin: result.pin
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
 export async function revealCardDetails(req: Request, res: Response) {
   try {
     const { cardId } = req.body;
