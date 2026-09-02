@@ -6,6 +6,7 @@ import { supabase } from '../supabaseClient';
 import { UserStore } from '../services/userStore';
 import { TransactionStore, type WalletTransaction } from '../services/transactionStore';
 import { NotificationDispatcher } from '../services/notificationDispatcher';
+import { getStoredFees } from './feeController';
 
 export async function createVirtualAccount(req: Request, res: Response) {
   try {
@@ -80,19 +81,27 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
     }
 
     const numAmount = Number(amount);
-    const cleanReason = (reason || 'Rentilly Living Escrow Payout').replace(/transify/gi, '').trim();
+    const cleanReason = (reason && !reason.toLowerCase().includes('living escrow') ? reason : 'Rentilly Payout')
+      .replace(/transify/gi, '')
+      .replace(/living escrow/gi, '')
+      .trim() || 'Rentilly Payout';
 
     // Auto-sync real inbound transactions from Flutterwave Cloud API
     await syncFlutterwaveTransactionsForUser(cleanEmail);
 
+    // Apply Platform Fee Settings (₦50 bank withdrawal fee)
+    const platformFees = getStoredFees();
+    const withdrawalFee = Number(platformFees.withdrawalFee ?? 50);
+    const totalDebit = numAmount + withdrawalFee;
+
     // Check user true net balance from TransactionStore
     const currentBal = TransactionStore.computeNetBalance(cleanEmail);
     const memUser = await UserStore.findByEmail(cleanEmail);
-    console.log(`[Withdrawal] Verifying user ${cleanEmail} true balance: ₦${currentBal} vs requested: ₦${numAmount}`);
+    console.log(`[Withdrawal] Verifying user ${cleanEmail} true balance: ₦${currentBal} vs total required: ₦${totalDebit} (Amount: ₦${numAmount} + Fee: ₦${withdrawalFee})`);
 
-    if (currentBal < numAmount) {
+    if (currentBal < totalDebit) {
       return res.status(400).json({
-        error: `Insufficient wallet balance. You have ₦${currentBal.toLocaleString()}.`
+        error: `Insufficient wallet balance. Withdrawing ₦${numAmount.toLocaleString()} requires ₦${totalDebit.toLocaleString()} (including the standard ₦${withdrawalFee} bank transfer fee). Available balance: ₦${currentBal.toLocaleString()}.`
       });
     }
 
@@ -116,13 +125,13 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
     });
 
     if (transferRes.status) {
-      const newBal = Math.max(0, currentBal - numAmount);
+      const newBal = Math.max(0, currentBal - totalDebit);
       const txRef = transferRes.data?.reference || `WD_${Date.now()}`;
 
-      // Record in TransactionStore
+      // Record primary withdrawal in TransactionStore
       await TransactionStore.addTransaction({
         id: `TX_WD_${Date.now()}`,
-        userId: userId || memUser?.id || `usr_${cleanEmail}`,
+        userId: userId || memUser?.id || (cleanEmail === 'tonerocool1@gmail.com' ? 'c0000000-0000-0000-0000-000000000001' : 'b0000000-0000-0000-0000-000000000001'),
         email: cleanEmail,
         title: `Bank Transfer Payout to ${accountName || 'Bank Account'}`,
         type: 'Instant Direct Bank Payout',
@@ -130,13 +139,32 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
         amount: numAmount,
         isCredit: false,
         reference: txRef,
-        sender: `${memUser?.fullName || memUser?.businessName || 'Rentilly Partner'} (Rentilly Living Escrow)`,
+        sender: `${memUser?.businessName || memUser?.fullName || 'Rentilly Partner'} (Rentilly Payout)`,
         beneficiary: accountName || 'Bank Account',
         recipientAccount: accountNumber.toString(),
         recipientBank: 'Direct Bank Transfer',
         status: 'SUCCESSFUL',
         date: new Date().toISOString(),
       });
+
+      // Record platform fee transaction in TransactionStore if applicable
+      if (withdrawalFee > 0) {
+        await TransactionStore.addTransaction({
+          id: `TX_FEE_${Date.now()}`,
+          userId: userId || memUser?.id || (cleanEmail === 'tonerocool1@gmail.com' ? 'c0000000-0000-0000-0000-000000000001' : 'b0000000-0000-0000-0000-000000000001'),
+          email: cleanEmail,
+          title: `Bank Transfer Processing Fee (₦${withdrawalFee})`,
+          type: 'fee',
+          category: 'withdrawal',
+          amount: withdrawalFee,
+          isCredit: false,
+          reference: `FEE_${txRef}`,
+          sender: `${memUser?.businessName || memUser?.fullName || 'Rentilly Partner'} (Rentilly Payout)`,
+          beneficiary: 'Rentilly Platform Revenue',
+          status: 'SUCCESSFUL',
+          date: new Date().toISOString(),
+        });
+      }
 
       // Update UserStore and Supabase
       if (memUser) {

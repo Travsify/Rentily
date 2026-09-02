@@ -1,5 +1,19 @@
 [
   {
+    "id": "a9ade487-e6c3-4aba-8be6-5b884994f35c",
+    "userId": "c0000000-0000-0000-0000-000000000001",
+    "email": "tonerocool1@gmail.com",
+    "title": "Bank Transfer Payout to TOMISIN OLAMIPO KOLAWOLE",
+    "type": "rent",
+    "category": "withdrawal",
+    "amount": 1000,
+    "isCredit": false,
+    "reference": "RENTILLY_WD_1788337046066",
+    "status": "SUCCESSFUL",
+    "escrowStatus": "held_in_escrow",
+    "date": "2026-09-02T08:17:26+00:00"
+  },
+  {
     "id": "cf789e84-ac59-4155-a2ab-45eba9e5cd26",
     "userId": "c0000000-0000-0000-0000-000000000001",
     "email": "tonerocool1@gmail.com",

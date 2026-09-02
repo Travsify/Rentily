@@ -307,7 +307,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
           'bankCode': _selectedBankCode,
           'accountName': _resolvedAccountName ?? currentUser.fullName,
           'amount': amount,
-          'reason': 'Rentilly Living Escrow Payout'
+          'reason': 'Rentilly Payout'
         }),
       ).timeout(const Duration(seconds: 30));
 
