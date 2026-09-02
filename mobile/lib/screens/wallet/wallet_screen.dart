@@ -68,12 +68,15 @@ class _WalletScreenState extends State<WalletScreen> {
           final data = json.decode(res.body);
           if (data['status'] == true && data['walletBalance'] != null) {
             final double serverBal = (data['walletBalance'] as num).toDouble();
+            final userData = data['user'] as Map<String, dynamic>? ?? {};
             final updated = u.copyWith(
               walletBalance: serverBal,
-              fullName: 'Patrick Achua',
-              accountNumber: '9955394366',
-              bankName: 'Flutterwave MFB',
-              isVerified: true,
+              fullName: userData['fullName']?.toString() ?? u.fullName,
+              accountNumber: (userData['accountNumber']?.toString() != null && userData['accountNumber'].toString().isNotEmpty)
+                  ? userData['accountNumber'].toString()
+                  : u.accountNumber,
+              bankName: userData['bankName']?.toString() ?? u.bankName,
+              isVerified: userData['isVerified'] ?? u.isVerified,
             );
             await AuthService.updateUser(updated);
             if (mounted) setState(() => _user = updated);

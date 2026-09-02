@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -29,12 +30,21 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
   bool _isSyncing = false;
   double _escrowCommission = 0.0;
   List<dynamic> _commissionTxns = [];
+  Timer? _balancePoller;
 
   @override
   void initState() {
     super.initState();
     _loadUser();
     AuthService.currentUserNotifier.addListener(_onUserChanged);
+    _startBalancePolling();
+  }
+
+  void _startBalancePolling() {
+    _balancePoller?.cancel();
+    _balancePoller = Timer.periodic(const Duration(seconds: 6), (_) async {
+      await _syncLiveBalance();
+    });
   }
 
   void _onUserChanged() {
@@ -48,19 +58,79 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
 
   @override
   void dispose() {
+    _balancePoller?.cancel();
     AuthService.currentUserNotifier.removeListener(_onUserChanged);
     super.dispose();
+  }
+
+  Future<void> _syncLiveBalance() async {
+    if (!mounted || _user == null) return;
+    final email = _user!.email;
+    if (email.isEmpty) return;
+
+    try {
+      final live = await ApiService.fetchLiveBalance(email);
+      final liveTxns = await ApiService.fetchLiveTransactions(email);
+      if (!mounted) return;
+
+      if (live != null) {
+        final serverBal = (live['walletBalance'] as num?)?.toDouble() ?? _user!.walletBalance;
+        final serverAcc = live['accountNumber']?.toString();
+        final serverBank = live['bankName']?.toString();
+
+        if (serverBal != _user!.walletBalance || (serverAcc != null && serverAcc != _user!.accountNumber)) {
+          final updated = _user!.copyWith(
+            walletBalance: serverBal,
+            accountNumber: (serverAcc != null && serverAcc.isNotEmpty) ? serverAcc : _user!.accountNumber,
+            bankName: (serverBank != null && serverBank.isNotEmpty) ? serverBank : _user!.bankName,
+          );
+          await AuthService.updateUser(updated);
+          if (mounted) {
+            setState(() {
+              _user = updated;
+              if (liveTxns.isNotEmpty) _commissionTxns = liveTxns;
+            });
+          }
+        } else if (liveTxns.isNotEmpty && mounted) {
+          setState(() {
+            _commissionTxns = liveTxns;
+          });
+        }
+      }
+    } catch (_) {}
   }
 
   void _loadUser() async {
     final user = await AuthService.getCurrentUser();
     if (user != null) {
-      final commissions = await ApiService.fetchPartnerCommissions(user.id, user.email);
       if (mounted) {
         setState(() {
           _user = user;
+        });
+      }
+
+      final commissions = await ApiService.fetchPartnerCommissions(user.id, user.email);
+      final live = await ApiService.fetchLiveBalance(user.email);
+      final liveTxns = await ApiService.fetchLiveTransactions(user.email);
+
+      UserProfile effectiveUser = user;
+      if (live != null) {
+        final serverBal = (live['walletBalance'] as num?)?.toDouble() ?? user.walletBalance;
+        final serverAcc = live['accountNumber']?.toString();
+        final serverBank = live['bankName']?.toString();
+        effectiveUser = user.copyWith(
+          walletBalance: serverBal,
+          accountNumber: (serverAcc != null && serverAcc.isNotEmpty) ? serverAcc : user.accountNumber,
+          bankName: (serverBank != null && serverBank.isNotEmpty) ? serverBank : user.bankName,
+        );
+        await AuthService.updateUser(effectiveUser);
+      }
+
+      if (mounted) {
+        setState(() {
+          _user = effectiveUser;
           _escrowCommission = (commissions['escrowBalance'] as num?)?.toDouble() ?? 0.0;
-          _commissionTxns = commissions['transactions'] ?? [];
+          _commissionTxns = liveTxns.isNotEmpty ? liveTxns : (commissions['transactions'] ?? []);
           _isLoading = false;
         });
       }
@@ -518,23 +588,108 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
               ),
               const SizedBox(height: 10),
 
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.borderDark),
+              if (_commissionTxns.isNotEmpty)
+                Column(
+                  children: _commissionTxns.map((tx) {
+                    final isCredit = tx['isCredit'] == true || tx['is_credit'] == true || tx['type']?.toString().toLowerCase().contains('credit') == true || tx['type']?.toString().toLowerCase().contains('deposit') == true;
+                    final amount = (tx['amount'] as num?)?.toDouble() ?? (tx['total_amount'] as num?)?.toDouble() ?? 0.0;
+                    final title = tx['title']?.toString() ?? (isCredit ? 'Direct Bank Inflow' : 'Payout / Debit');
+                    final date = tx['date']?.toString() ?? tx['created_at']?.toString() ?? '';
+                    final ref = tx['reference']?.toString() ?? tx['payment_reference']?.toString() ?? '';
+                    final sender = tx['sender']?.toString() ?? tx['narration']?.toString() ?? '';
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppColors.borderDark),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: (isCredit ? const Color(0xFF16A34A) : Colors.red).withValues(alpha: 0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              isCredit ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
+                              color: isCredit ? const Color(0xFF16A34A) : Colors.red,
+                              size: 18,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  title,
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                if (sender.isNotEmpty)
+                                  Text(
+                                    sender,
+                                    style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                if (ref.isNotEmpty)
+                                  Text(
+                                    'Ref: $ref',
+                                    style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textMuted),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                '${isCredit ? '+' : '-'}₦${_currencyFormat.format(amount)}',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                  color: isCredit ? const Color(0xFF16A34A) : Colors.red,
+                                ),
+                              ),
+                              if (date.isNotEmpty)
+                                Text(
+                                  date.length > 10 ? date.substring(0, 10) : date,
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textMuted),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.borderDark),
+                  ),
+                  child: Column(
+                    children: [
+                      const Icon(Icons.history_rounded, size: 32, color: AppColors.textMuted),
+                      const SizedBox(height: 8),
+                      Text('No Recent Commission Settlements', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                      const SizedBox(height: 2),
+                      Text('When tenants complete rent payment and move-in key handover, 2.5% rent and 2.0% sale commission payouts appear here.', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary)),
+                    ],
+                  ),
                 ),
-                child: Column(
-                  children: [
-                    const Icon(Icons.history_rounded, size: 32, color: AppColors.textMuted),
-                    const SizedBox(height: 8),
-                    Text('No Recent Commission Settlements', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                    const SizedBox(height: 2),
-                    Text('When tenants complete rent payment and move-in key handover, 2.5% rent and 2.0% sale commission payouts appear here.', textAlign: TextAlign.center, style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary)),
-                  ],
-                ),
-              ),
               const SizedBox(height: 20),
             ],
           ),

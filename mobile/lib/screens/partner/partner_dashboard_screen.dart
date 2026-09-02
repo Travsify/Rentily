@@ -113,14 +113,29 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
     final user = await AuthService.getCurrentUser();
     final allProps = await ApiService.fetchProperties();
     double escBal = 0.0;
+    UserProfile? effectiveUser = user;
+
     if (user != null) {
       final comm = await ApiService.fetchPartnerCommissions(user.id, user.email);
       escBal = (comm['escrowBalance'] as num?)?.toDouble() ?? 0.0;
+
+      final live = await ApiService.fetchLiveBalance(user.email);
+      if (live != null) {
+        final serverBal = (live['walletBalance'] as num?)?.toDouble() ?? user.walletBalance;
+        final serverAcc = live['accountNumber']?.toString();
+        final serverBank = live['bankName']?.toString();
+        effectiveUser = user.copyWith(
+          walletBalance: serverBal,
+          accountNumber: (serverAcc != null && serverAcc.isNotEmpty) ? serverAcc : user.accountNumber,
+          bankName: (serverBank != null && serverBank.isNotEmpty) ? serverBank : user.bankName,
+        );
+        await AuthService.updateUser(effectiveUser);
+      }
     }
 
     if (mounted) {
       setState(() {
-        _user = user;
+        _user = effectiveUser;
         _escrowCommission = escBal;
         _mandateProperties = allProps.where((p) => p.listedByRole == 'verified_partner').toList();
         _isLoading = false;
