@@ -5,7 +5,6 @@ import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 import { apiRouter } from './routes/apiRouter';
-import { renderShippingPortal } from './controllers/shippingController';
 import { renderPartnerVerificationPage, renderLandlordInvitePage } from './controllers/publicPartnerPages';
 import { isSupabaseConfigured } from './supabaseClient';
 
@@ -17,14 +16,11 @@ const PORT = process.env.PORT || 4000;
 app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '10mb' }));
 
-// 1. Mount Interactive Shipping Portal
-app.get('/shipping', renderShippingPortal);
-
-// 2. Mount Public Partner Verification & Landlord Invite Endpoints
+// 1. Mount Public Partner Verification & Landlord Invite Endpoints
 app.get('/verify/partner', renderPartnerVerificationPage);
 app.get('/invite/landlord', renderLandlordInvitePage);
 
-// 3. Mount API Router under /api
+// 2. Mount API Router under /api
 app.use('/api', apiRouter);
 
 

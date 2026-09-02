@@ -12,6 +12,11 @@ import { EscrowTab } from './components/EscrowTab';
 import { LegalAgreementsTab } from './components/LegalAgreementsTab';
 import { FraudBlacklistTab } from './components/FraudBlacklistTab';
 import { SupportDeskTab } from './components/SupportDeskTab';
+import { MasterLedgerTab } from './components/MasterLedgerTab';
+import { FeeSettingsTab } from './components/FeeSettingsTab';
+import { BillsDeskTab } from './components/BillsDeskTab';
+import { ChatOversightTab } from './components/ChatOversightTab';
+import { BroadcastTab } from './components/BroadcastTab';
 import { IntegrationsTab } from './components/IntegrationsTab';
 import { SupabaseConfigTab } from './components/SupabaseConfigTab';
 import { FlutterApiDocsTab } from './components/FlutterApiDocsTab';
@@ -226,6 +231,26 @@ export default function App() {
             <LegalAgreementsTab
               agreements={legalAgreements}
             />
+          )}
+
+          {currentTab === 'master_ledger' && (
+            <MasterLedgerTab />
+          )}
+
+          {currentTab === 'fee_settings' && (
+            <FeeSettingsTab />
+          )}
+
+          {currentTab === 'bills_operations' && (
+            <BillsDeskTab />
+          )}
+
+          {currentTab === 'chat_oversight' && (
+            <ChatOversightTab />
+          )}
+
+          {currentTab === 'broadcast' && (
+            <BroadcastTab />
           )}
 
           {currentTab === 'fraud_blacklist' && (

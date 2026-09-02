@@ -11,7 +11,12 @@ import {
   Smartphone, 
   UserX,
   Headphones,
-  ShieldCheck
+  ShieldCheck,
+  Wallet,
+  Zap,
+  Sliders,
+  Megaphone,
+  Eye
 } from 'lucide-react';
 import type { AdminTab } from '../types';
 
@@ -83,6 +88,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           badge: null
         },
         {
+          id: 'chat_oversight',
+          label: 'Chat & Anti-Circumvention',
+          icon: Eye,
+          badge: 'Anti-Bypass'
+        },
+        {
           id: 'support_tickets',
           label: 'Support & Disputes',
           icon: Headphones,
@@ -97,14 +108,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
       ]
     },
     {
-      title: 'FINANCIALS & LEGAL',
+      title: 'FINANCIALS & REVENUE',
       items: [
         {
           id: 'escrow',
-          label: 'Escrow & Payouts',
+          label: 'Escrow Payout Releases',
           icon: BadgePercent,
           badge: escrowTotalAmount > 0 ? `₦${(escrowTotalAmount / 1_000_000).toFixed(1)}M` : null,
           badgeColor: 'bg-blue-500/20 text-blue-300 border-blue-500/30'
+        },
+        {
+          id: 'master_ledger',
+          label: 'Master Financial Ledger',
+          icon: Wallet,
+          badge: 'Live Flows'
+        },
+        {
+          id: 'bills_operations',
+          label: 'Bills & Utilities Desk',
+          icon: Zap,
+          badge: 'Disco/Data'
+        },
+        {
+          id: 'fee_settings',
+          label: 'Platform Tariffs & Fees',
+          icon: Sliders,
+          badge: '₦50 / ₦100'
         },
         {
           id: 'legal',
@@ -115,8 +144,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       ]
     },
     {
-      title: 'SYSTEM & DEVELOPER',
+      title: 'SYSTEM & COMMUNICATIONS',
       items: [
+        {
+          id: 'broadcast',
+          label: 'Push & SMS Broadcasts',
+          icon: Megaphone,
+          badge: 'Alerts'
+        },
         {
           id: 'supabase_config',
           label: 'Cloud DB & Gateways',
@@ -135,23 +170,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside className="w-64 bg-[#090d16] border-r border-slate-800 flex flex-col justify-between p-4 min-h-[calc(100vh-61px)] font-sans select-none">
-      <div className="space-y-6">
+      <div className="space-y-5">
         {/* Zero-Agent Value Proposition Banner */}
         <div className="p-3.5 rounded-2xl bg-gradient-to-br from-emerald-950/60 to-slate-900 border border-emerald-800/40 space-y-1">
           <div className="flex items-center gap-1.5 text-emerald-400 font-bold text-xs">
             <ShieldCheck className="w-4 h-4" />
-            <span>Zero-Agent Marketplace</span>
+            <span>Zero-Agent Protocol</span>
           </div>
           <p className="text-[11px] text-slate-300 leading-relaxed">
-            Eliminating traditional 20% agent markups with direct land registry title audits and escrow protection.
+            Eliminating 20% agent fees with direct title audits, escrow settlements, and automated 2.5% partner yields.
           </p>
         </div>
 
         {/* Navigation Sections */}
-        <nav className="space-y-5">
+        <nav className="space-y-4">
           {sections.map((section) => (
-            <div key={section.title} className="space-y-1.5">
-              <p className="px-3 text-[10px] font-extrabold uppercase tracking-wider text-slate-500">
+            <div key={section.title} className="space-y-1">
+              <p className="px-3 text-[9px] font-extrabold uppercase tracking-wider text-slate-500">
                 {section.title}
               </p>
               <div className="space-y-0.5">
@@ -162,19 +197,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <button
                       key={item.id}
                       onClick={() => setCurrentTab(item.id)}
-                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
                         isActive
                           ? 'bg-emerald-600 text-white shadow-md shadow-emerald-950/50'
                           : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
                       }`}
                     >
                       <div className="flex items-center gap-2.5">
-                        <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                        <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
                         <span className="truncate">{item.label}</span>
                       </div>
                       {item.badge && (
                         <span
-                          className={`text-[9px] px-2 py-0.5 rounded-full border whitespace-nowrap ${
+                          className={`text-[9px] px-1.5 py-0.2 rounded-full border whitespace-nowrap ${
                             isActive
                               ? 'bg-white/20 text-white border-white/30 font-bold'
                               : item.badgeColor || 'bg-slate-800 text-slate-400 border-slate-700'
@@ -193,14 +228,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* Footer System Pill */}
-      <div className="pt-4 border-t border-slate-800/80">
-        <div className="p-3 rounded-xl bg-slate-950 border border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+      <div className="pt-3 border-t border-slate-800/80">
+        <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
             <span className="font-semibold text-slate-300 text-[11px]">Rentilly Protocol</span>
           </div>
           <span className="text-[10px] text-emerald-400 font-mono font-bold bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-800/60">
-            v1.0.0
+            Live Ops
           </span>
         </div>
       </div>

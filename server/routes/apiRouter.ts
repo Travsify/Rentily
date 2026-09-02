@@ -12,7 +12,10 @@ import * as fraudController from '../controllers/fraudController';
 import * as otpController from '../controllers/otpController';
 import * as rnplController from '../controllers/rnplController';
 import * as supportController from '../controllers/supportController';
-import { shippingRouter } from './shippingRouter';
+import * as feeController from '../controllers/feeController';
+import * as ledgerController from '../controllers/ledgerController';
+import * as chatOversightController from '../controllers/chatOversightController';
+import * as broadcastController from '../controllers/broadcastController';
 import { isSupabaseConfigured, reconfigureSupabase, supabase } from '../supabaseClient';
 import { IdentitypassService } from '../services/identitypassService';
 import { FlutterwaveService } from '../services/flutterwaveService';
@@ -158,14 +161,23 @@ apiRouter.post('/escrow/:id/release-payout', escrowController.releaseEscrowPayou
 apiRouter.get('/legal/agreements', legalController.getLegalAgreements);
 apiRouter.post('/legal/generate-agreement', legalController.generateAgreement);
 
-// 12. Rent Now Pay Later (RNPL) Direct Debit Financing
-apiRouter.get('/rent-now-pay-later/eligibility/:userId', rnplController.checkEligibility);
-apiRouter.post('/rent-now-pay-later/mandate', rnplController.submitMandate);
-
-// 13. Cross-Border Multi-Carrier Shipping & Toy Manifest Engine (UK -> Dubai)
-apiRouter.use('/shipping', shippingRouter);
-
-// 14. Partner & User Support / Dispute Tickets
+// 12. Partner & User Support / Dispute Tickets
 apiRouter.post('/support/tickets', supportController.submitTicket);
 apiRouter.get('/support/tickets', supportController.listTickets);
+
+// 13. Platform Fee & Tariff Configuration
+apiRouter.get('/config/fees', feeController.getFees);
+apiRouter.post('/config/fees', feeController.updateFees);
+
+// 14. Master Financial Ledger & Wallet Movement
+apiRouter.get('/ledger/transactions', ledgerController.getMasterLedger);
+apiRouter.get('/ledger/stats', ledgerController.getLedgerStats);
+apiRouter.get('/bills/transactions', ledgerController.getUtilityTransactions);
+
+// 15. Chat Oversight & Anti-Circumvention
+apiRouter.get('/chat/oversight', chatOversightController.getChatOversight);
+
+// 16. Broadcast & Push Communications
+apiRouter.post('/broadcast/send', broadcastController.sendBroadcast);
+apiRouter.get('/broadcast/history', broadcastController.getBroadcastHistory);
 
