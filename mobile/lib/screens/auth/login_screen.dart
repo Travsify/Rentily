@@ -154,14 +154,15 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       await PushNotificationService.setUserTags();
 
       final user = result['user'] as UserProfile?;
+      final isLandlord = user != null && (user.role == 'owner' || user.role == 'landlord');
+      final isPartner = user != null && user.role == 'partner';
 
       if (!mounted) return;
-      // Every time a user signs in, land straight on the user buyer/renter app side
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(
-          builder: (_) => const MainNavigationScreen(
-            initialPartnerMode: false,
-            initialLandlordMode: false,
+          builder: (_) => MainNavigationScreen(
+            initialPartnerMode: isPartner,
+            initialLandlordMode: isLandlord,
           ),
         ),
         (route) => false,

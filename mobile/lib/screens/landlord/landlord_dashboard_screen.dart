@@ -166,10 +166,34 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
-                'LANDLORD ASSET PORTAL 🔑',
+                'LANDLORD PORTAL 🔑',
                 style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w900, color: AppColors.primary),
               ),
             ),
+            const SizedBox(width: 8),
+            if (widget.onSwitchToTenant != null)
+              GestureDetector(
+                onTap: widget.onSwitchToTenant,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: AppColors.borderDark),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.swap_horiz_rounded, size: 12, color: AppColors.textSecondary),
+                      const SizedBox(width: 3),
+                      Text(
+                        'Renter Mode',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.w800, color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
           ],
         ),
         backgroundColor: Colors.white,
