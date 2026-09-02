@@ -14,9 +14,6 @@ import { shippingRouter } from './shippingRouter';
 import { isSupabaseConfigured } from '../supabaseClient';
 import { IdentitypassService } from '../services/identitypassService';
 import { FlutterwaveService } from '../services/flutterwaveService';
-import { AdminDataStore } from '../services/adminDataStore';
-import { TransactionStore } from '../services/transactionStore';
-
 export const apiRouter = Router();
 
 // 1. Health & Third-Party Service Status
@@ -32,22 +29,30 @@ apiRouter.get('/health', (_req, res) => {
   });
 });
 
-// 1b. Debug: verify AdminDataStore seed data loading
+// 1b. Debug: verify AdminDataStore seed data loading (lazy import to avoid circular crash)
 apiRouter.get('/debug/store', (_req, res) => {
-  const properties = AdminDataStore.getProperties();
-  const kyp = AdminDataStore.getKYP();
-  const inspections = AdminDataStore.getInspections();
-  const legal = AdminDataStore.getLegalAgreements();
-  const walletTxs = TransactionStore.getAllTransactions();
-  res.json({
-    propertiesCount: properties.length,
-    kypCount: kyp.length,
-    inspectionsCount: inspections.length,
-    legalCount: legal.length,
-    walletTransactionsCount: walletTxs.length,
-    firstProperty: properties[0]?.title || 'none',
-    firstKYP: kyp[0]?.propertyTitle || 'none',
-  });
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { AdminDataStore } = require('../services/adminDataStore');
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { TransactionStore } = require('../services/transactionStore');
+    const properties = AdminDataStore.getProperties();
+    const kyp = AdminDataStore.getKYP();
+    const inspections = AdminDataStore.getInspections();
+    const legal = AdminDataStore.getLegalAgreements();
+    const walletTxs = TransactionStore.getAllTransactions();
+    res.json({
+      propertiesCount: properties.length,
+      kypCount: kyp.length,
+      inspectionsCount: inspections.length,
+      legalCount: legal.length,
+      walletTransactionsCount: walletTxs.length,
+      firstProperty: properties[0]?.title || 'none',
+      firstKYP: kyp[0]?.propertyTitle || 'none',
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message, stack: err.stack });
+  }
 });
 
 // 2. Authentication & Multi-Channel OTP (Resend + Twilio)
