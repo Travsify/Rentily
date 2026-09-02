@@ -62,7 +62,7 @@ class AuthService {
     // Layer 2: Direct Supabase REST API Fallback
     try {
       final supabaseResponse = await http.post(
-        Uri.parse('$supabaseUrl/rest/v1/users'),
+        Uri.parse('$supabaseUrl/rest/v1/profiles'),
         headers: {
           'Content-Type': 'application/json',
           'apikey': supabaseKey,
@@ -160,15 +160,24 @@ class AuthService {
           'success': true,
           'user': UserProfile.fromJson(userData),
         };
+      } else {
+        final errorData = json.decode(response.body);
+        if (response.statusCode == 401 && errorData['error']?.toString().contains('Invalid password') == true) {
+          // If password was explicitly wrong on Render API, return the clear message
+          return {
+            'success': false,
+            'message': 'Invalid password. Please check your password or tap "Forgot Password?" to reset.',
+          };
+        }
       }
     } catch (_) {
-      // Render sleeping; fall through to Layer 2
+      // Render sleeping/cold-starting; fall through to Layer 2
     }
 
-    // Layer 2: Supabase REST API (Live Database)
+    // Layer 2: Supabase REST API (Live Database profiles)
     try {
       final response = await http.get(
-        Uri.parse('$supabaseUrl/rest/v1/users?email=eq.$cleanEmail&select=*'),
+        Uri.parse('$supabaseUrl/rest/v1/profiles?email=eq.$cleanEmail&select=*'),
         headers: {
           'apikey': supabaseKey,
           'Authorization': 'Bearer $supabaseKey',
