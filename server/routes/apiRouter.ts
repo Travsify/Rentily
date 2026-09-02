@@ -207,6 +207,8 @@ apiRouter.get('/reconciliation/audit', reconciliationController.runReconciliatio
 // 21. Multi-Currency Global Vault
 apiRouter.get('/wallet/multi-currency-accounts', paymentController.getMultiCurrencyAccounts);
 apiRouter.post('/wallet/convert-currency', paymentController.convertVaultCurrency);
+apiRouter.get('/wallet/fx-rates', paymentController.getFxRatesHandler);
+apiRouter.post('/wallet/fx-rates', paymentController.updateFxRatesHandler);
 
 // 22. Virtual Card Issuing & Management
 apiRouter.get('/cards/user-cards', paymentController.getUserCards);

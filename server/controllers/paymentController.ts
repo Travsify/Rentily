@@ -1286,3 +1286,33 @@ export async function getCardTransactions(req: Request, res: Response) {
   }
 }
 
+export async function getFxRatesHandler(req: Request, res: Response) {
+  try {
+    const rates = MultiCurrencyService.getFxRates();
+    res.json({
+      status: true,
+      data: rates
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+export async function updateFxRatesHandler(req: Request, res: Response) {
+  try {
+    const { USD_NGN, GBP_NGN, EUR_NGN } = req.body;
+    const updated = MultiCurrencyService.updateFxRates({
+      USD_NGN: Number(USD_NGN),
+      GBP_NGN: Number(GBP_NGN),
+      EUR_NGN: Number(EUR_NGN)
+    });
+    res.json({
+      status: true,
+      message: 'Exchange rates updated successfully',
+      data: updated
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+}
+

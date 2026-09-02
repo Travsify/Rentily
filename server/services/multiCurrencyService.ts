@@ -21,9 +21,14 @@ export interface VirtualBankAccount {
   railType: string;
 }
 
+import fs from 'fs';
+import path from 'path';
+
+const FX_RATES_FILE = path.join(process.cwd(), 'server', 'data', 'fx_rates.json');
+
 export class MultiCurrencyService {
   // Exchange Rates relative to NGN
-  private static readonly FX_RATES: Record<string, number> = {
+  private static fxRates: Record<string, number> = {
     'USD_NGN': 1510.00,
     'GBP_NGN': 1980.00,
     'EUR_NGN': 1660.00,
@@ -31,6 +36,45 @@ export class MultiCurrencyService {
     'NGN_GBP': 1 / 1980.00,
     'NGN_EUR': 1 / 1660.00,
   };
+
+  static {
+    // Load persisted rates on init
+    try {
+      if (fs.existsSync(FX_RATES_FILE)) {
+        const fileData = JSON.parse(fs.readFileSync(FX_RATES_FILE, 'utf8'));
+        this.fxRates = { ...this.fxRates, ...fileData };
+      }
+    } catch (_) {}
+  }
+
+  static getFxRates(): Record<string, number> {
+    return { ...this.fxRates };
+  }
+
+  static updateFxRates(newRates: { USD_NGN?: number; GBP_NGN?: number; EUR_NGN?: number }): Record<string, number> {
+    if (newRates.USD_NGN && newRates.USD_NGN > 0) {
+      this.fxRates['USD_NGN'] = newRates.USD_NGN;
+      this.fxRates['NGN_USD'] = 1 / newRates.USD_NGN;
+    }
+    if (newRates.GBP_NGN && newRates.GBP_NGN > 0) {
+      this.fxRates['GBP_NGN'] = newRates.GBP_NGN;
+      this.fxRates['NGN_GBP'] = 1 / newRates.GBP_NGN;
+    }
+    if (newRates.EUR_NGN && newRates.EUR_NGN > 0) {
+      this.fxRates['EUR_NGN'] = newRates.EUR_NGN;
+      this.fxRates['NGN_EUR'] = 1 / newRates.EUR_NGN;
+    }
+
+    try {
+      const dataDir = path.dirname(FX_RATES_FILE);
+      if (!fs.existsSync(dataDir)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+      }
+      fs.writeFileSync(FX_RATES_FILE, JSON.stringify(this.fxRates, null, 2), 'utf8');
+    } catch (_) {}
+
+    return { ...this.fxRates };
+  }
 
   /**
    * Generates or retrieves institutional multi-currency virtual accounts for a user via Korapay & partner rails
@@ -177,7 +221,7 @@ export class MultiCurrencyService {
     fee: number;
   } {
     const pair = `${fromCurrency.toUpperCase()}_${toCurrency.toUpperCase()}`;
-    const rate = this.FX_RATES[pair] || 1;
+    const rate = this.fxRates[pair] || 1;
     const gross = amount * rate;
     const fee = gross * 0.005; // 0.5% conversion tariff
     const convertedAmount = Number((gross - fee).toFixed(2));

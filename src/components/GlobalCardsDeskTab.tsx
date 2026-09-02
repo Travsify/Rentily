@@ -62,6 +62,12 @@ export const GlobalCardsDeskTab: React.FC = () => {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [showIssueModal, setShowIssueModal] = useState(false);
   const [showFundModal, setShowFundModal] = useState(false);
+  const [showFxModal, setShowFxModal] = useState(false);
+  const [fxRates, setFxRates] = useState({ USD_NGN: 1510, GBP_NGN: 1980, EUR_NGN: 1660 });
+  const [fxUsd, setFxUsd] = useState('1510');
+  const [fxGbp, setFxGbp] = useState('1980');
+  const [fxEur, setFxEur] = useState('1660');
+  const [savingFx, setSavingFx] = useState(false);
   const [selectedCardForFund, setSelectedCardForFund] = useState<VirtualCard | null>(null);
   const [fundAmount, setFundAmount] = useState('100');
   const [newCardholder, setNewCardholder] = useState('');
@@ -71,9 +77,10 @@ export const GlobalCardsDeskTab: React.FC = () => {
 
   const fetchData = async () => {
     try {
-      const [accRes, cardRes] = await Promise.all([
+      const [accRes, cardRes, fxRes] = await Promise.all([
         fetch('/api/wallet/multi-currency-accounts?email=tonerocool1@gmail.com'),
-        fetch('/api/cards/user-cards?email=tonerocool1@gmail.com')
+        fetch('/api/cards/user-cards?email=tonerocool1@gmail.com'),
+        fetch('/api/wallet/fx-rates')
       ]);
 
       if (accRes.ok) {
@@ -84,6 +91,15 @@ export const GlobalCardsDeskTab: React.FC = () => {
         const d = await cardRes.json();
         setCards(d.data || []);
       }
+      if (fxRes.ok) {
+        const d = await fxRes.json();
+        if (d.data) {
+          setFxRates(d.data);
+          setFxUsd((d.data.USD_NGN || 1510).toString());
+          setFxGbp((d.data.GBP_NGN || 1980).toString());
+          setFxEur((d.data.EUR_NGN || 1660).toString());
+        }
+      }
     } catch (_) {}
     setLoading(false);
   };
@@ -91,6 +107,31 @@ export const GlobalCardsDeskTab: React.FC = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  const handleSaveFxRates = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingFx(true);
+    try {
+      const res = await fetch('/api/wallet/fx-rates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          USD_NGN: Number(fxUsd),
+          GBP_NGN: Number(fxGbp),
+          EUR_NGN: Number(fxEur)
+        })
+      });
+      if (res.ok) {
+        const d = await res.json();
+        if (d.data) {
+          setFxRates(d.data);
+        }
+        setShowFxModal(false);
+        fetchData();
+      }
+    } catch (_) {}
+    setSavingFx(false);
+  };
 
   const handleCopy = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
@@ -230,16 +271,22 @@ export const GlobalCardsDeskTab: React.FC = () => {
           </span>
         </div>
 
-        <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-sm">
+        <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-sm relative group">
           <div className="flex items-center justify-between text-slate-400 mb-2">
             <span className="text-xs font-medium">Live FX Exchange Benchmark</span>
-            <ArrowRightLeft className="w-4 h-4 text-cyan-400" />
+            <button
+              onClick={() => setShowFxModal(true)}
+              className="px-2 py-0.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold transition flex items-center gap-1"
+              title="Edit Exchange Rates"
+            >
+              <span>Edit Rates</span>
+            </button>
           </div>
           <div className="text-xl font-bold text-white tracking-tight">
-            $1 = ₦1,510.00
+            $1 = ₦{(fxRates.USD_NGN || 1510).toLocaleString()}
           </div>
           <span className="text-[10px] text-slate-400 mt-1 block">
-            £1 = ₦1,980.00 | €1 = ₦1,660.00
+            £1 = ₦{(fxRates.GBP_NGN || 1980).toLocaleString()} | €1 = ₦{(fxRates.EUR_NGN || 1660).toLocaleString()}
           </span>
         </div>
       </div>
@@ -583,6 +630,101 @@ export const GlobalCardsDeskTab: React.FC = () => {
                   className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold"
                 >
                   Confirm & Fund
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Edit Live Currency Exchange Rates */}
+      {showFxModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <ArrowRightLeft className="w-5 h-5 text-emerald-400" />
+                <span>Edit Live FX Exchange Rates</span>
+              </h3>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-bold">
+                Admin Control
+              </span>
+            </div>
+            <p className="text-xs text-slate-400">
+              Update platform conversion benchmarks relative to Nigerian Naira (NGN). All multi-currency vault conversions and card limits will instantly recalculate against these rates.
+            </p>
+
+            <form onSubmit={handleSaveFxRates} className="space-y-4 text-xs">
+              <div>
+                <label className="text-slate-300 font-medium block mb-1">USD / NGN (United States Dollar)</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-slate-500 font-bold">₦</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    min="1"
+                    value={fxUsd}
+                    onChange={(e) => setFxUsd(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-3 py-2 text-white font-mono font-bold focus:outline-none focus:border-emerald-500 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-slate-300 font-medium block mb-1">GBP / NGN (British Pound Sterling)</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-slate-500 font-bold">₦</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    min="1"
+                    value={fxGbp}
+                    onChange={(e) => setFxGbp(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-3 py-2 text-white font-mono font-bold focus:outline-none focus:border-emerald-500 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-slate-300 font-medium block mb-1">EUR / NGN (Euro)</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-slate-500 font-bold">₦</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    min="1"
+                    value={fxEur}
+                    onChange={(e) => setFxEur(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-3 py-2 text-white font-mono font-bold focus:outline-none focus:border-emerald-500 text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1 text-[11px] text-slate-300 font-mono">
+                <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1 font-sans">Live Conversion Preview</div>
+                <div>• $100.00 = ₦{(Number(fxUsd) * 100).toLocaleString()}</div>
+                <div>• £100.00 = ₦{(Number(fxGbp) * 100).toLocaleString()}</div>
+                <div>• €100.00 = ₦{(Number(fxEur) * 100).toLocaleString()}</div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowFxModal(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingFx}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold flex items-center gap-2 disabled:opacity-50"
+                >
+                  {savingFx ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                  <span>Save Rates</span>
                 </button>
               </div>
             </form>
