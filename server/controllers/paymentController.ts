@@ -1197,9 +1197,12 @@ export async function issueVirtualCard(req: Request, res: Response) {
     const name = cardholderName || user?.fullName || user?.businessName || 'Valued Partner';
 
     // 1. Calculate issuance fee in NGN
-    const pricing = CardIssuingService.getCardPricing();
+    const rates = typeof MultiCurrencyService.getFxRates === 'function'
+      ? MultiCurrencyService.getFxRates()
+      : (typeof (MultiCurrencyService as any).getRates === 'function' ? (MultiCurrencyService as any).getRates() : { USD_NGN: 1510.0 });
+    const fxRate = rates.USD_NGN || 1510.0;
+    const pricing = typeof CardIssuingService.getCardPricing === 'function' ? CardIssuingService.getCardPricing() : { issuanceFeeUsd: 3.00 };
     const issuanceFeeUsd = pricing.issuanceFeeUsd || 3.00;
-    const fxRate = MultiCurrencyService.getRates().USD_NGN || 1510.0;
     const initialUsd = Number(initialFunding || 0);
     const totalDebitUsd = issuanceFeeUsd + initialUsd;
     const totalDebitNgn = Number((totalDebitUsd * fxRate).toFixed(2));
