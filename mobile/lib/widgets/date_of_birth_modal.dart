@@ -32,14 +32,16 @@ class DateOfBirthModal extends StatefulWidget {
 
 class _DateOfBirthModalState extends State<DateOfBirthModal> {
   DateTime? _selectedDate;
-  final TextEditingController _idController = TextEditingController();
+  final TextEditingController _bvnController = TextEditingController();
+  final TextEditingController _ninController = TextEditingController();
   bool _isSubmitting = false;
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _idController.text = widget.user.ninNumber ?? '';
+    _bvnController.text = widget.user.bvn ?? '';
+    _ninController.text = widget.user.ninNumber ?? '';
     // Default to a 25-year-old if no existing dob
     if (widget.user.dob != null && widget.user.dob!.isNotEmpty) {
       try {
@@ -53,7 +55,8 @@ class _DateOfBirthModalState extends State<DateOfBirthModal> {
 
   @override
   void dispose() {
-    _idController.dispose();
+    _bvnController.dispose();
+    _ninController.dispose();
     super.dispose();
   }
 
@@ -96,9 +99,15 @@ class _DateOfBirthModalState extends State<DateOfBirthModal> {
   }
 
   void _handleSubmit() async {
-    final idVal = _idController.text.trim();
-    if (idVal.length != 11) {
-      setState(() => _errorMessage = 'Please enter your valid 11-digit BVN or NIN.');
+    final bvnVal = _bvnController.text.trim();
+    if (bvnVal.length != 11) {
+      setState(() => _errorMessage = 'Please enter your valid 11-digit Bank Verification Number (BVN).');
+      return;
+    }
+
+    final ninVal = _ninController.text.trim();
+    if (ninVal.length != 11) {
+      setState(() => _errorMessage = 'Please enter your valid 11-digit National Identity Number (NIN).');
       return;
     }
 
@@ -123,8 +132,8 @@ class _DateOfBirthModalState extends State<DateOfBirthModal> {
           'dob': dobStr,
           'fullName': widget.user.fullName,
           'phoneNumber': widget.user.phoneNumber,
-          'nin': idVal,
-          'bvn': idVal,
+          'bvn': bvnVal,
+          'nin': ninVal,
         }),
       ).timeout(const Duration(seconds: 30));
 
@@ -137,6 +146,8 @@ class _DateOfBirthModalState extends State<DateOfBirthModal> {
 
         final updatedUser = widget.user.copyWith(
           dob: dobStr,
+          bvn: bvnVal,
+          ninNumber: ninVal,
           accountNumber: newAccount,
           bankName: newBank,
           rekycRequired: false,
@@ -272,17 +283,40 @@ class _DateOfBirthModalState extends State<DateOfBirthModal> {
           ],
 
           Text(
-            'BANK VERIFICATION NUMBER (BVN) / NIN',
+            'BANK VERIFICATION NUMBER (BVN) *',
             style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 6),
           TextField(
-            controller: _idController,
+            controller: _bvnController,
             keyboardType: TextInputType.number,
             maxLength: 11,
             style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600),
             decoration: InputDecoration(
-              hintText: 'Enter 11-digit BVN or NIN',
+              hintText: 'Enter 11-digit BVN',
+              counterText: '',
+              prefixIcon: const Icon(Icons.account_balance_rounded, size: 20, color: AppColors.primary),
+              filled: true,
+              fillColor: const Color(0xFFF9FAFB),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.borderDark)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          Text(
+            'NATIONAL IDENTITY NUMBER (NIN) *',
+            style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 6),
+          TextField(
+            controller: _ninController,
+            keyboardType: TextInputType.number,
+            maxLength: 11,
+            style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600),
+            decoration: InputDecoration(
+              hintText: 'Enter 11-digit NIN',
               counterText: '',
               prefixIcon: const Icon(Icons.fingerprint_rounded, size: 20, color: AppColors.primary),
               filled: true,

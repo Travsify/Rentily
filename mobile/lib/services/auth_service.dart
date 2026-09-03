@@ -387,6 +387,47 @@ class AuthService {
     return null;
   }
 
+  // 4b. Refresh Current Active User Profile from Cloud
+  static Future<UserProfile?> refreshCurrentUser() async {
+    final current = await getCurrentUser();
+    if (current == null || current.email.isEmpty) return null;
+
+    final cleanEmail = current.email.trim().toLowerCase();
+
+    // Fetch live profile from Supabase Cloud
+    try {
+      final response = await http.get(
+        Uri.parse('$supabaseUrl/rest/v1/profiles?email=eq.$cleanEmail&select=*'),
+        headers: {
+          'apikey': supabaseKey,
+          'Authorization': 'Bearer $supabaseKey',
+        },
+      ).timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        final List<dynamic> users = json.decode(response.body);
+        if (users.isNotEmpty) {
+          final uData = users[0];
+          final updated = current.copyWith(
+            fullName: uData['full_name'] ?? current.fullName,
+            phoneNumber: uData['phone_number'] ?? current.phoneNumber,
+            isVerified: uData['is_verified'] == true,
+            ninNumber: uData['nin_number'] ?? current.ninNumber,
+            accountNumber: uData['account_number'] ?? current.accountNumber,
+            bankName: uData['bank_name'] ?? current.bankName,
+            walletBalance: (uData['wallet_balance'] is num) ? (uData['wallet_balance'] as num).toDouble() : current.walletBalance,
+            rekycRequired: uData['rekyc_required'] == true,
+            dob: uData['dob'] ?? current.dob,
+          );
+          await updateUser(updated);
+          return updated;
+        }
+      }
+    } catch (_) {}
+
+    return current;
+  }
+
   // 5. Get last remembered user for Biometric Login
   static Future<UserProfile?> getRememberedUser() async {
     final prefs = await SharedPreferences.getInstance();

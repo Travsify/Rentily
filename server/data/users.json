@@ -60,16 +60,16 @@
     "phoneNumber": "+2348026990956",
     "role": "partner",
     "isVerified": true,
-    "ninNumber": null,
+    "ninNumber": "96434424445",
     "bvnVerified": false,
     "accountNumber": "9591357072",
-    "bankName": "Flutterwave MFB",
+    "bankName": "9PSB (Rentilly)",
     "state": "Lagos",
     "walletBalance": 8256,
     "businessName": "Ehomes Global Inclusive Limited",
     "cacNumber": null,
     "partnerStatus": "verified",
     "createdAt": "2026-09-02T07:50:58.103846+00:00",
-    "updatedAt": "2026-09-03T12:36:36.898+00:00"
+    "updatedAt": "2026-09-03T13:34:36.342+00:00"
   }
 ]

@@ -112,11 +112,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _loadUser() async {
-    final u = await AuthService.getCurrentUser();
-    await NotificationService.getNotifications();
-    try {
-      await ApiService.fetchFeatureFlags();
-    } catch (_) {}
+    var u = await AuthService.getCurrentUser();
     if (mounted) {
       setState(() {
         _user = u;
@@ -125,12 +121,37 @@ class _HomeScreenState extends State<HomeScreen> {
           _userLocation = '${u.state}, Nigeria';
         }
       });
-      if (u != null && (u.rekycRequired == true || ((u.dob == null || u.dob!.isEmpty) && (u.accountNumber == null || u.accountNumber!.isEmpty || u.accountNumber!.startsWith('78'))))) {
-        Future.delayed(const Duration(milliseconds: 700), () {
+    }
+
+    // Refresh live profile from cloud in background
+    try {
+      final fresh = await AuthService.refreshCurrentUser();
+      if (fresh != null && mounted) {
+        setState(() {
+          _user = fresh;
+          u = fresh;
+        });
+      }
+    } catch (_) {}
+
+    await NotificationService.getNotifications();
+    try {
+      await ApiService.fetchFeatureFlags();
+    } catch (_) {}
+
+    if (mounted && u != null) {
+      final bool needsUpgrade = u!.rekycRequired == true ||
+          u!.bankName == null ||
+          !u!.bankName!.contains('9PSB') ||
+          u!.dob == null ||
+          u!.dob!.isEmpty;
+
+      if (needsUpgrade) {
+        Future.delayed(const Duration(milliseconds: 600), () {
           if (mounted) {
             DateOfBirthModal.show(
               context,
-              user: u,
+              user: u!,
               onSuccess: (updated) {
                 if (mounted) setState(() => _user = updated);
               },
@@ -381,6 +402,97 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
               const SizedBox(height: 18),
+
+              // 1b. Action Required: Upgrade to Dedicated 9PSB Account Banner
+              if (_user != null && (_user!.rekycRequired == true || _user!.bankName == null || !_user!.bankName!.contains('9PSB') || _user!.dob == null || _user!.dob!.isEmpty)) ...[
+                GestureDetector(
+                  onTap: () {
+                    DateOfBirthModal.show(
+                      context,
+                      user: _user!,
+                      onSuccess: (updated) {
+                        if (mounted) setState(() => _user = updated);
+                      },
+                    );
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF0F172A), Color(0xFF022C22)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFF10B981), width: 1.5),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.bolt_rounded, color: Color(0xFF10B981), size: 22),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'ACTION REQUIRED: ACCOUNT UPGRADE',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.5,
+                                  color: const Color(0xFF34D399),
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                'Confirm your BVN, NIN & Date of Birth to activate your dedicated 9PSB settlement account & Dollar Card.',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                  height: 1.3,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            'Upgrade',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
 
               // 2. The Living Wallet Card (Deep Emerald Teal with Amber Highlights)
               GestureDetector(

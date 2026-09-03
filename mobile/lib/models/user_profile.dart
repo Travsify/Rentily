@@ -21,9 +21,9 @@ class UserProfile {
   final String? officeAddress;
   final String? officeUtilityBillUrl;
   final String? officeBannerPhotoUrl;
-  final String partnerStatus; // 'unverified', 'pending_review', 'verified'
   final bool rekycRequired;
   final String? dob;
+  final String? bvn;
 
   UserProfile({
     required this.id,
@@ -33,6 +33,7 @@ class UserProfile {
     required this.role,
     this.isVerified = false,
     this.ninNumber,
+    this.bvn,
     this.bvnVerified = false,
     this.avatarUrl,
     this.walletBalance = 0.00,
@@ -119,6 +120,7 @@ class UserProfile {
       partnerStatus: isCorporatePartner ? 'verified' : (json['partnerStatus']?.toString() ?? json['partner_status']?.toString() ?? 'unverified'),
       rekycRequired: json['rekycRequired'] ?? json['rekyc_required'] ?? false,
       dob: json['dob']?.toString(),
+      bvn: json['bvn']?.toString() ?? json['bvn_number']?.toString(),
     );
   }
 
@@ -131,6 +133,7 @@ class UserProfile {
       'role': role,
       'isVerified': isVerified,
       'ninNumber': ninNumber,
+      'bvn': bvn,
       'bvnVerified': bvnVerified,
       'avatarUrl': avatarUrl,
       'walletBalance': walletBalance,
@@ -158,6 +161,7 @@ class UserProfile {
     String? role,
     bool? isVerified,
     String? ninNumber,
+    String? bvn,
     bool? bvnVerified,
     String? avatarUrl,
     double? walletBalance,
@@ -183,6 +187,7 @@ class UserProfile {
       role: role ?? this.role,
       isVerified: isVerified ?? this.isVerified,
       ninNumber: ninNumber ?? this.ninNumber,
+      bvn: bvn ?? this.bvn,
       bvnVerified: bvnVerified ?? this.bvnVerified,
       avatarUrl: avatarUrl ?? this.avatarUrl,
       walletBalance: walletBalance ?? this.walletBalance,

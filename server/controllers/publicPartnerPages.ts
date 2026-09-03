@@ -170,11 +170,21 @@ export async function renderReKycPage(req: Request, res: Response) {
   const allUsers = await UserStore.getAllUsers();
   const user = allUsers.find(u => u.email.toLowerCase() === cleanEmail);
 
+  const isAlreadyApproved = Boolean(
+    user &&
+    user.isVerified &&
+    user.accountNumber &&
+    user.bankName?.includes('9PSB') &&
+    user.rekycRequired !== true
+  );
+
   const displayName = user?.fullName || user?.businessName || (cleanEmail ? cleanEmail.split('@')[0] : 'Rentilly User');
   const currentBalance = user?.walletBalance ?? 0;
   const currentPhone = user?.phoneNumber || '';
+  const currentBvn = user?.bvn || '';
   const currentNin = user?.ninNumber || '';
   const currentAccount = user?.accountNumber || '';
+  const currentBank = user?.bankName || '9PSB (Rentilly)';
 
   res.send(`
     <!DOCTYPE html>
@@ -210,68 +220,99 @@ export async function renderReKycPage(req: Request, res: Response) {
     </head>
     <body>
       <div class="card">
-        <div class="badge-icon">🎂</div>
-        <h1>ACCOUNT VERIFICATION & UPGRADE</h1>
-        <div class="tagline">Dedicated 9PSB Settlement & Dollar Card</div>
+        ${isAlreadyApproved ? `
+          <div class="badge-icon">✅</div>
+          <h1>ACCOUNT VERIFIED & ACTIVE</h1>
+          <div class="tagline">Dedicated 9PSB Settlement & Dollar Card Active</div>
 
-        <div class="safe-banner">
-          <span style="font-size: 20px;">🛡️</span>
-          <div>
-            <strong>Your Funds Are 100% Secure.</strong><br>
-            Your current wallet balance of <strong>₦${currentBalance.toLocaleString()}</strong> will automatically link to your dedicated 9PSB settlement account.
+          <div style="background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 18px; padding: 24px; text-align: center; margin-top: 20px;">
+            <p style="font-size: 13px; color: #a7f3d0; margin-bottom: 14px; line-height: 1.5;">
+              Your Rentilly dedicated 9PSB settlement account is fully verified and active.
+            </p>
+            <div style="font-size: 11px; text-transform: uppercase; color: #94a3b8; font-weight: 700;">Dedicated Account Number</div>
+            <div class="result-acc" style="display: block;">${currentAccount}</div>
+            <div style="font-size: 13px; font-weight: 700; color: #38bdf8;">${currentBank}</div>
+
+            <div style="margin-top: 16px; padding: 12px; background: rgba(0, 0, 0, 0.3); border-radius: 10px; font-size: 11.5px; color: #cbd5e1; text-align: left; line-height: 1.6;">
+              🔒 <strong>Status:</strong> Active & Linked<br>
+              💳 <strong>Virtual Dollar Card:</strong> Enabled<br>
+              💰 <strong>Wallet Balance:</strong> ₦${currentBalance.toLocaleString()}<br>
+              ⚡ <strong>One-Time Link:</strong> This verification request is already finalized. It cannot be used again unless Rentilly Admin issues a new re-verification request.
+            </div>
+
+            <a href="rentilly://wallet" class="btn-app" style="margin-top: 20px;">Open Rentilly Mobile App 📱</a>
           </div>
-        </div>
+        ` : `
+          <div class="badge-icon">🛡️</div>
+          <h1>ACCOUNT UPGRADE & ACTIVATION</h1>
+          <div class="tagline">Dedicated 9PSB Settlement & Dollar Card</div>
 
-        <div id="errorAlert" class="alert alert-error"></div>
-
-        <form id="rekycForm">
-          <div class="form-group">
-            <label>Registered Email Address</label>
-            <input type="email" id="email" value="${cleanEmail}" readonly disabled style="opacity: 0.8;" />
-          </div>
-
-          <div class="form-group">
-            <label>Legal Full Name / Entity</label>
-            <input type="text" id="fullName" value="${displayName}" required />
-          </div>
-
-          <div class="form-group">
-            <label>Date of Birth <span style="color: #10b981;">*</span></label>
-            <input type="date" id="dob" required max="${new Date(new Date().getFullYear() - 18, 11, 31).toISOString().split('T')[0]}" />
-            <span style="font-size: 10px; color: #64748b; margin-top: 4px; display: block;">Required for dedicated 9PSB account & virtual card issuance. Must be at least 18 years old.</span>
-          </div>
-
-          <div class="form-group">
-            <label>Bank Verification Number (BVN) / NIN <span style="color: #10b981;">*</span></label>
-            <input type="text" id="nin" placeholder="11-digit BVN or NIN" value="${currentNin}" maxlength="11" required />
-            <span style="font-size: 10px; color: #64748b; margin-top: 4px; display: block;">Required by the Central Bank of Nigeria & NIBSS for dedicated 9PSB account issuance.</span>
+          <div class="safe-banner">
+            <span style="font-size: 20px;">🛡️</span>
+            <div>
+              <strong>Your Funds Are 100% Secure.</strong><br>
+              Your current wallet balance of <strong>₦${currentBalance.toLocaleString()}</strong> will automatically link to your dedicated 9PSB settlement account.
+            </div>
           </div>
 
-          <div class="form-group">
-            <label>Phone Number</label>
-            <input type="tel" id="phoneNumber" placeholder="e.g. 08012345678" value="${currentPhone}" />
+          <div id="errorAlert" class="alert alert-error"></div>
+
+          <form id="rekycForm">
+            <div class="form-group">
+              <label>Registered Email Address</label>
+              <input type="email" id="email" value="${cleanEmail}" readonly disabled style="opacity: 0.8;" />
+            </div>
+
+            <div class="form-group">
+              <label>Legal Full Name / Entity</label>
+              <input type="text" id="fullName" value="${displayName}" required />
+            </div>
+
+            <div class="form-group">
+              <label>Date of Birth <span style="color: #10b981;">*</span></label>
+              <input type="date" id="dob" required max="${new Date(new Date().getFullYear() - 18, 11, 31).toISOString().split('T')[0]}" />
+              <span style="font-size: 10px; color: #64748b; margin-top: 4px; display: block;">Required for live NIBSS banking validation. Must be at least 18 years old.</span>
+            </div>
+
+            <div class="form-group">
+              <label>Bank Verification Number (BVN) <span style="color: #10b981;">*</span></label>
+              <input type="text" id="bvn" placeholder="Enter 11-digit BVN" value="${currentBvn}" maxlength="11" required />
+              <span style="font-size: 10px; color: #64748b; margin-top: 4px; display: block;">Required by the Central Bank of Nigeria & NIBSS for dedicated 9PSB account issuance.</span>
+            </div>
+
+            <div class="form-group">
+              <label>National Identity Number (NIN) <span style="color: #10b981;">*</span></label>
+              <input type="text" id="nin" placeholder="Enter 11-digit NIN" value="${currentNin}" maxlength="11" required />
+              <span style="font-size: 10px; color: #64748b; margin-top: 4px; display: block;">Required for National Identity verification & Virtual Dollar Card tier.</span>
+            </div>
+
+            <div class="form-group">
+              <label>Phone Number</label>
+              <input type="tel" id="phoneNumber" placeholder="e.g. 08012345678" value="${currentPhone}" />
+            </div>
+
+            <button type="submit" id="submitBtn" class="btn-submit">
+              Submit & Activate Dedicated Account ⚡
+            </button>
+          </form>
+
+          <div id="resultBox" class="result-box">
+            <div style="font-size: 40px; margin-bottom: 8px;">🎉</div>
+            <h2 style="color: #ffffff; font-size: 18px; font-weight: 800;">Dedicated Account Activated!</h2>
+            <p style="color: #94a3b8; font-size: 12px; margin-top: 4px;">Your dedicated 9PSB settlement account is active and permanently attached to your profile.</p>
+
+            <div class="result-acc" id="accDisplay">----------</div>
+            <div style="font-size: 13px; font-weight: 700; color: #38bdf8;" id="bankDisplay">9PSB (Rentilly Settlement)</div>
+
+            <div style="margin-top: 16px; padding: 12px; background: rgba(16, 185, 129, 0.1); border-radius: 10px; font-size: 12px; color: #a7f3d0;">
+              💳 Virtual Dollar Card: <strong>Active</strong><br>
+              💰 Preserved Wallet Balance: <strong>₦${currentBalance.toLocaleString()}</strong><br>
+              🔒 <strong>Status:</strong> Link is now finalized & closed.
+            </div>
+
+            <a href="rentilly://wallet" class="btn-app">Open Rentilly Mobile App 📱</a>
           </div>
-
-          <button type="submit" id="submitBtn" class="btn-submit">
-            Submit & Activate Dedicated Account ⚡
-          </button>
-        </form>
-
-        <div id="resultBox" class="result-box">
-          <div style="font-size: 40px; margin-bottom: 8px;">🎉</div>
-          <h2 style="color: #ffffff; font-size: 18px; font-weight: 800;">Dedicated Account Activated!</h2>
-          <p style="color: #94a3b8; font-size: 12px; margin-top: 4px;">Your dedicated 9PSB settlement account is active and permanently attached to your profile.</p>
-
-          <div class="result-acc" id="accDisplay">----------</div>
-          <div style="font-size: 13px; font-weight: 700; color: #38bdf8;" id="bankDisplay">9PSB (Rentilly Settlement)</div>
-
-          <div style="margin-top: 16px; padding: 12px; background: rgba(16, 185, 129, 0.1); border-radius: 10px; font-size: 12px; color: #a7f3d0;">
-            💳 Virtual Dollar Card: <strong>Active</strong><br>
-            💰 Preserved Wallet Balance: <strong>₦${currentBalance.toLocaleString()}</strong>
-          </div>
-
-          <a href="rentilly://wallet" class="btn-app">Open Rentilly Mobile App 📱</a>
-        </div>
+        `}
       </div>
 
       <script>
@@ -282,67 +323,81 @@ export async function renderReKycPage(req: Request, res: Response) {
         const accDisplay = document.getElementById('accDisplay');
         const bankDisplay = document.getElementById('bankDisplay');
 
-        form.addEventListener('submit', async (e) => {
-          e.preventDefault();
-          errorAlert.style.display = 'none';
+        if (form) {
+          form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            errorAlert.style.display = 'none';
 
-          const ninVal = document.getElementById('nin').value.trim();
-          if (ninVal.length !== 11) {
-            errorAlert.textContent = 'Please enter your valid 11-digit BVN or NIN.';
-            errorAlert.style.display = 'block';
-            return;
-          }
+            const bvnVal = document.getElementById('bvn').value.trim();
+            if (bvnVal.length !== 11) {
+              errorAlert.textContent = 'Please enter your valid 11-digit Bank Verification Number (BVN).';
+              errorAlert.style.display = 'block';
+              return;
+            }
 
-          if (!dobVal) {
-            errorAlert.textContent = 'Please select your Date of Birth.';
-            errorAlert.style.display = 'block';
-            return;
-          }
+            const ninVal = document.getElementById('nin').value.trim();
+            if (ninVal.length !== 11) {
+              errorAlert.textContent = 'Please enter your valid 11-digit National Identity Number (NIN).';
+              errorAlert.style.display = 'block';
+              return;
+            }
 
-          // Format to DD-MM-YYYY
-          const parts = dobVal.split('-');
-          const formattedDob = parts[2] + '-' + parts[1] + '-' + parts[0];
+            const dobVal = document.getElementById('dob').value;
+            if (!dobVal) {
+              errorAlert.textContent = 'Please select your Date of Birth.';
+              errorAlert.style.display = 'block';
+              return;
+            }
 
-          submitBtn.disabled = true;
-          submitBtn.textContent = 'Connecting with Banking Engine... ⏳';
+            // Format to DD-MM-YYYY
+            const parts = dobVal.split('-');
+            const formattedDob = parts[2] + '-' + parts[1] + '-' + parts[0];
 
-          try {
-            const res = await fetch('/api/verification/complete-maplerad-kyc', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                email: '${cleanEmail}' || document.getElementById('email').value,
-                dob: formattedDob,
-                fullName: document.getElementById('fullName').value,
-                nin: document.getElementById('nin').value,
-                phoneNumber: document.getElementById('phoneNumber').value
-              })
-            });
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Connecting with Banking Engine... ⏳';
 
-            const data = await res.json();
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Submit & Activate Dedicated Account ⚡';
+            try {
+              const res = await fetch('/api/verification/complete-maplerad-kyc', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  email: '${cleanEmail}' || document.getElementById('email').value,
+                  dob: formattedDob,
+                  fullName: document.getElementById('fullName').value,
+                  bvn: bvnVal,
+                  nin: ninVal,
+                  phoneNumber: document.getElementById('phoneNumber').value
+                })
+              });
 
-            if (res.ok && data.status && data.accountNumber) {
-              form.style.display = 'none';
-              document.querySelector('.safe-banner').style.display = 'none';
-              accDisplay.textContent = data.accountNumber;
-              bankDisplay.textContent = data.bankName || '9PSB (Rentilly)';
-              resultBox.style.display = 'block';
-            } else {
-              errorAlert.textContent = data.message || data.error || 'Verification failed. Please check your details and try again.';
+              const data = await res.json();
+              submitBtn.disabled = false;
+              submitBtn.textContent = 'Submit & Activate Dedicated Account ⚡';
+
+              if (res.ok && data.status && data.accountNumber) {
+                form.style.display = 'none';
+                const sb = document.querySelector('.safe-banner');
+                if (sb) sb.style.display = 'none';
+                accDisplay.textContent = data.accountNumber;
+                bankDisplay.textContent = data.bankName || '9PSB (Rentilly)';
+                resultBox.style.display = 'block';
+              } else {
+                errorAlert.textContent = data.message || data.error || 'Verification failed. Please check your BVN and Date of Birth.';
+                errorAlert.style.display = 'block';
+              }
+            } catch (err) {
+              submitBtn.disabled = false;
+              submitBtn.textContent = 'Submit & Activate Dedicated Account ⚡';
+              errorAlert.textContent = 'Network error connecting to server. Please try again.';
               errorAlert.style.display = 'block';
             }
-          } catch (err) {
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Submit & Activate Dedicated Account ⚡';
-            errorAlert.textContent = 'Network error connecting to server. Please try again.';
-            errorAlert.style.display = 'block';
-          }
-        });
+          });
+        }
       </script>
     </body>
     </html>
+  `);
+}
   `);
 }
 
