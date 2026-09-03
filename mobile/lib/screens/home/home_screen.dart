@@ -125,7 +125,19 @@ class _HomeScreenState extends State<HomeScreen> {
           _userLocation = '${u.state}, Nigeria';
         }
       });
-      if (u?.isVerified == true) {
+      if (u != null && (u.rekycRequired == true || ((u.dob == null || u.dob!.isEmpty) && (u.accountNumber == null || u.accountNumber!.isEmpty || u.accountNumber!.startsWith('78'))))) {
+        Future.delayed(const Duration(milliseconds: 700), () {
+          if (mounted) {
+            DateOfBirthModal.show(
+              context,
+              user: u,
+              onSuccess: (updated) {
+                if (mounted) setState(() => _user = updated);
+              },
+            );
+          }
+        });
+      } else if (u?.isVerified == true) {
         Future.delayed(const Duration(milliseconds: 600), () {
           if (mounted) BiometricPromptModal.checkAndPrompt(context);
         });

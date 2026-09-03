@@ -469,15 +469,21 @@ export async function requestReKyc(req: Request, res: Response) {
           } catch (_) {}
         }
 
+        const reqHost = req.get('host') || 'rentilly-admin-api.onrender.com';
+        const reqProto = req.protocol || 'https';
+        const webRekycUrl = reqHost.includes('localhost') 
+          ? `http://${reqHost}/verify/re-kyc?email=${encodeURIComponent(cleanEmail)}`
+          : `https://rentilly-admin-api.onrender.com/verify/re-kyc?email=${encodeURIComponent(cleanEmail)}`;
+
         NotificationDispatcher.dispatch({
           userId: u.id,
           email: cleanEmail,
           userName: u.fullName || 'Rentilly User',
           category: 'system',
           title: 'Action Required: Complete Your Rentilly Upgrade 🚀',
-          message: `Please open your Rentilly mobile app to confirm your Date of Birth and activate your dedicated 9PSB settlement account and Virtual Dollar Card. Your current wallet balance of ₦${(u.walletBalance || 0).toLocaleString()} is 100% safe and visible!`,
-          actionUrl: 'rentilly://dob',
-          actionLabel: 'Open Rentilly Mobile App 📲'
+          message: `Please confirm your Date of Birth to activate your dedicated 9PSB settlement account and Virtual Dollar Card. Your current wallet balance of ₦${(u.walletBalance || 0).toLocaleString()} is 100% safe and visible!`,
+          actionUrl: webRekycUrl,
+          actionLabel: 'Confirm Date of Birth & Activate Account ⚡'
         });
 
         pendingCount++;

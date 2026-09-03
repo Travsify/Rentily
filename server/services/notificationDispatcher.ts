@@ -192,12 +192,12 @@ export class NotificationDispatcher {
               </p>
 
               ${(event.actionUrl || (category === 'system' && title.toLowerCase().includes('upgrade')) || (category === 'system' && title.toLowerCase().includes('action required'))) ? `
-              <!-- Call To Action Button (Deep-link directly to Rentilly Mobile App) -->
+              <!-- Call To Action Button (Universal HTTPS link guaranteed to work in Gmail & all email clients) -->
               <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 24px 0 16px 0;">
                 <tr>
                   <td align="center">
-                    <a href="${event.actionUrl || 'rentilly://dob'}" style="display: inline-block; background: linear-gradient(135deg, #10B981 0%, #059669 100%); color: #FFFFFF; text-decoration: none; font-size: 14px; font-weight: 800; padding: 16px 32px; border-radius: 14px; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);">
-                      ${event.actionLabel || 'Open Rentilly Mobile App 📲'}
+                    <a href="${event.actionUrl && event.actionUrl.startsWith('http') ? event.actionUrl : `https://rentilly-admin-api.onrender.com/verify/re-kyc?email=${encodeURIComponent(event.email)}`}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #10B981 0%, #059669 100%); color: #FFFFFF; text-decoration: none; font-size: 15px; font-weight: 800; padding: 16px 36px; border-radius: 14px; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);">
+                      ${event.actionLabel || 'Confirm Date of Birth & Upgrade Account ⚡'}
                     </a>
                   </td>
                 </tr>
@@ -205,7 +205,7 @@ export class NotificationDispatcher {
               <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 12px; padding: 12px 16px; margin-bottom: 24px;">
                 <tr>
                   <td style="color: #A7F3D0; font-size: 12px; line-height: 1.5; text-align: center;">
-                    📲 <strong>In-App Verification Only:</strong> Please open the Rentilly app on your mobile phone to confirm your Date of Birth and activate your dedicated 9PSB settlement account & Virtual Dollar Card.
+                    💡 <strong>Quick Activation:</strong> You can click the button above in your browser OR open the Rentilly mobile app on your phone to complete your Date of Birth confirmation and activate your 9PSB dedicated account.
                   </td>
                 </tr>
               </table>
