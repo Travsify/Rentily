@@ -248,79 +248,10 @@ export class MapleradBankingService {
       }
 
       console.warn('[MapleradBanking] USDT address creation returned:', data?.message);
-
-      // Fallback: Provision from the verified Rentily Treasury Master Account (Patrick Achua / Tier 2)
-      // Any USDT sent to this address lands directly in Rentily's Maplerad Treasury Wallet!
-      const treasuryCustomerId = '844eb2ca-edd3-425d-9276-39db9788dff8';
-      try {
-        const treasuryRes = await fetch(`${this.baseUrl}/crypto`, {
-          method: 'POST',
-          headers: this.headers,
-          body: JSON.stringify({
-            customer_id: treasuryCustomerId,
-            coin: 'USDT',
-            chain: 'tron',
-            offramp: false
-          })
-        });
-        const treasuryData = await treasuryRes.json().catch(() => ({}));
-        if (treasuryData?.status && treasuryData?.data?.address) {
-          const fallbackResult: UsdtTronAddressResult = {
-            address: treasuryData.data.address,
-            chain: 'TRC20 (TRON)',
-            coin: 'USDT',
-            active: true
-          };
-
-          if (supabase) {
-            await supabase.from('system_configs').upsert({
-              id: `crypto_tron_${cleanEmail}`,
-              data: {
-                ...fallbackResult,
-                rawId: treasuryData.data.id,
-                customerId: treasuryCustomerId,
-                email: cleanEmail,
-                isTreasuryFallback: true,
-                updatedAt: new Date().toISOString()
-              }
-            });
-          }
-
-          return fallbackResult;
-        }
-      } catch (tErr: any) {
-        console.warn('[MapleradBanking] Treasury fallback warning:', tErr?.message);
-      }
-
-      // Hard fallback to known active Maplerad Treasury TRC20 address
-      const hardFallback: UsdtTronAddressResult = {
-        address: 'TXPQFogAh31kb8d3UA4F3oU1b1xNGiyxRz',
-        chain: 'TRC20 (TRON)',
-        coin: 'USDT',
-        active: true
-      };
-
-      if (supabase) {
-        await supabase.from('system_configs').upsert({
-          id: `crypto_tron_${cleanEmail}`,
-          data: {
-            ...hardFallback,
-            email: cleanEmail,
-            isTreasuryFallback: true,
-            updatedAt: new Date().toISOString()
-          }
-        });
-      }
-
-      return hardFallback;
+      return null;
     } catch (err: any) {
       console.error('[MapleradBanking] getOrCreateUsdtTronAddress error:', err.message);
-      return {
-        address: 'TXPQFogAh31kb8d3UA4F3oU1b1xNGiyxRz',
-        chain: 'TRC20 (TRON)',
-        coin: 'USDT',
-        active: true
-      };
+      return null;
     }
   }
 
@@ -622,8 +553,8 @@ export class MapleradBankingService {
       const vbaData = await vbaRes.json().catch(() => ({}));
       if (vbaData?.status && vbaData?.data?.account_number) {
         accountNumber = vbaData.data.account_number;
-        bankName = `${vbaData.data.bank_name || '9PSB'} (Maplerad)`;
-        console.log(`[MapleradTier1] ✅ Maplerad NGN Virtual Account: ${accountNumber} via ${bankName}`);
+        bankName = `${vbaData.data.bank_name || '9PSB'} (Rentilly)`;
+        console.log(`[MapleradTier1] ✅ Rentilly NGN Virtual Account: ${accountNumber} via ${bankName}`);
       } else {
         errors.push(`Maplerad NGN VBA notice: ${vbaData?.message || 'Account not returned'}`);
       }

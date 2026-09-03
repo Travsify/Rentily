@@ -418,19 +418,19 @@ export class CardIssuingService {
       }
     }
 
-    // Generate valid 16-digit PAN (or use Bridgecard issued details if returned)
-    const prefix = brand === 'VISA' ? '4829' : '5399';
-    const mid1 = Math.floor(1000 + Math.random() * 9000).toString();
-    const mid2 = Math.floor(1000 + Math.random() * 9000).toString();
     const finalLive = liveCardData || bridgeCardData;
-    const last4 = finalLive?.last_4 || Math.floor(1000 + Math.random() * 9000).toString();
-    const fullPan = finalLive?.card_pan || `${prefix} ${mid1} ${mid2} ${last4}`;
-    const maskedPan = finalLive?.masked_pan || `${prefix} •••• •••• ${last4}`;
+    if (!finalLive || (!finalLive.card_pan && !finalLive.masked_pan)) {
+      throw new Error('Virtual Card issuance is currently processing or awaiting Tier 1 KYC verification. Please confirm your Date of Birth and details to activate.');
+    }
+
+    const last4 = finalLive.last_4 || '0000';
+    const fullPan = finalLive.card_pan || finalLive.masked_pan;
+    const maskedPan = finalLive.masked_pan || `${brand === 'VISA' ? '4829' : '5399'} •••• •••• ${last4}`;
     const uuidId = crypto.randomUUID();
-    const cardIdStr = finalLive?.card_id || `CARD_${Date.now()}_${last4}`;
-    const expMonth = finalLive?.expiry_month || '12';
-    const expYear = finalLive?.expiry_year || '28';
-    const cvv = finalLive?.cvv || Math.floor(100 + Math.random() * 900).toString();
+    const cardIdStr = finalLive.card_id || `CARD_${Date.now()}_${last4}`;
+    const expMonth = finalLive.expiry_month || '12';
+    const expYear = finalLive.expiry_year || '28';
+    const cvv = finalLive.cvv || '***';
 
     // Record PIN
     _cardPins[uuidId] = initialPin;

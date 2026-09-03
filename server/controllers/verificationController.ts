@@ -104,7 +104,7 @@ export async function verifyAndProvision(req: Request, res: Response) {
 
     // Step 2: Provision Dedicated Maplerad NGN Virtual Account & USDT TRC20 Wallet
     let accountNumber = '';
-    let bankName = '9PSB (Maplerad)';
+    let bankName = '9PSB (Rentilly)';
     let usdtTronAddress = '';
 
     console.log(`[verifyAndProvision] Calling Maplerad Tier 1 Provisioning for ${cleanEmail}...`);
@@ -119,36 +119,11 @@ export async function verifyAndProvision(req: Request, res: Response) {
 
     if (mapleRes.accountNumber) {
       accountNumber = mapleRes.accountNumber;
-      bankName = mapleRes.bankName || '9PSB (Maplerad)';
+      bankName = '9PSB (Rentilly)';
       usdtTronAddress = mapleRes.usdtTronAddress || '';
-    } else {
-      // Secondary fallback to Flutterwave if Maplerad temporary network issue
-      console.warn('[verifyAndProvision] Maplerad account generation fallback to Flutterwave router...');
-      try {
-        const flwRes = await FlutterwaveService.createPermanentUserVirtualAccount({
-          userId: userId || existing?.id || `usr_${Date.now()}`,
-          email: cleanEmail,
-          fullName: cleanName,
-          businessName: partnerBizName,
-          role: role || (isPartner ? 'partner' : 'renter'),
-          bvn: bvnToUse,
-          phoneNumber: phoneNumber || premblyResult.data?.phone
-        });
-        if (flwRes?.data?.accountNumber) {
-          accountNumber = flwRes.data.accountNumber;
-          bankName = flwRes.data.bankName || 'Flutterwave MFB';
-        }
-      } catch (flwErr: any) {
-        console.error('[verifyAndProvision] Flutterwave fallback error:', flwErr.message);
-      }
     }
 
-    if (!accountNumber) {
-      return res.status(400).json({
-        status: false,
-        message: 'Could not generate virtual bank account. Please check your identification details and try again.'
-      });
-    }
+    const isProcessing = !accountNumber;
 
     // Step 3: Update UserStore & Supabase Database — preserve wallet balance completely!
     const updatedUser = {
@@ -163,8 +138,8 @@ export async function verifyAndProvision(req: Request, res: Response) {
       isVerified: true,
       bvnVerified: true,
       ninNumber: idType === 'nin' ? idNumber : existing?.ninNumber,
-      accountNumber: accountNumber,
-      bankName: bankName,
+      accountNumber: accountNumber || (existing?.accountNumber ?? null),
+      bankName: accountNumber ? bankName : (existing?.bankName || 'Rentilly Settlement (Processing)'),
       role: role || existing?.role || (isPartner ? 'partner' : 'renter'),
       walletBalance: currentBalance, // PRESERVE EXACT WALLET BALANCE
       usdtBalance: currentUsdtBalance,
@@ -182,50 +157,85 @@ export async function verifyAndProvision(req: Request, res: Response) {
             is_verified: true,
             bvn_verified: true,
             nin_number: idType === 'nin' ? idNumber : undefined,
-            account_number: accountNumber,
-            bank_name: bankName,
+            account_number: accountNumber || existing?.accountNumber || null,
+            bank_name: accountNumber ? bankName : (existing?.bankName || 'Rentilly Settlement (Processing)'),
             business_name: isPartner ? partnerBizName : undefined,
             cac_number: isPartner ? cacNumber : undefined,
-            rekyc_required: false,
+            rekyc_required: isProcessing,
             updated_at: new Date().toISOString()
           })
           .eq('email', cleanEmail);
       } catch (_) {}
     }
 
-    // Step 4: Dispatch Confirmation Push & Email
-    NotificationDispatcher.dispatch({
-      userId: updatedUser.id,
-      email: cleanEmail,
-      userName: cleanName,
-      category: 'wallet',
-      title: 'Verification Approved! Dedicated Bank Account Ready 🏦',
-      message: `Your identity was verified. Your dedicated ${bankName} account (${accountNumber}) and USDT TRC20 wallet are now active. Available balance: ₦${currentBalance.toLocaleString()}.`
-    });
-
-    return res.status(200).json({
-      status: true,
-      message: isPartner
-        ? `Corporate KYB verified! Dedicated Maplerad commission vault provisioned in your business name.`
-        : 'Identity verified successfully! Dedicated Maplerad account & USDT wallet provisioned.',
-      accountNumber: accountNumber,
-      bankName: bankName,
-      usdtTronAddress: usdtTronAddress,
-      walletBalance: currentBalance,
-      user: {
-        id: updatedUser.id,
+    // Step 4: Dispatch Push & Email Notification (Strictly Rentilly branded)
+    if (!isProcessing) {
+      NotificationDispatcher.dispatch({
+        userId: updatedUser.id,
         email: cleanEmail,
-        fullName: cleanName,
-        businessName: partnerBizName,
-        cacNumber: cacNumber,
-        isVerified: true,
+        userName: cleanName,
+        category: 'wallet',
+        title: 'Verification Approved! Dedicated Account Ready 🏦',
+        message: `Your identity was verified. Your dedicated ${bankName} account (${accountNumber}) and Dollar Card are now active. Available balance: ₦${currentBalance.toLocaleString()}.`
+      });
+
+      return res.status(200).json({
+        status: true,
+        message: isPartner
+          ? `Corporate KYB verified! Dedicated Rentilly commission vault provisioned in your business name.`
+          : 'Identity verified successfully! Dedicated Rentilly account & USDT wallet provisioned.',
         accountNumber: accountNumber,
         bankName: bankName,
+        usdtTronAddress: usdtTronAddress,
+        walletBalance: currentBalance,
+        user: {
+          id: updatedUser.id,
+          email: cleanEmail,
+          fullName: cleanName,
+          businessName: partnerBizName,
+          cacNumber: cacNumber,
+          isVerified: true,
+          accountNumber: accountNumber,
+          bankName: bankName,
+          walletBalance: currentBalance,
+          usdtBalance: currentUsdtBalance,
+          role: updatedUser.role
+        }
+      });
+    } else {
+      // Account generation pending — notify user that KYC is being processed
+      NotificationDispatcher.dispatch({
+        userId: updatedUser.id,
+        email: cleanEmail,
+        userName: cleanName,
+        category: 'system',
+        title: 'KYC Verification Received & In Progress ⏳',
+        message: `Your KYC verification documents have been received and are currently being processed by Rentilly. Your existing wallet balance of ₦${currentBalance.toLocaleString()} is 100% safe and visible. You will receive an email the moment your dedicated account and dollar card are activated.`
+      });
+
+      return res.status(200).json({
+        status: true,
+        processing: true,
+        message: 'Your KYC verification has been received and is currently being processed by Rentilly. Your account details will be updated shortly.',
+        accountNumber: existing?.accountNumber || null,
+        bankName: existing?.bankName || 'Rentilly Settlement (Processing)',
         walletBalance: currentBalance,
         usdtBalance: currentUsdtBalance,
-        role: updatedUser.role
-      }
-    });
+        user: {
+          id: updatedUser.id,
+          email: cleanEmail,
+          fullName: cleanName,
+          businessName: partnerBizName,
+          cacNumber: cacNumber,
+          isVerified: true,
+          accountNumber: existing?.accountNumber || null,
+          bankName: existing?.bankName || 'Rentilly Settlement (Processing)',
+          walletBalance: currentBalance,
+          usdtBalance: currentUsdtBalance,
+          role: updatedUser.role
+        }
+      });
+    }
   } catch (error: any) {
     console.error('Verify and provision error:', error);
     return res.status(500).json({
@@ -307,29 +317,16 @@ export async function syncNuban(req: Request, res: Response) {
     });
 
     let accountNumber = mapleRes.accountNumber;
-    let bankName = mapleRes.bankName || '9PSB (Maplerad)';
+    let bankName = '9PSB (Rentilly)';
 
     if (!accountNumber) {
-      // Fallback
-      const flwRes = await FlutterwaveService.createPermanentUserVirtualAccount({
-        userId: userId || existing?.id || `usr_${Date.now()}`,
-        email: cleanEmail,
-        fullName: cleanName,
-        businessName: partnerBizName,
-        role: role || (isPartner ? 'partner' : 'renter'),
-        bvn: bvnToUse,
-        phoneNumber: phoneNumber || existing?.phoneNumber || ''
-      });
-      if (flwRes?.data?.accountNumber) {
-        accountNumber = flwRes.data.accountNumber;
-        bankName = flwRes.data.bankName || 'Flutterwave MFB';
-      }
-    }
-
-    if (!accountNumber) {
-      return res.status(400).json({
-        status: false,
-        message: 'Failed to sync live NUBAN from Maplerad banking router.'
+      return res.status(200).json({
+        status: true,
+        processing: true,
+        message: 'KYC is currently being processed by Rentilly Compliance. Your account will be updated automatically.',
+        accountNumber: existing?.accountNumber || null,
+        bankName: existing?.bankName || 'Rentilly Settlement (Processing)',
+        walletBalance: existing?.walletBalance ?? 0
       });
     }
 
@@ -347,7 +344,7 @@ export async function syncNuban(req: Request, res: Response) {
 
     return res.status(200).json({
       status: true,
-      message: 'Dedicated Maplerad NUBAN successfully synced with 9PSB / WEMA router!',
+      message: 'Dedicated Rentilly Settlement account successfully synced with 9PSB router!',
       accountNumber: accountNumber,
       bankName: bankName,
       usdtTronAddress: mapleRes.usdtTronAddress,
@@ -363,18 +360,25 @@ export async function syncNuban(req: Request, res: Response) {
   }
 }
 
-// 7. Admin Action: Initiate Re-KYC / Maplerad Upgrade for Old Users
+// 7. Admin Action: Resend Re-Verification / Rentilly Account Provisioning
 export async function requestReKyc(req: Request, res: Response) {
   try {
     const { email, allUsers } = req.body;
 
-    let targetUsers: Array<{ id: string; email: string; fullName: string; walletBalance?: number }> = [];
+    let targetUsers: Array<{ id: string; email: string; fullName: string; walletBalance?: number; ninNumber?: string; phoneNumber?: string }> = [];
 
     if (email) {
       const cleanEmail = email.toString().toLowerCase().trim();
       const user = await UserStore.findByEmail(cleanEmail);
       if (user) {
-        targetUsers.push({ id: user.id, email: user.email, fullName: user.fullName, walletBalance: user.walletBalance });
+        targetUsers.push({
+          id: user.id,
+          email: user.email,
+          fullName: user.fullName,
+          walletBalance: user.walletBalance,
+          ninNumber: user.ninNumber,
+          phoneNumber: user.phoneNumber
+        });
       }
     } else if (allUsers) {
       const all = UserStore.getAllUsers();
@@ -384,41 +388,99 @@ export async function requestReKyc(req: Request, res: Response) {
     }
 
     if (targetUsers.length === 0) {
-      return res.status(404).json({ error: 'No matching users found to request re-KYC.' });
+      return res.status(404).json({ error: 'No matching users found to re-verify.' });
     }
 
-    let notifiedCount = 0;
+    let activatedCount = 0;
+    let pendingCount = 0;
 
     for (const u of targetUsers) {
       const cleanEmail = u.email.toLowerCase().trim();
 
-      // Flag rekyc_required in Supabase profiles
+      // Check if user already has NIN/DOB to attempt direct provisioning
+      let userDob = '01-01-1990';
       if (supabase) {
         try {
-          await supabase
-            .from('profiles')
-            .update({ rekyc_required: true, updated_at: new Date().toISOString() })
-            .eq('email', cleanEmail);
+          const { data: p } = await supabase.from('profiles').select('dob, nin_number').eq('email', cleanEmail).maybeSingle();
+          if (p?.dob) userDob = p.dob;
         } catch (_) {}
       }
 
-      // Dispatch high-priority Push & Email notification
-      NotificationDispatcher.dispatch({
-        userId: u.id,
+      console.log(`[requestReKyc] Attempting Rentilly account activation for ${cleanEmail}...`);
+      const mapleRes = await MapleradBankingService.enrollAndProvisionTier1({
         email: cleanEmail,
-        userName: u.fullName || 'Rentilly User',
-        category: 'system',
-        title: 'Action Required: Upgrade to Maplerad NGN & Dollar Card 🚀',
-        message: `Please confirm your Date of Birth to activate your new dedicated Maplerad 9PSB bank account and Virtual Dollar Card. Your current wallet balance of ₦${(u.walletBalance || 0).toLocaleString()} is 100% safe and visible!`
+        fullName: u.fullName || 'Rentilly User',
+        phoneNumber: u.phoneNumber,
+        nin: u.ninNumber,
+        dob: userDob
       });
 
-      notifiedCount++;
+      if (mapleRes.accountNumber) {
+        // Successfully generated live account!
+        const memUser = await UserStore.findByEmail(cleanEmail);
+        if (memUser) {
+          UserStore.upsertUserForced({
+            ...memUser,
+            accountNumber: mapleRes.accountNumber,
+            bankName: '9PSB (Rentilly)',
+            isVerified: true
+          });
+        }
+
+        if (supabase) {
+          try {
+            await supabase
+              .from('profiles')
+              .update({
+                account_number: mapleRes.accountNumber,
+                bank_name: '9PSB (Rentilly)',
+                rekyc_required: false,
+                is_verified: true,
+                updated_at: new Date().toISOString()
+              })
+              .eq('email', cleanEmail);
+          } catch (_) {}
+        }
+
+        NotificationDispatcher.dispatch({
+          userId: u.id,
+          email: cleanEmail,
+          userName: u.fullName || 'Rentilly User',
+          category: 'wallet',
+          title: 'Rentilly Settlement Account Activated! 🏦',
+          message: `Your dedicated Rentilly 9PSB settlement account (${mapleRes.accountNumber}) and Virtual Dollar Card are now active! Available balance: ₦${(u.walletBalance || 0).toLocaleString()}.`
+        });
+
+        activatedCount++;
+      } else {
+        // Still requires user to confirm details / DOB
+        if (supabase) {
+          try {
+            await supabase
+              .from('profiles')
+              .update({ rekyc_required: true, updated_at: new Date().toISOString() })
+              .eq('email', cleanEmail);
+          } catch (_) {}
+        }
+
+        NotificationDispatcher.dispatch({
+          userId: u.id,
+          email: cleanEmail,
+          userName: u.fullName || 'Rentilly User',
+          category: 'system',
+          title: 'Action Required: Complete Your Rentilly Upgrade 🚀',
+          message: `Please confirm your Date of Birth in the Rentilly app to activate your dedicated account and Virtual Dollar Card. Your current wallet balance of ₦${(u.walletBalance || 0).toLocaleString()} is 100% safe and visible!`
+        });
+
+        pendingCount++;
+      }
     }
 
     return res.status(200).json({
       status: true,
-      message: `Re-KYC upgrade initiated for ${notifiedCount} user(s). Notifications and emails dispatched!`,
-      notifiedCount
+      message: `Re-verification processed. ${activatedCount} account(s) activated directly, ${pendingCount} notified to confirm details.`,
+      activatedCount,
+      pendingCount
     });
   } catch (err: any) {
     console.error('requestReKyc error:', err);
@@ -426,7 +488,7 @@ export async function requestReKyc(req: Request, res: Response) {
   }
 }
 
-// 8. User Action: Complete Quick Maplerad KYC (submit DOB & upgrade to Tier 1)
+// 8. User Action: Complete Quick KYC Upgrade (submit DOB & upgrade to Tier 1)
 export async function completeMapleradKyc(req: Request, res: Response) {
   try {
     const { email, dob, nin, bvn, phoneNumber, fullName } = req.body;
@@ -435,7 +497,7 @@ export async function completeMapleradKyc(req: Request, res: Response) {
       return res.status(400).json({ error: 'Email is required' });
     }
     if (!dob) {
-      return res.status(400).json({ error: 'Date of Birth is required for Maplerad Tier 1 upgrade' });
+      return res.status(400).json({ error: 'Date of Birth is required for verification upgrade' });
     }
 
     const cleanEmail = email.toString().toLowerCase().trim();
@@ -456,8 +518,8 @@ export async function completeMapleradKyc(req: Request, res: Response) {
       dob: dob
     });
 
-    const accountNumber = result.accountNumber || existing?.accountNumber || '';
-    const bankName = result.bankName || existing?.bankName || '9PSB (Maplerad)';
+    const accountNumber = result.accountNumber || existing?.accountNumber || null;
+    const bankName = accountNumber ? '9PSB (Rentilly)' : (existing?.bankName || 'Rentilly Settlement (Processing)');
 
     // Update in-memory user cache with preserved wallet balance
     if (existing) {
@@ -465,7 +527,7 @@ export async function completeMapleradKyc(req: Request, res: Response) {
         ...existing,
         fullName: cleanName,
         ninNumber: idToUse,
-        accountNumber,
+        accountNumber: accountNumber || existing.accountNumber,
         bankName,
         isVerified: true,
         walletBalance: currentBalance,
@@ -473,13 +535,13 @@ export async function completeMapleradKyc(req: Request, res: Response) {
       });
     }
 
-    // Clear rekyc_required in Supabase profiles
+    // Clear rekyc_required in Supabase profiles if account generated
     if (supabase) {
       try {
         await supabase
           .from('profiles')
           .update({
-            rekyc_required: false,
+            rekyc_required: !accountNumber,
             is_verified: true,
             dob: dob,
             account_number: accountNumber,
@@ -490,24 +552,45 @@ export async function completeMapleradKyc(req: Request, res: Response) {
       } catch (_) {}
     }
 
-    NotificationDispatcher.dispatch({
-      userId: existing?.id,
-      email: cleanEmail,
-      userName: cleanName,
-      category: 'wallet',
-      title: 'Maplerad Upgrade Complete! 💳',
-      message: `Your dedicated Maplerad account (${accountNumber}) and Virtual Dollar Card are ready! Your wallet balance of ₦${currentBalance.toLocaleString()} is active.`
-    });
+    if (accountNumber) {
+      NotificationDispatcher.dispatch({
+        userId: existing?.id,
+        email: cleanEmail,
+        userName: cleanName,
+        category: 'wallet',
+        title: 'Rentilly Account Activated! 💳',
+        message: `Your dedicated Rentilly 9PSB account (${accountNumber}) and Virtual Dollar Card are ready! Your wallet balance of ₦${currentBalance.toLocaleString()} is active.`
+      });
 
-    return res.status(200).json({
-      status: true,
-      message: 'Maplerad Tier 1 setup complete! Dedicated NGN account and Dollar Card activated.',
-      accountNumber,
-      bankName,
-      usdtTronAddress: result.usdtTronAddress,
-      walletBalance: currentBalance,
-      usdtBalance: currentUsdtBal
-    });
+      return res.status(200).json({
+        status: true,
+        message: 'Rentilly setup complete! Dedicated NGN account and Dollar Card activated.',
+        accountNumber,
+        bankName,
+        usdtTronAddress: result.usdtTronAddress,
+        walletBalance: currentBalance,
+        usdtBalance: currentUsdtBal
+      });
+    } else {
+      NotificationDispatcher.dispatch({
+        userId: existing?.id,
+        email: cleanEmail,
+        userName: cleanName,
+        category: 'system',
+        title: 'KYC Details Received ⏳',
+        message: `Your Date of Birth has been recorded. Rentilly Compliance is processing your account activation. Your wallet balance of ₦${currentBalance.toLocaleString()} is 100% safe.`
+      });
+
+      return res.status(200).json({
+        status: true,
+        processing: true,
+        message: 'Your verification details have been received and are being processed by Rentilly. Your account will be activated shortly.',
+        accountNumber: existing?.accountNumber || null,
+        bankName: existing?.bankName || 'Rentilly Settlement (Processing)',
+        walletBalance: currentBalance,
+        usdtBalance: currentUsdtBal
+      });
+    }
   } catch (err: any) {
     console.error('completeMapleradKyc error:', err);
     return res.status(500).json({ error: err.message });

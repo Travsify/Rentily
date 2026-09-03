@@ -59,7 +59,7 @@ export const UsersTab: React.FC<UsersTabProps> = ({ users }) => {
       });
       const data = await res.json();
       if (res.ok && data.status) {
-        setMessage({ type: 'success', text: data.message || 'Maplerad Re-KYC request dispatched successfully!' });
+        setMessage({ type: 'success', text: data.message || 'Re-verification request dispatched successfully!' });
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to request Re-KYC' });
       }
@@ -250,7 +250,7 @@ export const UsersTab: React.FC<UsersTabProps> = ({ users }) => {
                 className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-950/70 border border-emerald-500/40 hover:bg-emerald-900/80 text-xs font-semibold text-emerald-300 shadow-sm transition"
               >
                 <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                <span>{requestingReKyc === 'all' ? 'Dispatching...' : 'Request Maplerad Re-KYC (All)'}</span>
+                <span>{requestingReKyc === 'all' ? 'Dispatching...' : 'Resend Re-Verification (All)'}</span>
               </button>
 
               <button
@@ -429,11 +429,11 @@ export const UsersTab: React.FC<UsersTabProps> = ({ users }) => {
                           <button
                             onClick={() => handleRequestReKyc(u.email)}
                             disabled={requestingReKyc === u.email}
-                            title="Request Maplerad Re-KYC Upgrade with Date of Birth"
+                            title="Resend Re-Verification / Account Activation"
                             className="p-1.5 rounded-lg bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-500/30 text-emerald-300 transition flex items-center gap-1 text-[11px]"
                           >
                             <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                            <span className="hidden lg:inline">{requestingReKyc === u.email ? 'Sending...' : 'Maplerad KYC'}</span>
+                            <span className="hidden lg:inline">{requestingReKyc === u.email ? 'Sending...' : 'Re-Verify'}</span>
                           </button>
 
                           <button

@@ -1425,7 +1425,7 @@ export async function getWalletBalance(req: Request, res: Response) {
 
         if (mapleAcc) {
           accountNumber = mapleAcc.accountNumber;
-          bankName = `${mapleAcc.bankName} (Maplerad)`;
+          bankName = `${mapleAcc.bankName || '9PSB'} (Rentilly)`;
 
           if (supabase && dbUser?.id) {
             await supabase
@@ -1435,21 +1435,14 @@ export async function getWalletBalance(req: Request, res: Response) {
           }
         }
       } catch (e: any) {
-        console.warn('[getWalletBalance] Maplerad auto-provisioning warning:', e.message);
+        console.warn('[getWalletBalance] Auto-provisioning warning:', e.message);
       }
     }
 
-    // Default fallback if still unresolved — ensure UNIQUE per-user account number (never shared)
+    // If still unresolved, do NOT invent fake numbers.
     if (!accountNumber) {
-      if (cleanEmail === 'tonerocool1@gmail.com') {
-        accountNumber = '9591357072';
-        bankName = '9PSB (Maplerad)';
-      } else {
-        let hashNum = 0;
-        for (let i = 0; i < cleanEmail.length; i++) hashNum = (hashNum * 31 + cleanEmail.charCodeAt(i)) % 1000000000;
-        accountNumber = '9' + (Math.abs(hashNum) % 900000000 + 100000000).toString();
-        bankName = '9PSB (Maplerad)';
-      }
+      accountNumber = null;
+      bankName = 'Rentilly Settlement Account (Pending)';
     }
 
     // Resolve or retrieve dedicated USDT TRON deposit address
@@ -1462,10 +1455,6 @@ export async function getWalletBalance(req: Request, res: Response) {
       usdtTronAddress = cryptoData?.address || null;
     } catch (e: any) {
       console.warn('[getWalletBalance] USDT TRON resolution warning:', e.message);
-    }
-
-    if (!usdtTronAddress) {
-      usdtTronAddress = 'TXPQFogAh31kb8d3UA4F3oU1b1xNGiyxRz';
     }
 
     // Resolve USDT Balance from Supabase system_configs or memUser
@@ -1527,12 +1516,12 @@ export async function getUserCryptoAddress(req: Request, res: Response) {
     });
 
     if (!cryptoData || !cryptoData.address) {
-      cryptoData = {
-        address: 'TXPQFogAh31kb8d3UA4F3oU1b1xNGiyxRz',
-        chain: 'TRC20 (TRON)',
-        coin: 'USDT',
-        active: true
-      };
+      return res.json({
+        status: true,
+        processing: true,
+        message: 'Personal USDT TRC20 wallet is generated automatically upon Tier 1 KYC verification.',
+        data: null
+      });
     }
 
     return res.json({
