@@ -261,7 +261,7 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
         ? 'ClearBank (UK) • Sort: 04-00-04' 
         : effectiveCurrency == 'EUR' 
         ? 'Banque Internationale (EU)' 
-        : (_user?.bankName ?? 'Flutterwave MFB');
+        : (_user?.bankName ?? '9PSB (Rentilly)');
     final String accountLabel = effectiveCurrency == 'USD' 
         ? 'US CHECKING (ACH / ROUTING: 101000019)' 
         : effectiveCurrency == 'GBP' 

@@ -84,8 +84,8 @@ class _AddMoneyModalState extends State<AddMoneyModal> {
   }
 
   void _copyAllDetails(BuildContext context) {
-    final bank = widget.user.bankName ?? 'Flutterwave MFB';
-    final accNum = widget.user.accountNumber ?? '9823481234';
+    final bank = widget.user.bankName ?? '9PSB (Rentilly)';
+    final accNum = widget.user.accountNumber ?? 'Pending 9PSB Issuance';
     final isPartner = widget.user.role == 'partner';
     final name = isPartner
         ? (widget.user.businessName != null && widget.user.businessName!.trim().isNotEmpty
@@ -197,8 +197,8 @@ class _AddMoneyModalState extends State<AddMoneyModal> {
 
   @override
   Widget build(BuildContext context) {
-    final bankName = widget.user.bankName ?? 'Flutterwave MFB';
-    final accountNumber = widget.user.accountNumber ?? '9823481234';
+    final bankName = widget.user.bankName ?? '9PSB (Rentilly)';
+    final accountNumber = widget.user.accountNumber ?? 'Pending 9PSB Issuance';
     final isPartner = widget.user.role == 'partner';
     final name = isPartner
         ? (widget.user.businessName != null && widget.user.businessName!.trim().isNotEmpty
@@ -215,15 +215,15 @@ class _AddMoneyModalState extends State<AddMoneyModal> {
           // Drag Handle
           Center(
             child: Container(
-              width: 44,
-              height: 4.5,
+              width: 40,
+              height: 4,
               decoration: BoxDecoration(
                 color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(2),
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
 
           // Header
           Row(
@@ -232,14 +232,19 @@ class _AddMoneyModalState extends State<AddMoneyModal> {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(8),
+                    width: 44,
+                    height: 44,
                     decoration: BoxDecoration(
                       color: AppColors.primary.withValues(alpha: 0.1),
-                      shape: BoxShape.circle,
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.account_balance_rounded, color: AppColors.primary, size: 20),
+                    child: const Icon(
+                      Icons.account_balance_rounded,
+                      color: AppColors.primary,
+                      size: 22,
+                    ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 14),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -252,7 +257,7 @@ class _AddMoneyModalState extends State<AddMoneyModal> {
                         ),
                       ),
                       Text(
-                        'Flutterwave MFB • Zero Fees • Instant Credit',
+                        '${widget.user.bankName ?? "9PSB (Rentilly)"} • Zero Fees • Instant Credit',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 10,
                           color: AppColors.textSecondary,

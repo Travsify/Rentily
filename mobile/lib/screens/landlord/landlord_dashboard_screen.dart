@@ -151,8 +151,8 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
     final landlordId = IdUtils.formatOpsId(_user?.id, isPartner: false);
     final operationalBalance = _user?.walletBalance ?? 0.0;
     final escrowBalance = 0.00;
-    final accountNumber = _user?.accountNumber ?? '9823481234';
-    final bankName = _user?.bankName ?? 'Flutterwave MFB';
+    final accountNumber = _user?.accountNumber ?? (_user?.isVerified == true ? 'Pending 9PSB NUBAN' : 'Pending Verification');
+    final bankName = _user?.bankName ?? '9PSB (Rentilly)';
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,

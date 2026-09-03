@@ -189,8 +189,8 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
     final cacNumber = (_user?.cacNumber != null && _user!.cacNumber!.trim().isNotEmpty)
         ? _user!.cacNumber!.trim()
         : (isVerified ? 'CAC Verified' : 'Pending CAC KYB');
-    final accountNumber = _user?.accountNumber ?? 'Pending KYC';
-    final bankName = _user?.bankName ?? 'Flutterwave MFB';
+    final accountNumber = _user?.accountNumber ?? (isVerified ? 'Pending 9PSB NUBAN' : 'Pending KYB');
+    final bankName = _user?.bankName ?? '9PSB (Rentilly)';
     final partnerId = IdUtils.formatOpsId(_user?.id, isPartner: true);
     final operationalBalance = _user?.walletBalance ?? 0.0;
     final escrowCommission = _escrowCommission;

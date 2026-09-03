@@ -178,7 +178,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final String firstName = _user?.firstName ?? 'User';
     final double balance = _user?.walletBalance ?? 0.00;
     final String? accNum = _user?.accountNumber;
-    final String bank = _user?.bankName ?? 'Flutterwave MFB';
+    final String bank = _user?.bankName ?? '9PSB (Rentilly)';
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
@@ -276,12 +276,12 @@ class _HomeScreenState extends State<HomeScreen> {
                               child: Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
                                 decoration: BoxDecoration(
-                                  color: _user?.isVerified == true
+                                  color: (_user?.accountNumber != null && _user!.accountNumber!.isNotEmpty)
                                       ? AppColors.primaryLight.withValues(alpha: 0.12)
                                       : AppColors.accentOrange.withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(8),
                                   border: Border.all(
-                                    color: _user?.isVerified == true
+                                    color: (_user?.accountNumber != null && _user!.accountNumber!.isNotEmpty)
                                         ? AppColors.primaryLight.withValues(alpha: 0.4)
                                         : AppColors.accentOrange.withValues(alpha: 0.4),
                                   ),
@@ -290,17 +290,25 @@ class _HomeScreenState extends State<HomeScreen> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Icon(
-                                      _user?.isVerified == true ? Icons.verified : Icons.shield_outlined,
+                                      (_user?.accountNumber != null && _user!.accountNumber!.isNotEmpty)
+                                          ? Icons.verified
+                                          : (_user?.isVerified == true ? Icons.hourglass_top_rounded : Icons.shield_outlined),
                                       size: 10,
-                                      color: _user?.isVerified == true ? AppColors.primaryLight : AppColors.accentOrange,
+                                      color: (_user?.accountNumber != null && _user!.accountNumber!.isNotEmpty)
+                                          ? AppColors.primaryLight
+                                          : AppColors.accentOrange,
                                     ),
                                     const SizedBox(width: 3),
                                     Text(
-                                      _user?.isVerified == true ? 'VERIFIED' : 'UNVERIFIED',
+                                      (_user?.accountNumber != null && _user!.accountNumber!.isNotEmpty)
+                                          ? 'VERIFIED'
+                                          : (_user?.isVerified == true ? 'PENDING 9PSB' : 'UNVERIFIED'),
                                       style: GoogleFonts.plusJakartaSans(
                                         fontSize: 8,
                                         fontWeight: FontWeight.w800,
-                                        color: _user?.isVerified == true ? AppColors.primary : AppColors.accentOrange,
+                                        color: (_user?.accountNumber != null && _user!.accountNumber!.isNotEmpty)
+                                            ? AppColors.primary
+                                            : AppColors.accentOrange,
                                       ),
                                     ),
                                   ],

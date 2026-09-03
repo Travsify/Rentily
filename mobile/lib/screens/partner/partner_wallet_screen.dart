@@ -499,9 +499,51 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
   }
 
   void _showUsdtDepositSheet() {
-    final effectiveAddress = (_usdtTronAddress != null && _usdtTronAddress!.isNotEmpty)
-        ? _usdtTronAddress!
-        : 'TXPQFogAh31kb8d3UA4F3oU1b1xNGiyxRz';
+    if (_usdtTronAddress == null || _usdtTronAddress!.isEmpty) {
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: Colors.white,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+        builder: (ctx) {
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+                const SizedBox(height: 20),
+                const Icon(Icons.account_balance_wallet_outlined, size: 48, color: AppColors.accentOrange),
+                const SizedBox(height: 12),
+                Text('Personal TRC20 Wallet Pending', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                const SizedBox(height: 8),
+                Text(
+                  'Your dedicated TRON (TRC20) deposit address is automatically generated once your Rentilly 9PSB Tier 1 account verification is completed.',
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      VerificationModal.show(context, onSuccess: (updated) {
+                        setState(() => _user = updated);
+                      });
+                    },
+                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.symmetric(vertical: 14)),
+                    child: Text('Complete KYB Verification', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+      return;
+    }
+
+    final effectiveAddress = _usdtTronAddress!;
 
     showModalBottomSheet(
       context: context,
@@ -654,7 +696,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
         : _eurBalance;
     final escrowCommission = effectiveCurrency == 'NGN' ? _escrowCommission : 0.00;
     final accountNumber = _user?.accountNumber ?? 'Pending KYC';
-    final bankName = _user?.bankName ?? 'Flutterwave MFB';
+    final bankName = _user?.bankName ?? '9PSB (Rentilly)';
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
@@ -1107,61 +1149,91 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Text(
-                                  '1 USDT ≈ ₦1,510',
+                                  '1 USDT ≈ ₦${_currencyFormat.format(_fxUsdToNgn)}',
                                   style: GoogleFonts.plusJakartaSans(fontSize: 7.5, fontWeight: FontWeight.w800, color: const Color(0xFF00E676)),
                                 ),
                               ),
                             ],
                           ),
                           const SizedBox(height: 10),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                          if (_usdtTronAddress != null && _usdtTronAddress!.isNotEmpty)
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _usdtTronAddress!,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.firaCode(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Auto-converted to NGN balance on deposit',
+                                        style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: Colors.white.withValues(alpha: 0.6)),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.copy_rounded, size: 18, color: Color(0xFF00E676)),
+                                  onPressed: () {
+                                    final addr = _usdtTronAddress!;
+                                    Clipboard.setData(ClipboardData(text: addr));
+                                    HapticFeedback.lightImpact();
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('USDT Address Copied: $addr', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+                                        backgroundColor: AppColors.primary,
+                                        behavior: SnackBarBehavior.floating,
+                                        duration: const Duration(seconds: 2),
+                                      ),
+                                    );
+                                  },
+                                  tooltip: 'Copy Address',
+                                ),
+                              ],
+                            )
+                          else
+                            GestureDetector(
+                              onTap: () {
+                                VerificationModal.show(context, onSuccess: (updated) {
+                                  setState(() => _user = updated);
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                                ),
+                                child: Row(
                                   children: [
-                                    Text(
-                                      (_usdtTronAddress != null && _usdtTronAddress!.isNotEmpty)
-                                          ? _usdtTronAddress!
-                                          : 'TXPQFogAh31kb8d3UA4F3oU1b1xNGiyxRz',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: GoogleFonts.firaCode(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.white,
+                                    const Icon(Icons.lock_clock_rounded, size: 14, color: AppColors.accentOrange),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        'Pending KYB • Tap to Complete Verification',
+                                        style: GoogleFonts.plusJakartaSans(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.white,
+                                        ),
                                       ),
                                     ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      'Auto-converted to NGN balance on deposit',
-                                      style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: Colors.white.withValues(alpha: 0.6)),
-                                    ),
+                                    const Icon(Icons.chevron_right_rounded, size: 14, color: Colors.white70),
                                   ],
                                 ),
                               ),
-                              IconButton(
-                                icon: const Icon(Icons.copy_rounded, size: 18, color: Color(0xFF00E676)),
-                                onPressed: () {
-                                  final addr = (_usdtTronAddress != null && _usdtTronAddress!.isNotEmpty)
-                                      ? _usdtTronAddress!
-                                      : 'TXPQFogAh31kb8d3UA4F3oU1b1xNGiyxRz';
-                                  Clipboard.setData(ClipboardData(text: addr));
-                                  HapticFeedback.lightImpact();
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text('USDT Address Copied: $addr', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
-                                      backgroundColor: AppColors.primary,
-                                      behavior: SnackBarBehavior.floating,
-                                      duration: const Duration(seconds: 2),
-                                    ),
-                                  );
-                                },
-                                tooltip: 'Copy Address',
-                              ),
-                            ],
-                          ),
+                            ),
                           const SizedBox(height: 12),
                           // Quick Actions for Partner USDT
                           Row(
