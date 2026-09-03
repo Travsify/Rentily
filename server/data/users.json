@@ -57,27 +57,6 @@
     "passwordHash": "daf0e831a31884c472837cdfeef2132be3e7f2561b52611043e8f82280803552"
   },
   {
-    "id": "c0000000-0000-0000-0000-000000000001",
-    "email": "tonerocool1@gmail.com",
-    "fullName": "Ehomes Global Inclusive Limited",
-    "phoneNumber": "+2348026990956",
-    "role": "partner",
-    "isVerified": true,
-    "ninNumber": "96434424445",
-    "bvnVerified": true,
-    "accountNumber": null,
-    "bankName": "Flutterwave MFB",
-    "state": "Lagos",
-    "walletBalance": 8256,
-    "businessName": "Ehomes Global Inclusive Limited",
-    "cacNumber": "RC1234567",
-    "partnerStatus": "verified",
-    "createdAt": "2026-09-02T07:50:58.103846+00:00",
-    "updatedAt": "2026-09-03T17:59:52.206Z",
-    "passwordHash": "daf0e831a31884c472837cdfeef2132be3e7f2561b52611043e8f82280803552",
-    "usdtBalance": 0
-  },
-  {
     "id": "3ad20581-44d1-4bd7-8975-e2a02c632927",
     "email": "authtest_1788451259486@myrentilly.com",
     "fullName": "Test User",
@@ -132,5 +111,25 @@
     "createdAt": "2026-09-03T17:09:30.395194+00:00",
     "updatedAt": "2026-09-03T17:09:29.904+00:00",
     "passwordHash": "8ad40f263d6eb7702a31dc8db35e22c47893cd46ab1beb62f7a348d67aaaaccf"
+  },
+  {
+    "id": "c0000000-0000-0000-0000-000000000001",
+    "email": "tonerocool1@gmail.com",
+    "fullName": "Ehomes Global Inclusive Limited",
+    "phoneNumber": "+2348026990956",
+    "role": "partner",
+    "isVerified": true,
+    "ninNumber": "96434424445",
+    "bvnVerified": true,
+    "accountNumber": null,
+    "bankName": "Flutterwave MFB",
+    "state": "Lagos",
+    "walletBalance": 8256,
+    "businessName": "Ehomes Global Inclusive Limited",
+    "cacNumber": "RC1234567",
+    "partnerStatus": "verified",
+    "createdAt": "2026-09-02T07:50:58.103846+00:00",
+    "updatedAt": "2026-09-03T17:59:52.21+00:00",
+    "passwordHash": "daf0e831a31884c472837cdfeef2132be3e7f2561b52611043e8f82280803552"
   }
 ]

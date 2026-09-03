@@ -25,6 +25,7 @@ class UserProfile {
   final bool rekycRequired;
   final String? dob;
   final String? bvn;
+  final String? kycFailureReason;
 
   UserProfile({
     required this.id,
@@ -51,6 +52,7 @@ class UserProfile {
     this.partnerStatus = 'unverified',
     this.rekycRequired = false,
     this.dob,
+    this.kycFailureReason,
   });
 
   // Extract real first name or corporate business name
@@ -122,6 +124,7 @@ class UserProfile {
       rekycRequired: json['rekycRequired'] ?? json['rekyc_required'] ?? false,
       dob: json['dob']?.toString(),
       bvn: json['bvn']?.toString() ?? json['bvn_number']?.toString(),
+      kycFailureReason: json['kycFailureReason']?.toString() ?? json['kyc_failure_reason']?.toString() ?? json['reason']?.toString(),
     );
   }
 
@@ -151,6 +154,7 @@ class UserProfile {
       'partnerStatus': partnerStatus,
       'rekycRequired': rekycRequired,
       'dob': dob,
+      'kycFailureReason': kycFailureReason,
     };
   }
 
@@ -179,6 +183,7 @@ class UserProfile {
     String? partnerStatus,
     bool? rekycRequired,
     String? dob,
+    String? kycFailureReason,
   }) {
     return UserProfile(
       id: id ?? this.id,
@@ -205,6 +210,7 @@ class UserProfile {
       partnerStatus: partnerStatus ?? this.partnerStatus,
       rekycRequired: rekycRequired ?? this.rekycRequired,
       dob: dob ?? this.dob,
+      kycFailureReason: kycFailureReason ?? this.kycFailureReason,
     );
   }
 }

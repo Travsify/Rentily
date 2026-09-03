@@ -54,12 +54,14 @@ class VerificationService {
       final data = json.decode(response.body);
 
       if (response.statusCode == 200 && (data['status'] == true || data['success'] == true)) {
-        final accNum = data['accountNumber']?.toString() ?? currentUser?.accountNumber ?? '';
-        String rawBank = data['bankName']?.toString() ?? currentUser?.bankName ?? '9PSB (Rentilly)';
+        final isProcessing = data['processing'] == true || data['accountNumber'] == null || data['accountNumber'] == '';
+        final accNum = data['accountNumber']?.toString() ?? '';
+        String rawBank = data['bankName']?.toString() ?? '9PSB (Rentilly)';
         final cleanBank = rawBank.contains('(') ? rawBank.split('(')[0].trim() : rawBank;
 
         final serverBal = (data['walletBalance'] as num?)?.toDouble() ?? currentUser?.walletBalance ?? 0.0;
         final serverUsdt = (data['usdtBalance'] as num?)?.toDouble() ?? currentUser?.usdtBalance ?? 0.0;
+        final failReason = data['reason']?.toString() ?? data['message']?.toString() ?? '9PSB account generation is pending validation with NIBSS.';
 
         final updatedUser = (currentUser ?? UserProfile(
           id: userId,
@@ -68,18 +70,29 @@ class VerificationService {
           phoneNumber: phone,
           role: currentUser?.role ?? 'renter',
         )).copyWith(
-          isVerified: true,
-          bvnVerified: true,
+          isVerified: !isProcessing,
+          bvnVerified: !isProcessing,
+          rekycRequired: isProcessing,
+          kycFailureReason: isProcessing ? failReason : null,
           businessName: isPartner ? partnerBizName : currentUser?.businessName,
           cacNumber: isPartner ? (cacNumber ?? currentUser?.cacNumber) : currentUser?.cacNumber,
           ninNumber: idType == 'nin' ? idNumber : currentUser?.ninNumber,
-          accountNumber: accNum.isNotEmpty ? accNum : currentUser?.accountNumber,
-          bankName: cleanBank,
+          accountNumber: accNum.isNotEmpty ? accNum : null,
+          bankName: isProcessing ? '9PSB (Rentilly Processing)' : cleanBank,
           walletBalance: serverBal,
           usdtBalance: serverUsdt,
         );
 
         await AuthService.updateUser(updatedUser);
+
+        if (isProcessing) {
+          return {
+            'success': false,
+            'processing': true,
+            'message': failReason,
+            'user': updatedUser,
+          };
+        }
 
         return {
           'success': true,

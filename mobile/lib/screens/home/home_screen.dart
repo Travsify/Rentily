@@ -256,18 +256,15 @@ class _HomeScreenState extends State<HomeScreen> {
                             // Verification Badge Pill
                             GestureDetector(
                               onTap: () {
-                                if (_user?.isVerified == true && _user?.accountNumber != null) {
+                                if (_user?.isVerified == true && _user?.accountNumber != null && _user!.accountNumber!.isNotEmpty) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text('Your dedicated Rentilly bank account is active and verified.', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
+                                      content: Text('Your dedicated Rentilly 9PSB bank account is active and verified.', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
                                       backgroundColor: AppColors.primary,
                                     ),
                                   );
-                                } else if (_user != null && (_user!.accountNumber == null || _user!.rekycRequired)) {
-                                  DateOfBirthModal.show(context, user: _user!, onSuccess: (updated) {
-                                    setState(() => _user = updated);
-                                  });
                                 } else {
+                                  // Open VerificationModal to show reason and allow immediate re-verification
                                   VerificationModal.show(context, onSuccess: (updated) {
                                     setState(() => _user = updated);
                                   });

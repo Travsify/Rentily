@@ -575,31 +575,62 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(accountNumber, style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.textPrimary)),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '$bankName • $businessName',
-                                    style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
-                                    overflow: TextOverflow.ellipsis,
-                                    maxLines: 1,
-                                  ),
-                                  if (cacNumber.isNotEmpty)
+                              child: GestureDetector(
+                                onTap: () {
+                                  if (_user?.accountNumber == null || _user!.accountNumber!.isEmpty) {
+                                    VerificationModal.show(context, onSuccess: (updated) {
+                                      setState(() => _user = updated);
+                                    });
+                                  }
+                                },
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(accountNumber, style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.textPrimary)),
+                                    const SizedBox(height: 2),
                                     Text(
-                                      'CAC: $cacNumber • Rentilly Settlement Rail',
-                                      style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textSecondary),
+                                      '$bankName • $businessName',
+                                      style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
                                       overflow: TextOverflow.ellipsis,
                                       maxLines: 1,
                                     ),
-                                ],
+                                    if (cacNumber.isNotEmpty)
+                                      Text(
+                                        'CAC: $cacNumber • Rentilly Settlement Rail',
+                                        style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textSecondary),
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 1,
+                                      ),
+                                    if (_user?.accountNumber == null || _user!.accountNumber!.isEmpty)
+                                      Container(
+                                        margin: const EdgeInsets.only(top: 6),
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.accentOrange.withValues(alpha: 0.12),
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(color: AppColors.accentOrange.withValues(alpha: 0.4)),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(Icons.info_outline_rounded, size: 13, color: AppColors.accentOrange),
+                                            const SizedBox(width: 5),
+                                            Text(
+                                              'KYB Incomplete • Tap to view reason & re-verify ⚡',
+                                              style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.accentOrange),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                  ],
+                                ),
                               ),
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.copy_rounded, size: 18, color: AppColors.primary),
-                              onPressed: () => _copyAccount(accountNumber, bankName),
-                            ),
+                            if (_user?.accountNumber != null && _user!.accountNumber!.isNotEmpty)
+                              IconButton(
+                                icon: const Icon(Icons.copy_rounded, size: 18, color: AppColors.primary),
+                                onPressed: () => _copyAccount(accountNumber, bankName),
+                              ),
                           ],
                         ),
                         const SizedBox(height: 10),

@@ -1066,31 +1066,62 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      accountNumber,
-                                      style: GoogleFonts.plusJakartaSans(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w900,
-                                        letterSpacing: 2.0,
-                                        color: AppColors.textPrimary,
+                                child: GestureDetector(
+                                  onTap: () {
+                                    if (_user?.accountNumber == null || _user!.accountNumber!.isEmpty) {
+                                      VerificationModal.show(context, onSuccess: (updated) {
+                                        setState(() => _user = updated);
+                                      });
+                                    }
+                                  },
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        accountNumber,
+                                        style: GoogleFonts.plusJakartaSans(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: 2.0,
+                                          color: AppColors.textPrimary,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      '$bankName • Direct Tenancy Inflows',
-                                      style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
-                                    ),
-                                  ],
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        '$bankName • Direct Tenancy Inflows',
+                                        style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
+                                      ),
+                                      if (_user?.accountNumber == null || _user!.accountNumber!.isEmpty)
+                                        Container(
+                                          margin: const EdgeInsets.only(top: 6),
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.accentOrange.withValues(alpha: 0.12),
+                                            borderRadius: BorderRadius.circular(8),
+                                            border: Border.all(color: AppColors.accentOrange.withValues(alpha: 0.4)),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(Icons.info_outline_rounded, size: 13, color: AppColors.accentOrange),
+                                              const SizedBox(width: 5),
+                                              Text(
+                                                'Pending 9PSB • Tap to complete KYB ⚡',
+                                                style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.accentOrange),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                    ],
+                                  ),
                                 ),
                               ),
-                              IconButton(
-                                icon: const Icon(Icons.copy_rounded, size: 18, color: AppColors.primary),
-                                onPressed: () => _copyAccount(accountNumber),
-                                tooltip: 'Copy Account Number',
-                              ),
+                              if (_user?.accountNumber != null && _user!.accountNumber!.isNotEmpty)
+                                IconButton(
+                                  icon: const Icon(Icons.copy_rounded, size: 18, color: AppColors.primary),
+                                  onPressed: () => _copyAccount(accountNumber),
+                                  tooltip: 'Copy Account Number',
+                                ),
                             ],
                           ),
                         ],
@@ -1415,28 +1446,65 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                         ),
                         const SizedBox(height: 12),
                         Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    _virtualAccounts[_selectedCurrency]?['accountNumber'] ?? _virtualAccounts[_selectedCurrency]?['iban'] ?? '',
-                                    style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w900, letterSpacing: 1.5, color: AppColors.textPrimary),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    '${_virtualAccounts[_selectedCurrency]?['bankName']} • ${_virtualAccounts[_selectedCurrency]?['type']}',
-                                    style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
-                                  ),
-                                ],
+                              child: GestureDetector(
+                                onTap: () {
+                                  if (_user?.accountNumber == null || _user!.accountNumber!.isEmpty) {
+                                    VerificationModal.show(context, onSuccess: (updated) {
+                                      setState(() => _user = updated);
+                                    });
+                                  }
+                                },
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _virtualAccounts[_selectedCurrency]?['accountNumber'] ?? _virtualAccounts[_selectedCurrency]?['iban'] ?? '',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w900,
+                                        letterSpacing: 1.5,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${_virtualAccounts[_selectedCurrency]?['bankName']} • ${_virtualAccounts[_selectedCurrency]?['type']}',
+                                      style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
+                                    ),
+                                    if (_user?.accountNumber == null || _user!.accountNumber!.isEmpty)
+                                      Container(
+                                        margin: const EdgeInsets.only(top: 6),
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.accentOrange.withValues(alpha: 0.12),
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(color: AppColors.accentOrange.withValues(alpha: 0.4)),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(Icons.info_outline_rounded, size: 13, color: AppColors.accentOrange),
+                                            const SizedBox(width: 5),
+                                            Text(
+                                              'Pending 9PSB • Tap to complete KYB ⚡',
+                                              style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.accentOrange),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                  ],
+                                ),
                               ),
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.copy_rounded, size: 18, color: AppColors.primary),
-                              onPressed: () => _copyAccount(_virtualAccounts[_selectedCurrency]?['accountNumber'] ?? _virtualAccounts[_selectedCurrency]?['iban'] ?? ''),
-                              tooltip: 'Copy Coordinates',
-                            ),
+                            if (_user?.accountNumber != null && _user!.accountNumber!.isNotEmpty)
+                              IconButton(
+                                icon: const Icon(Icons.copy_rounded, size: 18, color: AppColors.primary),
+                                onPressed: () => _copyAccount(_virtualAccounts[_selectedCurrency]?['accountNumber'] ?? _virtualAccounts[_selectedCurrency]?['iban'] ?? ''),
+                                tooltip: 'Copy Coordinates',
+                              ),
                           ],
                         ),
                       ],

@@ -213,12 +213,31 @@ export async function verifyAndProvision(req: Request, res: Response) {
         message: `Your KYC verification documents have been received and are currently being processed by Rentilly. Your existing wallet balance of ₦${currentBalance.toLocaleString()} is 100% safe and visible. You will receive an email the moment your dedicated account and dollar card are activated.`
       });
 
+      const failureReason = mapleRes?.errors?.length
+        ? mapleRes.errors.join('; ')
+        : 'Maplerad 9PSB BVN validation pending with NIBSS';
+
+      if (supabase) {
+        try {
+          await supabase
+            .from('profiles')
+            .update({
+              rekyc_required: true,
+              is_verified: false,
+              kyc_failure_reason: failureReason
+            })
+            .eq('email', cleanEmail);
+        } catch (_) {}
+      }
+
       return res.status(200).json({
         status: true,
         processing: true,
-        message: 'Your KYC verification has been received and is currently being processed by Rentilly. Your account details will be updated shortly.',
-        accountNumber: existing?.accountNumber || null,
-        bankName: existing?.bankName || 'Rentilly Settlement (Processing)',
+        reason: failureReason,
+        errors: mapleRes?.errors || [failureReason],
+        message: `KYC verification pending: ${failureReason}. Please review your details and re-verify.`,
+        accountNumber: null,
+        bankName: '9PSB (Rentilly Processing)',
         walletBalance: currentBalance,
         usdtBalance: currentUsdtBalance,
         user: {
@@ -227,12 +246,13 @@ export async function verifyAndProvision(req: Request, res: Response) {
           fullName: cleanName,
           businessName: partnerBizName,
           cacNumber: cacNumber,
-          isVerified: true,
-          accountNumber: existing?.accountNumber || null,
-          bankName: existing?.bankName || 'Rentilly Settlement (Processing)',
+          isVerified: false,
+          accountNumber: null,
+          bankName: '9PSB (Rentilly Processing)',
           walletBalance: currentBalance,
           usdtBalance: currentUsdtBalance,
-          role: updatedUser.role
+          role: updatedUser.role,
+          kycFailureReason: failureReason
         }
       });
     }

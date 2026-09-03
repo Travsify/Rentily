@@ -389,46 +389,109 @@ class _VerificationModalState extends State<VerificationModal> {
           Container(
             width: double.infinity,
             margin: const EdgeInsets.only(bottom: 16),
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: const Color(0xFFFEF3C7),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFFCD34D)),
+              border: Border.all(color: const Color(0xFFFCD34D), width: 1.5),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.cake_rounded, color: Color(0xFFB45309), size: 20),
+                    const Icon(Icons.error_outline_rounded, color: Color(0xFFB45309), size: 22),
                     const SizedBox(width: 8),
-                    Text(
-                      'Action Required: Confirm Date of Birth',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: const Color(0xFF92400E)),
+                    Expanded(
+                      child: Text(
+                        'Verification Pending / Incomplete ⚠️',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w900, color: const Color(0xFF92400E)),
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
-                Text(
-                  'To activate your dedicated 9PSB settlement account & Virtual Dollar Card, please confirm your Date of Birth. Your current wallet balance is 100% safe.',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 11, color: const Color(0xFFB45309), height: 1.4),
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFFDE68A)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Why was your account not verified?',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.w800, color: const Color(0xFF92400E)),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        user.kycFailureReason ?? _errorMessage ?? 'Maplerad could not validate your BVN with NIBSS central banking database. Please ensure your 11-digit BVN and Date of Birth match your bank records.',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.w600, color: const Color(0xFF78350F), height: 1.35),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: _syncLiveNuban,
-                    icon: const Icon(Icons.cake_rounded, size: 16, color: Colors.white),
-                    label: Text(
-                      'Confirm Date of Birth & Activate ⚡',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                Text(
+                  'Please re-verify your details or start the KYB/KYC process again to activate your live 9PSB settlement account and Dollar Card.',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 11, color: const Color(0xFFB45309), height: 1.3),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 6,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            _isRedoMode = true;
+                            _currentStep = 0;
+                            if (user.fullName.isNotEmpty) {
+                              _businessNameController.text = user.businessName ?? user.fullName;
+                            }
+                            if (user.cacNumber != null) {
+                              _cacNumberController.text = user.cacNumber!;
+                            }
+                            if (user.ninNumber != null) {
+                              _idController.text = user.ninNumber!;
+                            }
+                            if (user.bvn != null) {
+                              _bvnController.text = user.bvn!;
+                            }
+                          });
+                        },
+                        icon: const Icon(Icons.restart_alt_rounded, size: 16, color: Colors.white),
+                        label: Text(
+                          isPartner ? 'Start KYB Again ⚡' : 'Start KYC Again ⚡',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.w900, color: Colors.white),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
                     ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF16A34A),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 4,
+                      child: OutlinedButton(
+                        onPressed: _syncLiveNuban,
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFFB45309)),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        child: Text(
+                          'Quick Retry 🎂',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFFB45309)),
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ],
             ),
