@@ -15,7 +15,8 @@ import {
   TrendingUp, 
   Building,
   Eye,
-  EyeOff
+  EyeOff,
+  Zap
 } from 'lucide-react';
 
 interface VirtualAccount {
@@ -68,6 +69,9 @@ export const GlobalCardsDeskTab: React.FC = () => {
   const [fxUsd, setFxUsd] = useState('1510');
   const [fxGbp, setFxGbp] = useState('1980');
   const [fxEur, setFxEur] = useState('1660');
+  const [spreadBase, setSpreadBase] = useState('1430');
+  const [spreadBuyRate, setSpreadBuyRate] = useState('1400');
+  const [spreadSellRate, setSpreadSellRate] = useState('1460');
   const [savingFx, setSavingFx] = useState(false);
   const [cardPricing, setCardPricing] = useState({
     issuanceFeeUsd: 3.00,
@@ -91,11 +95,12 @@ export const GlobalCardsDeskTab: React.FC = () => {
 
   const fetchData = async () => {
     try {
-      const [accRes, cardRes, fxRes, pricingRes] = await Promise.all([
+      const [accRes, cardRes, fxRes, pricingRes, spreadRes] = await Promise.all([
         fetch('/api/wallet/multi-currency-accounts?email=tonerocool1@gmail.com'),
         fetch('/api/cards/user-cards?email=tonerocool1@gmail.com'),
         fetch('/api/wallet/fx-rates'),
-        fetch('/api/cards/pricing')
+        fetch('/api/cards/pricing'),
+        fetch('/api/fx/spread-rates')
       ]);
 
       if (accRes.ok) {
@@ -113,6 +118,14 @@ export const GlobalCardsDeskTab: React.FC = () => {
           setFxUsd((d.data.USD_NGN || 1510).toString());
           setFxGbp((d.data.GBP_NGN || 1980).toString());
           setFxEur((d.data.EUR_NGN || 1660).toString());
+        }
+      }
+      if (spreadRes.ok) {
+        const s = await spreadRes.json();
+        if (s.success) {
+          setSpreadBase((s.baseRate || 1430).toString());
+          setSpreadBuyRate((s.buyRate || 1400).toString());
+          setSpreadSellRate((s.sellRate || 1460).toString());
         }
       }
       if (pricingRes.ok) {
@@ -138,23 +151,29 @@ export const GlobalCardsDeskTab: React.FC = () => {
     e.preventDefault();
     setSavingFx(true);
     try {
-      const res = await fetch('/api/wallet/fx-rates', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          USD_NGN: Number(fxUsd),
-          GBP_NGN: Number(fxGbp),
-          EUR_NGN: Number(fxEur)
+      await Promise.all([
+        fetch('/api/wallet/fx-rates', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            USD_NGN: Number(fxUsd),
+            GBP_NGN: Number(fxGbp),
+            EUR_NGN: Number(fxEur)
+          })
+        }),
+        fetch('/api/fx/spread-rates', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            baseRate: Number(spreadBase),
+            buyRate: Number(spreadBuyRate),
+            sellRate: Number(spreadSellRate)
+          })
         })
-      });
-      if (res.ok) {
-        const d = await res.json();
-        if (d.data) {
-          setFxRates(d.data);
-        }
-        setShowFxModal(false);
-        fetchData();
-      }
+      ]);
+
+      setShowFxModal(false);
+      fetchData();
     } catch (_) {}
     setSavingFx(false);
   };
@@ -748,8 +767,93 @@ export const GlobalCardsDeskTab: React.FC = () => {
             </p>
 
             <form onSubmit={handleSaveFxRates} className="space-y-4 text-xs">
+              {/* USDT Bid / Ask Spread Engine Section */}
+              <div className="p-3.5 rounded-xl bg-slate-950/80 border border-emerald-500/30 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-emerald-400 font-bold text-xs">
+                    <Zap className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>USDT (TRC20) Spread & Profit Margins</span>
+                  </div>
+                  <span className="text-[9px] bg-emerald-500/20 text-emerald-300 font-bold px-1.5 py-0.5 rounded">
+                    Mobile Swaps & Cashouts
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="text-[10px] text-slate-400 font-medium block mb-1">Market Benchmark</label>
+                    <div className="relative">
+                      <span className="absolute left-2 top-2 text-slate-500 text-xs">₦</span>
+                      <input
+                        type="number"
+                        step="1"
+                        required
+                        min="1"
+                        value={spreadBase}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setSpreadBase(val);
+                          const num = Number(val);
+                          if (num > 60) {
+                            setSpreadBuyRate((num - 30).toString());
+                            setSpreadSellRate((num + 30).toString());
+                          }
+                        }}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-5 pr-2 py-1.5 text-white font-mono text-xs font-bold focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-amber-400 font-medium block mb-1">Buy Rate (Cashout)</label>
+                    <div className="relative">
+                      <span className="absolute left-2 top-2 text-slate-500 text-xs">₦</span>
+                      <input
+                        type="number"
+                        step="1"
+                        required
+                        min="1"
+                        value={spreadBuyRate}
+                        onChange={(e) => setSpreadBuyRate(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-5 pr-2 py-1.5 text-amber-300 font-mono text-xs font-bold focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-cyan-400 font-medium block mb-1">Sell Rate (Buy USDT)</label>
+                    <div className="relative">
+                      <span className="absolute left-2 top-2 text-slate-500 text-xs">₦</span>
+                      <input
+                        type="number"
+                        step="1"
+                        required
+                        min="1"
+                        value={spreadSellRate}
+                        onChange={(e) => setSpreadSellRate(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-lg pl-5 pr-2 py-1.5 text-cyan-300 font-mono text-xs font-bold focus:outline-none focus:border-cyan-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-2 rounded-lg bg-emerald-950/40 border border-emerald-500/20 text-[10px] text-emerald-300 font-mono space-y-0.5">
+                  <div className="flex justify-between">
+                    <span>• Cashout Margin (User sells USDT):</span>
+                    <span className="font-bold text-emerald-400">+₦{(Math.max(0, Number(spreadBase) - Number(spreadBuyRate))).toLocaleString()} / USDT</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>• Swap Margin (User buys USDT):</span>
+                    <span className="font-bold text-emerald-400">+₦{(Math.max(0, Number(spreadSellRate) - Number(spreadBase))).toLocaleString()} / USDT</span>
+                  </div>
+                  <div className="text-[9px] text-slate-400 pt-1 font-sans">
+                    ⚡ Saving broadcasts live to all mobile apps (Rentals, Landlords, Partners) via Supabase Cloud.
+                  </div>
+                </div>
+              </div>
+
               <div>
-                <label className="text-slate-300 font-medium block mb-1">USD / NGN (United States Dollar)</label>
+                <label className="text-slate-300 font-medium block mb-1">USD / NGN (Virtual Cards & USD Vault)</label>
                 <div className="relative">
                   <span className="absolute left-3 top-2.5 text-slate-500 font-bold">₦</span>
                   <input
@@ -799,8 +903,8 @@ export const GlobalCardsDeskTab: React.FC = () => {
               <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1 text-[11px] text-slate-300 font-mono">
                 <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1 font-sans">Live Conversion Preview</div>
                 <div>• $100.00 = ₦{(Number(fxUsd) * 100).toLocaleString()}</div>
-                <div>• £100.00 = ₦{(Number(fxGbp) * 100).toLocaleString()}</div>
-                <div>• €100.00 = ₦{(Number(fxEur) * 100).toLocaleString()}</div>
+                <div>• 100 USDT (Cashout) = ₦{(Number(spreadBuyRate) * 100).toLocaleString()}</div>
+                <div>• 100 USDT (Buy) = ₦{(Number(spreadSellRate) * 100).toLocaleString()}</div>
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
