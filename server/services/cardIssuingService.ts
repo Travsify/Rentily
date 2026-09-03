@@ -68,12 +68,12 @@ export class CardIssuingService {
     liquidationFeePercent: 1.0,
   };
 
-  /** Standard Delaware USA Billing Address for all Virtual Dollar Cards */
+  /** Official USA Billing Address for Maplerad Virtual Dollar Cards */
   public static readonly DEFAULT_BILLING_ADDRESS = {
-    street: '651 N Broad Street',
-    city: 'Middletown',
-    state: 'Delaware',
-    postalCode: '19709',
+    street: '1 Sansome St',
+    city: 'San Francisco',
+    state: 'CA',
+    postalCode: '94104',
     country: 'United States',
   };
 

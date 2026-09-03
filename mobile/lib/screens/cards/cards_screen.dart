@@ -533,7 +533,7 @@ class _CardsScreenState extends State<CardsScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'BILLING ADDRESS (DELAWARE, USA)',
+                    'BILLING ADDRESS (SAN FRANCISCO, USA)',
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
@@ -544,7 +544,7 @@ class _CardsScreenState extends State<CardsScreen> {
                   GestureDetector(
                     onTap: () {
                       Clipboard.setData(const ClipboardData(
-                        text: '651 N Broad Street, Middletown, Delaware, 19709, United States',
+                        text: '1 Sansome St, San Francisco, California, 94104, United States',
                       ));
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Full billing address copied ✓'), duration: Duration(seconds: 1)),
@@ -570,9 +570,9 @@ class _CardsScreenState extends State<CardsScreen> {
                   children: [
                     _buildCopyableRow(
                       label: 'Street Address',
-                      value: '651 N Broad Street',
+                      value: '1 Sansome St',
                       onCopy: () {
-                        Clipboard.setData(const ClipboardData(text: '651 N Broad Street'));
+                        Clipboard.setData(const ClipboardData(text: '1 Sansome St'));
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Street copied ✓'), duration: Duration(seconds: 1)),
                         );
@@ -581,9 +581,9 @@ class _CardsScreenState extends State<CardsScreen> {
                     const Divider(color: Colors.white10, height: 16),
                     _buildCopyableRow(
                       label: 'City',
-                      value: 'Middletown',
+                      value: 'San Francisco',
                       onCopy: () {
-                        Clipboard.setData(const ClipboardData(text: 'Middletown'));
+                        Clipboard.setData(const ClipboardData(text: 'San Francisco'));
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('City copied ✓'), duration: Duration(seconds: 1)),
                         );
@@ -592,9 +592,9 @@ class _CardsScreenState extends State<CardsScreen> {
                     const Divider(color: Colors.white10, height: 16),
                     _buildCopyableRow(
                       label: 'State',
-                      value: 'Delaware (DE)',
+                      value: 'California (CA)',
                       onCopy: () {
-                        Clipboard.setData(const ClipboardData(text: 'Delaware'));
+                        Clipboard.setData(const ClipboardData(text: 'California'));
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('State copied ✓'), duration: Duration(seconds: 1)),
                         );
@@ -603,10 +603,10 @@ class _CardsScreenState extends State<CardsScreen> {
                     const Divider(color: Colors.white10, height: 16),
                     _buildCopyableRow(
                       label: 'Postal / ZIP Code',
-                      value: '19709',
+                      value: '94104',
                       isMonospace: true,
                       onCopy: () {
-                        Clipboard.setData(const ClipboardData(text: '19709'));
+                        Clipboard.setData(const ClipboardData(text: '94104'));
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('ZIP Code copied ✓'), duration: Duration(seconds: 1)),
                         );
