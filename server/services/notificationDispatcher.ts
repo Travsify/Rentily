@@ -192,13 +192,20 @@ export class NotificationDispatcher {
               </p>
 
               ${(event.actionUrl || (category === 'system' && title.toLowerCase().includes('upgrade')) || (category === 'system' && title.toLowerCase().includes('action required'))) ? `
-              <!-- Call To Action Button -->
-              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 24px 0 28px 0;">
+              <!-- Call To Action Button (Deep-link directly to Rentilly Mobile App) -->
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 24px 0 16px 0;">
                 <tr>
                   <td align="center">
-                    <a href="${event.actionUrl || `https://myrentilly.com/verify/re-kyc?email=${encodeURIComponent(event.email)}`}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #10B981 0%, #059669 100%); color: #FFFFFF; text-decoration: none; font-size: 14px; font-weight: 800; padding: 16px 32px; border-radius: 14px; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);">
-                      ${event.actionLabel || 'Confirm Date of Birth & Upgrade Account ⚡'}
+                    <a href="${event.actionUrl || 'rentilly://dob'}" style="display: inline-block; background: linear-gradient(135deg, #10B981 0%, #059669 100%); color: #FFFFFF; text-decoration: none; font-size: 14px; font-weight: 800; padding: 16px 32px; border-radius: 14px; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);">
+                      ${event.actionLabel || 'Open Rentilly Mobile App 📲'}
                     </a>
+                  </td>
+                </tr>
+              </table>
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 12px; padding: 12px 16px; margin-bottom: 24px;">
+                <tr>
+                  <td style="color: #A7F3D0; font-size: 12px; line-height: 1.5; text-align: center;">
+                    📲 <strong>In-App Verification Only:</strong> Please open the Rentilly app on your mobile phone to confirm your Date of Birth and activate your dedicated 9PSB settlement account & Virtual Dollar Card.
                   </td>
                 </tr>
               </table>
@@ -443,8 +450,12 @@ export class NotificationDispatcher {
         property: 'open_properties',
         utilities: 'open_wallet',
         broadcast: 'open_notifications',
+        system: 'open_dob',
       };
-      const deepAction = actionMap[event.category] || 'open_notifications';
+      let deepAction = actionMap[event.category] || 'open_notifications';
+      if (event.title && (event.title.toLowerCase().includes('upgrade') || event.title.toLowerCase().includes('birth') || event.title.toLowerCase().includes('kyc') || event.title.toLowerCase().includes('action required'))) {
+        deepAction = 'open_dob';
+      }
       const targetEmail = (event.email || '').trim().toLowerCase();
       const { pushToPlayer, pushToEmail, pushToExternalUser } = await import('./onesignalService');
       let pushDispatched = false;

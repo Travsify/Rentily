@@ -1,8 +1,11 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:onesignal_flutter/onesignal_flutter.dart';
 import '../constants/app_constants.dart';
+import '../widgets/inactivity_watcher.dart';
+import '../widgets/date_of_birth_modal.dart';
 import 'auth_service.dart';
 import 'api_service.dart';
 
@@ -132,22 +135,41 @@ class PushNotificationService {
   }
 
   /// Handle notification tap — deep-link to the correct screen.
-  static void _handleNotificationTap(OSNotificationClickEvent event) {
+  static void _handleNotificationTap(OSNotificationClickEvent event) async {
     try {
-      final data = event.notification.additionalData;
-      if (data == null) return;
-
+      final data = event.notification.additionalData ?? {};
       final String? action = data['action']?.toString();
-      debugPrint('[PushNotification] Deep-link action: \$action');
+      final String title = event.notification.title ?? '';
+      final String body = event.notification.body ?? '';
+      debugPrint('[PushNotification] Deep-link action: $action, title: $title');
 
-      // Deep-linking actions:
-      // 'open_wallet' → navigate to wallet
-      // 'open_cards' → navigate to cards screen
-      // 'open_property' → navigate to property detail
-      // 'open_kyc' → navigate to KYC screen
-      // The app's navigation handles these via the main navigator
+      final isDobOrKyc = action == 'open_dob' ||
+          action == 'open_kyc' ||
+          action == 'open_rekyc' ||
+          title.toLowerCase().contains('upgrade') ||
+          title.toLowerCase().contains('birth') ||
+          title.toLowerCase().contains('kyc') ||
+          title.toLowerCase().contains('action required') ||
+          body.toLowerCase().contains('birth') ||
+          body.toLowerCase().contains('upgrade');
+
+      if (isDobOrKyc) {
+        final context = rootNavigatorKey.currentContext;
+        if (context == null) return;
+
+        final user = await AuthService.getCurrentUser();
+        if (user != null && context.mounted) {
+          DateOfBirthModal.show(
+            context,
+            user: user,
+            onSuccess: (updated) {
+              debugPrint('[PushNotification] User successfully activated: ${updated.accountNumber}');
+            },
+          );
+        }
+      }
     } catch (e) {
-      debugPrint('[PushNotification] Tap handler error: \$e');
+      debugPrint('[PushNotification] Tap handler error: $e');
     }
   }
 }
