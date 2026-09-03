@@ -49,7 +49,7 @@ function getStoragePath(): string {
   return path.join(_DATA_DIR, 'users.json');
 }
 
-function hashPassword(password: string): string {
+export function hashPassword(password: string): string {
   return crypto.createHash('sha256').update(password + '_rentilly_salt_2026').digest('hex');
 }
 
@@ -175,6 +175,23 @@ export class UserStore {
     try {
       const { data, error } = await supabase.from('profiles').select('*');
       if (!error && data && Array.isArray(data)) {
+        // Hydrate permanent password hashes from Supabase system_configs
+        const authMap: Record<string, string> = {};
+        try {
+          const { data: authConfigs } = await supabase
+            .from('system_configs')
+            .select('id, data')
+            .like('id', 'auth_%');
+          if (authConfigs) {
+            for (const cfg of authConfigs) {
+              const uEmail = cfg.id.replace('auth_', '').toLowerCase().trim();
+              if (cfg.data?.passwordHash) {
+                authMap[uEmail] = cfg.data.passwordHash;
+              }
+            }
+          }
+        } catch (_) {}
+
         const current = _userCache || [];
         for (const p of data) {
           const cleanEmail = (p.email || '').toLowerCase().trim();
@@ -204,14 +221,18 @@ export class UserStore {
           };
 
           const idx = current.findIndex(u => u.email.toLowerCase() === cleanEmail || u.id === p.id);
+          const savedHash = authMap[cleanEmail] || current[idx]?.passwordHash || (p.password_hash || p.password);
           if (idx >= 0) {
             current[idx] = {
               ...current[idx],
               ...userObj,
-              passwordHash: current[idx].passwordHash || userObj.passwordHash
+              passwordHash: savedHash || current[idx].passwordHash
             };
           } else {
-            current.push(userObj);
+            current.push({
+              ...userObj,
+              passwordHash: savedHash
+            });
           }
         }
         _userCache = current;
@@ -409,6 +430,22 @@ export class UserStore {
         }
       }).catch(err => {
         console.error('[UserStore] Supabase profile upsert network error:', err);
+      });
+    }
+
+    // Persist password hash permanently to Supabase system_configs
+    if (supabase && user.passwordHash) {
+      supabase.from('system_configs').upsert({
+        id: `auth_${user.email.toLowerCase().trim()}`,
+        data: {
+          email: user.email.toLowerCase().trim(),
+          passwordHash: user.passwordHash,
+          updatedAt: new Date().toISOString()
+        }
+      }).then(({ error }) => {
+        if (error) {
+          console.error('[UserStore] Error persisting auth config to Supabase:', error.message);
+        }
       });
     }
 

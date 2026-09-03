@@ -15,7 +15,8 @@
     "businessName": null,
     "cacNumber": null,
     "createdAt": "2026-09-02T07:53:07.374682+00:00",
-    "updatedAt": "2026-09-02T07:53:07.374682+00:00"
+    "updatedAt": "2026-09-02T07:53:07.374682+00:00",
+    "passwordHash": "1a6c236645cd3cff3f5b9e7e06bfb78226a30ed3fe22266f72ff258076afff48"
   },
   {
     "id": "a197e323-d8b1-4d54-800a-65c4f16299c0",
@@ -33,7 +34,8 @@
     "businessName": null,
     "cacNumber": null,
     "createdAt": "2026-09-03T01:14:06.530543+00:00",
-    "updatedAt": "2026-09-03T15:45:58.821+00:00"
+    "updatedAt": "2026-09-03T15:45:58.821+00:00",
+    "passwordHash": "7d1e7d9746ac6d15aa55e22d7b6aca74d9be9b50b62375a3cdcbf7127f50a1b5"
   },
   {
     "id": "b0000000-0000-0000-0000-000000000001",
@@ -51,7 +53,8 @@
     "businessName": null,
     "cacNumber": null,
     "createdAt": "2026-09-02T07:53:40.172175+00:00",
-    "updatedAt": "2026-09-03T15:45:59.929+00:00"
+    "updatedAt": "2026-09-03T15:45:59.929+00:00",
+    "passwordHash": "7d1e7d9746ac6d15aa55e22d7b6aca74d9be9b50b62375a3cdcbf7127f50a1b5"
   },
   {
     "id": "c0000000-0000-0000-0000-000000000001",
@@ -70,6 +73,41 @@
     "cacNumber": null,
     "partnerStatus": "verified",
     "createdAt": "2026-09-02T07:50:58.103846+00:00",
-    "updatedAt": "2026-09-03T15:46:00.463+00:00"
+    "updatedAt": "2026-09-03T15:46:00.463+00:00",
+    "passwordHash": "7d1e7d9746ac6d15aa55e22d7b6aca74d9be9b50b62375a3cdcbf7127f50a1b5"
+  },
+  {
+    "id": "3ad20581-44d1-4bd7-8975-e2a02c632927",
+    "email": "authtest_1788451259486@myrentilly.com",
+    "fullName": "Test User",
+    "phoneNumber": "+2348011223344",
+    "role": "renter",
+    "isVerified": false,
+    "ninNumber": null,
+    "bvnVerified": false,
+    "accountNumber": null,
+    "bankName": "Flutterwave MFB",
+    "state": "Lagos",
+    "walletBalance": 0,
+    "businessName": null,
+    "cacNumber": null,
+    "createdAt": "2026-09-03T16:01:00.181461+00:00",
+    "updatedAt": "2026-09-03T16:00:59.803+00:00"
+  },
+  {
+    "id": "3bbdcdc6-c705-4166-845f-a5c1694fce1c",
+    "email": "authtest_1788451285457@myrentilly.com",
+    "fullName": "Test User 2",
+    "phoneNumber": "+2348011223344",
+    "passwordHash": "b1a81362074f07af2a2a06bed5b474f366250fe3954effb27a83be01d44ef4cc",
+    "role": "renter",
+    "isVerified": false,
+    "state": "Lagos",
+    "walletBalance": 0,
+    "businessName": null,
+    "cacNumber": null,
+    "officeAddress": null,
+    "createdAt": "2026-09-03T16:01:25.788Z",
+    "updatedAt": "2026-09-03T16:01:25.788Z"
   }
 ]

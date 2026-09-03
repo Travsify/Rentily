@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { supabase } from '../supabaseClient';
-import { UserStore } from '../services/userStore';
+import { UserStore, hashPassword } from '../services/userStore';
 import { NotificationDispatcher } from '../services/notificationDispatcher';
 import crypto from 'crypto';
 
@@ -32,40 +32,50 @@ export async function register(req: Request, res: Response) {
       return res.status(409).json({ error: 'An account with this email already exists. Please log in.' });
     }
 
-    const newUser = await UserStore.createUser({
-      fullName,
-      email: cleanEmail,
-      phoneNumber: cleanPhone,
-      password,
-      role,
-      state,
-      businessName,
-      cacNumber,
-      officeAddress,
-      partnerStatus,
-    });
+    let userToReturn: any = null;
+    if (existing && !existing.passwordHash) {
+      const pHash = hashPassword(password);
+      existing.passwordHash = pHash;
+      if (fullName) existing.fullName = fullName;
+      if (cleanPhone) existing.phoneNumber = cleanPhone;
+      UserStore.upsertUser(existing);
+      userToReturn = existing;
+    } else {
+      userToReturn = await UserStore.createUser({
+        fullName,
+        email: cleanEmail,
+        phoneNumber: cleanPhone,
+        password,
+        role,
+        state,
+        businessName,
+        cacNumber,
+        officeAddress,
+        partnerStatus,
+      });
+    }
 
-    const token = `rentilly_jwt_${newUser.id}_${Date.now()}`;
+    const token = `rentilly_jwt_${userToReturn.id}_${Date.now()}`;
 
     return res.status(201).json({
       message: 'Account created successfully',
       token,
       user: {
-        id: newUser.id,
-        fullName: newUser.fullName,
-        email: newUser.email,
-        phoneNumber: newUser.phoneNumber,
-        role: newUser.role,
-        isVerified: newUser.isVerified,
-        accountNumber: newUser.accountNumber,
-        bankName: newUser.bankName,
-        state: newUser.state,
-        businessName: newUser.businessName,
-        cacNumber: newUser.cacNumber,
-        officeAddress: newUser.officeAddress,
-        partnerStatus: newUser.partnerStatus,
-        walletBalance: newUser.walletBalance || 0,
-        createdAt: newUser.createdAt,
+        id: userToReturn.id,
+        fullName: userToReturn.fullName,
+        email: userToReturn.email,
+        phoneNumber: userToReturn.phoneNumber,
+        role: userToReturn.role,
+        isVerified: userToReturn.isVerified,
+        accountNumber: userToReturn.accountNumber,
+        bankName: userToReturn.bankName,
+        state: userToReturn.state,
+        businessName: userToReturn.businessName,
+        cacNumber: userToReturn.cacNumber,
+        officeAddress: userToReturn.officeAddress,
+        partnerStatus: userToReturn.partnerStatus,
+        walletBalance: userToReturn.walletBalance || 0,
+        createdAt: userToReturn.createdAt,
       },
     });
 
@@ -465,12 +475,13 @@ export async function resetPasswordWithOtp(req: Request, res: Response) {
       return res.status(400).json({ error: 'This verification code has expired. Please request a new one.' });
     }
 
-    // Hash new password
-    const newHash = crypto.createHash('sha256').update(newPassword).digest('hex');
+    // Hash new password using canonical salted SHA-256
+    const newHash = hashPassword(newPassword);
 
     // Update in UserStore
     let user = await UserStore.findByEmail(cleanEmail);
     if (user) {
+      user.passwordHash = newHash;
       UserStore.upsertUser({
         ...user,
         passwordHash: newHash,
@@ -478,17 +489,20 @@ export async function resetPasswordWithOtp(req: Request, res: Response) {
       });
     }
 
-    // Update in Supabase profiles table
+    // Persist permanently to Supabase system_configs
     if (supabase) {
       try {
-        await supabase
-          .from('profiles')
-          .update({
-            password_hash: newHash,
-            updated_at: new Date().toISOString()
-          })
-          .eq('email', cleanEmail);
-      } catch (_) {}
+        await supabase.from('system_configs').upsert({
+          id: `auth_${cleanEmail}`,
+          data: {
+            email: cleanEmail,
+            passwordHash: newHash,
+            updatedAt: new Date().toISOString()
+          }
+        });
+      } catch (e: any) {
+        console.error('[resetPasswordWithOtp] Supabase auth save error:', e?.message);
+      }
     }
 
     // Clear consumed OTP

@@ -107,6 +107,46 @@ class AuthService {
     }
 
     // Layer 1: Direct Supabase Cloud REST API (Primary Instant Database)
+    // Layer 1: Render Core API (Primary Auth Authority - Computes & Stores Salted Password Hash)
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/auth/register'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'fullName': fullName,
+          'email': cleanEmail,
+          'password': password,
+          'phoneNumber': cleanPhone,
+          'role': role,
+          'state': state ?? 'Lagos',
+          'businessName': businessName,
+          'cacNumber': cacNumber,
+          'officeAddress': officeAddress,
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = json.decode(response.body);
+        final token = data['token'];
+        final userData = data['user'];
+
+        await _saveSession(token, userData);
+
+        final userProfile = UserProfile.fromJson(userData);
+        return {
+          'success': true,
+          'user': userProfile,
+          'message': 'Account created successfully',
+        };
+      } else if (response.statusCode == 409) {
+        return {
+          'success': false,
+          'message': 'An account with this email already exists. Please log in.',
+        };
+      }
+    } catch (_) {}
+
+    // Layer 2: Supabase Fallback if server timed out
     try {
       final supabaseResponse = await http.post(
         Uri.parse('$supabaseUrl/rest/v1/profiles'),
@@ -150,7 +190,7 @@ class AuthService {
 
         await _saveSession(token, userMap);
 
-        // Background notification to Render
+        // Notify backend to save password hash in system_configs
         http.post(
           Uri.parse('$baseUrl/auth/register'),
           headers: {'Content-Type': 'application/json'},
@@ -168,18 +208,6 @@ class AuthService {
         ).catchError((_) => http.Response('', 500));
 
         final userProfile = UserProfile.fromJson(userMap);
-
-        // Dispatch security activity email alert
-        SecurityTelemetryService.recordActivity(
-          title: 'Account Registration Confirmation 🔑',
-          message: 'Welcome to Rentilly! Your account has been registered successfully.',
-          userEmail: cleanEmail,
-          userName: fullName,
-          userId: userMap['id'],
-          category: 'security',
-          extraMetadata: {'Role': role, 'Status': 'Verified Onboarding'},
-        );
-
         return {
           'success': true,
           'user': userProfile,
@@ -191,43 +219,6 @@ class AuthService {
         return {
           'success': false,
           'message': 'An account with these credentials already exists. Please log in.',
-        };
-      }
-    } catch (_) {}
-
-    // Layer 2: Render Core API Fallback
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/auth/register'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'fullName': fullName,
-          'email': cleanEmail,
-          'password': password,
-          'phoneNumber': cleanPhone,
-          'role': role,
-          'state': state,
-          'businessName': businessName,
-          'cacNumber': cacNumber,
-          'officeAddress': officeAddress,
-        }),
-      ).timeout(const Duration(seconds: 10));
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        final data = json.decode(response.body);
-        final token = data['token'];
-        final userData = data['user'];
-
-        await _saveSession(token, userData);
-        return {
-          'success': true,
-          'user': UserProfile.fromJson(userData),
-          'message': 'Account created successfully',
-        };
-      } else if (response.statusCode == 409) {
-        return {
-          'success': false,
-          'message': 'An account with this email already exists. Please sign in.',
         };
       }
     } catch (_) {}
