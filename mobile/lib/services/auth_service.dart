@@ -4,6 +4,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/app_constants.dart';
 import '../models/user_profile.dart';
+import 'push_notification_service.dart';
+import 'payment_security_service.dart';
 
 class AuthService {
   static const String baseUrl = AppConstants.apiBaseUrl;
@@ -51,6 +53,57 @@ class AuthService {
   }) async {
     final cleanEmail = email.trim().toLowerCase();
     final cleanPhone = phoneNumber.trim();
+
+    if (cleanEmail.isEmpty || password.isEmpty || fullName.trim().isEmpty) {
+      return {
+        'success': false,
+        'message': 'Please enter your full name, email, and password.',
+      };
+    }
+
+    // Security Gate 1: Check if email already exists in Supabase
+    try {
+      final checkEmailResponse = await http.get(
+        Uri.parse('$supabaseUrl/rest/v1/profiles?email=eq.$cleanEmail&select=id'),
+        headers: {
+          'apikey': supabaseKey,
+          'Authorization': 'Bearer $supabaseKey',
+        },
+      ).timeout(const Duration(seconds: 6));
+
+      if (checkEmailResponse.statusCode == 200) {
+        final List<dynamic> existingUsers = json.decode(checkEmailResponse.body);
+        if (existingUsers.isNotEmpty) {
+          return {
+            'success': false,
+            'message': 'An account with this email address already exists. Please log in.',
+          };
+        }
+      }
+    } catch (_) {}
+
+    // Security Gate 2: Check if phone number already exists
+    if (cleanPhone.isNotEmpty) {
+      try {
+        final checkPhoneResponse = await http.get(
+          Uri.parse('$supabaseUrl/rest/v1/profiles?phone_number=eq.$cleanPhone&select=id'),
+          headers: {
+            'apikey': supabaseKey,
+            'Authorization': 'Bearer $supabaseKey',
+          },
+        ).timeout(const Duration(seconds: 6));
+
+        if (checkPhoneResponse.statusCode == 200) {
+          final List<dynamic> existingPhones = json.decode(checkPhoneResponse.body);
+          if (existingPhones.isNotEmpty) {
+            return {
+              'success': false,
+              'message': 'An account with this phone number already exists. Please log in.',
+            };
+          }
+        }
+      } catch (_) {}
+    }
 
     // Layer 1: Direct Supabase Cloud REST API (Primary Instant Database)
     try {
@@ -118,6 +171,13 @@ class AuthService {
           'user': UserProfile.fromJson(userMap),
           'message': 'Account created successfully',
         };
+      } else if (supabaseResponse.statusCode == 409 ||
+                 supabaseResponse.body.contains('duplicate') ||
+                 supabaseResponse.body.contains('unique')) {
+        return {
+          'success': false,
+          'message': 'An account with these credentials already exists. Please log in.',
+        };
       }
     } catch (_) {}
 
@@ -150,31 +210,17 @@ class AuthService {
           'user': UserProfile.fromJson(userData),
           'message': 'Account created successfully',
         };
+      } else if (response.statusCode == 409) {
+        return {
+          'success': false,
+          'message': 'An account with this email already exists. Please sign in.',
+        };
       }
     } catch (_) {}
 
-    // Layer 3: Resilient Local Session Creation
-    final localId = 'usr_local_${DateTime.now().millisecondsSinceEpoch}';
-    final localToken = 'rentilly_jwt_$localId';
-    final localUser = {
-      'id': localId,
-      'fullName': fullName,
-      'email': cleanEmail,
-      'phoneNumber': cleanPhone,
-      'role': role,
-      'isVerified': false,
-      'state': state ?? 'Lagos',
-      'businessName': businessName,
-      'cacNumber': cacNumber,
-      'officeAddress': officeAddress,
-      'createdAt': DateTime.now().toIso8601String(),
-    };
-
-    await _saveSession(localToken, localUser);
     return {
-      'success': true,
-      'user': UserProfile.fromJson(localUser),
-      'message': 'Welcome to Rentilly! Account activated.',
+      'success': false,
+      'message': 'Could not complete registration. Please check your internet connection or log in if you already have an account.',
     };
   }
 
@@ -415,11 +461,36 @@ class AuthService {
     }
   }
 
-  // 8. Sign Out
+  // 8. Sign Out (Atomic Zero-Residual Device Sanitization)
   static Future<void> logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(AppConstants.tokenKey);
-    await prefs.remove(AppConstants.userKey);
+    try {
+      // 1. Immediately disconnect push notifications (unlinks OneSignal external user ID)
+      await PushNotificationService.clearUserTags();
+    } catch (_) {}
+
+    try {
+      // 2. Clear payment security pins & biometrics
+      await PaymentSecurityService.clearSecuritySession();
+    } catch (_) {}
+
+    try {
+      // 3. Purge device storage while preserving onboarding completion
+      final prefs = await SharedPreferences.getInstance();
+      final seenOnboarding = prefs.getBool(AppConstants.seenOnboardingKey) ?? true;
+
+      final keys = prefs.getKeys().toList();
+      for (final key in keys) {
+        if (key != AppConstants.seenOnboardingKey) {
+          await prefs.remove(key);
+        }
+      }
+
+      if (seenOnboarding) {
+        await prefs.setBool(AppConstants.seenOnboardingKey, true);
+      }
+    } catch (_) {}
+
+    // 4. Reset reactive user state
     currentUserNotifier.value = null;
   }
 

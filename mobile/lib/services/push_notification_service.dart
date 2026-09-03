@@ -102,8 +102,12 @@ class PushNotificationService {
       OneSignal.logout();
       debugPrint('[PushNotification] User logged out from OneSignal');
     } catch (e) {
-      debugPrint('[PushNotification] clearUserTags error: \$e');
+      debugPrint('[PushNotification] clearUserTags error: $e');
     }
+  }
+
+  static Future<void> logout() async {
+    await clearUserTags();
   }
 
   /// Register the OneSignal player ID with our Supabase backend

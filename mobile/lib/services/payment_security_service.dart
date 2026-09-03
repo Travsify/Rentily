@@ -42,6 +42,13 @@ class PaymentSecurityService {
     await prefs.setBool(_biometricEnabledKey, enabled);
   }
 
+  // Purge payment PIN and biometric authorization on logout
+  static Future<void> clearSecuritySession() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_pinKey);
+    await prefs.remove(_biometricEnabledKey);
+  }
+
   // 5. Universal Payment Authorization (Biometric or 6-digit PIN)
   static Future<bool> authorizeTransaction(
     BuildContext context, {
