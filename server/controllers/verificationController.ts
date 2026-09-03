@@ -532,16 +532,24 @@ export async function completeMapleradKyc(req: Request, res: Response) {
       dob: dob
     });
 
-    const accountNumber = result.accountNumber || existing?.accountNumber || null;
-    const bankName = accountNumber ? '9PSB (Rentilly)' : (existing?.bankName || 'Rentilly Settlement (Processing)');
+    if (!result.accountNumber) {
+      console.warn(`[completeMapleradKyc] ⚠️ Maplerad did not return a new account number for ${cleanEmail}:`, result.errors);
+      return res.status(400).json({
+        status: false,
+        error: result.errors?.join('; ') || 'Maplerad KYC verification failed. Please enter your valid 11-digit BVN or NIN that matches your Date of Birth.'
+      });
+    }
 
-    // Update in-memory user cache with preserved wallet balance
+    const accountNumber = result.accountNumber;
+    const bankName = result.bankName || '9PSB (Rentilly)';
+
+    // Update in-memory user cache with real Maplerad dedicated account
     if (existing) {
       UserStore.upsertUserForced({
         ...existing,
         fullName: cleanName,
         ninNumber: idToUse,
-        accountNumber: accountNumber || existing.accountNumber,
+        accountNumber,
         bankName,
         isVerified: true,
         walletBalance: currentBalance,
@@ -549,13 +557,13 @@ export async function completeMapleradKyc(req: Request, res: Response) {
       });
     }
 
-    // Clear rekyc_required in Supabase profiles if account generated
+    // Clear rekyc_required in Supabase profiles
     if (supabase) {
       try {
         await supabase
           .from('profiles')
           .update({
-            rekyc_required: !accountNumber,
+            rekyc_required: false,
             is_verified: true,
             dob: dob,
             account_number: accountNumber,
@@ -567,50 +575,29 @@ export async function completeMapleradKyc(req: Request, res: Response) {
       try {
         await supabase.from('system_configs').upsert({
           id: `rekyc_${cleanEmail}`,
-          data: { rekycRequired: !accountNumber, updatedAt: new Date().toISOString() }
+          data: { rekycRequired: false, updatedAt: new Date().toISOString() }
         });
       } catch (_) {}
     }
 
-    if (accountNumber) {
-      NotificationDispatcher.dispatch({
-        userId: existing?.id,
-        email: cleanEmail,
-        userName: cleanName,
-        category: 'wallet',
-        title: 'Rentilly Account Activated! 💳',
-        message: `Your dedicated Rentilly 9PSB account (${accountNumber}) and Virtual Dollar Card are ready! Your wallet balance of ₦${currentBalance.toLocaleString()} is active.`
-      });
+    NotificationDispatcher.dispatch({
+      userId: existing?.id,
+      email: cleanEmail,
+      userName: cleanName,
+      category: 'wallet',
+      title: 'Rentilly Dedicated 9PSB Account Activated! 💳',
+      message: `Your dedicated Rentilly 9PSB account (${accountNumber}) and Virtual Dollar Card are ready! Your wallet balance of ₦${currentBalance.toLocaleString()} is active.`
+    });
 
-      return res.status(200).json({
-        status: true,
-        message: 'Rentilly setup complete! Dedicated NGN account and Dollar Card activated.',
-        accountNumber,
-        bankName,
-        usdtTronAddress: result.usdtTronAddress,
-        walletBalance: currentBalance,
-        usdtBalance: currentUsdtBal
-      });
-    } else {
-      NotificationDispatcher.dispatch({
-        userId: existing?.id,
-        email: cleanEmail,
-        userName: cleanName,
-        category: 'system',
-        title: 'KYC Details Received ⏳',
-        message: `Your Date of Birth has been recorded. Rentilly Compliance is processing your account activation. Your wallet balance of ₦${currentBalance.toLocaleString()} is 100% safe.`
-      });
-
-      return res.status(200).json({
-        status: true,
-        processing: true,
-        message: 'Your verification details have been received and are being processed by Rentilly. Your account will be activated shortly.',
-        accountNumber: existing?.accountNumber || null,
-        bankName: existing?.bankName || 'Rentilly Settlement (Processing)',
-        walletBalance: currentBalance,
-        usdtBalance: currentUsdtBal
-      });
-    }
+    return res.status(200).json({
+      status: true,
+      message: 'Rentilly setup complete! Dedicated NGN account and Dollar Card activated.',
+      accountNumber,
+      bankName,
+      usdtTronAddress: result.usdtTronAddress,
+      walletBalance: currentBalance,
+      usdtBalance: currentUsdtBal
+    });
   } catch (err: any) {
     console.error('completeMapleradKyc error:', err);
     return res.status(500).json({ error: err.message });

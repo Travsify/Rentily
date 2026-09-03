@@ -475,57 +475,74 @@ export class MapleradBankingService {
 
       const idNumber = (params.nin && params.nin.length >= 11)
         ? params.nin
-        : ((params.bvn && params.bvn.length === 11) ? params.bvn : (params.nin || params.bvn || '22145896321'));
+        : ((params.bvn && params.bvn.length === 11) ? params.bvn : (params.nin || params.bvn || ''));
 
-      const enrollBody: Record<string, any> = {
-        first_name: firstName,
-        last_name: lastName,
-        email: cleanEmail,
-        phone_number: { phone_country_code: '234', phone_number: cleanPhone },
-        dob: dob,
-        identification_number: idNumber,
-        address: {
-          street: 'Admiralty Way, Lekki Phase 1',
-          city: 'Lagos',
-          state: 'Lagos',
-          postal_code: '105102',
-          country: 'NG'
-        }
-      };
-
-      const enrollEndpoint = mapleradCustomerId
-        ? `${this.baseUrl}/customers/${mapleradCustomerId}/upgrade`
-        : `${this.baseUrl}/customers/enroll`;
-
-      const enrollRes = await fetch(enrollEndpoint, {
-        method: 'POST',
-        headers: this.headers,
-        signal: AbortSignal.timeout(12000),
-        body: JSON.stringify(enrollBody)
-      });
-      const enrollData = await enrollRes.json().catch(() => ({}));
-
-      if (enrollData?.status && enrollData?.data?.id) {
-        mapleradCustomerId = enrollData.data.id;
-        mapleradTier = enrollData.data.tier ?? 1;
-        console.log(`[MapleradTier1] ✅ Enrolled ${cleanEmail} -> Customer ID: ${mapleradCustomerId} at Tier ${mapleradTier}`);
-      } else if (!mapleradCustomerId) {
-        // Fallback basic registration
-        const simpleRes = await fetch(`${this.baseUrl}/customers`, {
-          method: 'POST',
+      if (mapleradCustomerId) {
+        console.log(`[MapleradTier1] Upgrading existing customer ${mapleradCustomerId} to Tier 1...`);
+        const upgradeRes = await fetch(`${this.baseUrl}/customers/upgrade/tier1`, {
+          method: 'PATCH',
           headers: this.headers,
-          signal: AbortSignal.timeout(8000),
-          body: JSON.stringify({ first_name: firstName, last_name: lastName, email: cleanEmail, country: 'NG' })
+          signal: AbortSignal.timeout(15000),
+          body: JSON.stringify({
+            customer_id: mapleradCustomerId,
+            dob: dob,
+            identification_number: idNumber,
+            phone: {
+              phone_country_code: '+234',
+              phone_number: cleanPhone
+            },
+            address: {
+              street: '14 Admiralty Way, Lekki Phase 1',
+              city: 'Lagos',
+              state: 'Lagos',
+              country: 'NG',
+              postal_code: '105102'
+            }
+          })
         });
-        const simpleData = await simpleRes.json().catch(() => ({}));
-        mapleradCustomerId = simpleData?.data?.id || undefined;
-        if (mapleradCustomerId) {
-          console.log(`[MapleradTier1] Fallback Tier 0 customer created: ${mapleradCustomerId}`);
+        const upgradeData = await upgradeRes.json().catch(() => ({}));
+        if (upgradeData?.status && upgradeData?.data?.id) {
+          mapleradTier = upgradeData.data.tier ?? 1;
+          console.log(`[MapleradTier1] ✅ Upgraded customer ${mapleradCustomerId} to Tier ${mapleradTier}`);
         } else {
-          errors.push(`Maplerad customer creation failed: ${enrollData?.message || 'unknown'}`);
+          console.error(`[MapleradTier1] ❌ Tier 1 upgrade failed:`, upgradeData);
+          errors.push(upgradeData?.message || 'Tier 1 upgrade failed');
         }
       } else {
-        errors.push(`Tier upgrade info: ${enrollData?.message || 'Upgraded or already active'}`);
+        console.log(`[MapleradTier1] Enrolling new Tier 1 customer for ${cleanEmail}...`);
+        const enrollRes = await fetch(`${this.baseUrl}/customers/enroll`, {
+          method: 'POST',
+          headers: this.headers,
+          signal: AbortSignal.timeout(15000),
+          body: JSON.stringify({
+            first_name: firstName,
+            last_name: lastName,
+            email: cleanEmail,
+            country: 'NG',
+            dob: dob,
+            identification_number: idNumber,
+            phone: {
+              phone_country_code: '+234',
+              phone_number: cleanPhone
+            },
+            address: {
+              street: '14 Admiralty Way, Lekki Phase 1',
+              city: 'Lagos',
+              state: 'Lagos',
+              country: 'NG',
+              postal_code: '105102'
+            }
+          })
+        });
+        const enrollData = await enrollRes.json().catch(() => ({}));
+        if (enrollData?.status && enrollData?.data?.id) {
+          mapleradCustomerId = enrollData.data.id;
+          mapleradTier = enrollData.data.tier ?? 1;
+          console.log(`[MapleradTier1] ✅ Enrolled ${cleanEmail} -> Customer ID: ${mapleradCustomerId} at Tier ${mapleradTier}`);
+        } else {
+          console.error(`[MapleradTier1] ❌ Customer enrollment failed:`, enrollData);
+          errors.push(enrollData?.message || 'Customer enrollment failed');
+        }
       }
     } catch (e: any) {
       errors.push(`Enrollment network error: ${e.message}`);

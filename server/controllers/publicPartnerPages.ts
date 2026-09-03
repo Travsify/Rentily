@@ -242,8 +242,9 @@ export async function renderReKycPage(req: Request, res: Response) {
           </div>
 
           <div class="form-group">
-            <label>National Identity Number (NIN) / BVN</label>
-            <input type="text" id="nin" placeholder="11-digit NIN or BVN" value="${currentNin}" maxlength="11" />
+            <label>Bank Verification Number (BVN) / NIN <span style="color: #10b981;">*</span></label>
+            <input type="text" id="nin" placeholder="11-digit BVN or NIN" value="${currentNin}" maxlength="11" required />
+            <span style="font-size: 10px; color: #64748b; margin-top: 4px; display: block;">Required by the Central Bank of Nigeria & NIBSS for dedicated 9PSB account issuance.</span>
           </div>
 
           <div class="form-group">
@@ -285,7 +286,13 @@ export async function renderReKycPage(req: Request, res: Response) {
           e.preventDefault();
           errorAlert.style.display = 'none';
 
-          const dobVal = document.getElementById('dob').value;
+          const ninVal = document.getElementById('nin').value.trim();
+          if (ninVal.length !== 11) {
+            errorAlert.textContent = 'Please enter your valid 11-digit BVN or NIN.';
+            errorAlert.style.display = 'block';
+            return;
+          }
+
           if (!dobVal) {
             errorAlert.textContent = 'Please select your Date of Birth.';
             errorAlert.style.display = 'block';

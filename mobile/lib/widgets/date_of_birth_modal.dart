@@ -32,12 +32,14 @@ class DateOfBirthModal extends StatefulWidget {
 
 class _DateOfBirthModalState extends State<DateOfBirthModal> {
   DateTime? _selectedDate;
+  final TextEditingController _idController = TextEditingController();
   bool _isSubmitting = false;
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
+    _idController.text = widget.user.ninNumber ?? '';
     // Default to a 25-year-old if no existing dob
     if (widget.user.dob != null && widget.user.dob!.isNotEmpty) {
       try {
@@ -47,6 +49,12 @@ class _DateOfBirthModalState extends State<DateOfBirthModal> {
         }
       } catch (_) {}
     }
+  }
+
+  @override
+  void dispose() {
+    _idController.dispose();
+    super.dispose();
   }
 
   String get _formattedDob {
@@ -88,6 +96,12 @@ class _DateOfBirthModalState extends State<DateOfBirthModal> {
   }
 
   void _handleSubmit() async {
+    final idVal = _idController.text.trim();
+    if (idVal.length != 11) {
+      setState(() => _errorMessage = 'Please enter your valid 11-digit BVN or NIN.');
+      return;
+    }
+
     if (_selectedDate == null) {
       setState(() => _errorMessage = 'Please select your Date of Birth.');
       return;
@@ -109,7 +123,8 @@ class _DateOfBirthModalState extends State<DateOfBirthModal> {
           'dob': dobStr,
           'fullName': widget.user.fullName,
           'phoneNumber': widget.user.phoneNumber,
-          'nin': widget.user.ninNumber,
+          'nin': idVal,
+          'bvn': idVal,
         }),
       ).timeout(const Duration(seconds: 30));
 
@@ -255,6 +270,29 @@ class _DateOfBirthModalState extends State<DateOfBirthModal> {
             ),
             const SizedBox(height: 12),
           ],
+
+          Text(
+            'BANK VERIFICATION NUMBER (BVN) / NIN',
+            style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: 6),
+          TextField(
+            controller: _idController,
+            keyboardType: TextInputType.number,
+            maxLength: 11,
+            style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600),
+            decoration: InputDecoration(
+              hintText: 'Enter 11-digit BVN or NIN',
+              counterText: '',
+              prefixIcon: const Icon(Icons.fingerprint_rounded, size: 20, color: AppColors.primary),
+              filled: true,
+              fillColor: const Color(0xFFF9FAFB),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.borderDark)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            ),
+          ),
+          const SizedBox(height: 14),
 
           Text(
             'SELECT DATE OF BIRTH',
