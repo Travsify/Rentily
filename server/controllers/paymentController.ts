@@ -740,15 +740,8 @@ async function syncFlutterwaveTransactionsForUser(cleanEmail: string) {
             date: flwTx.created_at || new Date().toISOString()
           });
 
-          // Also update user wallet balance immediately
-          if (user) {
-            const currentBal = user.walletBalance ?? 0;
-            UserStore.upsertUser({
-              ...user,
-              walletBalance: currentBal + amount,
-              updatedAt: new Date().toISOString()
-            });
-          }
+          // Note: Wallet balance is authoritatively credited by AtomicLedgerService (webhook / auto-reconciliation).
+          // Read-time sync must NEVER increment wallet balance to prevent double/triple crediting.
         }
       }
     }
@@ -860,13 +853,13 @@ export async function getWalletBalance(req: Request, res: Response) {
     const userTxs = await TransactionStore.getTransactionsByEmail(cleanEmail);
     const netBal = TransactionStore.computeNetBalance(cleanEmail);
 
-    // Live balance priority: Supabase Cloud profiles table -> Ledger net balance -> In-memory UserStore
+    // Authoritative Single Source of Truth: Supabase Cloud profiles table
     let balance = liveDbBalance !== null 
-      ? Math.max(liveDbBalance, netBal, memUser?.walletBalance ?? 0)
+      ? liveDbBalance
       : (userTxs.length > 0 ? netBal : (memUser?.walletBalance ?? 0));
 
-    // Ensure memory store & Supabase stay perfectly reconciled
-    if (memUser && (memUser.walletBalance !== balance || liveDbBalance !== balance)) {
+    // Keep memory cache aligned with authoritative database
+    if (memUser && memUser.walletBalance !== balance) {
       UserStore.upsertUser({
         ...memUser,
         walletBalance: balance

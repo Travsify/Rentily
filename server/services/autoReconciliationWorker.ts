@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import { supabase } from '../supabaseClient';
 import { NotificationDispatcher } from './notificationDispatcher';
+import { AtomicLedgerService } from './atomicLedgerService';
 
 dotenv.config();
 
@@ -202,39 +203,25 @@ export class AutoReconciliationWorker {
           continue;
         }
 
-        // Get fresh balance
-        const { data: freshProfile } = await supabase
-          .from('profiles')
-          .select('wallet_balance')
-          .eq('id', creditUserId)
-          .single();
-
-        const currentBal = Number(freshProfile?.wallet_balance || 0);
-        const newBal = currentBal + amount;
-
-        // Credit wallet
-        await supabase
-          .from('profiles')
-          .update({ wallet_balance: newBal, updated_at: new Date().toISOString() })
-          .eq('id', creditUserId);
-
-        // Record in wallet_transactions table (user-facing)
-        await supabase.from('wallet_transactions').upsert({
-          user_id: creditUserId,
+        // Execute atomic, idempotent credit through AtomicLedgerService
+        const creditResult = await AtomicLedgerService.creditWalletAtomic({
+          userId: creditUserId,
           email: creditEmail,
           amount: amount,
-          type: 'credit',
-          status: 'completed',
-          flw_ref: flwRef,
-          tx_ref: txRef,
-          narration: `Bank Transfer from ${tx.meta?.originatorname || 'Unknown Sender'} via ${tx.meta?.bankname || 'Bank'}`,
-          created_at: tx.created_at || new Date().toISOString()
-        }, { onConflict: 'flw_ref' });
+          flwRef: flwRef,
+          txRef: txRef,
+          narration: `Bank Transfer from ${tx.meta?.originatorname || 'Unknown Sender'} via ${tx.meta?.bankname || 'Bank'}`
+        });
 
-        // Mark as processed (prevents re-crediting on server restart)
-        await this.markProcessed(flwRef, creditUserId, amount, creditEmail);
+        if (!creditResult.success || creditResult.alreadyProcessed) {
+          if (creditResult.alreadyProcessed) {
+            console.log(`[AutoReconciliation] flw_ref ${flwRef} was already processed. Zero duplicate credit.`);
+          }
+          continue;
+        }
 
-        console.log(`✅ [AutoReconciliation] Credited ₦${amount} to ${creditEmail} (flw_ref: ${flwRef}). New balance: ₦${newBal}`);
+        const newBal = creditResult.newBalance ?? amount;
+        console.log(`✅ [AutoReconciliation] Atomic Ledger Credited ₦${amount} to ${creditEmail} (flw_ref: ${flwRef}). New balance: ₦${newBal}`);
 
         // Dispatch notifications
         NotificationDispatcher.dispatch({
