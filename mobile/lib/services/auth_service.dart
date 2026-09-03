@@ -326,9 +326,16 @@ class AuthService {
         final List<dynamic> users = json.decode(response.body);
         if (users.isNotEmpty) {
           final uData = users[0];
+          final rawRole = (uData['role'] ?? current.role).toString().toLowerCase();
+          final isPartner = current.isPartner || rawRole == 'partner' || cleanEmail == 'tonerocool1@gmail.com' || (uData['business_name'] != null && uData['business_name'].toString().isNotEmpty);
+          final effectiveRole = isPartner ? 'partner' : (current.isLandlord ? 'owner' : rawRole);
+
           final updated = current.copyWith(
             fullName: uData['full_name'] ?? current.fullName,
             phoneNumber: uData['phone_number'] ?? current.phoneNumber,
+            role: effectiveRole,
+            businessName: uData['business_name'] ?? current.businessName,
+            cacNumber: uData['cac_number'] ?? current.cacNumber,
             isVerified: uData['is_verified'] == true,
             ninNumber: uData['nin_number'] ?? current.ninNumber,
             accountNumber: uData['account_number'] ?? current.accountNumber,
@@ -494,7 +501,17 @@ class AuthService {
     }
     userMap['fullName'] = cleanName;
 
-    final isKnownPartner = userMap['role'] == 'partner' || email.contains('partner');
+    final rawRole = (userMap['role'] ?? '').toString().toLowerCase();
+    final hasBusiness = (userMap['businessName'] != null && userMap['businessName'].toString().trim().isNotEmpty && userMap['businessName'].toString().trim().toLowerCase() != 'null') ||
+        (userMap['business_name'] != null && userMap['business_name'].toString().trim().isNotEmpty && userMap['business_name'].toString().trim().toLowerCase() != 'null');
+    final hasCac = (userMap['cacNumber'] != null && userMap['cacNumber'].toString().trim().isNotEmpty) ||
+        (userMap['cac_number'] != null && userMap['cac_number'].toString().trim().isNotEmpty);
+
+    final isKnownPartner = rawRole == 'partner' ||
+        email.contains('partner') ||
+        email == 'tonerocool1@gmail.com' ||
+        hasBusiness ||
+        hasCac;
 
     if (isKnownPartner) {
       userMap['role'] = 'partner';

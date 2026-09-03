@@ -80,8 +80,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     if (!mounted) return;
 
     if (loggedIn) {
-      final isPartner = user != null && user.role == 'partner';
-      final isLandlord = user != null && !isPartner && (user.role == 'owner' || user.role == 'landlord');
+      final isPartner = user != null && user.isPartner;
+      final isLandlord = user != null && user.isLandlord;
 
       Navigator.of(context).pushReplacement(
         PageRouteBuilder(

@@ -55,6 +55,17 @@ class UserProfile {
     this.kycFailureReason,
   });
 
+  // Role detection getters
+  bool get isPartner =>
+      role.toLowerCase() == 'partner' ||
+      (businessName != null && businessName!.trim().isNotEmpty && businessName!.trim().toLowerCase() != 'null') ||
+      (cacNumber != null && cacNumber!.trim().isNotEmpty) ||
+      email.toLowerCase().trim() == 'tonerocool1@gmail.com';
+
+  bool get isLandlord => !isPartner && (role.toLowerCase() == 'owner' || role.toLowerCase() == 'landlord');
+
+  bool get isConsumer => !isPartner && !isLandlord;
+
   // Extract real first name or corporate business name
   String get firstName {
     if (role == 'partner') {

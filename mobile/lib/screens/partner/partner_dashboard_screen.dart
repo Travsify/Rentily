@@ -27,6 +27,7 @@ import '../../widgets/app_avatar.dart';
 import '../../services/notification_service.dart';
 import '../shared/notification_center_screen.dart';
 import '../shared/chat_inbox_screen.dart';
+import '../../widgets/biometric_prompt_modal.dart';
 
 class PartnerDashboardScreen extends StatefulWidget {
   final VoidCallback? onSwitchToTenant;
@@ -151,6 +152,10 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
               p.listedByRole == 'verified_partner';
         }).toList();
         _isLoading = false;
+      });
+
+      Future.delayed(const Duration(milliseconds: 600), () {
+        if (mounted) BiometricPromptModal.checkAndPrompt(context);
       });
     }
   }

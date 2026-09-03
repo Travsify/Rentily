@@ -50,13 +50,21 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   void initState() {
     super.initState();
     _currentIndex = widget.initialIndex;
-    if (widget.initialPartnerMode) {
+
+    // Immediately resolve mode from current cached user profile or initial flags
+    final cached = AuthService.currentUserNotifier.value;
+    if (cached != null && cached.isPartner) {
+      _activeViewMode = 'partner';
+    } else if (cached != null && cached.isLandlord) {
+      _activeViewMode = 'landlord';
+    } else if (widget.initialPartnerMode) {
       _activeViewMode = 'partner';
     } else if (widget.initialLandlordMode) {
       _activeViewMode = 'landlord';
     } else {
       _activeViewMode = 'consumer';
     }
+
     _checkUserRole();
     AuthService.currentUserNotifier.addListener(_onUserAuthChanged);
     NotificationService.startRealtimeSync();
@@ -68,6 +76,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       if (u != null) {
         setState(() {
           _user = u;
+          if (u.isPartner && _activeViewMode != 'partner') {
+            _activeViewMode = 'partner';
+          } else if (u.isLandlord && _activeViewMode == 'consumer') {
+            _activeViewMode = 'landlord';
+          }
         });
       }
     }
@@ -85,6 +98,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     if (mounted && user != null) {
       setState(() {
         _user = user;
+        if (user.isPartner && _activeViewMode != 'partner') {
+          _activeViewMode = 'partner';
+        } else if (user.isLandlord && _activeViewMode == 'consumer') {
+          _activeViewMode = 'landlord';
+        }
       });
     }
   }
@@ -93,6 +111,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     setState(() {
       _currentIndex = index;
     });
+  }
+
+  void setViewMode(String mode) {
+    if (mounted) {
+      setState(() {
+        _activeViewMode = mode;
+      });
+    }
   }
 
   @override

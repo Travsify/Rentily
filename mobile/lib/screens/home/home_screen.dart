@@ -140,6 +140,15 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (_) {}
 
     if (mounted && u != null) {
+      if (u!.isPartner) {
+        MainNavigationScreen.of(context)?.setViewMode('partner');
+        return;
+      }
+      if (u!.isLandlord) {
+        MainNavigationScreen.of(context)?.setViewMode('landlord');
+        return;
+      }
+
       final bool needsUpgrade = u!.rekycRequired == true;
 
       if (needsUpgrade) {

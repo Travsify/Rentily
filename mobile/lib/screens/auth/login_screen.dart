@@ -97,8 +97,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       if (authenticated) {
         final result = await AuthService.loginWithBiometrics();
         final user = result['user'] as UserProfile? ?? await AuthService.getCurrentUser();
-        final isPartner = user != null && user.role == 'partner';
-        final isLandlord = user != null && !isPartner && (user.role == 'owner' || user.role == 'landlord');
+        final isPartner = user != null && user.isPartner;
+        final isLandlord = user != null && user.isLandlord;
 
         // Register user with OneSignal for push notifications
         await PushNotificationService.setUserTags();
@@ -164,8 +164,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
     if (result['success'] == true) {
       final user = result['user'] as UserProfile?;
-      final isPartner = user != null && user.role == 'partner';
-      final isLandlord = user != null && !isPartner && (user.role == 'owner' || user.role == 'landlord');
+      final isPartner = user != null && user.isPartner;
+      final isLandlord = user != null && user.isLandlord;
 
       // 1. Dispatch high-security 6-digit OTP via Resend API
       setState(() => _isLoading = true);

@@ -24,6 +24,7 @@ import '../../utils/id_utils.dart';
 import '../../services/notification_service.dart';
 import '../shared/notification_center_screen.dart';
 import '../shared/chat_inbox_screen.dart';
+import '../../widgets/biometric_prompt_modal.dart';
 
 class LandlordDashboardScreen extends StatefulWidget {
   final VoidCallback? onSwitchToTenant;
@@ -122,6 +123,10 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
         _user = user;
         _properties = allProps;
         _isLoading = false;
+      });
+
+      Future.delayed(const Duration(milliseconds: 600), () {
+        if (mounted) BiometricPromptModal.checkAndPrompt(context);
       });
     }
   }

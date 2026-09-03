@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/app_colors.dart';
 import '../services/biometric_service.dart';
+import '../services/payment_security_service.dart';
 
 class BiometricPromptModal extends StatelessWidget {
   const BiometricPromptModal({super.key});
@@ -38,6 +39,8 @@ class BiometricPromptModal extends StatelessWidget {
 
     if (authenticated) {
       await prefs.setBool('biometrics_enabled', true);
+      await prefs.setBool('rentilly_biometrics_enabled', true);
+      await PaymentSecurityService.setBiometricEnabled(true);
       if (!context.mounted) return;
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
