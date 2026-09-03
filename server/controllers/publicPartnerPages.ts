@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import { UserStore } from '../services/userStore';
+import { supabase } from '../supabaseClient';
 
 export async function renderPartnerVerificationPage(req: Request, res: Response) {
   const { id } = req.query;
@@ -170,12 +171,31 @@ export async function renderReKycPage(req: Request, res: Response) {
   const allUsers = await UserStore.getAllUsers();
   const user = allUsers.find(u => u.email.toLowerCase() === cleanEmail);
 
+  // Check if rekyc is flagged in system_configs or UserStore
+  let rekycFlagged = user?.rekycRequired === true;
+  if (supabase) {
+    try {
+      const { data: cfg } = await supabase
+        .from('system_configs')
+        .select('data')
+        .eq('id', `rekyc_${cleanEmail}`)
+        .maybeSingle();
+      if (cfg?.data?.rekycRequired === true) {
+        rekycFlagged = true;
+      }
+    } catch (_) {}
+  }
+
+  // Must have a real, validated 11-digit BVN and NOT be flagged for rekyc to be considered approved
+  const cleanBvn = (user?.bvn || '').toString().replace(/\D/g, '');
+  const hasValidBvn = cleanBvn.length === 11;
   const isAlreadyApproved = Boolean(
+    !rekycFlagged &&
+    hasValidBvn &&
     user &&
     user.isVerified &&
     user.accountNumber &&
-    user.bankName?.includes('9PSB') &&
-    user.rekycRequired !== true
+    user.bankName?.includes('9PSB')
   );
 
   const displayName = user?.fullName || user?.businessName || (cleanEmail ? cleanEmail.split('@')[0] : 'Rentilly User');

@@ -262,23 +262,33 @@ export async function getVerificationStatus(req: Request, res: Response) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Check rekyc flag in profiles
-    let rekycRequired = false;
+    // Check rekyc flag in profiles and system_configs
+    let rekycRequired = user.rekycRequired === true;
     if (supabase) {
       try {
-        const { data: prof } = await supabase
-          .from('profiles')
-          .select('rekyc_required, maplerad_tier, account_number, bank_name')
-          .eq('email', cleanEmail)
+        const { data: cfg } = await supabase
+          .from('system_configs')
+          .select('data')
+          .eq('id', `rekyc_${cleanEmail}`)
           .maybeSingle();
-        rekycRequired = Boolean(prof?.rekyc_required);
+        if (cfg?.data?.rekycRequired !== undefined) {
+          rekycRequired = Boolean(cfg.data.rekycRequired);
+        }
       } catch (_) {}
+    }
+
+    // If BVN is missing or not 11 digits, rekyc is mandatory for Maplerad Tier 1
+    const cleanBvn = (user.bvn || '').toString().replace(/\D/g, '');
+    if (cleanBvn.length !== 11 || !user.bankName?.includes('9PSB')) {
+      rekycRequired = true;
     }
 
     return res.status(200).json({
       isVerified: user.isVerified || false,
       accountNumber: user.accountNumber,
       bankName: user.bankName,
+      bvn: user.bvn,
+      nin: user.ninNumber,
       role: user.role,
       rekycRequired,
       walletBalance: user.walletBalance ?? 0,
