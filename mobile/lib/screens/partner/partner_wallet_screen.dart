@@ -44,6 +44,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
   double _usdBalance = 0.0;
   double _gbpBalance = 0.0;
   double _eurBalance = 0.0;
+  String? _usdtTronAddress;
 
   // Zero dummy data: Starts EMPTY until user taps 'Get Account'
   final Map<String, Map<String, String>> _virtualAccounts = {};
@@ -99,6 +100,9 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
         final serverBal = (live['walletBalance'] as num?)?.toDouble() ?? _user!.walletBalance;
         final serverAcc = live['accountNumber']?.toString();
         final serverBank = live['bankName']?.toString();
+        if (live['usdtTronAddress'] != null) {
+          _usdtTronAddress = live['usdtTronAddress'].toString();
+        }
 
         if (serverBal != _user!.walletBalance || (serverAcc != null && serverAcc != _user!.accountNumber)) {
           final updated = _user!.copyWith(
@@ -822,6 +826,84 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                       ],
                     ),
                   ),
+
+                  // Dedicated USDT (TRON / TRC20) Wallet Card
+                  if (_usdtTronAddress != null && _usdtTronAddress!.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF132B20),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFF00E676).withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF00E676).withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              'TRC20',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w900,
+                                color: const Color(0xFF00E676),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'USDT WALLET (TRON NETWORK ONLY)',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white.withValues(alpha: 0.7),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  _usdtTronAddress!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.firaCode(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.copy_rounded, size: 18, color: Color(0xFF00E676)),
+                            tooltip: 'Copy TRC20 Address',
+                            onPressed: () {
+                              Clipboard.setData(ClipboardData(text: _usdtTronAddress!));
+                              HapticFeedback.lightImpact();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'USDT TRON Address Copied: $_usdtTronAddress',
+                                    style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                                  ),
+                                  backgroundColor: AppColors.primary,
+                                  behavior: SnackBarBehavior.floating,
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ] else if (ApiService.featureFlags.enableMultiCurrencyVault) ...[
                 // Foreign Currency Account Card (USD / GBP / EUR) — Pure On-Demand

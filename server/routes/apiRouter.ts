@@ -153,8 +153,9 @@ apiRouter.get('/system/outbound-ip', async (req, res) => {
   }
 });
 
-// 8. Paystack Bank Settlements, Balance Sync & Instant Withdrawals
+// 8. Paystack / Maplerad Bank Settlements, Balance Sync & Instant Withdrawals
 apiRouter.get('/wallet/balance', paymentController.getWalletBalance);
+apiRouter.get('/wallet/crypto-address', paymentController.getUserCryptoAddress);
 apiRouter.get('/payments/paystack-banks', paymentController.getPaystackBanks);
 apiRouter.get('/payments/resolve-account', paymentController.resolvePaystackAccount);
 apiRouter.post('/payments/withdraw-paystack', paymentController.withdrawWithPaystack);

@@ -40,6 +40,7 @@ class _WalletScreenState extends State<WalletScreen> {
   double _fxUsdToGbp = 0.76;
   double _fxUsdToEur = 0.91;
   double _cardIssuanceFeeUsd = 3.00;
+  String? _usdtTronAddress;
 
   @override
   void initState() {
@@ -86,6 +87,9 @@ class _WalletScreenState extends State<WalletScreen> {
           if (data['status'] == true && data['walletBalance'] != null) {
             final double serverBal = (data['walletBalance'] as num).toDouble();
             final userData = data['user'] as Map<String, dynamic>? ?? {};
+            if (data['usdtTronAddress'] != null || userData['usdtTronAddress'] != null) {
+              _usdtTronAddress = (data['usdtTronAddress'] ?? userData['usdtTronAddress']).toString();
+            }
             final updated = u.copyWith(
               walletBalance: serverBal,
               fullName: userData['fullName']?.toString() ?? u.fullName,
@@ -698,6 +702,90 @@ class _WalletScreenState extends State<WalletScreen> {
                           ),
                         ),
                       ),
+
+                    // Dedicated USDT (TRON / TRC20) Wallet Card
+                    if (_usdtTronAddress != null && _usdtTronAddress!.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF132B20),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFF00E676).withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF00E676).withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                'TRC20',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 8,
+                                  fontWeight: FontWeight.w900,
+                                  color: const Color(0xFF00E676),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'USDT WALLET (TRON NETWORK ONLY)',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 7.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white.withValues(alpha: 0.7),
+                                    ),
+                                  ),
+                                  Text(
+                                    _usdtTronAddress!,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.firaCode(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () {
+                                Clipboard.setData(ClipboardData(text: _usdtTronAddress!));
+                                HapticFeedback.lightImpact();
+                                ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'USDT TRON Address Copied: $_usdtTronAddress',
+                                      style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                                    ),
+                                    backgroundColor: AppColors.primary,
+                                    behavior: SnackBarBehavior.floating,
+                                    duration: const Duration(seconds: 2),
+                                  ),
+                                );
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: const Icon(Icons.copy_rounded, size: 13, color: Colors.white),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

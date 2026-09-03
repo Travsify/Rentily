@@ -243,6 +243,7 @@ class ApiService {
             'walletBalance': (data['walletBalance'] as num?)?.toDouble() ?? (user['walletBalance'] as num?)?.toDouble() ?? 0.0,
             'accountNumber': user['accountNumber']?.toString(),
             'bankName': user['bankName']?.toString() ?? 'Flutterwave MFB',
+            'usdtTronAddress': data['usdtTronAddress']?.toString() ?? user['usdtTronAddress']?.toString(),
             'fullName': user['fullName']?.toString(),
             'role': user['role']?.toString() ?? 'renter',
           };

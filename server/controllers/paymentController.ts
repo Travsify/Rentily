@@ -11,6 +11,7 @@ import { MultiCurrencyService } from '../services/multiCurrencyService';
 import { CardIssuingService } from '../services/cardIssuingService';
 import { getFeatureFlags } from './featureFlagController';
 import { AtomicLedgerService } from '../services/atomicLedgerService';
+import { MapleradBankingService } from '../services/mapleradBankingService';
 
 export async function createVirtualAccount(req: Request, res: Response) {
   try {
@@ -49,9 +50,17 @@ export async function createVirtualAccount(req: Request, res: Response) {
 
 // ==================== PAYSTACK WITHDRAWAL & PAYOUTS ====================
 
-// 1. Fetch Nigerian Banks List from Paystack
+// 1. Fetch Nigerian Banks List (Maplerad / Paystack Unified)
 export async function getPaystackBanks(_req: Request, res: Response) {
   try {
+    const mapleBanks = await MapleradBankingService.getInstitutions();
+    if (mapleBanks && mapleBanks.length > 0) {
+      return res.json({
+        status: true,
+        message: 'Banks retrieved successfully',
+        data: mapleBanks
+      });
+    }
     const result = await PaystackService.getBanks();
     res.json(result);
   } catch (err: any) {
@@ -59,7 +68,7 @@ export async function getPaystackBanks(_req: Request, res: Response) {
   }
 }
 
-// 2. Resolve Beneficiary Account Number via Paystack NIBSS
+// 2. Resolve Beneficiary Account Number via Maplerad / Paystack
 export async function resolvePaystackAccount(req: Request, res: Response) {
   try {
     const { accountNumber, bankCode } = req.query;
@@ -67,6 +76,24 @@ export async function resolvePaystackAccount(req: Request, res: Response) {
       return res.status(400).json({ error: 'Account number and bank code are required' });
     }
 
+    // Try Maplerad first
+    const mapleRes = await MapleradBankingService.resolveBankAccount({
+      accountNumber: accountNumber.toString(),
+      bankCode: bankCode.toString()
+    });
+
+    if (mapleRes.success && mapleRes.accountName) {
+      return res.json({
+        status: true,
+        data: {
+          account_number: accountNumber.toString(),
+          account_name: mapleRes.accountName,
+          bank_id: bankCode.toString()
+        }
+      });
+    }
+
+    // Fallback to Paystack
     const result = await PaystackService.resolveAccount(accountNumber.toString(), bankCode.toString());
     res.json(result);
   } catch (err: any) {
@@ -74,7 +101,7 @@ export async function resolvePaystackAccount(req: Request, res: Response) {
   }
 }
 
-// 3. Execute Paystack Transfer Payout
+// 3. Execute Bank Transfer Payout (Maplerad Primary, Paystack Fallback)
 export async function withdrawWithPaystack(req: Request, res: Response) {
   try {
     const { userId, email, accountNumber, bankCode, accountName, amount, reason } = req.body;
@@ -109,26 +136,63 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
       });
     }
 
-    // Step A: Create Paystack Transfer Recipient
-    const recipientRes = await PaystackService.createTransferRecipient({
-      name: accountName || memUser?.fullName || 'Account Holder',
-      accountNumber: accountNumber.toString(),
-      bankCode: bankCode.toString(),
-      description: cleanReason
-    });
+    // Step A: Attempt Maplerad Local Payment (Primary Rail)
+    let transferSuccess = false;
+    let transferProvider: 'MAPLERAD' | 'PAYSTACK' = 'MAPLERAD';
+    let txRef = `WD_MAPLE_${Date.now()}`;
+    let transferData: any = null;
 
-    if (!recipientRes.status || !recipientRes.recipientCode) {
-      return res.status(400).json({ error: recipientRes.message || 'Failed to register transfer recipient with Paystack' });
+    try {
+      const mapleradRes = await MapleradBankingService.transferToBank({
+        accountNumber: accountNumber.toString(),
+        bankCode: bankCode.toString(),
+        amountNgn: numAmount,
+        narration: cleanReason,
+        reference: txRef
+      });
+
+      if (mapleradRes.success) {
+        transferSuccess = true;
+        transferData = mapleradRes;
+        txRef = mapleradRes.reference || txRef;
+        console.log(`[Withdrawal] ✅ Maplerad payout successful: ${txRef}`);
+      } else {
+        console.warn('[Withdrawal] Maplerad payout returned non-success:', mapleradRes.message, 'Engaging Paystack fallback...');
+      }
+    } catch (e: any) {
+      console.warn('[Withdrawal] Maplerad payout exception:', e.message, 'Engaging Paystack fallback...');
     }
 
-    // Step B: Initiate Transfer Payout
-    const transferRes = await PaystackService.initiateTransfer({
-      recipientCode: recipientRes.recipientCode,
-      amount: numAmount,
-      reason: cleanReason
-    });
+    // Step B: Fallback to Paystack if Maplerad was not successful
+    if (!transferSuccess) {
+      transferProvider = 'PAYSTACK';
+      const recipientRes = await PaystackService.createTransferRecipient({
+        name: accountName || memUser?.fullName || 'Account Holder',
+        accountNumber: accountNumber.toString(),
+        bankCode: bankCode.toString(),
+        description: cleanReason
+      });
 
-    if (transferRes.status) {
+      if (!recipientRes.status || !recipientRes.recipientCode) {
+        return res.status(400).json({ error: recipientRes.message || 'Failed to process bank payout' });
+      }
+
+      const transferRes = await PaystackService.initiateTransfer({
+        recipientCode: recipientRes.recipientCode,
+        amount: numAmount,
+        reason: cleanReason
+      });
+
+      if (transferRes.status) {
+        transferSuccess = true;
+        transferData = transferRes.data;
+        txRef = transferRes.data?.reference || `WD_PST_${Date.now()}`;
+      } else {
+        return res.status(400).json({ error: transferRes.message || 'Payout settlement failed' });
+      }
+    }
+
+    if (transferSuccess) {
       const newBal = Math.max(0, currentBal - totalDebit);
       const txRef = transferRes.data?.reference || `WD_${Date.now()}`;
 
@@ -530,6 +594,7 @@ export async function mapleradWebhook(req: Request, res: Response) {
     const data = payload?.data;
     console.log(`[Maplerad Webhook] Event received: ${event}`, JSON.stringify(data || {}, null, 2));
 
+    // 1. Virtual Card Issuing & Transaction Events
     if (event?.includes('issuing') || data?.card_number || data?.masked_pan) {
       const cardId = data?.id || data?.card_id;
       const maskedPan = data?.masked_pan || data?.card_number;
@@ -552,6 +617,74 @@ export async function mapleradWebhook(req: Request, res: Response) {
           })
           .or(`card_id.eq.${cardId},email.eq.${customerEmail}`);
         console.log(`[Maplerad Webhook] Successfully reconciled card ${cardId} in Supabase`);
+      }
+    }
+
+    // 2. Inbound Bank Transfer Collections (NGN Virtual Accounts)
+    if (event?.includes('collection') || event?.includes('inbound') || event?.includes('deposit')) {
+      const incomingAccNo = data?.account_number || data?.virtual_account_number;
+      const customerEmail = data?.customer?.email || data?.email;
+      const amountPaid = Number(data?.amount || 0) / 100; // Maplerad amounts are in lowest denomination (kobo)
+      const ref = data?.reference || data?.id || `MAPLE_COL_${Date.now()}`;
+      const sender = data?.sender?.name || data?.sender_name || 'Inbound Bank Transfer';
+
+      if (amountPaid > 0 && supabase) {
+        let query = supabase.from('profiles').select('id, email, full_name, wallet_balance');
+        if (incomingAccNo) {
+          query = query.eq('account_number', incomingAccNo);
+        } else if (customerEmail) {
+          query = query.eq('email', customerEmail.toLowerCase().trim());
+        }
+
+        const { data: matchedUsers } = await query.limit(1);
+        const targetUser = matchedUsers?.[0];
+
+        if (targetUser) {
+          await AtomicLedgerService.creditWalletAtomic({
+            userId: targetUser.id,
+            email: targetUser.email,
+            amount: amountPaid,
+            flwRef: ref,
+            txRef: ref,
+            narration: `Inbound Bank Transfer (Maplerad • ${incomingAccNo || 'Virtual Account'}) from ${sender}`
+          });
+          console.log(`[Maplerad Webhook] ✅ Credited ₦${amountPaid} to ${targetUser.email}`);
+        }
+      }
+    }
+
+    // 3. Stablecoin Crypto Deposits (USDT on TRON)
+    if (event?.includes('crypto') || data?.chain === 'tron' || data?.coin === 'usdt') {
+      const address = data?.address;
+      const amountUsdt = Number(data?.amount || 0);
+      const customerEmail = data?.customer?.email || data?.email;
+      const ref = data?.reference || data?.tx_hash || `CRYPTO_TRON_${Date.now()}`;
+
+      if (amountUsdt > 0 && supabase) {
+        // Convert USDT to NGN at live FX rate for ledger
+        const rates = MultiCurrencyService.getFxRates();
+        const fxRate = rates.USD_NGN || 1510.0;
+        const amountNgn = Number((amountUsdt * fxRate).toFixed(2));
+
+        let query = supabase.from('profiles').select('id, email, full_name, wallet_balance');
+        if (customerEmail) {
+          query = query.eq('email', customerEmail.toLowerCase().trim());
+        }
+
+        const { data: matchedUsers } = await query.limit(1);
+        const targetUser = matchedUsers?.[0];
+
+        if (targetUser) {
+          await AtomicLedgerService.creditWalletAtomic({
+            userId: targetUser.id,
+            email: targetUser.email,
+            amount: amountNgn,
+            flwRef: ref,
+            txRef: ref,
+            narration: `Crypto Inflow: +$${amountUsdt} USDT (TRON TRC20 • ₦${amountNgn.toLocaleString()})`
+          });
+          console.log(`[Maplerad Webhook] ✅ Credited ${amountUsdt} USDT (₦${amountNgn}) to ${targetUser.email}`);
+        }
       }
     }
   } catch (err: any) {
@@ -906,12 +1039,55 @@ export async function getWalletBalance(req: Request, res: Response) {
       });
     }
 
-    const accountNumber = dbUser?.account_number || memUser?.accountNumber || '9254090338';
-    const bankName = dbUser?.bank_name || memUser?.bankName || 'Flutterwave MFB';
+    let accountNumber = dbUser?.account_number || memUser?.accountNumber;
+    let bankName = dbUser?.bank_name || memUser?.bankName;
+
+    // Auto-provision Maplerad Virtual NGN Account for new users who don't have an account
+    if (!accountNumber && cleanEmail) {
+      try {
+        const mapleAcc = await MapleradBankingService.createVirtualAccount({
+          email: cleanEmail,
+          fullName: dbUser?.full_name || memUser?.fullName || 'Rentilly User'
+        });
+
+        if (mapleAcc) {
+          accountNumber = mapleAcc.accountNumber;
+          bankName = `${mapleAcc.bankName} (Maplerad)`;
+
+          if (supabase && dbUser?.id) {
+            await supabase
+              .from('profiles')
+              .update({ account_number: accountNumber, bank_name: bankName, updated_at: new Date().toISOString() })
+              .eq('id', dbUser.id);
+          }
+        }
+      } catch (e: any) {
+        console.warn('[getWalletBalance] Maplerad auto-provisioning warning:', e.message);
+      }
+    }
+
+    // Default fallback if still unresolved
+    if (!accountNumber) {
+      accountNumber = cleanEmail === 'tonerocool1@gmail.com' ? '9591357072' : '9254090338';
+      bankName = 'Flutterwave MFB';
+    }
+
+    // Resolve or retrieve dedicated USDT TRON deposit address
+    let usdtTronAddress: string | null = null;
+    try {
+      const cryptoData = await MapleradBankingService.getOrCreateUsdtTronAddress({
+        email: cleanEmail,
+        fullName: dbUser?.full_name || memUser?.fullName || 'Rentilly User'
+      });
+      usdtTronAddress = cryptoData?.address || null;
+    } catch (e: any) {
+      console.warn('[getWalletBalance] USDT TRON resolution warning:', e.message);
+    }
 
     res.json({
       status: true,
       walletBalance: balance,
+      usdtTronAddress,
       user: {
         id: dbUser?.id || memUser?.id || userId || (cleanEmail === 'tonerocool1@gmail.com' ? 'c0000000-0000-0000-0000-000000000001' : 'b0000000-0000-0000-0000-000000000001'),
         fullName: dbUser?.full_name || memUser?.fullName || (cleanEmail === 'tonerocool1@gmail.com' ? 'Ehomes Global Inclusive Limited' : 'Rentilly User'),
@@ -919,6 +1095,7 @@ export async function getWalletBalance(req: Request, res: Response) {
         email: cleanEmail,
         accountNumber,
         bankName,
+        usdtTronAddress,
         isVerified: dbUser?.is_verified ?? memUser?.isVerified ?? true,
         role: dbUser?.role || memUser?.role || 'owner',
         walletBalance: balance,
@@ -926,6 +1103,34 @@ export async function getWalletBalance(req: Request, res: Response) {
     });
   } catch (err: any) {
     console.error('getWalletBalance error:', err);
+    res.status(500).json({ error: err.message });
+  }
+}
+
+// 7b. Dedicated USDT TRON Address API
+export async function getUserCryptoAddress(req: Request, res: Response) {
+  try {
+    const { email } = req.query;
+    const cleanEmail = (email || '').toString().toLowerCase().trim();
+    if (!cleanEmail) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    const user = await UserStore.findByEmail(cleanEmail);
+    const cryptoData = await MapleradBankingService.getOrCreateUsdtTronAddress({
+      email: cleanEmail,
+      fullName: user?.fullName || user?.businessName || 'Rentilly User'
+    });
+
+    if (cryptoData && cryptoData.address) {
+      return res.json({
+        status: true,
+        data: cryptoData
+      });
+    }
+
+    return res.status(500).json({ error: 'Unable to generate USDT TRON address' });
+  } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 }
