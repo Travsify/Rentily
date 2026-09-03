@@ -50,10 +50,20 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
 
   String _purpose = 'rent'; // 'rent' | 'sale'
   String _propertyType = 'flat_apartment';
+  String _furnishing = 'semi_furnished'; // 'unfurnished' | 'semi_furnished' | 'fully_furnished'
+  String _condition = 'brand_new'; // 'brand_new' | 'newly_renovated' | 'fairly_used'
   String _selectedState = 'Lagos';
   String _selectedLga = 'Eti-Osa';
   int _bedrooms = 2;
   int _bathrooms = 2;
+
+  final Set<String> _selectedFeatures = {
+    '24/7 Power',
+    'Treated Water',
+    'Uniformed Security',
+    'Fitted Kitchen',
+    'All Rooms En-Suite',
+  };
 
   // Media Uploads
   final List<String> _uploadedImages = [];
@@ -438,8 +448,8 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
       bedrooms: _bedrooms,
       bathrooms: _bathrooms,
       toilets: _bathrooms,
-      furnishing: 'semi_furnished',
-      amenities: ['24/7 Power', 'Treated Water', 'Security Guard', 'CCTV'],
+      furnishing: _furnishing,
+      amenities: _selectedFeatures.toList(),
       images: _uploadedImages,
       videoWalkthroughUrl: _uploadedVideoPath,
       status: 'available',
@@ -603,50 +613,53 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
       ),
       child: Column(
         children: [
-          // 1. Header Bar
+          // 1. Header Bar (Overflow Proof)
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: const BoxDecoration(
               border: Border(bottom: BorderSide(color: AppColors.borderDark)),
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.1),
-                        shape: BoxShape.circle,
+                Container(
+                  padding: const EdgeInsets.all(7),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(_isDirectLandlord ? Icons.real_estate_agent_rounded : Icons.business_center_rounded, size: 18, color: AppColors.primary),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        titleHeader,
+                        style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      child: Icon(_isDirectLandlord ? Icons.real_estate_agent_rounded : Icons.business_center_rounded, size: 18, color: AppColors.primary),
-                    ),
-                    const SizedBox(width: 10),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          titleHeader,
-                          style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                        ),
-                        Text(
-                          stepSubtitles[_currentStep],
-                          style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.primary),
-                        ),
-                      ],
-                    ),
-                  ],
+                      Text(
+                        stepSubtitles[_currentStep],
+                        style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.w600, color: AppColors.primary),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
                 IconButton(
                   icon: const Icon(Icons.close_rounded, size: 22, color: AppColors.textPrimary),
                   onPressed: () => Navigator.of(context).pop(),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
                 ),
               ],
             ),
           ),
 
-          // 2. Visual 4-Step Stepper Bar
+          // 2. Visual 4-Step Stepper Bar (Adaptive & Overflow Proof)
           _buildStepperHeader(),
 
           // 3. Active Step Content (Spacious & Focused)
@@ -666,10 +679,10 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
   }
 
   Widget _buildStepperHeader() {
-    final stepNames = ['Basic Info', 'Pricing', 'Location', 'Verification'];
+    final stepNames = ['Basic Info', 'Pricing & Specs', 'Location', 'Verification'];
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: const BoxDecoration(
         color: Color(0xFFF8FAFC),
         border: Border(bottom: BorderSide(color: AppColors.borderDark)),
@@ -681,8 +694,8 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
             final isCompleted = _currentStep > stepIndex;
             return Expanded(
               child: Container(
-                height: 2.5,
-                margin: const EdgeInsets.symmetric(horizontal: 4),
+                height: 2,
+                margin: const EdgeInsets.symmetric(horizontal: 2),
                 color: isCompleted ? AppColors.primary : AppColors.borderDark,
               ),
             );
@@ -703,8 +716,8 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 24,
-                  height: 24,
+                  width: 22,
+                  height: 22,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: isCompleted
@@ -717,24 +730,29 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
                   ),
                   child: Center(
                     child: isCompleted
-                        ? const Icon(Icons.check_rounded, size: 14, color: Colors.white)
+                        ? const Icon(Icons.check_rounded, size: 12, color: Colors.white)
                         : Text(
                             '${stepIndex + 1}',
                             style: GoogleFonts.plusJakartaSans(
-                              fontSize: 10.5,
+                              fontSize: 9.5,
                               fontWeight: FontWeight.bold,
                               color: isActive ? Colors.white : AppColors.textSecondary,
                             ),
                           ),
                   ),
                 ),
-                const SizedBox(width: 4),
-                Text(
-                  stepNames[stepIndex],
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 9.5,
-                    fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
-                    color: isActive ? AppColors.primary : AppColors.textSecondary,
+                const SizedBox(width: 3),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 60),
+                  child: Text(
+                    stepNames[stepIndex],
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 8.5,
+                      fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                      color: isActive ? AppColors.primary : AppColors.textSecondary,
+                    ),
                   ),
                 ),
               ],
@@ -759,7 +777,7 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
     }
   }
 
-  // ==================== STEP 1: BASIC INFO & MEDIA ====================
+  // ==================== STEP 1: BASIC INFO, CATEGORY & MEDIA ====================
   Widget _buildStep0BasicInfo() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -782,7 +800,7 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
         TextField(
           controller: _titleController,
           style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600),
-          decoration: _inputDeco(hint: 'e.g. Luxury 3-Bedroom Serviced Apartment with Ocean View'),
+          decoration: _inputDeco(hint: 'e.g. Luxury 3-Bedroom Serviced Apartment with Pool'),
         ),
         const SizedBox(height: 18),
 
@@ -795,22 +813,91 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
           style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textPrimary, fontWeight: FontWeight.bold),
           items: const [
             DropdownMenuItem(value: 'flat_apartment', child: Text('Flat / Apartment')),
-            DropdownMenuItem(value: 'duplex', child: Text('Duplex / Terrace')),
+            DropdownMenuItem(value: 'terraced_duplex', child: Text('Terraced Duplex')),
+            DropdownMenuItem(value: 'semi_detached', child: Text('Semi-Detached Duplex')),
+            DropdownMenuItem(value: 'fully_detached', child: Text('Fully Detached Mansion')),
+            DropdownMenuItem(value: 'penthouse', child: Text('Penthouse Suite')),
+            DropdownMenuItem(value: 'maisonette', child: Text('Maisonette')),
             DropdownMenuItem(value: 'self_contain', child: Text('Self Contain / Studio')),
             DropdownMenuItem(value: 'commercial', child: Text('Office / Commercial Space')),
+            DropdownMenuItem(value: 'warehouse', child: Text('Retail Shop / Warehouse')),
           ],
           onChanged: (val) => setState(() => _propertyType = val!),
         ),
         const SizedBox(height: 18),
 
+        // Furnishing Status
+        Text('4. FURNISHING STATUS', style: _labelStyle),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _buildFilterChip(
+                label: 'Unfurnished',
+                isSelected: _furnishing == 'unfurnished',
+                onTap: () => setState(() => _furnishing = 'unfurnished'),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: _buildFilterChip(
+                label: 'Semi-Furnished',
+                isSelected: _furnishing == 'semi_furnished',
+                onTap: () => setState(() => _furnishing = 'semi_furnished'),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: _buildFilterChip(
+                label: 'Fully Furnished',
+                isSelected: _furnishing == 'fully_furnished',
+                onTap: () => setState(() => _furnishing = 'fully_furnished'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 18),
+
+        // Property Condition
+        Text('5. PROPERTY CONDITION', style: _labelStyle),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _buildFilterChip(
+                label: 'Brand New',
+                isSelected: _condition == 'brand_new',
+                onTap: () => setState(() => _condition = 'brand_new'),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: _buildFilterChip(
+                label: 'Newly Renovated',
+                isSelected: _condition == 'newly_renovated',
+                onTap: () => setState(() => _condition = 'newly_renovated'),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: _buildFilterChip(
+                label: 'Fairly Used',
+                isSelected: _condition == 'fairly_used',
+                onTap: () => setState(() => _condition = 'fairly_used'),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 18),
+
         // Description
-        Text('4. DESCRIPTION & HIGHLIGHTS', style: _labelStyle),
+        Text('6. DESCRIPTION & HIGHLIGHTS', style: _labelStyle),
         const SizedBox(height: 8),
         TextField(
           controller: _descController,
           maxLines: 3,
           style: GoogleFonts.plusJakartaSans(fontSize: 12),
-          decoration: _inputDeco(hint: 'Describe key features: 24/7 power, treated water, armed security, parking, fitted kitchen...'),
+          decoration: _inputDeco(hint: 'Describe key highlights: 24/7 power, treated water, armed security, parking, fitted kitchen...'),
         ),
         const SizedBox(height: 18),
 
@@ -819,7 +906,7 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Expanded(
-              child: Text('5. PHOTOS & 4K WALKTHROUGH VIDEO', style: _labelStyle),
+              child: Text('7. PHOTOS & 4K WALKTHROUGH VIDEO', style: _labelStyle, maxLines: 1, overflow: TextOverflow.ellipsis),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -841,12 +928,12 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: _pickImages,
-                icon: const Icon(Icons.add_photo_alternate_rounded, size: 15, color: AppColors.primary),
-                label: Text('Add Photos', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                icon: const Icon(Icons.add_photo_alternate_rounded, size: 14, color: AppColors.primary),
+                label: Text('Add Photos', style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary), maxLines: 1, overflow: TextOverflow.ellipsis),
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: AppColors.primary),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 2),
                 ),
               ),
             ),
@@ -854,12 +941,12 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: _takePhoto,
-                icon: const Icon(Icons.camera_alt_rounded, size: 15, color: AppColors.primary),
-                label: Text('Camera', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                icon: const Icon(Icons.camera_alt_rounded, size: 14, color: AppColors.primary),
+                label: Text('Camera', style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary), maxLines: 1, overflow: TextOverflow.ellipsis),
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: AppColors.primary),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 2),
                 ),
               ),
             ),
@@ -867,15 +954,17 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
             Expanded(
               child: ElevatedButton.icon(
                 onPressed: _pickVideo,
-                icon: const Icon(Icons.videocam_rounded, size: 15, color: Colors.white),
+                icon: const Icon(Icons.videocam_rounded, size: 14, color: Colors.white),
                 label: Text(
                   _uploadedVideoPath != null ? 'Video ✓' : '4K Video',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.white),
+                  style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: _uploadedVideoPath != null ? const Color(0xFF16A34A) : AppColors.accentOrange,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 2),
                 ),
               ),
             ),
@@ -948,7 +1037,7 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
     );
   }
 
-  // ==================== STEP 2: SPECS & PRICING ====================
+  // ==================== STEP 2: SPECS, PRICING & PROPERTY FEATURES ====================
   Widget _buildStep1PricingAndSpecs() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1024,7 +1113,7 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
         Text('🔒 100% of Caution Deposit is held in Rentilly Escrow. Neither the landlord nor partner touches it.', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.primary, fontWeight: FontWeight.w600)),
         const SizedBox(height: 18),
 
-        // Escrow Payout Breakdown Card
+        // Escrow Payout Breakdown Card (Overflow Proof)
         if (_basePrice > 0) ...[
           Container(
             padding: const EdgeInsets.all(14),
@@ -1042,10 +1131,15 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      _isDirectLandlord ? 'LANDLORD DIRECT ESCROW PAYOUT' : 'PARTNER COMMISSIONS DISBURSEMENT',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w900, color: const Color(0xFF4ADE80), letterSpacing: 0.8),
+                    Expanded(
+                      child: Text(
+                        _isDirectLandlord ? 'LANDLORD DIRECT ESCROW PAYOUT' : 'PARTNER COMMISSIONS DISBURSEMENT',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w900, color: const Color(0xFF4ADE80), letterSpacing: 0.8),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
+                    const SizedBox(width: 6),
                     Text(
                       _isDirectLandlord ? '100% NET RENT' : (_purpose == 'rent' ? '2.5% ON RENT' : '2.0% ON SALE'),
                       style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w900, color: const Color(0xFFFBBF24)),
@@ -1057,20 +1151,119 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
                   _isDirectLandlord
                       ? '₦${_currencyFormat.format(_basePrice)} Direct Rent Settlement'
                       : '₦${_currencyFormat.format(_partnerCommission)} Automated Commission',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w900, color: Colors.white),
+                  style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w900, color: Colors.white),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
                 Text(
                   _isDirectLandlord
                       ? '100% of rent is disbursed into your dedicated virtual account upon tenant key confirmation. ₦0 agency deductions.'
                       : 'Disbursed automatically by Rentilly escrow upon tenant move-in and key confirmation. Zero paperwork.',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 10, color: Colors.white70, height: 1.3),
+                  style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: Colors.white70, height: 1.3),
+                  softWrap: true,
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 18),
         ],
+
+        // 4. Modern Property Features & Amenities (One-Tap Selectable Chips)
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Text('4. PROPERTY FEATURES & AMENITIES', style: _labelStyle, maxLines: 1, overflow: TextOverflow.ellipsis),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                '${_selectedFeatures.length} selected',
+                style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.primary),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+
+        // Sub-category A: Power & Utilities
+        Text('⚡ POWER, WATER & CORE UTILITIES', style: _subFeatureLabelStyle),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            _buildFeatureChip('24/7 Power', Icons.electric_bolt_rounded),
+            _buildFeatureChip('Central Generator', Icons.power_rounded),
+            _buildFeatureChip('Solar Inverter', Icons.wb_sunny_rounded),
+            _buildFeatureChip('Dedicated Transformer', Icons.flash_on_rounded),
+            _buildFeatureChip('Treated Water', Icons.water_drop_rounded),
+            _buildFeatureChip('Prepaid Meter', Icons.speed_rounded),
+            _buildFeatureChip('Central Gas', Icons.local_fire_department_rounded),
+          ],
+        ),
+        const SizedBox(height: 14),
+
+        // Sub-category B: Security & Compound Safety
+        Text('🛡️ SECURITY & ACCESS CONTROL', style: _subFeatureLabelStyle),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            _buildFeatureChip('Uniformed Security', Icons.security_rounded),
+            _buildFeatureChip('CCTV Surveillance', Icons.videocam_rounded),
+            _buildFeatureChip('Electric Fence', Icons.fence_rounded),
+            _buildFeatureChip('Dedicated Gatehouse', Icons.home_work_rounded),
+            _buildFeatureChip('Smart Digital Locks', Icons.lock_outline_rounded),
+            _buildFeatureChip('Intercom System', Icons.phone_in_talk_rounded),
+            _buildFeatureChip('Motorized Gate', Icons.sensor_door_rounded),
+          ],
+        ),
+        const SizedBox(height: 14),
+
+        // Sub-category C: Leisure, Grounds & Auxiliary
+        Text('🏊 LEISURE, GROUNDS & AUXILIARY', style: _subFeatureLabelStyle),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            _buildFeatureChip('Private Swimming Pool', Icons.pool_rounded),
+            _buildFeatureChip('Paid / Communal Pool', Icons.water_rounded),
+            _buildFeatureChip('Equipped Gym', Icons.fitness_center_rounded),
+            _buildFeatureChip('Elevator / Lift', Icons.elevator_rounded),
+            _buildFeatureChip("Maid's Quarters (BQ)", Icons.hotel_rounded),
+            _buildFeatureChip('Covered Carport', Icons.garage_rounded),
+            _buildFeatureChip("Children's Play Area", Icons.child_care_rounded),
+            _buildFeatureChip('Rooftop Terrace', Icons.deck_rounded),
+          ],
+        ),
+        const SizedBox(height: 14),
+
+        // Sub-category D: Interior Comfort & Luxury Fixtures
+        Text('🛋️ INTERIOR COMFORT & FIXTURES', style: _subFeatureLabelStyle),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            _buildFeatureChip('All Rooms En-Suite', Icons.bathtub_rounded),
+            _buildFeatureChip('Fitted Kitchen', Icons.kitchen_rounded),
+            _buildFeatureChip('Water Heaters', Icons.hot_tub_rounded),
+            _buildFeatureChip('Pre-installed ACs', Icons.ac_unit_rounded),
+            _buildFeatureChip('Walk-in Closet', Icons.checkroom_rounded),
+            _buildFeatureChip('Jacuzzi Bathtub', Icons.hot_tub_outlined),
+            _buildFeatureChip('POP Ceilings', Icons.roofing_rounded),
+            _buildFeatureChip('Private Balcony', Icons.balcony_rounded),
+          ],
+        ),
+        const SizedBox(height: 14),
       ],
     );
   }
@@ -1503,7 +1696,7 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
         ],
         const SizedBox(height: 18),
 
-        // Review Summary Card
+        // Review Summary Card (Overflow Proof)
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
@@ -1517,8 +1710,10 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
               Text('LISTING REVIEW & SUMMARY', style: _labelStyle),
               const SizedBox(height: 8),
               _buildSummaryRow('Property Title', _titleController.text.trim().isNotEmpty ? _titleController.text.trim() : 'Not entered'),
-              _buildSummaryRow('Listing Purpose', _purpose == 'rent' ? 'For Rent (Annual)' : 'For Sale'),
+              _buildSummaryRow('Purpose & Type', '${_purpose == 'rent' ? 'For Rent (Annual)' : 'For Sale'} • ${_propertyType.replaceAll('_', ' ').toUpperCase()}'),
               _buildSummaryRow('Financials', '₦${_currencyFormat.format(_basePrice)} (${_bedrooms} Bed • ${_bathrooms} Bath)'),
+              _buildSummaryRow('Furnishing', '${_furnishing.replaceAll('_', ' ').toUpperCase()} • ${_condition.replaceAll('_', ' ').toUpperCase()}'),
+              _buildSummaryRow('Features (${_selectedFeatures.length})', _selectedFeatures.isEmpty ? 'None selected' : _selectedFeatures.join(', ')),
               _buildSummaryRow('Location', '${_addressController.text.trim().isNotEmpty ? _addressController.text.trim() : "Not specified"}, $_selectedLga, $_selectedState'),
               _buildSummaryRow('Media Attached', '${_uploadedImages.length} Photos • ${_uploadedVideoPath != null ? "4K Video ✓" : "No Video"}'),
             ],
@@ -1537,10 +1732,19 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
         children: [
           SizedBox(
             width: 95,
-            child: Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.textSecondary)),
+            child: Text(
+              label,
+              style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
           Expanded(
-            child: Text(value, style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+            child: Text(
+              value,
+              style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+              softWrap: true,
+            ),
           ),
         ],
       ),
@@ -1723,4 +1927,88 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
         letterSpacing: 0.8,
         color: AppColors.textSecondary,
       );
+
+  TextStyle get _subFeatureLabelStyle => GoogleFonts.plusJakartaSans(
+        fontSize: 8.5,
+        fontWeight: FontWeight.w800,
+        letterSpacing: 0.6,
+        color: AppColors.textSecondary,
+      );
+
+  Widget _buildFeatureChip(String name, IconData icon) {
+    final isSelected = _selectedFeatures.contains(name);
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          if (isSelected) {
+            _selectedFeatures.remove(name);
+          } else {
+            _selectedFeatures.add(name);
+          }
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary.withValues(alpha: 0.12) : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0),
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isSelected ? Icons.check_circle_rounded : icon,
+              size: 13,
+              color: isSelected ? AppColors.primary : AppColors.textSecondary,
+            ),
+            const SizedBox(width: 5),
+            Text(
+              name,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 10,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                color: isSelected ? AppColors.primary : AppColors.textPrimary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterChip({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : const Color(0xFFE2E8F0),
+          ),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 10,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+              color: isSelected ? Colors.white : AppColors.textPrimary,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ),
+    );
+  }
 }
