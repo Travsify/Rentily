@@ -272,12 +272,13 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
 
       return res.json({
         status: true,
-        message: 'Withdrawal processed successfully via Paystack!',
+        message: `Withdrawal processed successfully via ${transferProvider === 'MAPLERAD' ? 'Maplerad Interbank Rail' : 'Paystack Settlement Rail'}!`,
+        provider: transferProvider,
         newBalance: newBal,
-        data: transferRes.data
+        data: transferData
       });
     } else {
-      return res.status(400).json({ error: transferRes.message || 'Paystack payout settlement failed' });
+      return res.status(400).json({ error: 'Payout settlement failed. Please verify recipient account details.' });
     }
   } catch (err: any) {
     console.error('Withdrawal error:', err);
@@ -560,6 +561,17 @@ export async function executeCurrencySwap(req: Request, res: Response) {
           console.warn('[Swap USDT->NGN] Supabase warning:', e?.message);
         }
       }
+
+      // Automatically sync treasury liquidity on Maplerad FX rail
+      MapleradBankingService.exchangeCurrency({
+        sourceCurrency: 'USDT',
+        targetCurrency: 'NGN',
+        amount: numAmount
+      }).then(res => {
+        if (res.success) {
+          console.log(`[Maplerad FX] Converted ${numAmount} USDT to NGN treasury pool (Rate: ${res.rate})`);
+        }
+      }).catch(() => {});
 
       return res.status(200).json({
         success: true,

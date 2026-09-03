@@ -431,6 +431,74 @@ export class MapleradBankingService {
   }
 
   /**
+   * 7b. FX Currency Exchange (e.g. USDT -> NGN, or USDT -> USD)
+   */
+  static async exchangeCurrency(params: {
+    sourceCurrency: string;
+    targetCurrency: string;
+    amount: number;
+  }): Promise<{ success: boolean; targetAmount?: number; rate?: number; error?: string }> {
+    try {
+      // 1. Get quote
+      const quoteRes = await fetch(`${this.baseUrl}/fx/quote`, {
+        method: 'POST',
+        headers: this.headers,
+        body: JSON.stringify({
+          source_currency: params.sourceCurrency.toUpperCase(),
+          target_currency: params.targetCurrency.toUpperCase(),
+          amount: Math.round(params.amount * 100)
+        })
+      });
+      const quoteData = await quoteRes.json().catch(() => ({}));
+      if (!quoteData?.status || !quoteData?.data?.reference) {
+        return { success: false, error: quoteData?.message || 'Could not generate FX quote' };
+      }
+
+      // 2. Execute swap
+      const fxRes = await fetch(`${this.baseUrl}/fx`, {
+        method: 'POST',
+        headers: this.headers,
+        body: JSON.stringify({
+          quote_reference: quoteData.data.reference
+        })
+      });
+      const fxData = await fxRes.json().catch(() => ({}));
+      if (fxData?.status && fxData?.data) {
+        return {
+          success: true,
+          targetAmount: fxData.data.target?.human_readable_amount,
+          rate: fxData.data.rate
+        };
+      }
+      return { success: false, error: fxData?.message || 'FX exchange execution failed' };
+    } catch (e: any) {
+      return { success: false, error: e.message };
+    }
+  }
+
+  /**
+   * 7c. Fund SPEND Wallet from TREASURY for Card Issuing
+   */
+  static async fundSpendWallet(currency: string, amount: number): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.baseUrl}/wallets/fund`, {
+        method: 'POST',
+        headers: this.headers,
+        body: JSON.stringify({
+          currency: currency.toUpperCase(),
+          source_wallet_type: 'TREASURY',
+          destination_wallet_type: 'SPEND',
+          amount: Math.round(amount * 100)
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      return data?.status === true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /**
    * 8. ONE-SHOT KYC TIER 1 PROVISIONER
    * Called after identity verification / when user submits KYC or DOB.
    * Enrolls user at Maplerad Tier 1, provisions their dedicated Maplerad NGN VBA
