@@ -347,4 +347,55 @@ export class MapleradBankingService {
       return [];
     }
   }
+
+  /**
+   * 7. Direct Crypto / Stablecoin Withdrawal
+   */
+  static async withdrawCrypto(params: {
+    address: string;
+    amountUsdt: number;
+    reference: string;
+    chain?: string;
+    reason?: string;
+  }): Promise<{ success: boolean; reference: string; message?: string; data?: any }> {
+    try {
+      console.log(`[MapleradBanking] Initiating crypto withdrawal of ${params.amountUsdt} USDT to ${params.address}...`);
+      const res = await fetch(`${this.baseUrl}/crypto/transfer`, {
+        method: 'POST',
+        headers: this.headers,
+        body: JSON.stringify({
+          amount: Math.round(params.amountUsdt * 100), // in cents
+          reference: params.reference,
+          reason: params.reason || 'Rentilly USDT Withdrawal',
+          address: params.address,
+          chain: params.chain || 'solana',
+          coin: 'usdt',
+          funding_source: 'USD'
+        })
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (data?.status && data?.data) {
+        return {
+          success: true,
+          reference: data.data.reference || params.reference,
+          data: data.data,
+          message: data.message || 'Crypto withdrawal dispatched'
+        };
+      }
+
+      return {
+        success: false,
+        reference: params.reference,
+        message: data?.message || 'Crypto withdrawal request failed'
+      };
+    } catch (err: any) {
+      console.error('[MapleradBanking] withdrawCrypto error:', err.message);
+      return {
+        success: false,
+        reference: params.reference,
+        message: err.message
+      };
+    }
+  }
 }

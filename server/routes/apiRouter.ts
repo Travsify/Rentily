@@ -159,6 +159,7 @@ apiRouter.get('/wallet/crypto-address', paymentController.getUserCryptoAddress);
 apiRouter.get('/payments/paystack-banks', paymentController.getPaystackBanks);
 apiRouter.get('/payments/resolve-account', paymentController.resolvePaystackAccount);
 apiRouter.post('/payments/withdraw-paystack', paymentController.withdrawWithPaystack);
+apiRouter.post('/payments/withdraw-crypto', paymentController.withdrawCrypto);
 apiRouter.post('/payments/reconcile', paymentController.adminReconcileBalance);
 apiRouter.post('/payments/register-and-credit', paymentController.adminRegisterAndCreditUser);
 

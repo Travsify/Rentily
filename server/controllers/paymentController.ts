@@ -104,7 +104,7 @@ export async function resolvePaystackAccount(req: Request, res: Response) {
 // 3. Execute Bank Transfer Payout (Maplerad Primary, Paystack Fallback)
 export async function withdrawWithPaystack(req: Request, res: Response) {
   try {
-    const { userId, email, accountNumber, bankCode, accountName, amount, reason } = req.body;
+    const { userId, email, accountNumber, bankCode, accountName, amount, reason, sourceCurrency, usdtAmount, fxRate } = req.body;
     const cleanEmail = (email || '').toString().toLowerCase().trim();
 
     if (!accountNumber || !bankCode || !amount || Number(amount) <= 0) {
@@ -112,10 +112,14 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
     }
 
     const numAmount = Number(amount);
-    const cleanReason = (reason && !reason.toLowerCase().includes('living escrow') ? reason : 'Rentilly Payout')
+    let cleanReason = (reason && !reason.toLowerCase().includes('living escrow') ? reason : 'Rentilly Payout')
       .replace(/transify/gi, '')
       .replace(/living escrow/gi, '')
       .trim() || 'Rentilly Payout';
+
+    if (sourceCurrency === 'USDT' && usdtAmount) {
+      cleanReason = `Payout: $${usdtAmount} USDT converted to ₦${numAmount.toLocaleString()} (Rate: 1 USDT = ₦${fxRate || 1510})`;
+    }
 
     // Auto-sync real inbound transactions from Flutterwave Cloud API
     await syncFlutterwaveTransactionsForUser(cleanEmail);
@@ -278,6 +282,127 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
   } catch (err: any) {
     console.error('Withdrawal error:', err);
     res.status(500).json({ error: err.message || 'Payout settlement failed' });
+  }
+}
+
+// 3b. Execute Direct Crypto (USDT) Payout
+export async function withdrawCrypto(req: Request, res: Response) {
+  try {
+    const { userId, email, address, amountUsdt, chain } = req.body;
+    const cleanEmail = (email || '').toString().toLowerCase().trim();
+    const numUsdt = Number(amountUsdt || 0);
+
+    if (!address || numUsdt <= 0) {
+      return res.status(400).json({ error: 'Valid recipient crypto address and USDT amount are required.' });
+    }
+
+    // Live FX benchmark
+    const rates = MultiCurrencyService.getFxRates();
+    const fxRate = rates.USD_NGN || 1510.0;
+    const equivalentNgn = numUsdt * fxRate;
+
+    // Platform fee (₦50)
+    const platformFees = getStoredFees();
+    const withdrawalFeeNgn = Number(platformFees.withdrawalFee ?? 50);
+    const totalDebitNgn = equivalentNgn + withdrawalFeeNgn;
+
+    const currentBal = TransactionStore.computeNetBalance(cleanEmail);
+    const memUser = await UserStore.findByEmail(cleanEmail);
+
+    if (currentBal < totalDebitNgn) {
+      return res.status(400).json({
+        error: `Insufficient wallet balance. Withdrawing ${numUsdt} USDT requires ₦${totalDebitNgn.toLocaleString()} NGN equivalent (including standard fee). Available: ₦${currentBal.toLocaleString()}.`
+      });
+    }
+
+    const txRef = `WD_CRYPTO_${Date.now()}`;
+    const targetUserId = userId || memUser?.id || (cleanEmail === 'tonerocool1@gmail.com' ? 'c0000000-0000-0000-0000-000000000001' : 'b0000000-0000-0000-0000-000000000001');
+
+    // Call Maplerad withdrawCrypto
+    const cryptoRes = await MapleradBankingService.withdrawCrypto({
+      address,
+      amountUsdt: numUsdt,
+      reference: txRef,
+      chain: chain || 'tron'
+    });
+
+    const newBal = Math.max(0, currentBal - totalDebitNgn);
+
+    // Record in TransactionStore
+    await TransactionStore.addTransaction({
+      id: `TX_WD_CRYPTO_${Date.now()}`,
+      userId: targetUserId,
+      email: cleanEmail,
+      title: `Crypto Withdrawal: ${numUsdt} USDT`,
+      type: 'Direct Crypto Withdrawal',
+      category: 'withdrawal',
+      amount: totalDebitNgn,
+      isCredit: false,
+      reference: txRef,
+      sender: `${memUser?.businessName || memUser?.fullName || 'Rentilly User'} (USDT Vault)`,
+      beneficiary: `${address.substring(0, 8)}...${address.substring(address.length - 6)} (${chain || 'TRC20'})`,
+      recipientAccount: address,
+      recipientBank: `Blockchain (${chain || 'TRON TRC20'})`,
+      status: cryptoRes.success ? 'SUCCESSFUL' : 'PROCESSING',
+      date: new Date().toISOString(),
+    });
+
+    if (memUser) {
+      UserStore.upsertUser({
+        ...memUser,
+        walletBalance: newBal,
+        updatedAt: new Date().toISOString()
+      });
+    }
+
+    if (supabase) {
+      try {
+        await supabase
+          .from('profiles')
+          .update({ wallet_balance: newBal, updated_at: new Date().toISOString() })
+          .eq('id', targetUserId);
+
+        await supabase.from('wallet_transactions').insert({
+          user_id: targetUserId,
+          email: cleanEmail,
+          amount: totalDebitNgn,
+          type: 'debit',
+          status: 'completed',
+          flw_ref: txRef,
+          tx_ref: txRef,
+          narration: `Crypto Transfer: ${numUsdt} USDT to ${address} • ₦${totalDebitNgn.toLocaleString()}`,
+          created_at: new Date().toISOString()
+        });
+      } catch (e: any) {
+        console.warn('[WithdrawCrypto] Supabase update warning:', e?.message);
+      }
+    }
+
+    // Dispatch In-App & Email alerts
+    NotificationDispatcher.dispatch({
+      userId: targetUserId,
+      email: cleanEmail,
+      userName: memUser?.fullName,
+      title: `Crypto Payout: ${numUsdt} USDT Dispatched`,
+      category: 'wallet',
+      message: `Your withdrawal of ${numUsdt} USDT (₦${equivalentNgn.toLocaleString()} NGN) to address ${address} has been dispatched.`,
+      metadata: {
+        amountUsdt: numUsdt,
+        amountNgn: totalDebitNgn,
+        address,
+        reference: txRef
+      }
+    });
+
+    res.json({
+      status: true,
+      message: `Successfully processed withdrawal of ${numUsdt} USDT!`,
+      newBalance: newBal,
+      reference: txRef
+    });
+  } catch (err: any) {
+    console.error('withdrawCrypto error:', err);
+    res.status(500).json({ error: err.message || 'Crypto withdrawal failed' });
   }
 }
 

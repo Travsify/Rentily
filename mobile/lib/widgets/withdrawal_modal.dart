@@ -36,6 +36,11 @@ class WithdrawalModal extends StatefulWidget {
 class _WithdrawalModalState extends State<WithdrawalModal> {
   final TextEditingController _accountController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
+  final TextEditingController _cryptoAddressController = TextEditingController();
+
+  String _withdrawalMode = 'NGN'; // 'NGN' or 'USDT'
+  String _usdtDestinationType = 'BANK'; // 'BANK' (Convert to NGN) or 'CRYPTO' (Send on-chain)
+  final double _fxUsdtToNgn = 1510.0;
 
   String _selectedBankCode = '058'; // Default GTBank
   String _selectedBankName = 'Guaranty Trust Bank';
@@ -45,6 +50,18 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
   bool _isProcessing = false;
   bool _isLoadingBanks = false;
   String? _errorMessage;
+
+  double get _enteredAmount {
+    return double.tryParse(_amountController.text.replaceAll(',', '').trim()) ?? 0.0;
+  }
+
+  double get _computedNgnAmount {
+    if (_withdrawalMode == 'NGN') {
+      return _enteredAmount;
+    } else {
+      return _enteredAmount * _fxUsdtToNgn;
+    }
+  }
 
   List<Map<String, String>> _banks = [
     {'name': 'Guaranty Trust Bank (GTBank)', 'code': '058'},
@@ -274,22 +291,107 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
   }
 
   void _executeWithdrawal() async {
-    final amountText = _amountController.text.replaceAll(',', '').trim();
-    final double? amount = double.tryParse(amountText);
+    final currentUser = await AuthService.getCurrentUser() ?? widget.user;
+    final currentBal = currentUser.walletBalance;
 
-    if (amount == null || amount <= 0) {
+    final double entered = _enteredAmount;
+    if (entered <= 0) {
       setState(() => _errorMessage = 'Please enter a valid withdrawal amount.');
       return;
     }
 
-    final currentUser = await AuthService.getCurrentUser() ?? widget.user;
-    final currentBal = currentUser.walletBalance;
-
-    if (amount > currentBal) {
+    final double totalNgnRequired = _computedNgnAmount;
+    if (totalNgnRequired > currentBal) {
       setState(() => _errorMessage = 'Amount exceeds available balance (₦${NumberFormat('#,###.00').format(currentBal)}).');
       return;
     }
 
+    // Branch A: Direct Crypto Payout (USDT on-chain)
+    if (_withdrawalMode == 'USDT' && _usdtDestinationType == 'CRYPTO') {
+      final cryptoAddress = _cryptoAddressController.text.trim();
+      if (cryptoAddress.isEmpty || cryptoAddress.length < 15) {
+        setState(() => _errorMessage = 'Please enter a valid recipient TRC20 / TRON wallet address.');
+        return;
+      }
+
+      if (!mounted) return;
+      final authorized = await PaymentSecurityService.authorizeTransaction(
+        context,
+        title: 'Crypto Payout to $cryptoAddress',
+        amount: totalNgnRequired,
+        recipient: '$entered USDT (TRON TRC20)',
+      );
+      if (!authorized) {
+        setState(() => _errorMessage = 'Payment authorization cancelled or incorrect.');
+        return;
+      }
+
+      setState(() {
+        _isProcessing = true;
+        _errorMessage = null;
+      });
+
+      try {
+        final url = Uri.parse('${AppConstants.apiBaseUrl}/payments/withdraw-crypto');
+        final res = await http.post(
+          url,
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({
+            'userId': currentUser.id,
+            'email': currentUser.email,
+            'address': cryptoAddress,
+            'amountUsdt': entered,
+            'chain': 'tron'
+          }),
+        ).timeout(const Duration(seconds: 30));
+
+        final data = json.decode(res.body);
+        setState(() => _isProcessing = false);
+
+        if (res.statusCode == 200 && data['status'] == true) {
+          final serverNewBal = (data['newBalance'] != null)
+              ? (data['newBalance'] as num).toDouble()
+              : (currentBal - totalNgnRequired).clamp(0.0, double.infinity);
+          widget.onWithdrawalSuccess(serverNewBal);
+
+          NotificationService.addNotification(
+            title: 'USDT Withdrawal Dispatched ⚡',
+            message: 'Payout of $entered USDT (₦${NumberFormat('#,###.00').format(totalNgnRequired)}) dispatched to $cryptoAddress.',
+            category: 'transaction',
+            metadata: {
+              'amountUsdt': entered.toString(),
+              'amountNgn': totalNgnRequired.toString(),
+              'address': cryptoAddress,
+            },
+          );
+
+          if (!mounted) return;
+          Navigator.of(context).pop();
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Withdrawal of $entered USDT initiated successfully!',
+                style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold),
+              ),
+              backgroundColor: AppColors.primary,
+            ),
+          );
+        } else {
+          setState(() {
+            _errorMessage = data['error'] ?? data['message'] ?? 'Crypto withdrawal could not be processed.';
+          });
+        }
+      } catch (e) {
+        setState(() {
+          _isProcessing = false;
+          _errorMessage = 'Network timeout. Please check your connection and try again.';
+        });
+      }
+      return;
+    }
+
+    // Branch B: Bank Payout (either direct NGN or USDT-converted)
     final accNum = _accountController.text.trim();
     if (accNum.length != 10) {
       setState(() => _errorMessage = 'Please enter a 10-digit Nigerian account number.');
@@ -301,19 +403,20 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
       return;
     }
 
-    // STRICT FINTECH CHECK: Must have an authentic verified recipient name from bank
     if (_resolvedAccountName == null || _resolvedAccountName!.trim().isEmpty) {
-      setState(() => _errorMessage = 'Cannot proceed: Recipient account is unverified or invalid. Please check account details.');
+      setState(() => _errorMessage = 'Cannot proceed: Recipient account is unverified. Please check account details.');
       return;
     }
 
     final confirmedRecipient = _resolvedAccountName!.trim();
 
-    // Dual Security: Biometric (FaceID / Fingerprint) OR 6-Digit Payment Code
+    if (!mounted) return;
     final authorized = await PaymentSecurityService.authorizeTransaction(
       context,
-      title: 'Withdrawal to $_selectedBankName ($accNum)',
-      amount: amount,
+      title: _withdrawalMode == 'USDT' 
+          ? 'Payout $entered USDT (₦${NumberFormat('#,###.00').format(totalNgnRequired)})'
+          : 'Withdrawal to $_selectedBankName ($accNum)',
+      amount: totalNgnRequired,
       recipient: confirmedRecipient,
     );
     if (!authorized) {
@@ -337,27 +440,31 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
           'accountNumber': accNum,
           'bankCode': _selectedBankCode,
           'accountName': confirmedRecipient,
-          'amount': amount,
-          'reason': 'Rentilly Payout'
+          'amount': totalNgnRequired,
+          'sourceCurrency': _withdrawalMode,
+          'usdtAmount': _withdrawalMode == 'USDT' ? entered : null,
+          'fxRate': _withdrawalMode == 'USDT' ? _fxUsdtToNgn : null,
+          'reason': _withdrawalMode == 'USDT' 
+              ? 'USDT Payout Converted to NGN' 
+              : 'Rentilly Payout'
         }),
       ).timeout(const Duration(seconds: 30));
 
       final data = json.decode(res.body);
-
       setState(() => _isProcessing = false);
 
       if (res.statusCode == 200 && data['status'] == true) {
         final serverNewBal = (data['newBalance'] != null)
             ? (data['newBalance'] as num).toDouble()
-            : (currentBal - amount).clamp(0.0, double.infinity);
+            : (currentBal - totalNgnRequired).clamp(0.0, double.infinity);
         widget.onWithdrawalSuccess(serverNewBal);
 
         NotificationService.addNotification(
           title: 'Bank Withdrawal Dispatched 💳',
-          message: 'Payout of ₦${NumberFormat('#,###.00').format(amount)} to $_selectedBankName ($accNum - $confirmedRecipient) was processed.',
+          message: 'Payout of ₦${NumberFormat('#,###.00').format(totalNgnRequired)} to $_selectedBankName ($accNum - $confirmedRecipient) was processed.',
           category: 'transaction',
           metadata: {
-            'amount': '₦${NumberFormat('#,###.00').format(amount)}',
+            'amount': '₦${NumberFormat('#,###.00').format(totalNgnRequired)}',
             'bank': _selectedBankName,
             'account': accNum,
           },
@@ -365,13 +472,13 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
 
         SecurityTelemetryService.recordActivity(
           title: 'Bank Withdrawal Dispatched 💳',
-          message: 'Payout of ₦${NumberFormat('#,###.00').format(amount)} to $_selectedBankName ($accNum - $confirmedRecipient) was processed.',
+          message: 'Payout of ₦${NumberFormat('#,###.00').format(totalNgnRequired)} to $_selectedBankName ($accNum - $confirmedRecipient) was processed.',
           category: 'wallet',
           userEmail: currentUser.email,
           userName: currentUser.fullName,
           userId: currentUser.id,
           extraMetadata: {
-            'amount': amount,
+            'amount': totalNgnRequired,
             'bankName': _selectedBankName,
             'accountNumber': accNum,
             'beneficiary': confirmedRecipient,
@@ -384,7 +491,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Withdrawal of ₦${NumberFormat('#,###.00').format(amount)} initiated successfully!',
+              'Withdrawal of ₦${NumberFormat('#,###.00').format(totalNgnRequired)} initiated successfully!',
               style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold),
             ),
             backgroundColor: AppColors.primary,
@@ -392,13 +499,13 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
         );
       } else {
         setState(() {
-          _errorMessage = data['error'] ?? data['message'] ?? 'Withdrawal could not be processed. Please check your bank details.';
+          _errorMessage = data['error'] ?? data['message'] ?? 'Withdrawal could not be processed.';
         });
       }
     } catch (e) {
       setState(() {
         _isProcessing = false;
-        _errorMessage = 'Network connection timeout. Please check your connection and try again.';
+        _errorMessage = 'Network timeout. Please check your connection and try again.';
       });
     }
   }
@@ -438,10 +545,92 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Instant direct payout to any of Nigeria\'s 180+ verified commercial & microfinance banks.',
+              'Withdraw directly to any Nigerian bank or transfer USDT on-chain.',
               style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
+
+            // Currency Mode Switcher Tabs (NGN vs USDT)
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF3F4F6),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() {
+                        _withdrawalMode = 'NGN';
+                        _amountController.clear();
+                        _errorMessage = null;
+                      }),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: _withdrawalMode == 'NGN' ? Colors.white : Colors.transparent,
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: _withdrawalMode == 'NGN'
+                              ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2))]
+                              : null,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.account_balance_rounded, size: 14, color: _withdrawalMode == 'NGN' ? AppColors.primary : AppColors.textMuted),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Bank (NGN)',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                                color: _withdrawalMode == 'NGN' ? AppColors.textPrimary : AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() {
+                        _withdrawalMode = 'USDT';
+                        _amountController.clear();
+                        _errorMessage = null;
+                      }),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        decoration: BoxDecoration(
+                          color: _withdrawalMode == 'USDT' ? const Color(0xFF07382B) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: _withdrawalMode == 'USDT'
+                              ? [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4, offset: const Offset(0, 2))]
+                              : null,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.currency_bitcoin_rounded, size: 14, color: _withdrawalMode == 'USDT' ? const Color(0xFF00E676) : AppColors.textMuted),
+                            const SizedBox(width: 6),
+                            Text(
+                              'USDT (TRC20)',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.bold,
+                                color: _withdrawalMode == 'USDT' ? Colors.white : AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
 
             if (_errorMessage != null) ...[
               Container(
@@ -456,126 +645,49 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
               const SizedBox(height: 12),
             ],
 
-            // 1. Select Bank (Searchable 180+ Nigerian Banks)
-            Text(
-              '1. SELECT DESTINATION BANK (${_banks.length} AVAILABLE)',
-              style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 6),
-            GestureDetector(
-              onTap: _openBankSearchSheet,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF9FAFB),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.borderDark),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.account_balance_rounded, size: 18, color: AppColors.primary),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        _selectedBankName,
-                        style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                      ),
-                    ),
-                    if (_isLoadingBanks)
-                      const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary))
-                    else
-                      const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: AppColors.textSecondary),
-                  ],
-                ),
+            // If USDT: Show Destination Selector (Bank Payout or Crypto Address)
+            if (_withdrawalMode == 'USDT') ...[
+              Text(
+                'DESTINATION METHOD',
+                style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
               ),
-            ),
-            const SizedBox(height: 14),
-
-            // 2. Account Number Input
-            Text('2. ENTER 10-DIGIT ACCOUNT NUMBER', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
-            const SizedBox(height: 6),
-            TextField(
-              controller: _accountController,
-              keyboardType: TextInputType.number,
-              maxLength: 10,
-              style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
-              decoration: InputDecoration(
-                counterText: '',
-                hintText: '0123456789',
-                hintStyle: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textMuted),
-                filled: true,
-                fillColor: const Color(0xFFF9FAFB),
-                prefixIcon: const Icon(Icons.badge_outlined, size: 18, color: AppColors.primary),
-                suffixIcon: _isResolving
-                    ? const SizedBox(width: 16, height: 16, child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)))
-                    : null,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.borderDark)),
-              ),
-              onChanged: (val) {
-                if (val.length == 10) {
-                  _resolveAccount();
-                } else {
-                  setState(() => _resolvedAccountName = null);
-                }
-              },
-            ),
-
-            if (_resolvedAccountName != null) ...[
               const SizedBox(height: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryLight.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.primaryLight.withValues(alpha: 0.3)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.check_circle_rounded, size: 14, color: AppColors.primaryLight),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        'Account Name: $_resolvedAccountName',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
-                      ),
+              Row(
+                children: [
+                  Expanded(
+                    child: ChoiceChip(
+                      label: Text('Convert & Payout to Bank', style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold)),
+                      selected: _usdtDestinationType == 'BANK',
+                      selectedColor: AppColors.primary.withValues(alpha: 0.15),
+                      onSelected: (val) => setState(() => _usdtDestinationType = 'BANK'),
                     ),
-                  ],
-                ),
-              ),
-            ],
-            if (_accountResolutionError != null) ...[
-              const SizedBox(height: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFEF2F2),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: const Color(0xFFEF4444)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.error_outline_rounded, size: 14, color: Color(0xFFEF4444)),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        _accountResolutionError!,
-                        style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: const Color(0xFFB91C1C)),
-                      ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ChoiceChip(
+                      label: Text('Send to TRC20 Wallet', style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold)),
+                      selected: _usdtDestinationType == 'CRYPTO',
+                      selectedColor: const Color(0xFF00E676).withValues(alpha: 0.2),
+                      onSelected: (val) => setState(() => _usdtDestinationType = 'CRYPTO'),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
+              const SizedBox(height: 14),
             ],
-            const SizedBox(height: 14),
 
-            // 3. Amount Input
+            // Amount Input Field
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('3. WITHDRAWAL AMOUNT (₦)', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
                 Text(
-                  'Avail: ₦${NumberFormat('#,###.00').format(widget.user.walletBalance)}',
+                  _withdrawalMode == 'USDT' ? 'ENTER USDT AMOUNT' : 'WITHDRAWAL AMOUNT (₦)',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                ),
+                Text(
+                  _withdrawalMode == 'USDT'
+                      ? 'Avail: \$${(widget.user.walletBalance / _fxUsdtToNgn).toStringAsFixed(2)} USDT'
+                      : 'Avail: ₦${NumberFormat('#,###.00').format(widget.user.walletBalance)}',
                   style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary),
                 ),
               ],
@@ -583,20 +695,195 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
             const SizedBox(height: 6),
             TextField(
               controller: _amountController,
-              keyboardType: TextInputType.number,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
               style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
               decoration: InputDecoration(
-                prefixText: '₦ ',
+                prefixText: _withdrawalMode == 'USDT' ? '\$ ' : '₦ ',
                 prefixStyle: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.primary),
-                hintText: '50,000',
+                suffixText: _withdrawalMode == 'USDT' ? 'USDT' : 'NGN',
+                suffixStyle: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textMuted),
+                hintText: _withdrawalMode == 'USDT' ? '50.00' : '50,000',
                 hintStyle: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textMuted),
                 filled: true,
                 fillColor: const Color(0xFFF9FAFB),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.borderDark)),
               ),
+              onChanged: (_) => setState(() {}),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 10),
+
+            // Live FX Conversion Banner for USDT
+            if (_withdrawalMode == 'USDT') ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF07382B),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFF00E676).withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'CONVERTED NAIRA VALUE',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.w800, color: const Color(0xFF00E676), letterSpacing: 0.8),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '≈ ₦${NumberFormat('#,###.00').format(_computedNgnAmount)} NGN',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.white),
+                        ),
+                      ],
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
+                      child: Text('1 USDT = ₦${_fxUsdtToNgn.toStringAsFixed(0)}', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.white)),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+            ],
+
+            // Payout Destination Inputs:
+            // 1. If Crypto Address chosen
+            if (_withdrawalMode == 'USDT' && _usdtDestinationType == 'CRYPTO') ...[
+              Text('RECIPIENT TRON / TRC20 ADDRESS', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _cryptoAddressController,
+                style: GoogleFonts.firaCode(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                decoration: InputDecoration(
+                  hintText: 'T...',
+                  hintStyle: GoogleFonts.firaCode(fontSize: 12, color: AppColors.textMuted),
+                  filled: true,
+                  fillColor: const Color(0xFFF9FAFB),
+                  prefixIcon: const Icon(Icons.qr_code_rounded, size: 18, color: Color(0xFF00E676)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.borderDark)),
+                ),
+              ),
+              const SizedBox(height: 14),
+            ] else ...[
+              // 2. Bank Destination Inputs (used for NGN mode OR USDT-converted mode)
+              Text(
+                'DESTINATION BANK (${_banks.length} AVAILABLE)',
+                style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 6),
+              GestureDetector(
+                onTap: _openBankSearchSheet,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF9FAFB),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.borderDark),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.account_balance_rounded, size: 18, color: AppColors.primary),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _selectedBankName,
+                          style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                        ),
+                      ),
+                      if (_isLoadingBanks)
+                        const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary))
+                      else
+                        const Icon(Icons.keyboard_arrow_down_rounded, size: 18, color: AppColors.textSecondary),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              Text('ENTER 10-DIGIT ACCOUNT NUMBER', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _accountController,
+                keyboardType: TextInputType.number,
+                maxLength: 10,
+                style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                decoration: InputDecoration(
+                  counterText: '',
+                  hintText: '0123456789',
+                  hintStyle: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textMuted),
+                  filled: true,
+                  fillColor: const Color(0xFFF9FAFB),
+                  prefixIcon: const Icon(Icons.badge_outlined, size: 18, color: AppColors.primary),
+                  suffixIcon: _isResolving
+                      ? const SizedBox(width: 16, height: 16, child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)))
+                      : null,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.borderDark)),
+                ),
+                onChanged: (val) {
+                  if (val.length == 10) {
+                    _resolveAccount();
+                  } else {
+                    setState(() => _resolvedAccountName = null);
+                  }
+                },
+              ),
+
+              if (_resolvedAccountName != null) ...[
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryLight.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.primaryLight.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.check_circle_rounded, size: 14, color: AppColors.primaryLight),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Account Name: $_resolvedAccountName',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              if (_accountResolutionError != null) ...[
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFEF4444)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline_rounded, size: 14, color: Color(0xFFEF4444)),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          _accountResolutionError!,
+                          style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: const Color(0xFFB91C1C)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 14),
+            ],
+
+            const SizedBox(height: 6),
 
             // Action Button
             SizedBox(
@@ -604,14 +891,21 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
               child: ElevatedButton(
                 onPressed: _isProcessing ? null : _executeWithdrawal,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
+                  backgroundColor: _withdrawalMode == 'USDT' ? const Color(0xFF07382B) : AppColors.primary,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
                 child: _isProcessing
                     ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : Text('Authorize & Withdraw Funds', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold)),
+                    : Text(
+                        _withdrawalMode == 'USDT'
+                            ? (_usdtDestinationType == 'CRYPTO' 
+                                ? 'Authorize & Send ${_enteredAmount.toStringAsFixed(2)} USDT' 
+                                : 'Convert & Payout ₦${NumberFormat('#,###.00').format(_computedNgnAmount)}')
+                            : 'Authorize & Withdraw ₦${NumberFormat('#,###.00').format(_computedNgnAmount)}',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
               ),
             ),
           ],
