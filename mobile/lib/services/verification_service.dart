@@ -6,9 +6,6 @@ import 'auth_service.dart';
 
 class VerificationService {
   static const String baseUrl = AppConstants.apiBaseUrl;
-  static const String premblySecretKey = 'live_sec_oOq6uB3m6J3k2V9xR8tP1wS4nF5zY7aD';
-  static const String premblyAppId = 'app_live_88492048';
-  static const String flutterwaveSecretKey = 'FLWSECK-2a833d7d7454e38e1215b225916053aa-193498877521-X';
 
   /// Performs Corporate KYB / Identity verification and issues a dedicated NUBAN virtual bank account.
   /// For Partners: account is issued in the Partner's Business Name.
@@ -34,7 +31,7 @@ class VerificationService {
 
     final bvnToUse = bvn.trim().isNotEmpty ? bvn.trim() : (idType == 'bvn' ? idNumber.trim() : '');
 
-    // Step A: Attempt via Core Backend (Flutterwave MFB provisioning router)
+    // Sole authoritative call: Rentilly Maplerad Tier 1 KYC / KYB Provisioning Router
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/verification/verify-and-provision'),
@@ -52,131 +49,57 @@ class VerificationService {
           'dob': dob,
           'role': currentUser?.role ?? 'renter',
         }),
-      ).timeout(const Duration(seconds: 25));
+      ).timeout(const Duration(seconds: 30));
 
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['status'] == true && data['accountNumber'] != null) {
-          final accNum = data['accountNumber']?.toString() ?? '';
-          if (accNum.isNotEmpty) {
-            String rawBank = data['bankName']?.toString() ?? '9PSB';
-            final cleanBank = rawBank.contains('(') ? rawBank.split('(')[0].trim() : rawBank;
+      final data = json.decode(response.body);
 
-            final serverBal = (data['walletBalance'] as num?)?.toDouble() ?? currentUser?.walletBalance ?? 0.0;
-            final serverUsdt = (data['usdtBalance'] as num?)?.toDouble() ?? currentUser?.usdtBalance ?? 0.0;
-
-            final updatedUser = (currentUser ?? UserProfile(
-              id: userId,
-              email: email,
-              fullName: effectiveName,
-              phoneNumber: phone,
-              role: currentUser?.role ?? 'renter',
-            )).copyWith(
-              isVerified: true,
-              bvnVerified: true,
-              businessName: isPartner ? partnerBizName : currentUser?.businessName,
-              cacNumber: isPartner ? (cacNumber ?? currentUser?.cacNumber) : currentUser?.cacNumber,
-              ninNumber: idType == 'nin' ? idNumber : currentUser?.ninNumber,
-              accountNumber: accNum,
-              bankName: cleanBank,
-              walletBalance: serverBal,
-              usdtBalance: serverUsdt,
-            );
-
-            await AuthService.updateUser(updatedUser);
-
-            return {
-              'success': true,
-              'accountNumber': accNum,
-              'bankName': cleanBank,
-              'user': updatedUser,
-              'message': isPartner
-                  ? 'Corporate KYB verified! Dedicated commission account issued in your business name.'
-                  : 'Identity verified and dedicated account issued!',
-            };
-          }
-        }
-      }
-    } catch (_) {}
-
-    // Step B: Direct Call to Flutterwave Cloud API
-    try {
-      String firstName;
-      String lastName;
-
-      if (isPartner) {
-        firstName = effectiveName;
-        lastName = 'Rentilly Partner';
-      } else {
-        final nameParts = effectiveName.split(' ');
-        firstName = nameParts.first;
-        lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : 'Rentilly';
-      }
-
-      final flwRes = await http.post(
-        Uri.parse('https://api.flutterwave.com/v3/virtual-account-numbers'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $flutterwaveSecretKey',
-        },
-        body: json.encode({
-          'email': email,
-          'is_permanent': true,
-          'bvn': bvnToUse,
-          'tx_ref': 'RENTILLY_ACC_${userId}_${DateTime.now().millisecondsSinceEpoch}',
-          'phonenumber': phone,
-          'firstname': firstName,
-          'lastname': lastName,
-          'narration': isPartner ? 'Rentilly Partner - $effectiveName' : 'Rentilly Living - $effectiveName',
-        }),
-      ).timeout(const Duration(seconds: 25));
-
-      final flwJson = json.decode(flwRes.body);
-
-      if (flwRes.statusCode == 200 && flwJson['status'] == 'success' && flwJson['data'] != null) {
-        final realAccount = flwJson['data']['account_number']?.toString();
-        String rawBank = flwJson['data']['bank_name']?.toString() ?? 'Flutterwave MFB';
+      if (response.statusCode == 200 && (data['status'] == true || data['success'] == true)) {
+        final accNum = data['accountNumber']?.toString() ?? currentUser?.accountNumber ?? '';
+        String rawBank = data['bankName']?.toString() ?? currentUser?.bankName ?? '9PSB (Rentilly)';
         final cleanBank = rawBank.contains('(') ? rawBank.split('(')[0].trim() : rawBank;
 
-        if (realAccount != null && realAccount.isNotEmpty) {
-          final updatedUser = (currentUser ?? UserProfile(
-            id: userId,
-            email: email,
-            fullName: effectiveName,
-            phoneNumber: phone,
-            role: currentUser?.role ?? 'renter',
-          )).copyWith(
-            isVerified: true,
-            bvnVerified: true,
-            businessName: isPartner ? partnerBizName : currentUser?.businessName,
-            cacNumber: isPartner ? (cacNumber ?? currentUser?.cacNumber) : currentUser?.cacNumber,
-            ninNumber: idNumber,
-            accountNumber: realAccount,
-            bankName: cleanBank,
-          );
+        final serverBal = (data['walletBalance'] as num?)?.toDouble() ?? currentUser?.walletBalance ?? 0.0;
+        final serverUsdt = (data['usdtBalance'] as num?)?.toDouble() ?? currentUser?.usdtBalance ?? 0.0;
 
-          await AuthService.updateUser(updatedUser);
+        final updatedUser = (currentUser ?? UserProfile(
+          id: userId,
+          email: email,
+          fullName: effectiveName,
+          phoneNumber: phone,
+          role: currentUser?.role ?? 'renter',
+        )).copyWith(
+          isVerified: true,
+          bvnVerified: true,
+          businessName: isPartner ? partnerBizName : currentUser?.businessName,
+          cacNumber: isPartner ? (cacNumber ?? currentUser?.cacNumber) : currentUser?.cacNumber,
+          ninNumber: idType == 'nin' ? idNumber : currentUser?.ninNumber,
+          accountNumber: accNum.isNotEmpty ? accNum : currentUser?.accountNumber,
+          bankName: cleanBank,
+          walletBalance: serverBal,
+          usdtBalance: serverUsdt,
+        );
 
-          return {
-            'success': true,
-            'accountNumber': realAccount,
-            'bankName': cleanBank,
-            'user': updatedUser,
-            'message': isPartner
-                ? 'Corporate KYB verified! Dedicated commission vault provisioned in your business name: $effectiveName.'
-                : 'Identity verified! Your Rentilly dedicated account has been provisioned.',
-          };
-        }
+        await AuthService.updateUser(updatedUser);
+
+        return {
+          'success': true,
+          'accountNumber': accNum,
+          'bankName': cleanBank,
+          'user': updatedUser,
+          'message': data['message'] ?? (isPartner
+              ? 'Corporate KYB verified! Dedicated commission vault provisioned in your business name: $effectiveName.'
+              : 'Identity verified successfully! Dedicated Rentilly account provisioned.'),
+        };
+      } else {
+        return {
+          'success': false,
+          'message': data['error'] ?? data['message'] ?? 'Verification failed. Please check your BVN, CAC, and identity document details.',
+        };
       }
-
-      return {
-        'success': false,
-        'message': flwJson['message'] ?? 'Failed to provision dedicated NUBAN from Flutterwave.',
-      };
     } catch (e) {
       return {
         'success': false,
-        'message': 'Failed to reach Flutterwave API: $e',
+        'message': 'Could not connect to verification server ($e). Please check your internet connection and try again.',
       };
     }
   }

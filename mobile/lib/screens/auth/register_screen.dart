@@ -5,6 +5,8 @@ import '../../constants/app_colors.dart';
 import '../../constants/nigerian_states_cities.dart';
 import '../../services/auth_service.dart';
 import '../../services/push_notification_service.dart';
+import '../../services/otp_service.dart';
+import '../../widgets/login_2fa_modal.dart';
 import '../main_navigation_screen.dart';
 import '../../widgets/inline_otp_verification_widget.dart';
 
@@ -243,43 +245,74 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     final locationState = '${area.isNotEmpty ? "$area, " : ""}$_selectedLga LGA, $_selectedState State';
+    final cleanPhone = phone.startsWith('0') ? '+234${phone.substring(1)}' : phone;
+    final cleanName = name.isNotEmpty ? name : (_businessNameController.text.trim().isNotEmpty ? _businessNameController.text.trim() : 'User');
 
-    final result = await AuthService.register(
-      fullName: name.isNotEmpty ? name : (_businessNameController.text.trim().isNotEmpty ? _businessNameController.text.trim() : 'User'),
+    // 1. Dispatch OTP code to user's email for registration verification
+    final otpRes = await OtpService.sendOtp(
       email: email,
-      phoneNumber: phone.startsWith('0') ? '+234${phone.substring(1)}' : phone,
-      password: password,
-      role: effectiveRole,
-      state: locationState,
-      businessName: effectiveRole == 'partner' ? _businessNameController.text.trim() : null,
-      cacNumber: effectiveRole == 'partner' ? _cacNumberController.text.trim() : null,
-      officeAddress: fullOfficeAddress,
+      phoneNumber: cleanPhone,
+      userName: cleanName,
+      channel: 'email',
+      purpose: 'Account Registration Verification',
     );
 
     setState(() => _isLoading = false);
 
-    if (result['success'] == true) {
-      // Register new user with OneSignal for push notifications
-      await PushNotificationService.setUserTags();
-
-      if (!mounted) return;
-      final isPartner = effectiveRole == 'partner';
-      final isLandlord = effectiveRole == 'owner' || effectiveRole == 'landlord';
-
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (_) => MainNavigationScreen(
-            initialPartnerMode: isPartner,
-            initialLandlordMode: isLandlord,
-          ),
-        ),
-        (route) => false,
-      );
-    } else {
-      setState(() {
-        _errorMessage = result['message'] ?? 'Sign up failed. Please try again.';
-      });
+    if (otpRes['success'] != true) {
+      setState(() => _errorMessage = otpRes['message'] ?? 'Could not dispatch verification code to your email. Please try again.');
+      return;
     }
+
+    if (!mounted) return;
+
+    // 2. Present 6-digit OTP verification modal
+    Login2faModal.show(
+      context,
+      email: email,
+      userName: cleanName,
+      onVerified: () async {
+        setState(() => _isLoading = true);
+
+        final result = await AuthService.register(
+          fullName: cleanName,
+          email: email,
+          phoneNumber: cleanPhone,
+          password: password,
+          role: effectiveRole,
+          state: locationState,
+          businessName: effectiveRole == 'partner' ? _businessNameController.text.trim() : null,
+          cacNumber: effectiveRole == 'partner' ? _cacNumberController.text.trim() : null,
+          officeAddress: fullOfficeAddress,
+        );
+
+        if (mounted) setState(() => _isLoading = false);
+
+        if (result['success'] == true) {
+          await PushNotificationService.setUserTags();
+
+          if (!mounted) return;
+          final isPartner = effectiveRole == 'partner';
+          final isLandlord = effectiveRole == 'owner' || effectiveRole == 'landlord';
+
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (_) => MainNavigationScreen(
+                initialPartnerMode: isPartner,
+                initialLandlordMode: isLandlord,
+              ),
+            ),
+            (route) => false,
+          );
+        } else {
+          if (mounted) {
+            setState(() {
+              _errorMessage = result['message'] ?? 'Sign up failed. Please try again.';
+            });
+          }
+        }
+      },
+    );
   }
 
   @override
