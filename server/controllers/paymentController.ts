@@ -519,6 +519,46 @@ export async function flutterwaveWebhook(req: Request, res: Response) {
   }
 }
 
+// 4d. Maplerad Webhook Listener (Virtual Cards & Settlement Events)
+export async function mapleradWebhook(req: Request, res: Response) {
+  try {
+    // Always respond 200 immediately to acknowledge receipt
+    res.status(200).json({ received: true });
+
+    const payload = req.body;
+    const event = payload?.event;
+    const data = payload?.data;
+    console.log(`[Maplerad Webhook] Event received: ${event}`, JSON.stringify(data || {}, null, 2));
+
+    if (event?.includes('issuing') || data?.card_number || data?.masked_pan) {
+      const cardId = data?.id || data?.card_id;
+      const maskedPan = data?.masked_pan || data?.card_number;
+      const last4 = data?.last4 || data?.last_4;
+      const expiryMonth = data?.expiry_month || data?.expiryMonth;
+      const expiryYear = data?.expiry_year || data?.expiryYear;
+      const cvv = data?.cvv;
+      const customerEmail = data?.customer?.email || data?.email;
+
+      if (cardId && supabase) {
+        await supabase
+          .from('virtual_cards')
+          .update({
+            masked_pan: maskedPan,
+            expiry_month: expiryMonth,
+            expiry_year: expiryYear,
+            cvv: cvv,
+            status: 'ACTIVE',
+            raw_payload: data
+          })
+          .or(`card_id.eq.${cardId},email.eq.${customerEmail}`);
+        console.log(`[Maplerad Webhook] Successfully reconciled card ${cardId} in Supabase`);
+      }
+    }
+  } catch (err: any) {
+    console.error('[Maplerad Webhook] Exception:', err.message);
+  }
+}
+
 // 5. Universal Bill & Airtime Payment API
 export async function payBill(req: Request, res: Response) {
   try {

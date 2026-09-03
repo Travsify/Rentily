@@ -142,6 +142,16 @@ apiRouter.post('/bills/purchase-electricity', paymentController.purchaseElectric
 apiRouter.post('/payments/pay-bill', paymentController.payBill);
 apiRouter.get('/payments/transactions', paymentController.getUserTransactions);
 apiRouter.post('/webhooks/flutterwave', paymentController.flutterwaveWebhook);
+apiRouter.post('/webhooks/maplerad', paymentController.mapleradWebhook);
+apiRouter.get('/system/outbound-ip', async (req, res) => {
+  try {
+    const r = await fetch('https://api.ipify.org');
+    const ip = await r.text();
+    res.json({ outboundIp: ip });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 // 8. Paystack Bank Settlements, Balance Sync & Instant Withdrawals
 apiRouter.get('/wallet/balance', paymentController.getWalletBalance);
