@@ -363,11 +363,6 @@ export async function flutterwaveWebhook(req: Request, res: Response) {
       data?.virtual_account_number ||
       ''
     ).toString().replace(/\s/g, '');
-      data?.account_number ||
-      data?.destination_account_number ||
-      data?.virtual_account_number ||
-      ''
-    ).toString().replace(/\s/g, '');
 
     // Priority 2: customer email registered on Flutterwave for this virtual account
     const customerEmail = data?.customer?.email?.toLowerCase?.()?.trim?.() || '';
