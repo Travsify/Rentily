@@ -35,7 +35,7 @@
     "cacNumber": null,
     "createdAt": "2026-09-03T01:14:06.530543+00:00",
     "updatedAt": "2026-09-03T15:45:58.821+00:00",
-    "passwordHash": "7d1e7d9746ac6d15aa55e22d7b6aca74d9be9b50b62375a3cdcbf7127f50a1b5"
+    "passwordHash": "daf0e831a31884c472837cdfeef2132be3e7f2561b52611043e8f82280803552"
   },
   {
     "id": "b0000000-0000-0000-0000-000000000001",
@@ -54,7 +54,7 @@
     "cacNumber": null,
     "createdAt": "2026-09-02T07:53:40.172175+00:00",
     "updatedAt": "2026-09-03T15:45:59.929+00:00",
-    "passwordHash": "7d1e7d9746ac6d15aa55e22d7b6aca74d9be9b50b62375a3cdcbf7127f50a1b5"
+    "passwordHash": "daf0e831a31884c472837cdfeef2132be3e7f2561b52611043e8f82280803552"
   },
   {
     "id": "c0000000-0000-0000-0000-000000000001",
@@ -74,7 +74,7 @@
     "partnerStatus": "verified",
     "createdAt": "2026-09-02T07:50:58.103846+00:00",
     "updatedAt": "2026-09-03T15:46:00.463+00:00",
-    "passwordHash": "7d1e7d9746ac6d15aa55e22d7b6aca74d9be9b50b62375a3cdcbf7127f50a1b5"
+    "passwordHash": "daf0e831a31884c472837cdfeef2132be3e7f2561b52611043e8f82280803552"
   },
   {
     "id": "3ad20581-44d1-4bd7-8975-e2a02c632927",
@@ -99,15 +99,37 @@
     "email": "authtest_1788451285457@myrentilly.com",
     "fullName": "Test User 2",
     "phoneNumber": "+2348011223344",
-    "passwordHash": "b1a81362074f07af2a2a06bed5b474f366250fe3954effb27a83be01d44ef4cc",
     "role": "renter",
     "isVerified": false,
+    "ninNumber": null,
+    "bvnVerified": false,
+    "accountNumber": null,
+    "bankName": "Flutterwave MFB",
     "state": "Lagos",
     "walletBalance": 0,
     "businessName": null,
     "cacNumber": null,
-    "officeAddress": null,
-    "createdAt": "2026-09-03T16:01:25.788Z",
-    "updatedAt": "2026-09-03T16:01:25.788Z"
+    "createdAt": "2026-09-03T16:01:25.994632+00:00",
+    "updatedAt": "2026-09-03T16:01:25.791+00:00",
+    "passwordHash": "b1a81362074f07af2a2a06bed5b474f366250fe3954effb27a83be01d44ef4cc"
+  },
+  {
+    "id": "d5883398-fc17-459f-bd03-3ec5801c4463",
+    "email": "auto_1788455369200@myrentilly.com",
+    "fullName": "auto_1788455369200",
+    "phoneNumber": "",
+    "role": "renter",
+    "isVerified": false,
+    "ninNumber": null,
+    "bvnVerified": false,
+    "accountNumber": null,
+    "bankName": "Flutterwave MFB",
+    "state": "Lagos",
+    "walletBalance": 0,
+    "businessName": null,
+    "cacNumber": null,
+    "createdAt": "2026-09-03T17:09:30.395194+00:00",
+    "updatedAt": "2026-09-03T17:09:29.904+00:00",
+    "passwordHash": "8ad40f263d6eb7702a31dc8db35e22c47893cd46ab1beb62f7a348d67aaaaccf"
   }
 ]
