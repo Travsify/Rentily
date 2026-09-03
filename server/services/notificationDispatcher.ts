@@ -6,7 +6,7 @@ const SENDER_EMAIL = (process.env.RESEND_FROM_EMAIL && process.env.RESEND_FROM_E
   ? process.env.RESEND_FROM_EMAIL
   : 'Rentilly Security <info@myrentilly.com>';
 
-export type NotificationCategory = 'security' | 'wallet' | 'escrow' | 'inspection' | 'property' | 'utilities';
+export type NotificationCategory = 'security' | 'wallet' | 'escrow' | 'inspection' | 'property' | 'utilities' | 'system';
 
 export interface NotificationEvent {
   userId?: string;
@@ -15,6 +15,8 @@ export interface NotificationEvent {
   title: string;
   category: NotificationCategory;
   message: string;
+  actionUrl?: string;
+  actionLabel?: string;
   metadata?: {
     amount?: number;
     reference?: string;
@@ -62,6 +64,10 @@ export class NotificationDispatcher {
       categoryPillColor = '#10B981';
       categoryPillBg = 'rgba(16, 185, 129, 0.15)';
       categoryLabel = 'SECURITY ALERT';
+    } else if (category === 'system') {
+      categoryPillColor = '#10B981';
+      categoryPillBg = 'rgba(16, 185, 129, 0.15)';
+      categoryLabel = 'ACCOUNT UPGRADE';
     }
 
     // Dynamic metadata table rows
@@ -184,6 +190,19 @@ export class NotificationDispatcher {
                 Hello <strong>${displayName}</strong>,<br>
                 ${message}
               </p>
+
+              ${(event.actionUrl || (category === 'system' && title.toLowerCase().includes('upgrade')) || (category === 'system' && title.toLowerCase().includes('action required'))) ? `
+              <!-- Call To Action Button -->
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 24px 0 28px 0;">
+                <tr>
+                  <td align="center">
+                    <a href="${event.actionUrl || `https://myrentilly.com/verify/re-kyc?email=${encodeURIComponent(event.email)}`}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #10B981 0%, #059669 100%); color: #FFFFFF; text-decoration: none; font-size: 14px; font-weight: 800; padding: 16px 32px; border-radius: 14px; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);">
+                      ${event.actionLabel || 'Confirm Date of Birth & Upgrade Account ⚡'}
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              ` : ''}
 
               ${otpCode ? `
               <!-- 6-Digit OTP Hero Container -->

@@ -161,3 +161,181 @@ export function renderLandlordInvitePage(req: Request, res: Response) {
     </html>
   `);
 }
+
+// 3. User Self-Service Re-KYC / Date of Birth Addition Web Portal
+export async function renderReKycPage(req: Request, res: Response) {
+  const { email } = req.query;
+  const cleanEmail = (email || '').toString().toLowerCase().trim();
+
+  const allUsers = await UserStore.getAllUsers();
+  const user = allUsers.find(u => u.email.toLowerCase() === cleanEmail);
+
+  const displayName = user?.fullName || user?.businessName || (cleanEmail ? cleanEmail.split('@')[0] : 'Rentilly User');
+  const currentBalance = user?.walletBalance ?? 0;
+  const currentPhone = user?.phoneNumber || '';
+  const currentNin = user?.ninNumber || '';
+  const currentAccount = user?.accountNumber || '';
+
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Account Activation & Verification | Rentilly</title>
+      <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+      <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; background: #030712; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+        .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 24px; max-width: 500px; width: 100%; padding: 32px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+        .badge-icon { width: 64px; height: 64px; background: rgba(16, 185, 129, 0.15); border: 2px solid #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-size: 28px; }
+        h1 { font-size: 20px; font-weight: 900; color: #ffffff; text-align: center; margin-bottom: 6px; }
+        .tagline { font-size: 11px; font-weight: 800; letter-spacing: 1px; color: #10b981; text-transform: uppercase; text-align: center; margin-bottom: 20px; }
+        .safe-banner { background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 14px; padding: 14px; font-size: 11.5px; color: #a7f3d0; line-height: 1.5; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+        .form-group { margin-bottom: 16px; }
+        label { display: block; font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+        input { width: 100%; background: #020617; border: 1px solid #1e293b; border-radius: 12px; padding: 12px 14px; color: #f8fafc; font-family: inherit; font-size: 13px; font-weight: 600; outline: none; transition: border-color 0.2s; }
+        input:focus { border-color: #10b981; }
+        input:disabled { background: #0b1120; color: #64748b; }
+        .btn-submit { display: block; width: 100%; background: #10b981; color: #ffffff; font-weight: 800; font-size: 14px; padding: 16px; border-radius: 14px; border: none; cursor: pointer; text-align: center; transition: background 0.2s; margin-top: 24px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4); }
+        .btn-submit:hover { background: #059669; }
+        .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+        .alert { display: none; padding: 12px 14px; border-radius: 12px; font-size: 12px; margin-bottom: 16px; font-weight: 600; }
+        .alert-error { background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #fca5a5; }
+        .alert-success { background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #6ee7b7; }
+        .result-box { display: none; background: #020617; border: 1px solid #10b981; border-radius: 18px; padding: 24px; text-align: center; }
+        .result-acc { font-size: 26px; font-weight: 900; letter-spacing: 3px; color: #10b981; font-family: monospace; margin: 12px 0; }
+        .btn-app { display: inline-block; background: #10b981; color: #ffffff; font-weight: 800; font-size: 13px; padding: 12px 24px; border-radius: 12px; text-decoration: none; margin-top: 16px; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <div class="badge-icon">🎂</div>
+        <h1>ACCOUNT VERIFICATION & UPGRADE</h1>
+        <div class="tagline">Dedicated 9PSB Settlement & Dollar Card</div>
+
+        <div class="safe-banner">
+          <span style="font-size: 20px;">🛡️</span>
+          <div>
+            <strong>Your Funds Are 100% Secure.</strong><br>
+            Your current wallet balance of <strong>₦${currentBalance.toLocaleString()}</strong> will automatically link to your dedicated 9PSB settlement account.
+          </div>
+        </div>
+
+        <div id="errorAlert" class="alert alert-error"></div>
+
+        <form id="rekycForm">
+          <div class="form-group">
+            <label>Registered Email Address</label>
+            <input type="email" id="email" value="${cleanEmail}" readonly disabled style="opacity: 0.8;" />
+          </div>
+
+          <div class="form-group">
+            <label>Legal Full Name / Entity</label>
+            <input type="text" id="fullName" value="${displayName}" required />
+          </div>
+
+          <div class="form-group">
+            <label>Date of Birth <span style="color: #10b981;">*</span></label>
+            <input type="date" id="dob" required max="${new Date(new Date().getFullYear() - 18, 11, 31).toISOString().split('T')[0]}" />
+            <span style="font-size: 10px; color: #64748b; margin-top: 4px; display: block;">Required for dedicated 9PSB account & virtual card issuance. Must be at least 18 years old.</span>
+          </div>
+
+          <div class="form-group">
+            <label>National Identity Number (NIN) / BVN</label>
+            <input type="text" id="nin" placeholder="11-digit NIN or BVN" value="${currentNin}" maxlength="11" />
+          </div>
+
+          <div class="form-group">
+            <label>Phone Number</label>
+            <input type="tel" id="phoneNumber" placeholder="e.g. 08012345678" value="${currentPhone}" />
+          </div>
+
+          <button type="submit" id="submitBtn" class="btn-submit">
+            Submit & Activate Dedicated Account ⚡
+          </button>
+        </form>
+
+        <div id="resultBox" class="result-box">
+          <div style="font-size: 40px; margin-bottom: 8px;">🎉</div>
+          <h2 style="color: #ffffff; font-size: 18px; font-weight: 800;">Dedicated Account Activated!</h2>
+          <p style="color: #94a3b8; font-size: 12px; margin-top: 4px;">Your dedicated 9PSB settlement account is active and permanently attached to your profile.</p>
+
+          <div class="result-acc" id="accDisplay">----------</div>
+          <div style="font-size: 13px; font-weight: 700; color: #38bdf8;" id="bankDisplay">9PSB (Rentilly Settlement)</div>
+
+          <div style="margin-top: 16px; padding: 12px; background: rgba(16, 185, 129, 0.1); border-radius: 10px; font-size: 12px; color: #a7f3d0;">
+            💳 Virtual Dollar Card: <strong>Active</strong><br>
+            💰 Preserved Wallet Balance: <strong>₦${currentBalance.toLocaleString()}</strong>
+          </div>
+
+          <a href="rentilly://wallet" class="btn-app">Open Rentilly Mobile App 📱</a>
+        </div>
+      </div>
+
+      <script>
+        const form = document.getElementById('rekycForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const errorAlert = document.getElementById('errorAlert');
+        const resultBox = document.getElementById('resultBox');
+        const accDisplay = document.getElementById('accDisplay');
+        const bankDisplay = document.getElementById('bankDisplay');
+
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          errorAlert.style.display = 'none';
+
+          const dobVal = document.getElementById('dob').value;
+          if (!dobVal) {
+            errorAlert.textContent = 'Please select your Date of Birth.';
+            errorAlert.style.display = 'block';
+            return;
+          }
+
+          // Format to DD-MM-YYYY
+          const parts = dobVal.split('-');
+          const formattedDob = parts[2] + '-' + parts[1] + '-' + parts[0];
+
+          submitBtn.disabled = true;
+          submitBtn.textContent = 'Connecting with Banking Engine... ⏳';
+
+          try {
+            const res = await fetch('/api/verification/complete-maplerad-kyc', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                email: '${cleanEmail}' || document.getElementById('email').value,
+                dob: formattedDob,
+                fullName: document.getElementById('fullName').value,
+                nin: document.getElementById('nin').value,
+                phoneNumber: document.getElementById('phoneNumber').value
+              })
+            });
+
+            const data = await res.json();
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit & Activate Dedicated Account ⚡';
+
+            if (res.ok && data.status && data.accountNumber) {
+              form.style.display = 'none';
+              document.querySelector('.safe-banner').style.display = 'none';
+              accDisplay.textContent = data.accountNumber;
+              bankDisplay.textContent = data.bankName || '9PSB (Rentilly)';
+              resultBox.style.display = 'block';
+            } else {
+              errorAlert.textContent = data.message || data.error || 'Verification failed. Please check your details and try again.';
+              errorAlert.style.display = 'block';
+            }
+          } catch (err) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit & Activate Dedicated Account ⚡';
+            errorAlert.textContent = 'Network error connecting to server. Please try again.';
+            errorAlert.style.display = 'block';
+          }
+        });
+      </script>
+    </body>
+    </html>
+  `);
+}
+

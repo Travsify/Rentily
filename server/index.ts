@@ -5,7 +5,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 import { apiRouter } from './routes/apiRouter';
-import { renderPartnerVerificationPage, renderLandlordInvitePage } from './controllers/publicPartnerPages';
+import { renderPartnerVerificationPage, renderLandlordInvitePage, renderReKycPage } from './controllers/publicPartnerPages';
 import { isSupabaseConfigured } from './supabaseClient';
 import { AutoReconciliationWorker } from './services/autoReconciliationWorker';
 import { MultiCurrencyService } from './services/multiCurrencyService';
@@ -28,6 +28,9 @@ app.use(express.json({ limit: '10mb' }));
 // 1. Mount Public Partner Verification & Landlord Invite Endpoints
 app.get('/verify/partner', renderPartnerVerificationPage);
 app.get('/invite/landlord', renderLandlordInvitePage);
+app.get('/verify/rekyc', renderReKycPage);
+app.get('/verify/re-kyc', renderReKycPage);
+app.get('/re-verify', renderReKycPage);
 
 // 2. Mount API Router under /api
 app.use('/api', apiRouter);

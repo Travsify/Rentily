@@ -47,6 +47,7 @@ class _VerificationModalState extends State<VerificationModal> {
 
   bool _isLoading = false;
   bool _isSyncingNuban = false;
+  bool _isRedoMode = false;
   String? _errorMessage;
 
   @override
@@ -378,12 +379,61 @@ class _VerificationModalState extends State<VerificationModal> {
         ? user.officeAddress!
         : '${user.state ?? "Lagos"}, Nigeria';
     final state = user.state ?? 'Lagos';
-    final bank = user.bankName ?? 'Flutterwave MFB';
+    final bank = user.bankName ?? '9PSB (Rentilly)';
     final acc = user.accountNumber ?? 'Active';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (user.accountNumber == null || user.accountNumber!.isEmpty || user.accountNumber == 'null' || user.accountNumber!.startsWith('78') || user.dob == null || user.rekycRequired == true) ...[
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEF3C7),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFFCD34D)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.cake_rounded, color: Color(0xFFB45309), size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Action Required: Confirm Date of Birth',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: const Color(0xFF92400E)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'To activate your dedicated 9PSB settlement account & Virtual Dollar Card, please confirm your Date of Birth. Your current wallet balance is 100% safe.',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 11, color: const Color(0xFFB45309), height: 1.4),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _syncLiveNuban,
+                    icon: const Icon(Icons.cake_rounded, size: 16, color: Colors.white),
+                    label: Text(
+                      'Confirm Date of Birth & Activate ⚡',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF16A34A),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
         // Verified Certificate Header (Contained & Polished)
         Container(
           width: double.infinity,
@@ -548,6 +598,39 @@ class _VerificationModalState extends State<VerificationModal> {
             ),
           ),
         ),
+        const SizedBox(height: 10),
+
+        // Redo Full KYC Button
+        SizedBox(
+          width: double.infinity,
+          height: 46,
+          child: OutlinedButton.icon(
+            onPressed: () {
+              setState(() {
+                _isRedoMode = true;
+                _currentStep = 0;
+                if (_currentUser?.fullName != null) {
+                  _businessNameController.text = _currentUser?.businessName ?? _currentUser?.fullName ?? '';
+                }
+                if (_currentUser?.cacNumber != null) {
+                  _cacNumberController.text = _currentUser?.cacNumber ?? '';
+                }
+                if (_currentUser?.ninNumber != null) {
+                  _idController.text = _currentUser?.ninNumber ?? '';
+                }
+              });
+            },
+            icon: const Icon(Icons.refresh_rounded, size: 16, color: AppColors.primary),
+            label: Text(
+              'Redo Full KYC / Re-Verify Details 🔄',
+              style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.primary),
+            ),
+            style: OutlinedButton.styleFrom(
+              side: const BorderSide(color: AppColors.primary),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ),
         const SizedBox(height: 16),
       ],
     );
@@ -629,7 +712,7 @@ class _VerificationModalState extends State<VerificationModal> {
 
   @override
   Widget build(BuildContext context) {
-    if (_currentUser?.isVerified == true) {
+    if (_currentUser?.isVerified == true && !_isRedoMode) {
       return Padding(
         padding: EdgeInsets.only(
           bottom: MediaQuery.of(context).viewInsets.bottom,
@@ -684,6 +767,34 @@ class _VerificationModalState extends State<VerificationModal> {
               ),
             ),
             const SizedBox(height: 16),
+
+            if (_isRedoMode) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFBFDBFE)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Updating / Redoing KYC Details',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF1D4ED8)),
+                    ),
+                    GestureDetector(
+                      onTap: () => setState(() => _isRedoMode = false),
+                      child: Text(
+                        'Cancel',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.error),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
 
             // Header
             Row(

@@ -18,6 +18,24 @@
     "updatedAt": "2026-09-02T07:53:07.374682+00:00"
   },
   {
+    "id": "a197e323-d8b1-4d54-800a-65c4f16299c0",
+    "email": "pickpadigroup@gmail.com",
+    "fullName": "Patrick Achua",
+    "phoneNumber": "+2348026990956",
+    "role": "owner",
+    "isVerified": true,
+    "ninNumber": null,
+    "bvnVerified": false,
+    "accountNumber": "9788419143",
+    "bankName": "Flutterwave MFB (Formerly OK MFB)",
+    "state": "Ringroad, Ibadan South-West LGA, Oyo State",
+    "walletBalance": 1900,
+    "businessName": null,
+    "cacNumber": null,
+    "createdAt": "2026-09-03T01:14:06.530543+00:00",
+    "updatedAt": "2026-09-03T07:04:52.871+00:00"
+  },
+  {
     "id": "b0000000-0000-0000-0000-000000000001",
     "email": "patrickachua3@gmail.com",
     "fullName": "Patrick Achua",
@@ -47,40 +65,11 @@
     "accountNumber": "9591357072",
     "bankName": "Flutterwave MFB",
     "state": "Lagos",
-    "walletBalance": 2570,
+    "walletBalance": 8256,
     "businessName": "Ehomes Global Inclusive Limited",
     "cacNumber": null,
     "partnerStatus": "verified",
     "createdAt": "2026-09-02T07:50:58.103846+00:00",
-    "updatedAt": "2026-09-03T10:35:18.075+00:00"
-  },
-  {
-    "id": "test-uuid-zero-usdt",
-    "email": "zero_usdt_user@rentily.com",
-    "fullName": "Zero Usdt Test",
-    "phoneNumber": "08012345678",
-    "role": "renter",
-    "isVerified": true,
-    "walletBalance": 100000,
-    "createdAt": "2026-09-03T10:39:17.138Z",
-    "updatedAt": "2026-09-03T10:39:17.138Z"
-  },
-  {
-    "id": "a197e323-d8b1-4d54-800a-65c4f16299c0",
-    "email": "pickpadigroup@gmail.com",
-    "fullName": "Patrick Achua",
-    "phoneNumber": "+2348026990956",
-    "role": "owner",
-    "isVerified": true,
-    "ninNumber": null,
-    "bvnVerified": false,
-    "accountNumber": "9788419143",
-    "bankName": "Flutterwave MFB (Formerly OK MFB)",
-    "state": "Ringroad, Ibadan South-West LGA, Oyo State",
-    "walletBalance": 1900,
-    "businessName": null,
-    "cacNumber": null,
-    "createdAt": "2026-09-03T01:14:06.530543+00:00",
-    "updatedAt": "2026-09-03T07:04:52.871+00:00"
+    "updatedAt": "2026-09-03T12:36:36.898+00:00"
   }
 ]
