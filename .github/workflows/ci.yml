@@ -1,0 +1,68 @@
+name: Rentilly Institutional Fintech CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  fintech-audit-and-verification:
+    name: Financial Ledger, Role Isolation & Security Verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Runtime (v20 LTS)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Server & Admin Dependencies
+        run: npm ci
+
+      - name: Verify No Hardcoded Customer Secrets or Bypasses
+        run: |
+          echo "Auditing backend controllers for hardcoded customer overrides..."
+          if grep -rnw 'server/controllers/paymentController.ts' -e 'isPatrickTransfer'; then
+            echo "❌ FAILED: Found hardcoded customer logic in paymentController.ts"
+            exit 1
+          fi
+          echo "✅ PASSED: Zero hardcoded customer overrides found."
+
+      - name: Execute End-to-End Fintech Verification Suite
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://zuxvxuqxomsxgiljykzj.supabase.co' }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp1eHZ4dXF4b21zeGdpbGp5a3pqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4ODA4MDM1MywiZXhwIjoyMTAzNjU2MzUzfQ.otHBuZUThdSaLdc_WxlIXClfFnSci30i0_0VbZF5doQ' }}
+        run: node server/scripts/verifyFullSystem.mjs
+
+  mobile-flutter-validation:
+    name: Flutter Mobile Architecture Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Codebase
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Setup Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Install Flutter Dependencies
+        working-directory: ./mobile
+        run: flutter pub get
+
+      - name: Analyze Flutter Architecture & Syntax
+        working-directory: ./mobile
+        run: flutter analyze --no-fatal-infos

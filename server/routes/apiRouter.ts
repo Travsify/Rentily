@@ -232,3 +232,10 @@ apiRouter.get('/cards/transactions/:cardId', paymentController.getCardTransactio
 // 23. Client Push & Email Notification Dispatch Trigger
 apiRouter.post('/notifications/dispatch', paymentController.clientDispatchNotification);
 
+// 24. Server-Encapsulated Notification Mutations
+apiRouter.post('/notifications/mark-read', paymentController.markNotificationRead);
+apiRouter.post('/notifications/mark-all-read', paymentController.markAllNotificationsRead);
+
+// 25. Server-Encapsulated OneSignal Player ID Registration
+apiRouter.post('/users/onesignal-player', paymentController.registerOneSignalPlayer);
+

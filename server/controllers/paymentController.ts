@@ -10,6 +10,7 @@ import { getStoredFees } from './feeController';
 import { MultiCurrencyService } from '../services/multiCurrencyService';
 import { CardIssuingService } from '../services/cardIssuingService';
 import { getFeatureFlags } from './featureFlagController';
+import { AtomicLedgerService } from '../services/atomicLedgerService';
 
 export async function createVirtualAccount(req: Request, res: Response) {
   try {
@@ -444,66 +445,46 @@ export async function flutterwaveWebhook(req: Request, res: Response) {
       }
     }
 
-    // Last resort: Patrick Achua's known account 9254090338
-    if (!targetUser && (
-      incomingAccNo === '9254090338' ||
-      customerEmail === 'patrickachua3@gmail.com' ||
-      customerEmail === 'travsifyglobalinclusive@gmail.com'
-    )) {
-      targetUser = await UserStore.findByEmail('patrickachua3@gmail.com') || undefined;
-    }
-
     if (!targetUser) {
-      console.warn(`[FLW Webhook] No user found for virtualAcc=${incomingAccNo} / email=${customerEmail} / txRefUserId=${txRefUserId}`);
+      console.warn(`[FLW Webhook] Dynamic routing: No profile found for account=${incomingAccNo} / email=${customerEmail} / txRef=${txRef}`);
       return;
     }
 
-    const prevBal = targetUser.walletBalance ?? 0;
-    const newBal = prevBal + amountPaid;
+    const creditRef = data?.flw_ref || data?.tx_ref || `FLW_CREDIT_${Date.now()}`;
+    const senderName = data?.meta?.originatorname || data?.narration || 'Inbound Bank Transfer';
+    const narrationText = `Bank Transfer from ${senderName} to account ${targetUser.accountNumber || incomingAccNo}`;
 
-    console.log(`[FLW Webhook] Crediting ${targetUser.email}: ₦${prevBal} → ₦${newBal} (+₦${amountPaid})`);
+    // Execute ACID atomic credit via AtomicLedgerService
+    const creditResult = await AtomicLedgerService.creditWalletAtomic({
+      userId: targetUser.id,
+      email: targetUser.email,
+      amount: amountPaid,
+      flwRef: flwRef,
+      txRef: creditRef,
+      narration: narrationText,
+    });
 
+    if (!creditResult.success) {
+      console.error(`[FLW Webhook] Atomic credit failed for ${targetUser.email}:`, creditResult.error);
+      return;
+    }
+
+    if (creditResult.alreadyProcessed) {
+      console.log(`[FLW Webhook] Transaction ${flwRef} was already processed. Current balance: ₦${creditResult.newBalance}`);
+      return;
+    }
+
+    const newBal = creditResult.newBalance ?? (targetUser.walletBalance ?? 0) + amountPaid;
+    console.log(`[FLW Webhook] ✅ Atomic Ledger: Credited ${targetUser.email} +₦${amountPaid} (New Balance: ₦${newBal})`);
+
+    // In-memory cache update
     UserStore.upsertUser({
       ...targetUser,
       walletBalance: newBal,
       updatedAt: new Date().toISOString(),
     });
 
-    // Authoritative Supabase Cloud Updates
-    if (supabase) {
-      try {
-        await supabase
-          .from('profiles')
-          .update({ wallet_balance: newBal, updated_at: new Date().toISOString() })
-          .eq('id', targetUser.id);
-
-        await supabase.from('reconciled_transactions').upsert({
-          flw_ref: flwRef,
-          user_id: targetUser.id,
-          email: targetUser.email,
-          amount: amountPaid,
-          processed_at: new Date().toISOString()
-        }, { onConflict: 'flw_ref' });
-
-        await supabase.from('wallet_transactions').upsert({
-          user_id: targetUser.id,
-          email: targetUser.email,
-          amount: amountPaid,
-          type: 'credit',
-          status: 'completed',
-          flw_ref: flwRef,
-          tx_ref: creditRef,
-          narration: `Bank Transfer from ${senderName} to account ${targetUser.accountNumber || incomingAccNo}`,
-          created_at: data?.created_at || new Date().toISOString()
-        }, { onConflict: 'flw_ref' });
-      } catch (e: any) {
-        console.warn('[FLW Webhook] Supabase persistence notice:', e?.message);
-      }
-    }
-
-    // Record the inbound transaction
-    const creditRef = data?.flw_ref || data?.tx_ref || `FLW_CREDIT_${Date.now()}`;
-    const senderName = data?.meta?.originatorname || data?.narration || 'Bank Transfer';
+    // Record transaction in TransactionStore cache
     await TransactionStore.addTransaction({
       id: `TX_CREDIT_${Date.now()}`,
       userId: targetUser.id,
@@ -711,24 +692,28 @@ async function syncFlutterwaveTransactionsForUser(cleanEmail: string) {
       const txRef = (flwTx.tx_ref || flwTx.flw_ref || '').toString();
       const virtualAccNo = (flwTx.meta?.virtualaccountnumber || '').toString().replace(/\s/g, '');
 
-      // CRITICAL FIX: The ₦5,000 transfer from PATRICK OTU ACHUA (ref: 100004260902142253170089915568)
-      // belongs to patrickachua3@gmail.com, NOT tonerocool1@gmail.com, even though Flutterwave tagged it under tonerocool1.
-      const isPatrickTransfer = flwTx.flw_ref === '100004260902142253170089915568' || 
-                                (flwTx.meta?.originatorname && flwTx.meta.originatorname.toUpperCase().includes('PATRICK'));
+      // Dynamic Matching: Check if transaction was already reconciled to a specific user
+      if (supabase) {
+        const { data: reconciledRec } = await supabase
+          .from('reconciled_transactions')
+          .select('user_id, email')
+          .eq('flw_ref', flwTx.flw_ref)
+          .maybeSingle();
 
-      if (isPatrickTransfer) {
-        if (cleanEmail !== 'patrickachua3@gmail.com') {
-          continue; // Do NOT credit anyone except Patrick
+        if (reconciledRec) {
+          // If already reconciled to another user, do not allocate here
+          if (reconciledRec.email && reconciledRec.email.toLowerCase() !== cleanEmail) {
+            continue;
+          }
         }
-      } else if (cleanEmail === 'patrickachua3@gmail.com') {
-        continue; // Only Patrick's own transfers go to Patrick
       }
 
-      // Match by: exact email OR virtual account number belonging to this user
+      // Match dynamically by: dedicated virtual account number OR customer email OR tx_ref user identifier
       const emailMatch = flwEmail === cleanEmail;
-      const accMatch = user?.accountNumber && virtualAccNo && user.accountNumber.replace(/\s/g, '') === virtualAccNo;
+      const accMatch = Boolean(user?.accountNumber && virtualAccNo && user.accountNumber.replace(/\s/g, '') === virtualAccNo);
+      const txRefMatch = Boolean(user?.id && txRef.includes(user.id));
 
-      if (!emailMatch && !accMatch && !isPatrickTransfer) {
+      if (!emailMatch && !accMatch && !txRefMatch) {
         continue;
       }
 
@@ -1684,6 +1669,79 @@ export async function clientDispatchNotification(req: Request, res: Response) {
     });
   } catch (err: any) {
     console.error('[Notification Dispatch API] Error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+}
+
+// 24. Server-Encapsulated Notification Read Status Mutation
+export async function markNotificationRead(req: Request, res: Response) {
+  try {
+    const { id, userId } = req.body;
+    if (!id) {
+      return res.status(400).json({ error: 'Notification ID is required' });
+    }
+
+    const cleanId = id.toString().replace('NOTIF_SB_', '');
+    if (supabase) {
+      await supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('id', cleanId);
+    }
+
+    res.json({ status: true, message: 'Notification marked as read', id: cleanId });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+// 25. Server-Encapsulated Mark All Notifications Read
+export async function markAllNotificationsRead(req: Request, res: Response) {
+  try {
+    const { userId } = req.body;
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID is required' });
+    }
+
+    if (supabase) {
+      await supabase
+        .from('notifications')
+        .update({ read: true })
+        .eq('user_id', userId.toString());
+    }
+
+    res.json({ status: true, message: 'All notifications marked as read', userId });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+// 26. Server-Encapsulated OneSignal Player ID Registration
+export async function registerOneSignalPlayer(req: Request, res: Response) {
+  try {
+    const { userId, email, playerId } = req.body;
+    if (!playerId) {
+      return res.status(400).json({ error: 'Player ID is required' });
+    }
+
+    const cleanEmail = email ? email.toString().toLowerCase().trim() : '';
+
+    if (supabase) {
+      if (userId) {
+        await supabase
+          .from('profiles')
+          .update({ onesignal_player_id: playerId.toString() })
+          .eq('id', userId.toString());
+      } else if (cleanEmail) {
+        await supabase
+          .from('profiles')
+          .update({ onesignal_player_id: playerId.toString() })
+          .eq('email', cleanEmail);
+      }
+    }
+
+    res.json({ status: true, message: 'OneSignal Player ID successfully registered', playerId });
+  } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 }

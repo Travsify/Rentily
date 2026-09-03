@@ -261,22 +261,10 @@ class NotificationService {
     await _saveNotifications(current);
     _updateUnreadCount(current);
 
-    // Sync read status to Supabase Cloud
+    // Sync read status via encapsulated backend API
     try {
-      final realId = id.startsWith('NOTIF_SB_') ? id.replaceFirst('NOTIF_SB_', '') : id;
-      if (realId.contains('-')) { // Valid UUID format
-        final uri = Uri.parse('${AppConstants.supabaseUrl}/rest/v1/notifications?id=eq.$realId');
-        await http.patch(
-          uri,
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': AppConstants.supabaseAnonKey,
-            'Authorization': 'Bearer ${AppConstants.supabaseAnonKey}',
-            'Prefer': 'return=minimal',
-          },
-          body: json.encode({'read': true}),
-        ).timeout(const Duration(seconds: 4));
-      }
+      final user = await AuthService.getCurrentUser();
+      ApiService.markNotificationRead(id, userId: user?.id);
     } catch (_) {}
   }
 
@@ -295,21 +283,11 @@ class NotificationService {
     await _saveNotifications(current);
     _updateUnreadCount(current);
 
-    // Sync all to read in Supabase for this user
+    // Sync all to read via encapsulated backend API
     try {
       final user = await AuthService.getCurrentUser();
       if (user != null && user.id.isNotEmpty) {
-        final uri = Uri.parse('${AppConstants.supabaseUrl}/rest/v1/notifications?user_id=eq.${user.id}');
-        await http.patch(
-          uri,
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': AppConstants.supabaseAnonKey,
-            'Authorization': 'Bearer ${AppConstants.supabaseAnonKey}',
-            'Prefer': 'return=minimal',
-          },
-          body: json.encode({'read': true}),
-        ).timeout(const Duration(seconds: 4));
+        ApiService.markAllNotificationsRead(user.id);
       }
     } catch (_) {}
   }

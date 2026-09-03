@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:onesignal_flutter/onesignal_flutter.dart';
 import '../constants/app_constants.dart';
 import 'auth_service.dart';
+import 'api_service.dart';
 
 /// Manages OneSignal push notifications for Rentilly.
 /// Handles initialization, permission requests, player ID registration,
@@ -113,35 +114,14 @@ class PushNotificationService {
       if (user == null) return;
       final cleanEmail = user.email.toLowerCase().trim();
 
-      // 1. Direct Supabase PATCH by ID
-      if (user.id.isNotEmpty) {
-        await http.patch(
-          Uri.parse('${AppConstants.supabaseUrl}/rest/v1/profiles?id=eq.${user.id}'),
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': AppConstants.supabaseAnonKey,
-            'Authorization': 'Bearer ${AppConstants.supabaseAnonKey}',
-            'Prefer': 'return=minimal',
-          },
-          body: json.encode({'onesignal_player_id': playerId}),
-        );
-      }
+      // Encapsulated server-side mutation
+      await ApiService.registerOneSignalPlayer(
+        playerId,
+        userId: user.id.isNotEmpty ? user.id : null,
+        email: cleanEmail.isNotEmpty ? cleanEmail : null,
+      );
 
-      // 2. Direct Supabase PATCH by Email (Guaranteed match)
-      if (cleanEmail.isNotEmpty) {
-        await http.patch(
-          Uri.parse('${AppConstants.supabaseUrl}/rest/v1/profiles?email=eq.$cleanEmail'),
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': AppConstants.supabaseAnonKey,
-            'Authorization': 'Bearer ${AppConstants.supabaseAnonKey}',
-            'Prefer': 'return=minimal',
-          },
-          body: json.encode({'onesignal_player_id': playerId}),
-        );
-      }
-
-      debugPrint('[PushNotification] Player ID registered with backend for: $cleanEmail');
+      debugPrint('[PushNotification] Player ID registered via backend API for: $cleanEmail');
     } catch (e) {
       debugPrint('[PushNotification] Backend registration error: $e');
     }

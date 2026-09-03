@@ -663,6 +663,48 @@ class ApiService {
     }
   }
 
+  /// Server-encapsulated notification mark as read
+  static Future<bool> markNotificationRead(String id, {String? userId}) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/notifications/mark-read'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'id': id, 'userId': userId}),
+      ).timeout(const Duration(seconds: 6));
+      return res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Server-encapsulated mark all notifications read
+  static Future<bool> markAllNotificationsRead(String userId) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/notifications/mark-all-read'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'userId': userId}),
+      ).timeout(const Duration(seconds: 6));
+      return res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Server-encapsulated OneSignal Player registration
+  static Future<bool> registerOneSignalPlayer(String playerId, {String? userId, String? email}) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/users/onesignal-player'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'playerId': playerId, 'userId': userId, 'email': email}),
+      ).timeout(const Duration(seconds: 6));
+      return res.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Fetch live system FX rates (Supabase Cloud Layer 1 with Render fallback)
   static Future<Map<String, double>> fetchFxRates() async {
     // 1. Direct Supabase Cloud REST
