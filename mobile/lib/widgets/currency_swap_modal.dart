@@ -9,7 +9,7 @@ import '../services/payment_security_service.dart';
 
 class CurrencySwapModal extends StatefulWidget {
   final UserProfile user;
-  final Function(double newBalance) onSwapSuccess;
+  final Function(double newNgnBalance, double newUsdtBalance) onSwapSuccess;
 
   const CurrencySwapModal({
     super.key,
@@ -20,7 +20,7 @@ class CurrencySwapModal extends StatefulWidget {
   static void show(
     BuildContext context, {
     required UserProfile user,
-    required Function(double newBalance) onSwapSuccess,
+    required Function(double newNgnBalance, double newUsdtBalance) onSwapSuccess,
   }) {
     showModalBottomSheet(
       context: context,
@@ -108,12 +108,18 @@ class _CurrencySwapModalState extends State<CurrencySwapModal> with SingleTicker
 
   void _applyPercentage(double fraction) {
     HapticFeedback.selectionClick();
-    final double maxAvailable = _swapDirection == 'USDT_TO_NGN'
-        ? (widget.user.walletBalance / _buyRate)
+    final isUsdtToNgn = _swapDirection == 'USDT_TO_NGN';
+    final double maxAvailable = isUsdtToNgn
+        ? widget.user.usdtBalance
         : widget.user.walletBalance;
 
+    if (maxAvailable <= 0) {
+      _amountController.text = '0';
+      return;
+    }
+
     final target = (maxAvailable * fraction);
-    if (_swapDirection == 'USDT_TO_NGN') {
+    if (isUsdtToNgn) {
       _amountController.text = target.toStringAsFixed(2);
     } else {
       _amountController.text = target.toStringAsFixed(0);
@@ -133,15 +139,45 @@ class _CurrencySwapModalState extends State<CurrencySwapModal> with SingleTicker
     final fromCurrency = isUsdtToNgn ? 'USDT' : 'NGN';
     final toCurrency = isUsdtToNgn ? 'NGN' : 'USDT';
 
-    // Verify balance
-    if (!isUsdtToNgn && amount > widget.user.walletBalance) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Insufficient Naira balance. Available: ₦${_currencyFormat.format(widget.user.walletBalance)}'),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
-      return;
+    // STRICT ANTI-CHEAT BALANCE GUARDS:
+    if (isUsdtToNgn) {
+      if (widget.user.usdtBalance <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Insufficient USDT balance. Available: \$0.00 USDT. You cannot convert USDT you do not have.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        return;
+      }
+      if (amount > widget.user.usdtBalance) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Insufficient USDT balance. Available: \$${widget.user.usdtBalance.toStringAsFixed(2)} USDT'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        return;
+      }
+    } else {
+      if (widget.user.walletBalance <= 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Insufficient Naira balance. Available: ₦0.00. You cannot swap Naira you do not have.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        return;
+      }
+      if (amount > widget.user.walletBalance) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Insufficient Naira balance. Available: ₦${_currencyFormat.format(widget.user.walletBalance)}'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        return;
+      }
     }
 
     // Biometric / PIN Security Check
@@ -170,8 +206,9 @@ class _CurrencySwapModalState extends State<CurrencySwapModal> with SingleTicker
     setState(() => _isSwapping = false);
 
     if (res['success'] == true) {
-      final double newBal = (res['newWalletBalance'] as num?)?.toDouble() ?? widget.user.walletBalance;
-      widget.onSwapSuccess(newBal);
+      final double newNgnBal = (res['newWalletBalance'] as num?)?.toDouble() ?? widget.user.walletBalance;
+      final double newUsdtBal = (res['newUsdtBalance'] as num?)?.toDouble() ?? widget.user.usdtBalance;
+      widget.onSwapSuccess(newNgnBal, newUsdtBal);
       Navigator.pop(context);
 
       HapticFeedback.heavyImpact();
@@ -209,9 +246,8 @@ class _CurrencySwapModalState extends State<CurrencySwapModal> with SingleTicker
     final isUsdtToNgn = _swapDirection == 'USDT_TO_NGN';
     final activeRate = isUsdtToNgn ? _buyRate : _sellRate;
 
-    final maxUsdtBal = widget.user.walletBalance / _buyRate;
     final maxBalDisplay = isUsdtToNgn
-        ? '\$${maxUsdtBal.toStringAsFixed(2)} USDT'
+        ? '\$${widget.user.usdtBalance.toStringAsFixed(2)} USDT'
         : '₦${_currencyFormat.format(widget.user.walletBalance)}';
 
     return Padding(
@@ -278,7 +314,55 @@ class _CurrencySwapModalState extends State<CurrencySwapModal> with SingleTicker
                 ),
               ],
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 14),
+
+            if (isUsdtToNgn && widget.user.usdtBalance <= 0)
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF2F2),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFFECACA)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.shield_outlined, size: 16, color: Color(0xFFDC2626)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Your USDT balance is \$0.00. You cannot convert USDT you do not have. Swap NGN to USDT or deposit to your TRON address.',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w700, color: const Color(0xFF991B1B)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            if (!isUsdtToNgn && widget.user.walletBalance <= 0)
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF2F2),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFFECACA)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.shield_outlined, size: 16, color: Color(0xFFDC2626)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Your Naira balance is ₦0.00. Fund your Naira bank account before swapping to USDT.',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w700, color: const Color(0xFF991B1B)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            const SizedBox(height: 4),
 
             // FROM CARD (YOU PAY)
             Container(
@@ -520,38 +604,65 @@ class _CurrencySwapModalState extends State<CurrencySwapModal> with SingleTicker
             const SizedBox(height: 20),
 
             // SWAP ACTION BUTTON
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: ElevatedButton(
-                onPressed: _isSwapping ? null : _handleSwap,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  elevation: 0,
-                ),
-                child: _isSwapping
-                    ? const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-                      )
-                    : Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.currency_exchange_rounded, size: 18),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Confirm & Swap Now',
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
+            Builder(
+              builder: (context) {
+                final hasZeroSourceBalance = isUsdtToNgn
+                    ? (widget.user.usdtBalance <= 0)
+                    : (widget.user.walletBalance <= 0);
+
+                return SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: ElevatedButton(
+                    onPressed: _isSwapping
+                        ? null
+                        : (hasZeroSourceBalance
+                            ? () {
+                                HapticFeedback.heavyImpact();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      isUsdtToNgn
+                                          ? 'You have \$0.00 USDT. You cannot convert USDT you do not have.'
+                                          : 'You have ₦0.00. Fund your Naira bank account before swapping.',
+                                      style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold),
+                                    ),
+                                    backgroundColor: Colors.redAccent,
+                                  ),
+                                );
+                              }
+                            : _handleSwap),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: hasZeroSourceBalance ? Colors.grey.shade400 : AppColors.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      elevation: 0,
+                    ),
+                    child: _isSwapping
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                          )
+                        : Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(hasZeroSourceBalance ? Icons.lock_outline_rounded : Icons.currency_exchange_rounded, size: 18),
+                              const SizedBox(width: 8),
+                              Text(
+                                hasZeroSourceBalance
+                                    ? (isUsdtToNgn ? 'Zero USDT Balance' : 'Zero Naira Balance')
+                                    : 'Confirm & Swap Now',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-              ),
+                  ),
+                );
+              },
             ),
             const SizedBox(height: 20),
           ],

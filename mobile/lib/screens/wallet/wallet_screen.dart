@@ -89,11 +89,13 @@ class _WalletScreenState extends State<WalletScreen> {
           if (data['status'] == true && data['walletBalance'] != null) {
             final double serverBal = (data['walletBalance'] as num).toDouble();
             final userData = data['user'] as Map<String, dynamic>? ?? {};
+            final double serverUsdtBal = (data['usdtBalance'] as num?)?.toDouble() ?? (userData['usdtBalance'] as num?)?.toDouble() ?? 0.0;
             if (data['usdtTronAddress'] != null || userData['usdtTronAddress'] != null) {
               _usdtTronAddress = (data['usdtTronAddress'] ?? userData['usdtTronAddress']).toString();
             }
             final updated = u.copyWith(
               walletBalance: serverBal,
+              usdtBalance: serverUsdtBal,
               fullName: userData['fullName']?.toString() ?? u.fullName,
               accountNumber: (userData['accountNumber']?.toString() != null && userData['accountNumber'].toString().isNotEmpty)
                   ? userData['accountNumber'].toString()
@@ -713,7 +715,7 @@ class _WalletScreenState extends State<WalletScreen> {
                           _hideBalance
                               ? '$symbol • • • • • •'
                               : (_activeAccountTab == 'USDT'
-                                  ? '\$${((_user?.walletBalance ?? 0.0) / 1510.0).toStringAsFixed(2)} USDT'
+                                  ? '\$${(_user?.usdtBalance ?? 0.0).toStringAsFixed(2)} USDT'
                                   : '$symbol${_currencyFormat.format(balance)}'),
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 24,
@@ -734,7 +736,7 @@ class _WalletScreenState extends State<WalletScreen> {
                     ),
                     if (_activeAccountTab == 'USDT' && !_hideBalance)
                       Text(
-                        '≈ ₦${_currencyFormat.format(_user?.walletBalance ?? 0.0)} NGN',
+                        '≈ ₦${_currencyFormat.format((_user?.usdtBalance ?? 0.0) * 1400.0)} NGN',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w600,
@@ -1149,7 +1151,7 @@ class _WalletScreenState extends State<WalletScreen> {
                         CurrencySwapModal.show(
                           context,
                           user: _user!,
-                          onSwapSuccess: (newBal) => setState(() => _user = _user!.copyWith(walletBalance: newBal)),
+                          onSwapSuccess: (newNgn, newUsdt) => setState(() => _user = _user!.copyWith(walletBalance: newNgn, usdtBalance: newUsdt)),
                         );
                       }
                     }),

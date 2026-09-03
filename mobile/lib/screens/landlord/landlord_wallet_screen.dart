@@ -138,6 +138,21 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
         _isLoading = false;
       });
     }
+    if (user != null) {
+      try {
+        final live = await ApiService.fetchLiveBalance(user.email);
+        if (live != null && mounted) {
+          final serverBal = (live['walletBalance'] as num?)?.toDouble() ?? user.walletBalance;
+          final serverUsdtBal = (live['usdtBalance'] as num?)?.toDouble() ?? user.usdtBalance;
+          final updated = user.copyWith(walletBalance: serverBal, usdtBalance: serverUsdtBal);
+          await AuthService.updateUser(updated);
+          setState(() {
+            _user = updated;
+            _lastKnownBalance = serverBal;
+          });
+        }
+      } catch (_) {}
+    }
   }
 
   Future<void> _loadTransactions() async {
@@ -512,8 +527,8 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                                 CurrencySwapModal.show(
                                   context,
                                   user: _user!,
-                                  onSwapSuccess: (newBal) async {
-                                    setState(() => _user = _user!.copyWith(walletBalance: newBal));
+                                  onSwapSuccess: (newNgn, newUsdt) async {
+                                    setState(() => _user = _user!.copyWith(walletBalance: newNgn, usdtBalance: newUsdt));
                                     await _loadTransactions();
                                   },
                                 );

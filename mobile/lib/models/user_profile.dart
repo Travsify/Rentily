@@ -9,6 +9,7 @@ class UserProfile {
   final bool bvnVerified;
   final String? avatarUrl;
   final double walletBalance;
+  final double usdtBalance;
   final String? accountNumber;
   final String? bankName;
   final String? state;
@@ -33,6 +34,7 @@ class UserProfile {
     this.bvnVerified = false,
     this.avatarUrl,
     this.walletBalance = 0.00,
+    this.usdtBalance = 0.00,
     this.accountNumber,
     this.bankName,
     this.state = 'Lagos',
@@ -100,6 +102,7 @@ class UserProfile {
       bvnVerified: json['bvnVerified'] ?? json['bvn_verified'] ?? false,
       avatarUrl: json['avatarUrl']?.toString() ?? json['avatar_url']?.toString(),
       walletBalance: (json['walletBalance'] as num?)?.toDouble() ?? 0.00,
+      usdtBalance: (json['usdtBalance'] as num?)?.toDouble() ?? (json['usdt_balance'] as num?)?.toDouble() ?? 0.00,
       accountNumber: json['accountNumber']?.toString(),
       bankName: json['bankName']?.toString(),
       state: json['state']?.toString() ?? 'Lagos',
@@ -125,6 +128,7 @@ class UserProfile {
       'bvnVerified': bvnVerified,
       'avatarUrl': avatarUrl,
       'walletBalance': walletBalance,
+      'usdtBalance': usdtBalance,
       'accountNumber': accountNumber,
       'bankName': bankName,
       'state': state,
@@ -149,6 +153,7 @@ class UserProfile {
     bool? bvnVerified,
     String? avatarUrl,
     double? walletBalance,
+    double? usdtBalance,
     String? accountNumber,
     String? bankName,
     String? state,
@@ -171,6 +176,7 @@ class UserProfile {
       bvnVerified: bvnVerified ?? this.bvnVerified,
       avatarUrl: avatarUrl ?? this.avatarUrl,
       walletBalance: walletBalance ?? this.walletBalance,
+      usdtBalance: usdtBalance ?? this.usdtBalance,
       accountNumber: accountNumber ?? this.accountNumber,
       bankName: bankName ?? this.bankName,
       state: state ?? this.state,

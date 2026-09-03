@@ -450,6 +450,24 @@ export async function executeCurrencySwap(req: Request, res: Response) {
     const targetUserId = memUser.id;
     const txRef = `SWAP_${Date.now()}_${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
 
+    // Resolve current USDT balance from Supabase system_configs or memUser
+    let currentUsdtBal = 0.0;
+    if (supabase) {
+      try {
+        const { data: usdtCfg } = await supabase
+          .from('system_configs')
+          .select('data')
+          .eq('id', `usdt_balance_${cleanEmail}`)
+          .single();
+        if (usdtCfg?.data?.usdtBalance != null) {
+          currentUsdtBal = Number(usdtCfg.data.usdtBalance);
+        }
+      } catch (_) {}
+    }
+    if (!currentUsdtBal && memUser?.usdtBalance != null) {
+      currentUsdtBal = Number(memUser.usdtBalance);
+    }
+
     let fromDebitNgn = 0;
     let executionRate = 0;
     let marginNgn = 0;
@@ -458,6 +476,13 @@ export async function executeCurrencySwap(req: Request, res: Response) {
     let narration = '';
 
     if (fromCurrency === 'USDT' && toCurrency === 'NGN') {
+      // STRICT ANTI-CHEAT GUARD: User CANNOT swap USDT they do not own!
+      if (currentUsdtBal <= 0 || currentUsdtBal < numAmount) {
+        return res.status(400).json({
+          error: `Insufficient USDT balance. You currently have $${currentUsdtBal.toFixed(2)} USDT. You cannot convert USDT you do not have.`
+        });
+      }
+
       // User is converting USDT -> NGN (Rentily buys USDT at buyRate below market)
       executionRate = spread.buyRate; // e.g. 1400
       convertedAmount = Number((numAmount * executionRate).toFixed(2)); // in NGN
@@ -467,6 +492,7 @@ export async function executeCurrencySwap(req: Request, res: Response) {
       narration = `Currency Swap: $${numAmount.toFixed(2)} USDT ➔ ₦${convertedAmount.toLocaleString()} NGN (Rate: 1 USDT = ₦${executionRate.toLocaleString()})`;
 
       const newBal = currentBalNgn + convertedAmount;
+      const newUsdtBal = Number(Math.max(0, currentUsdtBal - numAmount).toFixed(2));
 
       await TransactionStore.addTransaction({
         id: `TX_${txRef}`,
@@ -489,12 +515,21 @@ export async function executeCurrencySwap(req: Request, res: Response) {
       UserStore.upsertUser({
         ...memUser,
         walletBalance: newBal,
+        usdtBalance: newUsdtBal,
         updatedAt: new Date().toISOString()
       });
 
       if (supabase) {
         try {
           await supabase.from('profiles').update({ wallet_balance: newBal, updated_at: new Date().toISOString() }).eq('id', targetUserId);
+          await supabase.from('system_configs').upsert({
+            id: `usdt_balance_${cleanEmail}`,
+            data: {
+              usdtBalance: newUsdtBal,
+              email: cleanEmail,
+              updatedAt: new Date().toISOString()
+            }
+          });
           await supabase.from('wallet_transactions').insert({
             user_id: targetUserId,
             email: cleanEmail,
@@ -521,19 +556,20 @@ export async function executeCurrencySwap(req: Request, res: Response) {
         executionRate,
         platformMarginEarned: marginNgn,
         newWalletBalance: newBal,
+        newUsdtBalance: newUsdtBal,
         message: `Successfully converted $${numAmount.toFixed(2)} USDT to ₦${convertedAmount.toLocaleString()}`
       });
 
     } else if (fromCurrency === 'NGN' && toCurrency === 'USDT') {
-      // User is converting NGN -> USDT (Rentily sells USDT at sellRate above market)
       executionRate = spread.sellRate; // e.g. 1460
       fromDebitNgn = numAmount; // in NGN
       convertedAmount = Number((fromDebitNgn / executionRate).toFixed(2)); // in USDT
       marginNgn = Number((convertedAmount * spread.sellMargin).toFixed(2));
 
-      if (currentBalNgn < fromDebitNgn) {
+      // STRICT ANTI-CHEAT GUARD: User CANNOT swap Naira they do not own!
+      if (currentBalNgn <= 0 || currentBalNgn < fromDebitNgn) {
         return res.status(400).json({
-          error: `Insufficient Naira balance. Swapping ₦${fromDebitNgn.toLocaleString()} requires at least ₦${fromDebitNgn.toLocaleString()}, but your balance is ₦${currentBalNgn.toLocaleString()}.`
+          error: `Insufficient Naira balance. Swapping ₦${fromDebitNgn.toLocaleString()} requires at least ₦${fromDebitNgn.toLocaleString()}, but your balance is ₦${currentBalNgn.toLocaleString()}. You cannot swap Naira you do not have.`
         });
       }
 
@@ -541,6 +577,7 @@ export async function executeCurrencySwap(req: Request, res: Response) {
       narration = `Currency Swap: ₦${fromDebitNgn.toLocaleString()} NGN ➔ $${convertedAmount.toFixed(2)} USDT (Rate: 1 USDT = ₦${executionRate.toLocaleString()})`;
 
       const newBal = Math.max(0, currentBalNgn - fromDebitNgn);
+      const newUsdtBal = Number((currentUsdtBal + convertedAmount).toFixed(2));
 
       await TransactionStore.addTransaction({
         id: `TX_${txRef}`,
@@ -563,12 +600,21 @@ export async function executeCurrencySwap(req: Request, res: Response) {
       UserStore.upsertUser({
         ...memUser,
         walletBalance: newBal,
+        usdtBalance: newUsdtBal,
         updatedAt: new Date().toISOString()
       });
 
       if (supabase) {
         try {
           await supabase.from('profiles').update({ wallet_balance: newBal, updated_at: new Date().toISOString() }).eq('id', targetUserId);
+          await supabase.from('system_configs').upsert({
+            id: `usdt_balance_${cleanEmail}`,
+            data: {
+              usdtBalance: newUsdtBal,
+              email: cleanEmail,
+              updatedAt: new Date().toISOString()
+            }
+          });
           await supabase.from('wallet_transactions').insert({
             user_id: targetUserId,
             email: cleanEmail,
@@ -595,6 +641,7 @@ export async function executeCurrencySwap(req: Request, res: Response) {
         executionRate,
         platformMarginEarned: marginNgn,
         newWalletBalance: newBal,
+        newUsdtBalance: newUsdtBal,
         message: `Successfully swapped ₦${fromDebitNgn.toLocaleString()} to $${convertedAmount.toFixed(2)} USDT`
       });
     } else {
@@ -1414,9 +1461,28 @@ export async function getWalletBalance(req: Request, res: Response) {
       usdtTronAddress = 'TXPQFogAh31kb8d3UA4F3oU1b1xNGiyxRz';
     }
 
+    // Resolve USDT Balance from Supabase system_configs or memUser
+    let usdtBalance = 0.0;
+    if (supabase) {
+      try {
+        const { data: usdtCfg } = await supabase
+          .from('system_configs')
+          .select('data')
+          .eq('id', `usdt_balance_${cleanEmail}`)
+          .single();
+        if (usdtCfg?.data?.usdtBalance != null) {
+          usdtBalance = Number(usdtCfg.data.usdtBalance);
+        }
+      } catch (_) {}
+    }
+    if (!usdtBalance && memUser?.usdtBalance != null) {
+      usdtBalance = Number(memUser.usdtBalance);
+    }
+
     res.json({
       status: true,
       walletBalance: balance,
+      usdtBalance,
       usdtTronAddress,
       user: {
         id: dbUser?.id || memUser?.id || userId || (cleanEmail === 'tonerocool1@gmail.com' ? 'c0000000-0000-0000-0000-000000000001' : 'b0000000-0000-0000-0000-000000000001'),
@@ -1429,6 +1495,7 @@ export async function getWalletBalance(req: Request, res: Response) {
         isVerified: dbUser?.is_verified ?? memUser?.isVerified ?? true,
         role: dbUser?.role || memUser?.role || 'owner',
         walletBalance: balance,
+        usdtBalance,
       }
     });
   } catch (err: any) {

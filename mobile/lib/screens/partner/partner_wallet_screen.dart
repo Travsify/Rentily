@@ -100,15 +100,17 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
 
       if (live != null) {
         final serverBal = (live['walletBalance'] as num?)?.toDouble() ?? _user!.walletBalance;
+        final serverUsdtBal = (live['usdtBalance'] as num?)?.toDouble() ?? _user!.usdtBalance;
         final serverAcc = live['accountNumber']?.toString();
         final serverBank = live['bankName']?.toString();
         if (live['usdtTronAddress'] != null) {
           _usdtTronAddress = live['usdtTronAddress'].toString();
         }
 
-        if (serverBal != _user!.walletBalance || (serverAcc != null && serverAcc != _user!.accountNumber)) {
+        if (serverBal != _user!.walletBalance || serverUsdtBal != _user!.usdtBalance || (serverAcc != null && serverAcc != _user!.accountNumber)) {
           final updated = _user!.copyWith(
             walletBalance: serverBal,
+            usdtBalance: serverUsdtBal,
             accountNumber: (serverAcc != null && serverAcc.isNotEmpty) ? serverAcc : _user!.accountNumber,
             bankName: (serverBank != null && serverBank.isNotEmpty) ? serverBank : _user!.bankName,
           );
@@ -169,10 +171,12 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
       UserProfile effectiveUser = user;
       if (live != null) {
         final serverBal = (live['walletBalance'] as num?)?.toDouble() ?? user.walletBalance;
+        final serverUsdtBal = (live['usdtBalance'] as num?)?.toDouble() ?? user.usdtBalance;
         final serverAcc = live['accountNumber']?.toString();
         final serverBank = live['bankName']?.toString();
         effectiveUser = user.copyWith(
           walletBalance: serverBal,
+          usdtBalance: serverUsdtBal,
           accountNumber: (serverAcc != null && serverAcc.isNotEmpty) ? serverAcc : user.accountNumber,
           bankName: (serverBank != null && serverBank.isNotEmpty) ? serverBank : user.bankName,
         );
@@ -1190,7 +1194,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                                       CurrencySwapModal.show(
                                         context,
                                         user: _user!,
-                                        onSwapSuccess: (newBal) => setState(() => _user = _user!.copyWith(walletBalance: newBal)),
+                                        onSwapSuccess: (newNgn, newUsdt) => setState(() => _user = _user!.copyWith(walletBalance: newNgn, usdtBalance: newUsdt)),
                                       );
                                     }
                                   },
@@ -1403,7 +1407,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                           CurrencySwapModal.show(
                             context,
                             user: _user!,
-                            onSwapSuccess: (newBal) => setState(() => _user = _user!.copyWith(walletBalance: newBal)),
+                            onSwapSuccess: (newNgn, newUsdt) => setState(() => _user = _user!.copyWith(walletBalance: newNgn, usdtBalance: newUsdt)),
                           );
                         }
                       },

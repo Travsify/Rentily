@@ -17,6 +17,7 @@ export interface StoredUser {
   bankName?: string | null;
   state?: string;
   walletBalance?: number;
+  usdtBalance?: number;
   businessName?: string | null;
   cacNumber?: string | null;
   officeAddress?: string | null;
