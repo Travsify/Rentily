@@ -73,14 +73,16 @@ export class MapleradBankingService {
 
     try {
       // Check existing customer
-      const getRes = await fetch(`${this.baseUrl}/customers?email=${encodeURIComponent(cleanEmail)}`, {
+      const getRes = await fetch(`${this.baseUrl}/customers?page=1&page_size=50`, {
         headers: this.headers
       });
       const getData = await getRes.json().catch(() => ({}));
-      if (getData?.status && Array.isArray(getData?.data) && getData.data.length > 0) {
-        const cust = getData.data[0];
-        console.log(`[MapleradBanking] Resolved existing customer ID: ${cust.id} (Tier: ${cust.tier})`);
-        return cust.id;
+      if (getData?.status && Array.isArray(getData?.data)) {
+        const cust = getData.data.find((c: any) => c.email?.toLowerCase().trim() === cleanEmail);
+        if (cust) {
+          console.log(`[MapleradBanking] Resolved existing customer ID: ${cust.id} for ${cleanEmail} (Tier: ${cust.tier})`);
+          return cust.id;
+        }
       }
 
       // Enroll new Tier 1 customer directly
@@ -461,24 +463,28 @@ export class MapleradBankingService {
     // Step B: Resolve or Enroll Customer on Maplerad
     try {
       if (!mapleradCustomerId) {
-        const getRes = await fetch(`${this.baseUrl}/customers?email=${encodeURIComponent(cleanEmail)}`, {
+        const getRes = await fetch(`${this.baseUrl}/customers?page=1&page_size=50`, {
           headers: this.headers,
           signal: AbortSignal.timeout(8000)
         });
         const getData = await getRes.json().catch(() => ({}));
-        if (getData?.status && Array.isArray(getData?.data) && getData.data.length > 0) {
-          mapleradCustomerId = getData.data[0].id;
-          mapleradTier = getData.data[0].tier ?? 0;
-          console.log(`[MapleradTier1] Resolved existing customer ${mapleradCustomerId} (Tier ${mapleradTier})`);
+        if (getData?.status && Array.isArray(getData?.data)) {
+          const match = getData.data.find((c: any) => c.email?.toLowerCase().trim() === cleanEmail);
+          if (match) {
+            mapleradCustomerId = match.id;
+            mapleradTier = match.tier ?? 0;
+            console.log(`[MapleradTier1] Resolved existing customer ${mapleradCustomerId} for ${cleanEmail} (Tier ${mapleradTier})`);
+          }
         }
       }
 
-      const idNumber = (params.nin && params.nin.length >= 11)
-        ? params.nin
-        : ((params.bvn && params.bvn.length === 11) ? params.bvn : (params.nin || params.bvn || ''));
+      // Prioritize 11-digit BVN for Maplerad Tier 1 validation
+      const bvnNumber = (params.bvn && params.bvn.trim().length === 11) ? params.bvn.trim() : '';
+      const ninNumber = (params.nin && params.nin.trim().length === 11) ? params.nin.trim() : '';
+      const idNumber = bvnNumber || ninNumber || params.bvn || params.nin || '';
 
       if (mapleradCustomerId) {
-        console.log(`[MapleradTier1] Upgrading existing customer ${mapleradCustomerId} to Tier 1...`);
+        console.log(`[MapleradTier1] Upgrading existing customer ${mapleradCustomerId} to Tier 1 using BVN...`);
         const upgradeRes = await fetch(`${this.baseUrl}/customers/upgrade/tier1`, {
           method: 'PATCH',
           headers: this.headers,
@@ -488,7 +494,7 @@ export class MapleradBankingService {
             dob: dob,
             identification_number: idNumber,
             phone: {
-              phone_country_code: '+234',
+              phone_country_code: '234',
               phone_number: cleanPhone
             },
             address: {
@@ -521,8 +527,8 @@ export class MapleradBankingService {
             country: 'NG',
             dob: dob,
             identification_number: idNumber,
-            phone: {
-              phone_country_code: '+234',
+            phone_number: {
+              phone_country_code: '234',
               phone_number: cleanPhone
             },
             address: {
