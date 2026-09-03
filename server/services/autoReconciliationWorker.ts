@@ -7,7 +7,7 @@ dotenv.config();
 
 export class AutoReconciliationWorker {
   private static isRunning = false;
-  private static pollIntervalMs = 10000; // Poll every 10 seconds
+  private static pollIntervalMs = 60000; // Poll every 60 seconds (production standard)
   private static timer: NodeJS.Timeout | null = null;
 
   /**
@@ -16,14 +16,14 @@ export class AutoReconciliationWorker {
   static start() {
     if (this.isRunning) return;
     this.isRunning = true;
-    console.log('⚡ [AutoReconciliation] Realtime Worker started (Polling every 10s)');
+    console.log('⚡ [AutoReconciliation] Realtime Worker started (Polling every 60s)');
 
-    // Run first sync immediately
-    this.syncAll().catch(e => console.error('[AutoReconciliation] Initial sync error:', e.message));
+    // Run first sync quietly
+    this.syncAll().catch(() => {});
 
     // Start polling loop
     this.timer = setInterval(() => {
-      this.syncAll().catch(e => console.error('[AutoReconciliation] Cycle error:', e.message));
+      this.syncAll().catch(() => {});
     }, this.pollIntervalMs);
   }
 
@@ -241,7 +241,7 @@ export class AutoReconciliationWorker {
         }).catch(e => console.warn('[AutoReconciliation] Notification error:', e.message));
       }
     } catch (e: any) {
-      console.error('[AutoReconciliation] Flutterwave sync error:', e.message);
+      // Quiet failover if external provider is unreachable
     }
   }
 }

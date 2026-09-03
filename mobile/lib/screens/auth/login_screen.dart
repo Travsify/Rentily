@@ -59,7 +59,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   void _checkSavedUserSession() async {
     final prefs = await SharedPreferences.getInstance();
-    final biometricsEnabled = prefs.getBool('rentilly_biometrics_enabled') ?? true;
+    final biometricsEnabled = prefs.getBool('rentilly_biometrics_enabled') ?? false;
     final rememberedUser = await AuthService.getRememberedUser();
 
     if (rememberedUser != null && biometricsEnabled && !widget.forcePasswordMode) {
@@ -167,21 +167,40 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       final isPartner = user != null && user.role == 'partner';
       final isLandlord = user != null && !isPartner && (user.role == 'owner' || user.role == 'landlord');
 
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('rentilly_biometrics_enabled', true);
-
-      // Register user with OneSignal for push notifications
-      await PushNotificationService.setUserTags();
-
+      // 1. Dispatch high-security 6-digit OTP via Resend API
+      setState(() => _isLoading = true);
+      await OtpService.sendOtp(
+        email: email,
+        userName: user?.fullName,
+        channel: 'email',
+        purpose: 'Sign-in Authentication 2FA',
+      );
       if (!mounted) return;
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (_) => MainNavigationScreen(
-            initialPartnerMode: isPartner,
-            initialLandlordMode: isLandlord,
-          ),
-        ),
-        (route) => false,
+      setState(() => _isLoading = false);
+
+      // 2. Present 2FA OTP Confirmation Modal
+      Login2faModal.show(
+        context,
+        email: email,
+        userName: user?.fullName,
+        onVerified: () async {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setBool('rentilly_biometrics_enabled', true);
+
+          // Register user with OneSignal for push notifications
+          await PushNotificationService.setUserTags();
+
+          if (!mounted) return;
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(
+              builder: (_) => MainNavigationScreen(
+                initialPartnerMode: isPartner,
+                initialLandlordMode: isLandlord,
+              ),
+            ),
+            (route) => false,
+          );
+        },
       );
     } else {
       setState(() {

@@ -35,10 +35,10 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
 
   void _showInspectionModal() {
     String inspectionType = 'video'; // 'video' or 'in_person'
-    String selectedDate = '2026-09-03';
+    String selectedDate = DateFormat('yyyy-MM-dd').format(DateTime.now().add(const Duration(days: 1)));
     String selectedTime = '11:00 AM - 12:00 PM';
-    final nameController = TextEditingController(text: _currentUser?.fullName ?? 'Rentilly Prospect');
-    final phoneController = TextEditingController(text: _currentUser?.phoneNumber ?? '+234 812 000 0000');
+    final nameController = TextEditingController(text: _currentUser?.fullName ?? '');
+    final phoneController = TextEditingController(text: _currentUser?.phoneNumber ?? '');
 
     showModalBottomSheet(
       context: context,

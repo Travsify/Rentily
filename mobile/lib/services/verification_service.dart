@@ -20,14 +20,14 @@ class VerificationService {
   }) async {
     final currentUser = await AuthService.getCurrentUser();
     final userId = currentUser?.id ?? 'usr_${DateTime.now().millisecondsSinceEpoch}';
-    final email = currentUser?.email ?? 'info@myrentilly.com';
-    final phone = currentUser?.phoneNumber ?? '08120000000';
+    final email = currentUser?.email ?? '';
+    final phone = currentUser?.phoneNumber ?? '';
     final isPartner = currentUser?.role == 'partner';
 
     final partnerBizName = businessName ?? currentUser?.businessName;
     final effectiveName = isPartner
-        ? ((partnerBizName != null && partnerBizName.trim().isNotEmpty) ? partnerBizName.trim() : currentUser?.fullName.trim() ?? 'Corporate Partner')
-        : (currentUser?.fullName.trim().isNotEmpty == true ? currentUser!.fullName.trim() : 'Property Owner');
+        ? ((partnerBizName != null && partnerBizName.trim().isNotEmpty) ? partnerBizName.trim() : (currentUser?.fullName.trim().isNotEmpty == true ? currentUser!.fullName.trim() : 'Rentilly Partner'))
+        : (currentUser?.fullName.trim().isNotEmpty == true ? currentUser!.fullName.trim() : 'Rentilly User');
 
     final bvnToUse = bvn.trim().isNotEmpty ? bvn.trim() : (idType == 'bvn' ? idNumber.trim() : '');
 
