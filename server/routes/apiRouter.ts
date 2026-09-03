@@ -162,6 +162,9 @@ apiRouter.post('/payments/withdraw-paystack', paymentController.withdrawWithPays
 apiRouter.post('/payments/withdraw-crypto', paymentController.withdrawCrypto);
 apiRouter.post('/payments/reconcile', paymentController.adminReconcileBalance);
 apiRouter.post('/payments/register-and-credit', paymentController.adminRegisterAndCreditUser);
+apiRouter.get('/fx/spread-rates', paymentController.getFxSpreadRates);
+apiRouter.post('/fx/spread-rates', paymentController.updateFxSpreadConfig);
+apiRouter.post('/wallet/swap', paymentController.executeCurrencySwap);
 
 // 8. Fraud Blacklist & Rogue Agent Registry
 apiRouter.get('/fraud/blacklist', fraudController.getBlacklist);

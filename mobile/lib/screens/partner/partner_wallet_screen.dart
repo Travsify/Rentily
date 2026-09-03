@@ -18,6 +18,7 @@ import '../../widgets/currency_selector_widget.dart';
 import '../../widgets/virtual_card_widget.dart';
 import '../../widgets/transaction_receipt_modal.dart';
 import '../../widgets/statement_export_modal.dart';
+import '../../widgets/currency_swap_modal.dart';
 import '../cards/cards_screen.dart';
 import '../bills/bills_screen.dart';
 
@@ -1186,10 +1187,10 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                                 child: GestureDetector(
                                   onTap: () {
                                     if (_user != null) {
-                                      WithdrawalModal.show(
+                                      CurrencySwapModal.show(
                                         context,
                                         user: _user!,
-                                        onWithdrawalSuccess: (newBal) => setState(() => _user = _user!.copyWith(walletBalance: newBal)),
+                                        onSwapSuccess: (newBal) => setState(() => _user = _user!.copyWith(walletBalance: newBal)),
                                       );
                                     }
                                   },
@@ -1204,7 +1205,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                                       children: [
                                         const Icon(Icons.currency_exchange_rounded, size: 13, color: Color(0xFF00E676)),
                                         const SizedBox(width: 4),
-                                        Text('Convert / Cashout', style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
+                                        Text('Swap / Convert', style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
                                       ],
                                     ),
                                   ),
@@ -1369,7 +1370,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
               ],
               const SizedBox(height: 20),
 
-              // Wallet Quick Actions (Add Money, Withdraw)
+              // Wallet Quick Actions (Fund Wallet, Swap, Disburse)
               Row(
                 children: [
                   Expanded(
@@ -1383,8 +1384,8 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                           );
                         }
                       },
-                      icon: const Icon(Icons.add_circle_outline_rounded, size: 16),
-                      label: Text('Fund Wallet', style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                      icon: const Icon(Icons.add_circle_outline_rounded, size: 15),
+                      label: Text('Fund', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
@@ -1394,7 +1395,30 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        if (_user != null) {
+                          CurrencySwapModal.show(
+                            context,
+                            user: _user!,
+                            onSwapSuccess: (newBal) => setState(() => _user = _user!.copyWith(walletBalance: newBal)),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.currency_exchange_rounded, size: 15),
+                      label: Text('Swap', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0F5B46),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        elevation: 0,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed: () {
@@ -1412,8 +1436,8 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                           },
                         );
                       },
-                      icon: const Icon(Icons.north_east_rounded, size: 16),
-                      label: Text('Disburse Funds', style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                      icon: const Icon(Icons.north_east_rounded, size: 15),
+                      label: Text('Disburse', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold)),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.primary,
                         side: const BorderSide(color: AppColors.primary, width: 1.5),

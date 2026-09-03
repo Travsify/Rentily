@@ -406,6 +406,207 @@ export async function withdrawCrypto(req: Request, res: Response) {
   }
 }
 
+// ==================== BID / ASK SPREAD & CURRENCY SWAP ENGINE ====================
+
+export async function getFxSpreadRates(req: Request, res: Response) {
+  try {
+    const spreadRates = MultiCurrencyService.getSpreadRates();
+    return res.status(200).json({ success: true, ...spreadRates });
+  } catch (e: any) {
+    return res.status(500).json({ error: e.message || 'Failed to fetch spread rates' });
+  }
+}
+
+export async function updateFxSpreadConfig(req: Request, res: Response) {
+  try {
+    const updated = await MultiCurrencyService.updateSpreadConfig(req.body);
+    return res.status(200).json({ success: true, ...updated });
+  } catch (e: any) {
+    return res.status(500).json({ error: e.message || 'Failed to update spread config' });
+  }
+}
+
+export async function executeCurrencySwap(req: Request, res: Response) {
+  try {
+    const { email, fromCurrency, toCurrency, amount } = req.body;
+    const cleanEmail = (email || '').toLowerCase().trim();
+    const numAmount = Number(amount);
+
+    if (!cleanEmail || !fromCurrency || !toCurrency || isNaN(numAmount) || numAmount <= 0) {
+      return res.status(400).json({ error: 'Valid email, fromCurrency, toCurrency, and positive amount are required' });
+    }
+
+    if (fromCurrency === toCurrency) {
+      return res.status(400).json({ error: 'Source and destination currencies must be different' });
+    }
+
+    const spread = MultiCurrencyService.getSpreadRates();
+    const memUser = await UserStore.findByEmail(cleanEmail);
+    if (!memUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const currentBalNgn = TransactionStore.computeNetBalance(cleanEmail);
+    const targetUserId = memUser.id;
+    const txRef = `SWAP_${Date.now()}_${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+
+    let fromDebitNgn = 0;
+    let executionRate = 0;
+    let marginNgn = 0;
+    let convertedAmount = 0;
+    let title = '';
+    let narration = '';
+
+    if (fromCurrency === 'USDT' && toCurrency === 'NGN') {
+      // User is converting USDT -> NGN (Rentily buys USDT at buyRate below market)
+      executionRate = spread.buyRate; // e.g. 1400
+      convertedAmount = Number((numAmount * executionRate).toFixed(2)); // in NGN
+      marginNgn = Number((numAmount * spread.buyMargin).toFixed(2));
+      
+      title = `Converted $${numAmount.toFixed(2)} USDT to ₦${convertedAmount.toLocaleString()}`;
+      narration = `Currency Swap: $${numAmount.toFixed(2)} USDT ➔ ₦${convertedAmount.toLocaleString()} NGN (Rate: 1 USDT = ₦${executionRate.toLocaleString()})`;
+
+      const newBal = currentBalNgn + convertedAmount;
+
+      await TransactionStore.addTransaction({
+        id: `TX_${txRef}`,
+        userId: targetUserId,
+        email: cleanEmail,
+        title,
+        type: 'Currency Swap (USDT ➔ NGN)',
+        category: 'swap',
+        amount: convertedAmount,
+        isCredit: true,
+        reference: txRef,
+        sender: 'USDT Vault (TRON TRC20)',
+        beneficiary: `${memUser.businessName || memUser.fullName || 'Rentilly User'} (Naira Wallet)`,
+        recipientAccount: memUser.virtualAccountNumber || 'Rentilly Wallet',
+        recipientBank: 'Rentilly Treasury',
+        status: 'SUCCESSFUL',
+        date: new Date().toISOString(),
+      });
+
+      UserStore.upsertUser({
+        ...memUser,
+        walletBalance: newBal,
+        updatedAt: new Date().toISOString()
+      });
+
+      if (supabase) {
+        try {
+          await supabase.from('profiles').update({ wallet_balance: newBal, updated_at: new Date().toISOString() }).eq('id', targetUserId);
+          await supabase.from('wallet_transactions').insert({
+            user_id: targetUserId,
+            email: cleanEmail,
+            amount: convertedAmount,
+            type: 'credit',
+            status: 'completed',
+            flw_ref: txRef,
+            tx_ref: txRef,
+            narration,
+            created_at: new Date().toISOString()
+          });
+        } catch (e: any) {
+          console.warn('[Swap USDT->NGN] Supabase warning:', e?.message);
+        }
+      }
+
+      return res.status(200).json({
+        success: true,
+        txRef,
+        fromCurrency,
+        toCurrency,
+        fromAmount: numAmount,
+        toAmount: convertedAmount,
+        executionRate,
+        platformMarginEarned: marginNgn,
+        newWalletBalance: newBal,
+        message: `Successfully converted $${numAmount.toFixed(2)} USDT to ₦${convertedAmount.toLocaleString()}`
+      });
+
+    } else if (fromCurrency === 'NGN' && toCurrency === 'USDT') {
+      // User is converting NGN -> USDT (Rentily sells USDT at sellRate above market)
+      executionRate = spread.sellRate; // e.g. 1460
+      fromDebitNgn = numAmount; // in NGN
+      convertedAmount = Number((fromDebitNgn / executionRate).toFixed(2)); // in USDT
+      marginNgn = Number((convertedAmount * spread.sellMargin).toFixed(2));
+
+      if (currentBalNgn < fromDebitNgn) {
+        return res.status(400).json({
+          error: `Insufficient Naira balance. Swapping ₦${fromDebitNgn.toLocaleString()} requires at least ₦${fromDebitNgn.toLocaleString()}, but your balance is ₦${currentBalNgn.toLocaleString()}.`
+        });
+      }
+
+      title = `Converted ₦${fromDebitNgn.toLocaleString()} to $${convertedAmount.toFixed(2)} USDT`;
+      narration = `Currency Swap: ₦${fromDebitNgn.toLocaleString()} NGN ➔ $${convertedAmount.toFixed(2)} USDT (Rate: 1 USDT = ₦${executionRate.toLocaleString()})`;
+
+      const newBal = Math.max(0, currentBalNgn - fromDebitNgn);
+
+      await TransactionStore.addTransaction({
+        id: `TX_${txRef}`,
+        userId: targetUserId,
+        email: cleanEmail,
+        title,
+        type: 'Currency Swap (NGN ➔ USDT)',
+        category: 'swap',
+        amount: fromDebitNgn,
+        isCredit: false,
+        reference: txRef,
+        sender: `${memUser.businessName || memUser.fullName || 'Rentilly User'} (Naira Wallet)`,
+        beneficiary: 'USDT Vault (TRON TRC20)',
+        recipientAccount: 'TRC20 Vault',
+        recipientBank: 'Blockchain Treasury',
+        status: 'SUCCESSFUL',
+        date: new Date().toISOString(),
+      });
+
+      UserStore.upsertUser({
+        ...memUser,
+        walletBalance: newBal,
+        updatedAt: new Date().toISOString()
+      });
+
+      if (supabase) {
+        try {
+          await supabase.from('profiles').update({ wallet_balance: newBal, updated_at: new Date().toISOString() }).eq('id', targetUserId);
+          await supabase.from('wallet_transactions').insert({
+            user_id: targetUserId,
+            email: cleanEmail,
+            amount: fromDebitNgn,
+            type: 'debit',
+            status: 'completed',
+            flw_ref: txRef,
+            tx_ref: txRef,
+            narration,
+            created_at: new Date().toISOString()
+          });
+        } catch (e: any) {
+          console.warn('[Swap NGN->USDT] Supabase warning:', e?.message);
+        }
+      }
+
+      return res.status(200).json({
+        success: true,
+        txRef,
+        fromCurrency,
+        toCurrency,
+        fromAmount: fromDebitNgn,
+        toAmount: convertedAmount,
+        executionRate,
+        platformMarginEarned: marginNgn,
+        newWalletBalance: newBal,
+        message: `Successfully swapped ₦${fromDebitNgn.toLocaleString()} to $${convertedAmount.toFixed(2)} USDT`
+      });
+    } else {
+      return res.status(400).json({ error: `Unsupported swap pair ${fromCurrency}/${toCurrency}. Currently supported: USDT/NGN` });
+    }
+  } catch (e: any) {
+    console.error('[ExecuteCurrencySwap] Error:', e);
+    return res.status(500).json({ error: e.message || 'Currency swap failed' });
+  }
+}
+
+
 // ==================== LIVE UTILITY BILLS & AIRTIME ====================
 
 // 4. Validate Prepaid Electricity Meter Number

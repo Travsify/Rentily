@@ -32,8 +32,14 @@ export class MultiCurrencyService {
     'NGN_EUR': 1 / 1660.00,
   };
 
+  private static spreadConfig = {
+    baseRate: 1430.00,
+    buyMargin: 30.00,  // Rentily pays 1400 (base - 30) when user sells USDT
+    sellMargin: 30.00, // Rentily charges 1460 (base + 30) when user buys USDT
+  };
+
   /**
-   * Hydrates live FX rates from Supabase Cloud on server boot
+   * Hydrates live FX rates and spread config from Supabase Cloud on server boot
    */
   static async initFromSupabase(): Promise<void> {
     if (!supabase) return;
@@ -48,6 +54,17 @@ export class MultiCurrencyService {
         this.fxRates = { ...this.fxRates, ...data.data };
         console.log('[MultiCurrencyService] Hydrated live FX rates from Supabase:', this.fxRates);
       }
+
+      const { data: spreadData } = await supabase
+        .from('system_configs')
+        .select('data')
+        .eq('id', 'system_spread_config')
+        .single();
+
+      if (spreadData && spreadData.data) {
+        this.spreadConfig = { ...this.spreadConfig, ...spreadData.data };
+        console.log('[MultiCurrencyService] Hydrated live spread config from Supabase:', this.spreadConfig);
+      }
     } catch (e: any) {
       console.warn('[MultiCurrencyService] Notice on FX hydration:', e.message);
     }
@@ -59,6 +76,43 @@ export class MultiCurrencyService {
 
   static getRates(): Record<string, number> {
     return this.getFxRates();
+  }
+
+  static getSpreadRates() {
+    const base = this.spreadConfig.baseRate || 1430.00;
+    const buyMargin = this.spreadConfig.buyMargin ?? 30.00;
+    const sellMargin = this.spreadConfig.sellMargin ?? 30.00;
+    const buyRate = Math.max(1, base - buyMargin);   // 1400.00 (user sells USDT -> receives NGN)
+    const sellRate = base + sellMargin;             // 1460.00 (user spends NGN -> receives USDT)
+    return {
+      baseRate: base,
+      buyRate,
+      sellRate,
+      buyMargin,
+      sellMargin,
+      currencyPair: 'USDT_NGN',
+      updatedAt: new Date().toISOString()
+    };
+  }
+
+  static async updateSpreadConfig(newConfig: { baseRate?: number; buyMargin?: number; sellMargin?: number; buyRate?: number; sellRate?: number }) {
+    if (newConfig.baseRate && newConfig.baseRate > 0) this.spreadConfig.baseRate = newConfig.baseRate;
+    if (newConfig.buyMargin !== undefined) this.spreadConfig.buyMargin = newConfig.buyMargin;
+    if (newConfig.sellMargin !== undefined) this.spreadConfig.sellMargin = newConfig.sellMargin;
+    if (newConfig.buyRate && newConfig.buyRate > 0) {
+      this.spreadConfig.buyMargin = Math.max(0, this.spreadConfig.baseRate - newConfig.buyRate);
+    }
+    if (newConfig.sellRate && newConfig.sellRate > 0) {
+      this.spreadConfig.sellMargin = Math.max(0, newConfig.sellRate - this.spreadConfig.baseRate);
+    }
+    if (supabase) {
+      await supabase.from('system_configs').upsert({
+        id: 'system_spread_config',
+        data: this.spreadConfig,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id' });
+    }
+    return this.getSpreadRates();
   }
 
   static async updateFxRates(newRates: { USD_NGN?: number; GBP_NGN?: number; EUR_NGN?: number }): Promise<Record<string, number>> {

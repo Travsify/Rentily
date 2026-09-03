@@ -19,6 +19,7 @@ import '../../widgets/currency_selector_widget.dart';
 import '../../widgets/virtual_card_widget.dart';
 import '../../widgets/transaction_receipt_modal.dart';
 import '../../widgets/statement_export_modal.dart';
+import '../../widgets/currency_swap_modal.dart';
 import '../cards/cards_screen.dart';
 import '../bills/bills_screen.dart';
 
@@ -495,14 +496,39 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                               }
                             },
                             icon: const Icon(Icons.add_rounded, size: 14, color: Colors.white),
-                            label: Text('Fund Wallet', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+                            label: Text('Fund', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.white)),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.primary,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              if (_user != null) {
+                                CurrencySwapModal.show(
+                                  context,
+                                  user: _user!,
+                                  onSwapSuccess: (newBal) async {
+                                    setState(() => _user = _user!.copyWith(walletBalance: newBal));
+                                    await _loadTransactions();
+                                  },
+                                );
+                              }
+                            },
+                            icon: const Icon(Icons.currency_exchange_rounded, size: 13, color: Colors.white),
+                            label: Text('Swap', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.white)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF0F5B46),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
                         Expanded(
                           child: OutlinedButton.icon(
                             onPressed: () {
@@ -518,10 +544,11 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                               }
                             },
                             icon: const Icon(Icons.north_east_rounded, size: 14, color: AppColors.primary),
-                            label: Text('Withdraw', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                            label: Text('Withdraw', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppColors.primary)),
                             style: OutlinedButton.styleFrom(
                               side: const BorderSide(color: AppColors.primary),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              padding: const EdgeInsets.symmetric(vertical: 10),
                             ),
                           ),
                         ),

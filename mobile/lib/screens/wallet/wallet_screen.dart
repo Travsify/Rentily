@@ -19,6 +19,7 @@ import '../../widgets/currency_selector_widget.dart';
 import '../../widgets/virtual_card_widget.dart';
 import '../../widgets/transaction_receipt_modal.dart';
 import '../../widgets/statement_export_modal.dart';
+import '../../widgets/currency_swap_modal.dart';
 import '../cards/cards_screen.dart';
 
 class WalletScreen extends StatefulWidget {
@@ -1108,7 +1109,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                           const Icon(Icons.currency_exchange_rounded, size: 12, color: Color(0xFF00E676)),
                                           const SizedBox(width: 4),
                                           Text(
-                                            'Convert / Cashout',
+                                            'Swap / Convert',
                                             style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.white),
                                           ),
                                         ],
@@ -1127,7 +1128,7 @@ class _WalletScreenState extends State<WalletScreen> {
               ),
               const SizedBox(height: 18),
 
-              // Wallet Actions (Add Money, Withdraw, Statement, Vault)
+              // Wallet Actions (Add Money, Swap, Withdraw, Statement, Vault)
               Row(
                 children: [
                   Expanded(
@@ -1141,7 +1142,19 @@ class _WalletScreenState extends State<WalletScreen> {
                       }
                     }),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: _buildActionButton(Icons.currency_exchange_rounded, 'Swap', () {
+                      if (_user != null) {
+                        CurrencySwapModal.show(
+                          context,
+                          user: _user!,
+                          onSwapSuccess: (newBal) => setState(() => _user = _user!.copyWith(walletBalance: newBal)),
+                        );
+                      }
+                    }),
+                  ),
+                  const SizedBox(width: 6),
                   Expanded(
                     child: _buildActionButton(Icons.north_east_rounded, 'Withdraw', () {
                       if (_user == null || !_user!.isVerified) {
@@ -1159,11 +1172,11 @@ class _WalletScreenState extends State<WalletScreen> {
                       );
                     }),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   Expanded(
                     child: _buildActionButton(Icons.description_outlined, 'Statement', _showStatementDialog),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   Expanded(
                     child: _buildActionButton(Icons.savings_rounded, 'Vault', () {
                       Navigator.of(context).push(

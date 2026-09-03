@@ -7,6 +7,7 @@ import '../constants/app_colors.dart';
 import '../constants/app_constants.dart';
 import '../models/user_profile.dart';
 import '../services/auth_service.dart';
+import '../services/api_service.dart';
 import '../services/notification_service.dart';
 import '../services/payment_security_service.dart';
 import '../services/security_telemetry_service.dart';
@@ -40,7 +41,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
 
   String _withdrawalMode = 'NGN'; // 'NGN' or 'USDT'
   String _usdtDestinationType = 'BANK'; // 'BANK' (Convert to NGN) or 'CRYPTO' (Send on-chain)
-  final double _fxUsdtToNgn = 1510.0;
+  double _fxUsdtToNgn = 1400.0;
 
   String _selectedBankCode = '058'; // Default GTBank
   String _selectedBankName = 'Guaranty Trust Bank';
@@ -93,6 +94,16 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
   void initState() {
     super.initState();
     _fetchPaystackBanks();
+    _fetchSpreadRates();
+  }
+
+  void _fetchSpreadRates() async {
+    final rates = await ApiService.fetchSpreadRates();
+    if (mounted) {
+      setState(() {
+        _fxUsdtToNgn = (rates['buyRate'] as num?)?.toDouble() ?? 1400.0;
+      });
+    }
   }
 
   void _fetchPaystackBanks() async {
