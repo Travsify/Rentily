@@ -32,7 +32,13 @@ app.get('/invite/landlord', renderLandlordInvitePage);
 // 2. Mount API Router under /api
 app.use('/api', apiRouter);
 
-// 3. Serve Frontend Static Production Assets & SPA Fallback
+// 3. Serve Public Brand Assets (Logo, Icons, Favicons)
+const publicPath = path.join(process.cwd(), 'public');
+if (fs.existsSync(publicPath)) {
+  app.use(express.static(publicPath));
+}
+
+// 4. Serve Frontend Static Production Assets & SPA Fallback
 const distPath = path.join(process.cwd(), 'dist');
 if (fs.existsSync(distPath)) {
   app.use(express.static(distPath));

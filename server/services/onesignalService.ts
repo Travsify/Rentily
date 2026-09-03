@@ -36,6 +36,10 @@ export interface OneSignalNotificationPayload {
   url?: string;
   /** Optional: Custom notification channel for Android */
   androidChannelId?: string;
+  /** Optional: High-resolution custom icon URL */
+  iconUrl?: string;
+  /** Optional: Big picture / banner image URL */
+  imageUrl?: string;
 }
 
 /**
@@ -43,15 +47,23 @@ export interface OneSignalNotificationPayload {
  */
 export async function sendPushNotification(payload: OneSignalNotificationPayload): Promise<{ success: boolean; id?: string; error?: string }> {
   try {
+    const brandLogoUrl = payload.iconUrl || 'https://rentilly-admin-api.onrender.com/logo.png';
+
     const body: any = {
       app_id: ONESIGNAL_APP_ID,
       headings: { en: payload.title },
       contents: { en: payload.message },
-      // Android notification icon
+      // Android notification icon & bold high-resolution branding
       small_icon: 'ic_stat_onesignal_default',
-      large_icon: 'ic_launcher',
-      // Android accent color (Rentilly green)
+      large_icon: brandLogoUrl,
+      // High-resolution expandable banner if provided
+      ...(payload.imageUrl ? { big_picture: payload.imageUrl } : {}),
+      // Android accent color (Rentilly Emerald Green #10B981)
       android_accent_color: 'FF10B981',
+      // iOS rich media attachments
+      ios_attachments: {
+        rentilly_logo: brandLogoUrl
+      },
       // iOS badge increment
       ios_badgeType: 'Increase',
       ios_badgeCount: 1,
