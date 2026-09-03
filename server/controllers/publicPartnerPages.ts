@@ -398,6 +398,4 @@ export async function renderReKycPage(req: Request, res: Response) {
     </html>
   `);
 }
-  `);
-}
 
