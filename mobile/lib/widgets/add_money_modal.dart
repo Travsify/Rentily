@@ -1,7 +1,10 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
 import '../constants/app_colors.dart';
+import '../constants/app_constants.dart';
 import '../models/user_profile.dart';
 import '../services/auth_service.dart';
 import 'verification_modal.dart';

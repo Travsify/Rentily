@@ -7,7 +7,6 @@ import '../constants/app_colors.dart';
 import '../constants/app_constants.dart';
 import '../models/user_profile.dart';
 import '../services/auth_service.dart';
-import '../services/biometric_service.dart';
 import '../services/notification_service.dart';
 import '../services/payment_security_service.dart';
 
@@ -523,6 +522,29 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
                       child: Text(
                         'Account Name: $_resolvedAccountName',
                         style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            if (_accountResolutionError != null) ...[
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF2F2),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFEF4444)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline_rounded, size: 14, color: Color(0xFFEF4444)),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        _accountResolutionError!,
+                        style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: const Color(0xFFB91C1C)),
                       ),
                     ),
                   ],
