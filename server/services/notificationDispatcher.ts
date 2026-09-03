@@ -162,7 +162,7 @@ export class NotificationDispatcher {
                   <td align="center">
                     <div style="display: inline-block; background-color: #10B981; color: #FFFFFF; font-weight: 900; font-size: 20px; width: 42px; height: 42px; line-height: 42px; border-radius: 12px; margin-bottom: 8px;">R</div>
                     <h1 style="margin: 0; color: #FFFFFF; font-size: 22px; font-weight: 800; letter-spacing: -0.5px;">RENTILLY</h1>
-                    <p style="margin: 4px 0 0 0; color: #A7F3D0; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Built by a landlord for every tenant/landlord</p>
+                    <p style="margin: 4px 0 0 0; color: #A7F3D0; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Built By Landlords for every Tenant/Landlord</p>
                   </td>
                 </tr>
               </table>
