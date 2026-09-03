@@ -236,9 +236,6 @@ export async function login(req: Request, res: Response) {
           createdAt: user.createdAt,
         }
       });
-    }
-
-    return res.status(401).json({ error: 'Account not found. Please check your email or create a new account.' });
   } catch (err: any) {
     console.error('Login error:', err);
     res.status(500).json({ error: err.message || 'Login failed' });
