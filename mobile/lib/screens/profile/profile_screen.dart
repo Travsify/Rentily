@@ -367,11 +367,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               _buildMenuTile(
                 Icons.verified_user_rounded,
-                'Identity & Account Activation',
-                (_currentUser?.accountNumber != null && _currentUser!.accountNumber!.isNotEmpty)
-                    ? 'Identity Verified • Dedicated Account Active'
-                    : 'Action Required • Confirm Date of Birth to Activate',
-                trailing: (_currentUser?.accountNumber != null && _currentUser!.accountNumber!.isNotEmpty)
+                'Rentilly KYC Identity Verification',
+                (_currentUser?.bvn != null && _currentUser!.bvn!.length == 11 && _currentUser?.bankName?.contains('9PSB') == true && !_currentUser!.rekycRequired)
+                    ? 'Identity Verified • Dedicated 9PSB Account Active'
+                    : 'Action Required • Confirm BVN, NIN & Date of Birth',
+                trailing: (_currentUser?.bvn != null && _currentUser!.bvn!.length == 11 && _currentUser?.bankName?.contains('9PSB') == true && !_currentUser!.rekycRequired)
                     ? const Icon(Icons.check_circle_rounded, size: 20, color: AppColors.primary)
                     : Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -386,13 +386,40 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                       ),
                 onTap: () {
-                  if (_currentUser != null && (_currentUser!.accountNumber == null || _currentUser!.rekycRequired)) {
+                  if (_currentUser != null && (_currentUser!.bvn == null || _currentUser!.bvn!.length != 11 || _currentUser!.rekycRequired || !_currentUser!.bankName!.contains('9PSB'))) {
                     DateOfBirthModal.show(context, user: _currentUser!, onSuccess: (updated) {
                       setState(() => _currentUser = updated);
                     });
                   } else {
                     _showVerificationStatusSheet();
                   }
+                },
+              ),
+
+              _buildMenuTile(
+                Icons.business_rounded,
+                'Corporate KYP Partner Verification',
+                (_currentUser?.cacNumber != null && _currentUser!.cacNumber!.isNotEmpty)
+                    ? 'Corporate CAC Verified • Director Vetting Linked'
+                    : 'Verify Corporate CAC, Director BVN & Regulatory License',
+                trailing: (_currentUser?.cacNumber != null && _currentUser!.cacNumber!.isNotEmpty)
+                    ? const Icon(Icons.check_circle_rounded, size: 20, color: AppColors.primary)
+                    : Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF6FF),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFF93C5FD)),
+                        ),
+                        child: Text(
+                          'Verify KYP',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: const Color(0xFF1D4ED8)),
+                        ),
+                      ),
+                onTap: () {
+                  VerificationModal.show(context, onVerified: (u) {
+                    setState(() => _currentUser = u);
+                  });
                 },
               ),
               const SizedBox(height: 16),
@@ -636,30 +663,57 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             const SizedBox(height: 18),
-            if (_currentUser?.accountNumber == null || _currentUser?.accountNumber?.isEmpty == true || _currentUser?.rekycRequired == true) ...[
-              SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    Navigator.of(ctx).pop();
+            // Action 1: Re-Verify / Upgrade KYC (BVN, NIN, DOB)
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  if (_currentUser != null) {
                     DateOfBirthModal.show(context, user: _currentUser!, onSuccess: (updated) {
                       setState(() => _currentUser = updated);
                     });
-                  },
-                  icon: const Icon(Icons.cake_rounded, size: 18, color: Colors.white),
-                  label: Text(
-                    'Confirm Date of Birth & Activate Account ⚡',
-                    style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
+                  }
+                },
+                icon: const Icon(Icons.verified_user_rounded, size: 18, color: Colors.white),
+                label: Text(
+                  (_currentUser?.bvn != null && _currentUser!.bvn!.length == 11)
+                      ? 'Re-Verify KYC / Update BVN & Identity 🔄'
+                      : 'Confirm BVN, NIN & DOB to Activate ⚡',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
               ),
-              const SizedBox(height: 12),
-            ],
+            ),
+            const SizedBox(height: 10),
+
+            // Action 2: Corporate KYP Verification (for Corporate Partners / Landlords)
+            SizedBox(
+              width: double.infinity,
+              height: 46,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  VerificationModal.show(context, onVerified: (u) {
+                    setState(() => _currentUser = u);
+                  });
+                },
+                icon: const Icon(Icons.business_rounded, size: 18, color: AppColors.primary),
+                label: Text(
+                  'Corporate KYP Partner Verification 🏢',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: AppColors.primary, width: 1.5),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
