@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import crypto from 'crypto';
 import { supabase } from '../supabaseClient';
+import { MapleradCardService } from './mapleradCardService';
 
 dotenv.config();
 
@@ -303,12 +304,44 @@ export class CardIssuingService {
     const initialBal = Number(params.initialFunding || 0.00);
     const initialPin = Math.floor(1000 + Math.random() * 9000).toString();
 
-    // ─── 1. LIVE BRIDGECARD API INTEGRATION ───
-    const bridgeAppId = process.env.BRIDGECARD_ISSUING_APP_ID;
-    const bridgeToken = process.env.BRIDGECARD_ACCESS_TOKEN || process.env.BRIDGECARD_SECRET_KEY;
+    let liveCardData: any = null;
     let bridgeCardData: any = null;
 
-    if (bridgeToken && bridgeAppId) {
+    // ─── 1. LIVE MAPLERAD API INTEGRATION ───
+    if (process.env.MAPLERAD_SECRET_KEY) {
+      try {
+        console.log(`[CardIssuingService] Attempting live card issuance via Maplerad for ${cleanEmail}...`);
+        const mapleradRes = await MapleradCardService.issueCard({
+          email: cleanEmail,
+          cardholderName: cleanName,
+          currency: currency as any,
+          brand: brand as any,
+          initialFunding: initialBal
+        });
+        if (mapleradRes.success && mapleradRes.data) {
+          console.log('[CardIssuingService] Successfully issued live card via Maplerad!');
+          const m = mapleradRes.data;
+          liveCardData = {
+            card_id: m.id || m.card_id,
+            card_pan: m.card_number || m.pan,
+            masked_pan: m.masked_pan || `${brand === 'VISA' ? '4829' : '5399'} •••• •••• ${m.last4 || m.last_4 || '1234'}`,
+            last_4: m.last4 || m.last_4,
+            expiry_month: m.expiry_month || m.expiryMonth || '12',
+            expiry_year: m.expiry_year || m.expiryYear || '28',
+            cvv: m.cvv || '123',
+            provider: 'MAPLERAD'
+          };
+        }
+      } catch (err: any) {
+        console.warn('[CardIssuingService] Maplerad card issuance error:', err.message);
+      }
+    }
+
+    // ─── 2. LIVE BRIDGECARD API INTEGRATION (FALLBACK) ───
+    const bridgeAppId = process.env.BRIDGECARD_ISSUING_APP_ID;
+    const bridgeToken = process.env.BRIDGECARD_ACCESS_TOKEN;
+
+    if (!liveCardData && bridgeToken && bridgeAppId) {
       try {
         console.log(`[Bridgecard] Attempting live card issuance for ${cleanEmail} (${cleanName})...`);
         
@@ -391,14 +424,15 @@ export class CardIssuingService {
     const prefix = brand === 'VISA' ? '4829' : '5399';
     const mid1 = Math.floor(1000 + Math.random() * 9000).toString();
     const mid2 = Math.floor(1000 + Math.random() * 9000).toString();
-    const last4 = bridgeCardData?.last_4 || Math.floor(1000 + Math.random() * 9000).toString();
-    const fullPan = bridgeCardData?.card_pan || `${prefix} ${mid1} ${mid2} ${last4}`;
-    const maskedPan = bridgeCardData?.masked_pan || `${prefix} •••• •••• ${last4}`;
+    const finalLive = liveCardData || bridgeCardData;
+    const last4 = finalLive?.last_4 || Math.floor(1000 + Math.random() * 9000).toString();
+    const fullPan = finalLive?.card_pan || `${prefix} ${mid1} ${mid2} ${last4}`;
+    const maskedPan = finalLive?.masked_pan || `${prefix} •••• •••• ${last4}`;
     const uuidId = crypto.randomUUID();
-    const cardIdStr = bridgeCardData?.card_id || `CARD_${Date.now()}_${last4}`;
-    const expMonth = bridgeCardData?.expiry_month || '12';
-    const expYear = bridgeCardData?.expiry_year || '28';
-    const cvv = bridgeCardData?.cvv || Math.floor(100 + Math.random() * 900).toString();
+    const cardIdStr = finalLive?.card_id || `CARD_${Date.now()}_${last4}`;
+    const expMonth = finalLive?.expiry_month || '12';
+    const expYear = finalLive?.expiry_year || '28';
+    const cvv = finalLive?.cvv || Math.floor(100 + Math.random() * 900).toString();
 
     // Record PIN
     _cardPins[uuidId] = initialPin;
