@@ -328,32 +328,44 @@ export class NotificationDispatcher {
       const deepAction = actionMap[event.category] || 'open_notifications';
       const targetEmail = (event.email || '').trim().toLowerCase();
       const { pushToPlayer, pushToEmail, pushToExternalUser } = await import('./onesignalService');
+      let pushDispatched = false;
 
-      // A. Send by external user ID (OneSignal login ID)
-      if (event.userId) {
-        const extRes = await pushToExternalUser(event.userId, event.title, event.message, { action: deepAction });
-        if (extRes.success) pushSuccess = true;
+      // 1. Direct Player ID (fastest, most direct device targeting)
+      if (event.userId && supabase) {
+        try {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('onesignal_player_id')
+            .eq('id', event.userId)
+            .maybeSingle();
+
+          const playerId = profile?.onesignal_player_id;
+          if (playerId) {
+            const pRes = await pushToPlayer(playerId, event.title, event.message, { action: deepAction });
+            if (pRes.success) {
+              pushSuccess = true;
+              pushDispatched = true;
+            }
+          }
+        } catch (_) {}
       }
 
-      // B. Send by direct Player ID if registered in Supabase
-      if (event.userId && supabase) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('onesignal_player_id')
-          .eq('id', event.userId)
-          .single();
-
-        const playerId = profile?.onesignal_player_id;
-        if (playerId) {
-          const pRes = await pushToPlayer(playerId, event.title, event.message, { action: deepAction });
-          if (pRes.success) pushSuccess = true;
+      // 2. External User ID (OneSignal login alias) — ONLY if not already dispatched
+      if (!pushDispatched && event.userId) {
+        const extRes = await pushToExternalUser(event.userId, event.title, event.message, { action: deepAction });
+        if (extRes.success) {
+          pushSuccess = true;
+          pushDispatched = true;
         }
       }
 
-      // C. Send by email tag fallback
-      if (targetEmail) {
+      // 3. Email tag fallback — ONLY if not already dispatched
+      if (!pushDispatched && targetEmail) {
         const emRes = await pushToEmail(targetEmail, event.title, event.message, { action: deepAction });
-        if (emRes.success) pushSuccess = true;
+        if (emRes.success) {
+          pushSuccess = true;
+          pushDispatched = true;
+        }
       }
     } catch (e) {
       console.warn('[NotificationDispatcher] Push notification dispatch notice:', e);

@@ -209,6 +209,7 @@ class NotificationService {
     required String message,
     required String category,
     Map<String, dynamic>? metadata,
+    bool dispatchToServer = false,
   }) async {
     final current = await getNotifications();
     final newNotif = InAppNotification(
@@ -225,21 +226,23 @@ class NotificationService {
     await _saveNotifications(current);
     _updateUnreadCount(current);
 
-    // Dispatches Real-time Push Notification & Branded Resend HTML Email
-    try {
-      final user = await AuthService.getCurrentUser();
-      if (user != null && user.email.trim().isNotEmpty) {
-        ApiService.dispatchNotification(
-          email: user.email.trim(),
-          userId: user.id,
-          userName: user.fullName,
-          category: category,
-          title: title,
-          message: message,
-          metadata: metadata,
-        );
-      }
-    } catch (_) {}
+    // Only dispatch to server if explicitly requested (prevents duplicate push on server-initiated events)
+    if (dispatchToServer) {
+      try {
+        final user = await AuthService.getCurrentUser();
+        if (user != null && user.email.trim().isNotEmpty) {
+          ApiService.dispatchNotification(
+            email: user.email.trim(),
+            userId: user.id,
+            userName: user.fullName,
+            category: category,
+            title: title,
+            message: message,
+            metadata: metadata,
+          );
+        }
+      } catch (_) {}
+    }
   }
 
   // Mark single notification as read
