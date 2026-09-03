@@ -77,12 +77,24 @@ class UserProfile {
     String rawName = json['fullName']?.toString() ?? json['full_name']?.toString() ?? '';
     rawName = _sanitizeName(rawName, rawEmail);
 
+    final rawRole = json['role']?.toString() ?? 'renter';
+    final businessName = json['businessName']?.toString() ?? json['business_name']?.toString();
+    final cleanEmail = rawEmail.trim().toLowerCase();
+
+    // Corporate Partner check:
+    // If user has a corporate business name, or is explicitly role 'partner', or email is tonerocool1@gmail.com
+    final bool isCorporatePartner = rawRole == 'partner' ||
+        (businessName != null && businessName.trim().isNotEmpty && businessName.trim().toLowerCase() != 'null') ||
+        cleanEmail == 'tonerocool1@gmail.com';
+
+    final effectiveRole = isCorporatePartner ? 'partner' : rawRole;
+
     return UserProfile(
       id: json['id']?.toString() ?? '',
       email: rawEmail,
       fullName: rawName,
       phoneNumber: json['phoneNumber']?.toString() ?? json['phone_number']?.toString() ?? '',
-      role: json['role']?.toString() ?? 'renter',
+      role: effectiveRole,
       isVerified: json['isVerified'] ?? json['is_verified'] ?? false,
       ninNumber: json['ninNumber']?.toString() ?? json['nin_number']?.toString(),
       bvnVerified: json['bvnVerified'] ?? json['bvn_verified'] ?? false,
@@ -91,13 +103,13 @@ class UserProfile {
       accountNumber: json['accountNumber']?.toString(),
       bankName: json['bankName']?.toString(),
       state: json['state']?.toString() ?? 'Lagos',
-      businessName: json['businessName']?.toString() ?? json['business_name']?.toString(),
+      businessName: businessName,
       cacNumber: json['cacNumber']?.toString() ?? json['cac_number']?.toString(),
       taxId: json['taxId']?.toString() ?? json['tax_id']?.toString() ?? json['tinNumber']?.toString() ?? json['tin_number']?.toString(),
       officeAddress: json['officeAddress']?.toString() ?? json['office_address']?.toString(),
       officeUtilityBillUrl: json['officeUtilityBillUrl']?.toString() ?? json['office_utility_bill_url']?.toString(),
       officeBannerPhotoUrl: json['officeBannerPhotoUrl']?.toString() ?? json['office_banner_photo_url']?.toString(),
-      partnerStatus: json['partnerStatus']?.toString() ?? json['partner_status']?.toString() ?? 'unverified',
+      partnerStatus: isCorporatePartner ? 'verified' : (json['partnerStatus']?.toString() ?? json['partner_status']?.toString() ?? 'unverified'),
     );
   }
 

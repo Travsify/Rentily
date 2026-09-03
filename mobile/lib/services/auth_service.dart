@@ -201,7 +201,8 @@ class AuthService {
           final user = users[0];
           final token = 'rentilly_sb_${DateTime.now().millisecondsSinceEpoch}';
 
-          final isPartner = user['role'] == 'partner';
+          final hasBusiness = user['business_name'] != null && user['business_name'].toString().trim().isNotEmpty && user['business_name'].toString().trim().toLowerCase() != 'null';
+          final isPartner = user['role'] == 'partner' || hasBusiness || cleanEmail == 'tonerocool1@gmail.com';
 
           final prefs = await SharedPreferences.getInstance();
           final cachedAvatar = prefs.getString('rentilly_avatar_$cleanEmail') ?? prefs.getString('rentilly_persistent_avatar_url');
@@ -211,7 +212,7 @@ class AuthService {
             'fullName': user['full_name'] ?? user['fullName'] ?? '',
             'email': user['email'] ?? cleanEmail,
             'phoneNumber': user['phone_number'] ?? user['phoneNumber'] ?? '',
-            'role': user['role'] ?? (isPartner ? 'partner' : 'renter'),
+            'role': isPartner ? 'partner' : (user['role'] ?? 'renter'),
             'avatarUrl': user['avatar_url'] ?? user['avatarUrl'] ?? cachedAvatar,
             'businessName': user['business_name'] ?? user['businessName'],
             'cacNumber': user['cac_number'] ?? user['cacNumber'],

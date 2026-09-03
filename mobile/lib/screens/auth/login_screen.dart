@@ -95,7 +95,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         final result = await AuthService.loginWithBiometrics();
         final user = result['user'] as UserProfile? ?? await AuthService.getCurrentUser();
         final isPartner = user != null && user.role == 'partner';
-        final isLandlord = user != null && (user.role == 'owner' || user.role == 'landlord');
+        final isLandlord = user != null && !isPartner && (user.role == 'owner' || user.role == 'landlord');
 
         // Register user with OneSignal for push notifications
         await PushNotificationService.setUserTags();
@@ -154,8 +154,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       await PushNotificationService.setUserTags();
 
       final user = result['user'] as UserProfile?;
-      final isLandlord = user != null && (user.role == 'owner' || user.role == 'landlord');
       final isPartner = user != null && user.role == 'partner';
+      final isLandlord = user != null && !isPartner && (user.role == 'owner' || user.role == 'landlord');
 
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
