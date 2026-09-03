@@ -140,11 +140,7 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (_) {}
 
     if (mounted && u != null) {
-      final bool needsUpgrade = u!.rekycRequired == true ||
-          u!.bankName == null ||
-          !u!.bankName!.contains('9PSB') ||
-          u!.dob == null ||
-          u!.dob!.isEmpty;
+      final bool needsUpgrade = u!.rekycRequired == true;
 
       if (needsUpgrade) {
         Future.delayed(const Duration(milliseconds: 600), () {
@@ -403,8 +399,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 18),
 
-              // 1b. Action Required: Upgrade to Dedicated 9PSB Account Banner
-              if (_user != null && (_user!.rekycRequired == true || _user!.bankName == null || !_user!.bankName!.contains('9PSB') || _user!.dob == null || _user!.dob!.isEmpty)) ...[
+              // 1b. Action Required: Upgrade to Dedicated 9PSB Account Banner (Only when admin triggers Re-KYC)
+              if (_user != null && _user!.rekycRequired == true) ...[
                 GestureDetector(
                   onTap: () {
                     DateOfBirthModal.show(

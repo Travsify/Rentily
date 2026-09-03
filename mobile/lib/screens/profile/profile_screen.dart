@@ -368,12 +368,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               _buildMenuTile(
                 Icons.verified_user_rounded,
                 'Rentilly KYC Identity Verification',
-                (_currentUser?.bvn != null && _currentUser!.bvn!.length == 11 && _currentUser?.bankName?.contains('9PSB') == true && !_currentUser!.rekycRequired)
-                    ? 'Identity Verified • Dedicated 9PSB Account Active'
-                    : 'Action Required • Confirm BVN, NIN & Date of Birth',
-                trailing: (_currentUser?.bvn != null && _currentUser!.bvn!.length == 11 && _currentUser?.bankName?.contains('9PSB') == true && !_currentUser!.rekycRequired)
-                    ? const Icon(Icons.check_circle_rounded, size: 20, color: AppColors.primary)
-                    : Container(
+                (_currentUser?.rekycRequired == true)
+                    ? 'Action Required • Confirm BVN, NIN & Date of Birth'
+                    : 'Identity Verified • Dedicated Account Active',
+                trailing: (_currentUser?.rekycRequired == true)
+                    ? Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
                           color: const Color(0xFFFEF3C7),
@@ -381,12 +380,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           border: Border.all(color: const Color(0xFFFCD34D)),
                         ),
                         child: Text(
-                          'Activate',
+                          'Action Required',
                           style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: const Color(0xFFB45309)),
                         ),
-                      ),
+                      )
+                    : const Icon(Icons.check_circle_rounded, size: 20, color: AppColors.primary),
                 onTap: () {
-                  if (_currentUser != null && (_currentUser!.bvn == null || _currentUser!.bvn!.length != 11 || _currentUser!.rekycRequired || !_currentUser!.bankName!.contains('9PSB'))) {
+                  if (_currentUser != null && _currentUser!.rekycRequired == true) {
                     DateOfBirthModal.show(context, user: _currentUser!, onSuccess: (updated) {
                       setState(() => _currentUser = updated);
                     });

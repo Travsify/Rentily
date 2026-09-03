@@ -238,70 +238,13 @@ class AuthService {
     };
   }
 
-  // 2. Log In (SUPABASE-FIRST: Sub-100ms Instant Cloud Authentication)
+  // 2. Log In (Strict Server-Side Salted SHA-256 Authentication)
   static Future<Map<String, dynamic>> login({
     required String email,
     required String password,
   }) async {
     final cleanEmail = email.trim().toLowerCase();
 
-    // Layer 1: Direct Supabase Cloud REST API (Primary Instant Database)
-    try {
-      final response = await http.get(
-        Uri.parse('$supabaseUrl/rest/v1/profiles?email=eq.$cleanEmail&select=*'),
-        headers: {
-          'apikey': supabaseKey,
-          'Authorization': 'Bearer $supabaseKey',
-        },
-      ).timeout(const Duration(seconds: 8));
-
-      if (response.statusCode == 200) {
-        final List<dynamic> users = json.decode(response.body);
-        if (users.isNotEmpty) {
-          final user = users[0];
-          final token = 'rentilly_sb_${DateTime.now().millisecondsSinceEpoch}';
-
-          final hasBusiness = user['business_name'] != null && user['business_name'].toString().trim().isNotEmpty && user['business_name'].toString().trim().toLowerCase() != 'null';
-          final isPartner = user['role'] == 'partner' || hasBusiness || cleanEmail == 'tonerocool1@gmail.com';
-
-          final prefs = await SharedPreferences.getInstance();
-          final cachedAvatar = prefs.getString('rentilly_avatar_$cleanEmail') ?? prefs.getString('rentilly_persistent_avatar_url');
-
-          final userMap = {
-            'id': user['id']?.toString() ?? 'usr_${DateTime.now().millisecondsSinceEpoch}',
-            'fullName': user['full_name'] ?? user['fullName'] ?? '',
-            'email': user['email'] ?? cleanEmail,
-            'phoneNumber': user['phone_number'] ?? user['phoneNumber'] ?? '',
-            'role': isPartner ? 'partner' : (user['role'] ?? 'renter'),
-            'avatarUrl': user['avatar_url'] ?? user['avatarUrl'] ?? cachedAvatar,
-            'businessName': user['business_name'] ?? user['businessName'],
-            'cacNumber': user['cac_number'] ?? user['cacNumber'],
-            'officeAddress': user['office_address'] ?? user['officeAddress'],
-            'isVerified': user['is_verified'] == true || user['isVerified'] == true,
-            'bvnVerified': user['bvn_verified'] == true || user['bvnVerified'] == true,
-            'state': user['state'] ?? 'Lagos',
-            'walletBalance': (user['wallet_balance'] as num?)?.toDouble() ?? (user['walletBalance'] as num?)?.toDouble() ?? 0.0,
-            'accountNumber': user['account_number'] ?? user['accountNumber'],
-            'bankName': user['bank_name'] ?? user['bankName'] ?? 'Flutterwave MFB',
-          };
-          await _saveSession(token, userMap);
-
-          // Asynchronously notify backend to warm up card/payment session
-          http.post(
-            Uri.parse('$baseUrl/auth/login'),
-            headers: {'Content-Type': 'application/json'},
-            body: json.encode({'email': cleanEmail, 'password': password, 'isAdminLogin': false}),
-          ).catchError((_) => http.Response('', 500));
-
-          return {
-            'success': true,
-            'user': UserProfile.fromJson(userMap),
-          };
-        }
-      }
-    } catch (_) {}
-
-    // Layer 2: Render Core API Fallback
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/auth/login'),
@@ -311,7 +254,7 @@ class AuthService {
           'password': password,
           'isAdminLogin': false,
         }),
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(const Duration(seconds: 12));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
@@ -323,39 +266,23 @@ class AuthService {
           'success': true,
           'user': UserProfile.fromJson(userData),
         };
-      }
-    } catch (_) {}
-
-    // Layer 3: Local saved user profile by specific email (Cached from prior authentic login)
-    final prefs = await SharedPreferences.getInstance();
-    final savedEmailJson = prefs.getString('rentilly_user_$cleanEmail');
-    if (savedEmailJson != null && savedEmailJson.isNotEmpty) {
-      try {
-        final Map<String, dynamic> userMap = json.decode(savedEmailJson);
-        final token = 'rentilly_jwt_${DateTime.now().millisecondsSinceEpoch}';
-        await _saveSession(token, userMap);
-        final restoredUser = UserProfile.fromJson(userMap);
+      } else if (response.statusCode == 401 || response.statusCode == 403) {
+        final data = json.decode(response.body);
         return {
-          'success': true,
-          'user': restoredUser,
+          'success': false,
+          'message': data['error'] ?? 'Invalid password. Please check your credentials.',
         };
-      } catch (_) {}
-    }
-
-    // Layer 4: Last remembered user validation
-    final remembered = await getRememberedUser();
-    if (remembered != null && remembered.email.toLowerCase() == cleanEmail) {
-      final token = 'rentilly_jwt_${DateTime.now().millisecondsSinceEpoch}';
-      await _saveSession(token, remembered.toJson());
+      }
+    } catch (e) {
       return {
-        'success': true,
-        'user': remembered,
+        'success': false,
+        'message': 'Could not connect to authentication server. Please check your internet connection.',
       };
     }
 
     return {
       'success': false,
-      'message': 'Account not found or password incorrect. Please check your credentials.',
+      'message': 'Invalid password. Please check your credentials.',
     };
   }
 

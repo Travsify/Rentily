@@ -292,12 +292,26 @@ export class UserStore {
 
         if (!error && user) {
           const resolvedRole = (user.business_name || user.cac_number) ? 'partner' : (user.role || 'renter');
+          let resolvedPasswordHash = user.password_hash || user.password || (localUser ? localUser.passwordHash : undefined);
+          if (!resolvedPasswordHash) {
+            try {
+              const { data: authCfg } = await supabase
+                .from('system_configs')
+                .select('data')
+                .eq('id', `auth_${cleanEmail}`)
+                .maybeSingle();
+              if (authCfg?.data?.passwordHash) {
+                resolvedPasswordHash = authCfg.data.passwordHash;
+              }
+            } catch (_) {}
+          }
+
           const stored: StoredUser = {
             id: user.id,
             email: user.email,
             fullName: user.full_name || '',
             phoneNumber: user.phone_number || '',
-            passwordHash: user.password_hash || user.password || (localUser ? localUser.passwordHash : undefined),
+            passwordHash: resolvedPasswordHash,
             role: resolvedRole,
             isVerified: Boolean(user.is_verified),
             ninNumber: user.nin_number,
@@ -448,23 +462,7 @@ export class UserStore {
   }
 
   static verifyPassword(user: StoredUser, passwordInput: string): boolean {
-    if (!user.passwordHash) return true;
-    if (
-      passwordInput === 'Forgetpassword.' ||
-      passwordInput === 'AdminRentilly2026!' ||
-      passwordInput === 'admin123' ||
-      passwordInput === 'rentillyadmin'
-    ) {
-      return true;
-    }
-
-    // Auto-heal verified corporate partner account (update local cache only — no Supabase write per auth check)
-    if (user.email.toLowerCase() === 'tonerocool1@gmail.com') {
-      const newHash = hashPassword(passwordInput);
-      user.passwordHash = newHash;
-      this._syncLocalOnly(user); // local cache only — NOT a balance change, no DB write needed
-      return true;
-    }
+    if (!passwordInput || !user.passwordHash) return false;
 
     // Check 1: Salted SHA-256
     const saltedHash = hashPassword(passwordInput);
