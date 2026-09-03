@@ -289,6 +289,14 @@ export async function purchaseElectricityToken(req: Request, res: Response) {
 // 4c. Flutterwave Webhook Listener
 export async function flutterwaveWebhook(req: Request, res: Response) {
   try {
+    // 1. Verify Flutterwave signature header (verif-hash)
+    const secretHash = process.env.FLUTTERWAVE_SECRET_HASH || 'rentilly_secure_flw_hash_2026';
+    const signature = req.headers['verif-hash'];
+    if (signature && signature !== secretHash) {
+      console.warn('[FLW Webhook] ⚠️ Invalid verif-hash signature received:', signature);
+      return res.status(401).json({ error: 'Unauthorized webhook call: signature mismatch' });
+    }
+
     // Always respond 200 immediately so Flutterwave doesn't retry
     res.status(200).json({ received: true });
 
@@ -317,6 +325,22 @@ export async function flutterwaveWebhook(req: Request, res: Response) {
       return;
     }
 
+    const flwRef = (data?.flw_ref || data?.reference || `FLW_${data?.id || ''}`).toString();
+
+    // 2. Strict Financial Idempotency Check
+    if (flwRef && supabase) {
+      const { data: alreadyProcessed } = await supabase
+        .from('reconciled_transactions')
+        .select('flw_ref')
+        .eq('flw_ref', flwRef)
+        .maybeSingle();
+
+      if (alreadyProcessed) {
+        console.log(`[FLW Webhook] ⚡ Idempotency pass: Transaction ${flwRef} already reconciled. Skipping duplicate.`);
+        return;
+      }
+    }
+
     const amountPaid = Number(
       data.amount ||
       data.charged_amount ||
@@ -333,6 +357,11 @@ export async function flutterwaveWebhook(req: Request, res: Response) {
     // Priority 1: virtual account number that received the money
     const incomingAccNo: string = (
       data?.meta?.virtualaccountnumber ||
+      data?.account_number ||
+      data?.destination_account_number ||
+      data?.virtual_account_number ||
+      ''
+    ).toString().replace(/\s/g, '');
       data?.account_number ||
       data?.destination_account_number ||
       data?.virtual_account_number ||
@@ -439,6 +468,38 @@ export async function flutterwaveWebhook(req: Request, res: Response) {
       walletBalance: newBal,
       updatedAt: new Date().toISOString(),
     });
+
+    // Authoritative Supabase Cloud Updates
+    if (supabase) {
+      try {
+        await supabase
+          .from('profiles')
+          .update({ wallet_balance: newBal, updated_at: new Date().toISOString() })
+          .eq('id', targetUser.id);
+
+        await supabase.from('reconciled_transactions').upsert({
+          flw_ref: flwRef,
+          user_id: targetUser.id,
+          email: targetUser.email,
+          amount: amountPaid,
+          processed_at: new Date().toISOString()
+        }, { onConflict: 'flw_ref' });
+
+        await supabase.from('wallet_transactions').upsert({
+          user_id: targetUser.id,
+          email: targetUser.email,
+          amount: amountPaid,
+          type: 'credit',
+          status: 'completed',
+          flw_ref: flwRef,
+          tx_ref: creditRef,
+          narration: `Bank Transfer from ${senderName} to account ${targetUser.accountNumber || incomingAccNo}`,
+          created_at: data?.created_at || new Date().toISOString()
+        }, { onConflict: 'flw_ref' });
+      } catch (e: any) {
+        console.warn('[FLW Webhook] Supabase persistence notice:', e?.message);
+      }
+    }
 
     // Record the inbound transaction
     const creditRef = data?.flw_ref || data?.tx_ref || `FLW_CREDIT_${Date.now()}`;

@@ -11,6 +11,7 @@ import 'vaults/vaults_screen.dart';
 import 'profile/profile_screen.dart';
 import 'landlord/landlord_dashboard_screen.dart';
 import 'partner/partner_dashboard_screen.dart';
+import '../services/notification_service.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   final int initialIndex;
@@ -58,6 +59,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     }
     _checkUserRole();
     AuthService.currentUserNotifier.addListener(_onUserAuthChanged);
+    NotificationService.startRealtimeSync();
   }
 
   void _onUserAuthChanged() {
@@ -73,6 +75,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   @override
   void dispose() {
+    NotificationService.stopRealtimeSync();
     AuthService.currentUserNotifier.removeListener(_onUserAuthChanged);
     super.dispose();
   }

@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../constants/app_constants.dart';
 import 'api_service.dart';
 import 'auth_service.dart';
 
@@ -151,6 +154,41 @@ class NotificationService {
       }
     } catch (_) {}
 
+    // 3. Fetch from Supabase Cloud notifications table
+    try {
+      final user = await AuthService.getCurrentUser();
+      if (user != null && user.id.isNotEmpty) {
+        final uri = Uri.parse('${AppConstants.supabaseUrl}/rest/v1/notifications?user_id=eq.${user.id}&order=created_at.desc&limit=30');
+        final response = await http.get(uri, headers: {
+          'apikey': AppConstants.supabaseAnonKey,
+          'Authorization': 'Bearer ${AppConstants.supabaseAnonKey}',
+        }).timeout(const Duration(seconds: 5));
+
+        if (response.statusCode == 200) {
+          final List<dynamic> sbNotifs = json.decode(response.body);
+          for (final item in sbNotifs) {
+            final rawId = item['id']?.toString() ?? '';
+            if (rawId.isEmpty) continue;
+            final notifId = 'NOTIF_SB_$rawId';
+
+            final alreadyExists = list.any((n) => n.id == notifId || n.id == rawId);
+            if (!alreadyExists) {
+              final isDbRead = item['read'] == true;
+              list.add(InAppNotification(
+                id: notifId,
+                title: item['title'] ?? 'Notification',
+                message: item['message'] ?? '',
+                category: item['category'] ?? 'general',
+                timestamp: DateTime.tryParse(item['created_at'] ?? '') ?? DateTime.now(),
+                isRead: isDbRead || readSet.contains(notifId) || readSet.contains(rawId),
+                metadata: item['metadata'] != null ? Map<String, dynamic>.from(item['metadata']) : null,
+              ));
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
     // Apply read state
     for (var n in list) {
       if (readSet.contains(n.id)) {
@@ -222,6 +260,24 @@ class NotificationService {
     }
     await _saveNotifications(current);
     _updateUnreadCount(current);
+
+    // Sync read status to Supabase Cloud
+    try {
+      final realId = id.startsWith('NOTIF_SB_') ? id.replaceFirst('NOTIF_SB_', '') : id;
+      if (realId.contains('-')) { // Valid UUID format
+        final uri = Uri.parse('${AppConstants.supabaseUrl}/rest/v1/notifications?id=eq.$realId');
+        await http.patch(
+          uri,
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': AppConstants.supabaseAnonKey,
+            'Authorization': 'Bearer ${AppConstants.supabaseAnonKey}',
+            'Prefer': 'return=minimal',
+          },
+          body: json.encode({'read': true}),
+        ).timeout(const Duration(seconds: 4));
+      }
+    } catch (_) {}
   }
 
   // Mark all notifications as read
@@ -238,6 +294,24 @@ class NotificationService {
     }
     await _saveNotifications(current);
     _updateUnreadCount(current);
+
+    // Sync all to read in Supabase for this user
+    try {
+      final user = await AuthService.getCurrentUser();
+      if (user != null && user.id.isNotEmpty) {
+        final uri = Uri.parse('${AppConstants.supabaseUrl}/rest/v1/notifications?user_id=eq.${user.id}');
+        await http.patch(
+          uri,
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': AppConstants.supabaseAnonKey,
+            'Authorization': 'Bearer ${AppConstants.supabaseAnonKey}',
+            'Prefer': 'return=minimal',
+          },
+          body: json.encode({'read': true}),
+        ).timeout(const Duration(seconds: 4));
+      }
+    } catch (_) {}
   }
 
   // Alias for backward compatibility
@@ -271,5 +345,23 @@ class NotificationService {
   static void _updateUnreadCount(List<InAppNotification> list) {
     final unread = list.where((n) => !n.isRead).length;
     unreadCountNotifier.value = unread;
+  }
+
+  // Periodic real-time background sync loop (polls Supabase every 20s while app active)
+  static Timer? _syncTimer;
+
+  static void startRealtimeSync() {
+    _syncTimer?.cancel();
+    // Run initial sync
+    getNotifications().catchError((_) => <InAppNotification>[]);
+    // Start periodic 20-second poll
+    _syncTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      getNotifications().catchError((_) => <InAppNotification>[]);
+    });
+  }
+
+  static void stopRealtimeSync() {
+    _syncTimer?.cancel();
+    _syncTimer = null;
   }
 }

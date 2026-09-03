@@ -28,6 +28,7 @@ import { SupabaseConfigTab } from './components/SupabaseConfigTab';
 import { FlutterApiDocsTab } from './components/FlutterApiDocsTab';
 import { AdminLoginPage } from './components/AdminLoginPage';
 import { RentillyApiService, checkServerHealth } from './services/api';
+import { supabaseClient } from './services/supabaseClient';
 import type { AdminTab, Property, KYPRecord, Inspection, Transaction, LegalAgreement, UserProfile } from './types';
 
 export default function App() {
@@ -59,12 +60,23 @@ export default function App() {
     }
     loadData();
 
-    // Auto-polling interval: refreshes data every 25 seconds for real-time responsiveness
+    // Auto-polling interval: refreshes data every 25 seconds
     const pollTimer = setInterval(() => {
       loadData();
     }, 25000);
 
-    return () => clearInterval(pollTimer);
+    // Instant Realtime Subscription: updates immediately on any DB change
+    const channel = supabaseClient
+      .channel('schema-db-changes')
+      .on('postgres_changes', { event: '*', schema: 'public' }, () => {
+        loadData();
+      })
+      .subscribe();
+
+    return () => {
+      clearInterval(pollTimer);
+      supabaseClient.removeChannel(channel);
+    };
   }, []);
 
   // Load all initial data
