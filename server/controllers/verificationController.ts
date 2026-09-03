@@ -527,14 +527,6 @@ export async function completeMapleradKyc(req: Request, res: Response) {
     const cleanEmail = email.toString().toLowerCase().trim();
     const existing = await UserStore.findByEmail(cleanEmail);
 
-    // One-time link lock: Once approved, link cannot be reused unless admin triggers re-kyc
-    if (existing && existing.isVerified && !existing.rekycRequired && existing.bankName?.includes('9PSB') && existing.accountNumber) {
-      return res.status(400).json({
-        status: false,
-        error: 'Your Rentilly dedicated 9PSB account is already verified and active. This verification link has expired. Contact Admin if you need to re-verify.'
-      });
-    }
-
     const cleanBvn = (bvn || existing?.bvn || '').toString().replace(/\D/g, '');
     const cleanNin = (nin || existing?.ninNumber || '').toString().replace(/\D/g, '');
 

@@ -23,17 +23,17 @@
     "fullName": "Patrick Achua",
     "phoneNumber": "+2348026990956",
     "role": "owner",
-    "isVerified": true,
+    "isVerified": false,
     "ninNumber": null,
     "bvnVerified": false,
-    "accountNumber": "9788419143",
-    "bankName": "Flutterwave MFB (Formerly OK MFB)",
+    "accountNumber": null,
+    "bankName": "Flutterwave MFB",
     "state": "Ringroad, Ibadan South-West LGA, Oyo State",
     "walletBalance": 1900,
     "businessName": null,
     "cacNumber": null,
     "createdAt": "2026-09-03T01:14:06.530543+00:00",
-    "updatedAt": "2026-09-03T14:15:11.373+00:00"
+    "updatedAt": "2026-09-03T15:45:58.821+00:00"
   },
   {
     "id": "b0000000-0000-0000-0000-000000000001",
@@ -41,17 +41,17 @@
     "fullName": "Patrick Achua",
     "phoneNumber": "+2348026990956",
     "role": "renter",
-    "isVerified": true,
+    "isVerified": false,
     "ninNumber": null,
     "bvnVerified": false,
-    "accountNumber": "9254090338",
+    "accountNumber": null,
     "bankName": "Flutterwave MFB",
     "state": "Lagos",
     "walletBalance": 3935,
     "businessName": null,
     "cacNumber": null,
     "createdAt": "2026-09-02T07:53:40.172175+00:00",
-    "updatedAt": "2026-09-03T07:04:59.169+00:00"
+    "updatedAt": "2026-09-03T15:45:59.929+00:00"
   },
   {
     "id": "c0000000-0000-0000-0000-000000000001",
@@ -59,17 +59,17 @@
     "fullName": "Ehomes Global Inclusive Limited",
     "phoneNumber": "+2348026990956",
     "role": "partner",
-    "isVerified": true,
+    "isVerified": false,
     "ninNumber": "96434424445",
     "bvnVerified": false,
-    "accountNumber": "9591357072",
-    "bankName": "9PSB (Rentilly)",
+    "accountNumber": null,
+    "bankName": "Flutterwave MFB",
     "state": "Lagos",
     "walletBalance": 8256,
     "businessName": "Ehomes Global Inclusive Limited",
     "cacNumber": null,
     "partnerStatus": "verified",
     "createdAt": "2026-09-02T07:50:58.103846+00:00",
-    "updatedAt": "2026-09-03T13:55:22.423+00:00"
+    "updatedAt": "2026-09-03T15:46:00.463+00:00"
   }
 ]
