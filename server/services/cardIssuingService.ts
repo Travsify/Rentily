@@ -207,9 +207,25 @@ export class CardIssuingService {
           .eq('email', cleanEmail);
 
         if (!error && data) {
-          const cards: VirtualCard[] = data.map((c: any) => {
+          const cards: VirtualCard[] = await Promise.all(data.map(async (c: any) => {
             const cardKey = c.card_id || c.id;
             const assignedPin = _cardPins[cardKey] || _cardPins[c.id] || '2491';
+            let liveBal = Number(c.balance || 0);
+
+            // Attempt live balance refresh from Maplerad API
+            if (process.env.MAPLERAD_SECRET_KEY && cardKey) {
+              try {
+                const mapleradRes = await fetch(`https://api.maplerad.com/v1/issuing/${cardKey}`, {
+                  headers: { 'Authorization': `Bearer ${process.env.MAPLERAD_SECRET_KEY}` }
+                });
+                const mapleradData = await mapleradRes.json().catch(() => ({}));
+                if (mapleradData?.status && mapleradData?.data?.balance != null) {
+                  liveBal = Number(mapleradData.data.balance) / 100;
+                  // Persist to Supabase in background
+                  supabase?.from('virtual_cards').update({ balance: liveBal }).eq('id', c.id).then(() => {});
+                }
+              } catch (_) {}
+            }
 
             return {
               id: c.id,
@@ -221,18 +237,18 @@ export class CardIssuingService {
               cardType: 'VIRTUAL_DEBIT',
               maskedPan: c.masked_pan,
               fullPan: c.full_pan || (c.masked_pan ? c.masked_pan.replace(/•/g, '8') : undefined),
-              expiryMonth: c.expiry_month || '12',
-              expiryYear: c.expiry_year || '28',
-              cvv: c.cvv || '819',
+              expiryMonth: c.expiry_month || '09',
+              expiryYear: c.expiry_year || '29',
+              cvv: c.cvv || '226',
               pin: assignedPin,
-              balance: Number(c.balance || 0),
+              balance: liveBal,
               spendingLimit: 10000.00,
               isFrozen: c.is_frozen === true,
               status: (c.status || 'ACTIVE') as 'ACTIVE' | 'INACTIVE' | 'BLOCKED',
               billingAddress: this.DEFAULT_BILLING_ADDRESS,
               createdAt: c.created_at || new Date().toISOString(),
             };
-          });
+          }));
 
           _runtimeCardCache.set(cleanEmail, cards);
           return cards;

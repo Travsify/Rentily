@@ -1181,29 +1181,37 @@ class _CardsScreenState extends State<CardsScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 22),
+          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.textPrimary, size: 22),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           'Virtual Dollar Cards Desk',
-          style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+          style: GoogleFonts.plusJakartaSans(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
         ),
         actions: [
           if (hasCard)
-            IconButton(
-              icon: const Icon(Icons.picture_as_pdf_rounded, color: AppColors.primary, size: 22),
-              tooltip: 'Card Statement',
-              onPressed: () {
-                if (_user != null) {
-                  StatementExportModal.show(
-                    context,
-                    user: _user!,
-                    transactions: _cardTransactions,
-                    initialCurrency: 'USD',
-                  );
-                }
-              },
+            Container(
+              margin: const EdgeInsets.only(right: 14),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: IconButton(
+                icon: const Icon(Icons.picture_as_pdf_rounded, color: AppColors.primary, size: 20),
+                tooltip: 'Card Statement',
+                onPressed: () {
+                  if (_user != null) {
+                    StatementExportModal.show(
+                      context,
+                      user: _user!,
+                      transactions: _cardTransactions,
+                      initialCurrency: 'USD',
+                    );
+                  }
+                },
+              ),
             ),
         ],
       ),
@@ -1519,76 +1527,64 @@ class _CardsScreenState extends State<CardsScreen> {
     );
   }
 
-  // --- 3. 5 CORE ACTION BUTTONS ---
+  // --- 3. 5 CORE ACTION BUTTONS (CIRCULAR LUXURY FINTECH STYLE) ---
   Widget _buildCardActionButtons(bool isFrozen) {
     return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        // 1. Details & Address (Opens Full Details and Delaware Address Modal)
-        Expanded(
-          flex: 3,
-          child: _buildActionButton(
-            icon: Icons.badge_outlined,
-            label: 'Details & Address',
-            color: Colors.blue.shade400,
-            onTap: _showCardDetailsAndAddressModal,
-          ),
+        // 1. Details & Address
+        _buildCircleActionButton(
+          icon: Icons.badge_outlined,
+          label: 'Details',
+          color: const Color(0xFF0D5C46),
+          bgColor: const Color(0xFF0D5C46).withValues(alpha: 0.1),
+          onTap: _showCardDetailsAndAddressModal,
         ),
-        const SizedBox(width: 8),
 
         // 2. Top-Up Card
-        Expanded(
-          flex: 2,
-          child: _buildActionButton(
-            icon: Icons.add_rounded,
-            label: 'Top-Up',
-            color: AppColors.primary,
-            onTap: _showFundCardModal,
-          ),
+        _buildCircleActionButton(
+          icon: Icons.add_rounded,
+          label: 'Top-Up',
+          color: const Color(0xFF10B981),
+          bgColor: const Color(0xFF10B981).withValues(alpha: 0.12),
+          onTap: _showFundCardModal,
         ),
-        const SizedBox(width: 8),
 
         // 3. Card PIN
-        Expanded(
-          flex: 2,
-          child: _buildActionButton(
-            icon: Icons.pin_rounded,
-            label: 'Card PIN',
-            color: Colors.purple.shade300,
-            onTap: _showChangePinModal,
-          ),
+        _buildCircleActionButton(
+          icon: Icons.pin_rounded,
+          label: 'PIN',
+          color: const Color(0xFFD97706),
+          bgColor: const Color(0xFFF59E0B).withValues(alpha: 0.12),
+          onTap: _showChangePinModal,
         ),
-        const SizedBox(width: 8),
 
         // 4. Freeze / Unfreeze
-        Expanded(
-          flex: 2,
-          child: _buildActionButton(
-            icon: isFrozen ? Icons.lock_open_rounded : Icons.lock_outline_rounded,
-            label: isFrozen ? 'Unfreeze' : 'Freeze',
-            color: isFrozen ? Colors.green : Colors.orange.shade400,
-            onTap: _toggleFreeze,
-          ),
+        _buildCircleActionButton(
+          icon: isFrozen ? Icons.lock_open_rounded : Icons.lock_outline_rounded,
+          label: isFrozen ? 'Unfreeze' : 'Freeze',
+          color: isFrozen ? Colors.green : const Color(0xFFEA580C),
+          bgColor: (isFrozen ? Colors.green : const Color(0xFFEA580C)).withValues(alpha: 0.12),
+          onTap: _toggleFreeze,
         ),
-        const SizedBox(width: 8),
 
         // 5. Delete Card
-        Expanded(
-          flex: 2,
-          child: _buildActionButton(
-            icon: Icons.delete_outline_rounded,
-            label: 'Delete',
-            color: Colors.red.shade400,
-            onTap: _confirmDeleteCard,
-          ),
+        _buildCircleActionButton(
+          icon: Icons.delete_outline_rounded,
+          label: 'Delete',
+          color: const Color(0xFFEF4444),
+          bgColor: const Color(0xFFEF4444).withValues(alpha: 0.1),
+          onTap: _confirmDeleteCard,
         ),
       ],
     );
   }
 
-  Widget _buildActionButton({
+  Widget _buildCircleActionButton({
     required IconData icon,
     required String label,
     required Color color,
+    required Color bgColor,
     required VoidCallback onTap,
   }) {
     return GestureDetector(
@@ -1596,30 +1592,46 @@ class _CardsScreenState extends State<CardsScreen> {
         HapticFeedback.lightImpact();
         onTap();
       },
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: AppColors.surfaceDark,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 18),
-            const SizedBox(height: 5),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 10.5,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: color.withValues(alpha: 0.22), width: 1.2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Center(
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(13),
+                ),
+                child: Icon(icon, color: color, size: 21),
               ),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 7),
+          Text(
+            label,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1627,20 +1639,27 @@ class _CardsScreenState extends State<CardsScreen> {
   // --- 4. SECURITY & FEATURE BADGES ---
   Widget _buildSecurityFeatureRow() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.surfaceDark,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildPillItem(Icons.verified_user_rounded, '3D-Secure V2', Colors.blue.shade400),
-          Container(width: 1, height: 20, color: Colors.white12),
-          _buildPillItem(Icons.public_rounded, 'Delaware USA Reg', AppColors.primary),
-          Container(width: 1, height: 20, color: Colors.white12),
-          _buildPillItem(Icons.check_circle_outline_rounded, 'Zero Decline', Colors.purple.shade300),
+          _buildPillItem(Icons.verified_user_rounded, '3D-Secure 2.0', const Color(0xFF0D5C46)),
+          Container(width: 1, height: 18, color: const Color(0xFFE5E7EB)),
+          _buildPillItem(Icons.public_rounded, 'San Francisco, CA', const Color(0xFF10B981)),
+          Container(width: 1, height: 18, color: const Color(0xFFE5E7EB)),
+          _buildPillItem(Icons.bolt_rounded, 'Instant Delivery', const Color(0xFFF59E0B)),
         ],
       ),
     );
@@ -1653,7 +1672,7 @@ class _CardsScreenState extends State<CardsScreen> {
         const SizedBox(width: 6),
         Text(
           title,
-          style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white70),
+          style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF374151)),
         ),
       ],
     );
@@ -1667,9 +1686,9 @@ class _CardsScreenState extends State<CardsScreen> {
         Text(
           'Card Transactions',
           style: GoogleFonts.plusJakartaSans(
-            fontSize: 15,
+            fontSize: 16,
             fontWeight: FontWeight.bold,
-            color: Colors.white,
+            color: AppColors.textPrimary,
           ),
         ),
         if (_cardTransactions.isNotEmpty)
@@ -1677,6 +1696,7 @@ class _CardsScreenState extends State<CardsScreen> {
             '${_cardTransactions.length} records',
             style: GoogleFonts.plusJakartaSans(
               fontSize: 12,
+              fontWeight: FontWeight.w600,
               color: AppColors.textSecondary,
             ),
           ),
@@ -1688,25 +1708,47 @@ class _CardsScreenState extends State<CardsScreen> {
     if (_cardTransactions.isEmpty) {
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
+        padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
         decoration: BoxDecoration(
-          color: AppColors.surfaceDark,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.white10),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Column(
           children: [
-            Icon(Icons.receipt_long_rounded, size: 36, color: Colors.white.withValues(alpha: 0.2)),
-            const SizedBox(height: 10),
-            Text(
-              'No card transactions yet',
-              style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white70),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0D5C46).withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.receipt_long_rounded, size: 30, color: Color(0xFF0D5C46)),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 12),
             Text(
-              'Online purchases and funding activities will appear here in real time.',
+              'No Card Transactions Yet',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Online purchases, Apple Pay, and card funding activities will appear here in real time.',
               textAlign: TextAlign.center,
-              style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: AppColors.textSecondary),
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+                height: 1.4,
+              ),
             ),
           ],
         ),
@@ -1723,21 +1765,28 @@ class _CardsScreenState extends State<CardsScreen> {
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: AppColors.surfaceDark,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.white10),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFFE5E7EB)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.02),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: isDebit ? Colors.red.withValues(alpha: 0.12) : AppColors.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
+                  color: isDebit ? Colors.red.withValues(alpha: 0.1) : const Color(0xFF0D5C46).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
                   isDebit ? Icons.shopping_bag_outlined : Icons.add_rounded,
-                  color: isDebit ? Colors.redAccent : AppColors.primary,
+                  color: isDebit ? Colors.redAccent : const Color(0xFF0D5C46),
                   size: 18,
                 ),
               ),
@@ -1748,7 +1797,7 @@ class _CardsScreenState extends State<CardsScreen> {
                   children: [
                     Text(
                       tx['merchantName']?.toString() ?? 'Online Purchase',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                      style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                     ),
                     const SizedBox(height: 2),
                     Text(
@@ -1766,7 +1815,7 @@ class _CardsScreenState extends State<CardsScreen> {
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
-                      color: isDebit ? Colors.white : AppColors.primary,
+                      color: isDebit ? const Color(0xFFEF4444) : const Color(0xFF10B981),
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -1775,7 +1824,7 @@ class _CardsScreenState extends State<CardsScreen> {
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
-                      color: status == 'SUCCESSFUL' ? AppColors.primary : Colors.orange,
+                      color: status == 'SUCCESSFUL' ? const Color(0xFF10B981) : Colors.orange,
                     ),
                   ),
                 ],
@@ -1787,3 +1836,4 @@ class _CardsScreenState extends State<CardsScreen> {
     );
   }
 }
+
