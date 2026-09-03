@@ -158,25 +158,24 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
   Future<void> _loadTransactions() async {
     final prefs = await SharedPreferences.getInstance();
     final user = await AuthService.getCurrentUser();
-    final email = user?.email ?? 'patrickachua3@gmail.com';
-    final acc = user?.accountNumber ?? '9254090338';
+    final email = user?.email ?? '';
+    final acc = user?.accountNumber ?? '';
 
     // 1. Load local cached transactions
     final savedTxnsJson = prefs.getString('rentilly_landlord_transactions');
     if (savedTxnsJson != null) {
       try {
-        final List<dynamic> decoded = json.decode(savedTxnsJson);
-        _transactions = decoded.map((e) => Map<String, dynamic>.from(e)).toList();
+        _transactions = List<Map<String, dynamic>>.from(json.decode(savedTxnsJson));
       } catch (_) {}
     }
 
-    // 2. Fetch live transactions from backend ledger (which auto-syncs from Flutterwave Cloud API)
+    // 2. Fetch live transactions from Rentilly Backend Server
     try {
-      final liveTxs = await ApiService.fetchLiveTransactions(email);
-      if (liveTxs.isNotEmpty) {
+      final liveTxns = await ApiService.fetchLiveTransactions(email);
+      if (liveTxns.isNotEmpty) {
         final List<Map<String, dynamic>> parsedLive = [];
-        for (var t in liveTxs) {
-          final isCredit = t['isCredit'] == true;
+        for (var t in liveTxns) {
+          final isCredit = t['isCredit'] == true || t['type'] == 'credit' || (t['amount'] as num?)?.toDouble() != null && (t['amount'] as num) > 0;
           final amt = (t['amount'] as num?)?.toDouble() ?? 0.0;
           final signedAmount = isCredit ? amt : -amt;
           final statusRaw = (t['status'] ?? 'SUCCESSFUL').toString().toUpperCase();
@@ -186,14 +185,14 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
           parsedLive.add({
             'id': t['id'] ?? 'TXN-${DateTime.now().millisecondsSinceEpoch}',
             'title': t['title'] ?? (isCredit ? 'Wallet Inbound Deposit' : 'Outbound Payment'),
-            'subtitle': t['sender'] != null && t['sender'].toString().isNotEmpty ? 'From: ${t['sender']}' : 'Direct Settlement ($acc)',
+            'subtitle': t['sender'] != null && t['sender'].toString().isNotEmpty ? 'From: ${t['sender']}' : (acc.isNotEmpty ? 'Direct Settlement ($acc)' : 'Direct Settlement'),
             'amount': signedAmount,
             'type': isCredit ? 'inflow' : 'outflow',
             'status': status,
             'date': t['date'] != null ? DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.tryParse(t['date']) ?? DateTime.now()) : 'Today',
-            'reference': t['reference'] ?? t['id'] ?? 'REF-9254090338',
-            'channel': t['category'] == 'utility' ? 'Flutterwave Bills Service' : 'Flutterwave MFB Core Settlement',
-            'session': 'SES-FLW-${t['reference'] ?? DateTime.now().millisecondsSinceEpoch}',
+            'reference': t['reference'] ?? t['id'] ?? 'REF-${DateTime.now().millisecondsSinceEpoch}',
+            'channel': t['category'] == 'utility' ? 'Utility Bills Service' : '9PSB Core Settlement',
+            'session': 'SES-${t['reference'] ?? DateTime.now().millisecondsSinceEpoch}',
           });
         }
         if (parsedLive.isNotEmpty) {

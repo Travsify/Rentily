@@ -68,8 +68,8 @@ export class MapleradBankingService {
     const nameParts = params.fullName.trim().split(' ');
     const firstName = nameParts[0] || 'Rentilly';
     const lastName = nameParts.slice(1).join(' ') || 'Partner';
-    const rawPhone = (params.phoneNumber || '08033246811').replace(/\D/g, '');
-    const cleanPhone = rawPhone.length === 11 && rawPhone.startsWith('0') ? rawPhone.substring(1) : rawPhone.slice(-10);
+    const rawPhone = (params.phoneNumber || '').replace(/\D/g, '');
+    const cleanPhone = rawPhone.length === 11 && rawPhone.startsWith('0') ? rawPhone.substring(1) : (rawPhone.length >= 10 ? rawPhone.slice(-10) : '8000000000');
 
     try {
       // Check existing customer
@@ -98,8 +98,8 @@ export class MapleradBankingService {
             phone_country_code: '234',
             phone_number: cleanPhone
           },
-          dob: '15-05-1994',
-          identification_number: params.nin || '22145896321',
+          dob: params.dob || '01-01-1990',
+          identification_number: params.nin || params.bvn || '',
           address: {
             street: 'Admiralty Way, Lekki Phase 1',
             city: 'Lagos',
@@ -437,9 +437,9 @@ export class MapleradBankingService {
     const nameParts = (params.fullName || 'Rentilly User').trim().split(' ');
     const firstName = nameParts[0] || 'Rentilly';
     const lastName = nameParts.slice(1).join(' ') || 'User';
-    const rawPhone = (params.phoneNumber || '08033246811').replace(/\D/g, '');
+    const rawPhone = (params.phoneNumber || '').replace(/\D/g, '');
     const cleanPhone = rawPhone.length === 11 && rawPhone.startsWith('0')
-      ? rawPhone.substring(1) : rawPhone.slice(-10);
+      ? rawPhone.substring(1) : (rawPhone.length >= 10 ? rawPhone.slice(-10) : '8000000000');
     const dob = params.dob || '01-01-1990';
 
     console.log(`[MapleradTier1] Starting Tier 1 enrollment for ${cleanEmail}...`);

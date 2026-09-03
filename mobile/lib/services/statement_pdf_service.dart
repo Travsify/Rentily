@@ -185,7 +185,7 @@ class StatementPdfService {
               _buildPdfDetailRow('Channel / Category', type),
               _buildPdfDetailRow('Sender / Source', sender),
               _buildPdfDetailRow('Beneficiary Account Name', beneficiary),
-              _buildPdfDetailRow('Dedicated Account Number', user.accountNumber ?? '9955394366'),
+              _buildPdfDetailRow('Dedicated Account Number', user.accountNumber ?? 'Pending 9PSB'),
               _buildPdfDetailRow('Settlement Partner Bank', bankName),
               _buildPdfDetailRow('Settlement Category', 'Rentilly Escrow Protected'),
               _buildPdfDetailRow('Payer Email', user.email),
@@ -376,7 +376,7 @@ class StatementPdfService {
                       children: [
                         pw.Text('COLLECTION COORDINATES', style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: PdfColors.grey600)),
                         pw.SizedBox(height: 2),
-                        pw.Text('Account Number: ${user.accountNumber ?? "9955394366"}', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold)),
+                        pw.Text('Account Number: ${user.accountNumber ?? "Pending 9PSB"}', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold)),
                         pw.Text('Settlement Bank: $partnerBank', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey800)),
                         pw.Text('Account Type: Escrow / Wallet ($currency)', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey800)),
                         pw.Text('Generated: $generatedAt', style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey600)),

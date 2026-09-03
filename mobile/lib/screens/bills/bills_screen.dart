@@ -477,7 +477,7 @@ class _BillsScreenState extends State<BillsScreen> {
         url,
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
-          'email': user?.email ?? 'patrickachua3@gmail.com',
+          'email': user?.email ?? '',
           'category': _selectedCategory,
           'operator': _selectedCategory == 'electricity'
               ? _selectedDisco.split(' ')[0]

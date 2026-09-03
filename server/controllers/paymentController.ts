@@ -1084,7 +1084,10 @@ export async function mapleradWebhook(req: Request, res: Response) {
 export async function payBill(req: Request, res: Response) {
   try {
     const { email, category, operator, plan, customerNumber, amount } = req.body;
-    const cleanEmail = (email || 'patrickachua3@gmail.com').toString().toLowerCase().trim();
+    const cleanEmail = (email || '').toString().toLowerCase().trim();
+    if (!cleanEmail) {
+      return res.status(400).json({ error: 'User email is required to process bills.' });
+    }
     const numAmount = Number(amount || 0);
 
     if (numAmount <= 0) {

@@ -1491,22 +1491,9 @@ class _WalletScreenState extends State<WalletScreen> {
                 ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _transactions.isNotEmpty ? _transactions.length : 1,
+                  itemCount: _transactions.length,
                   itemBuilder: (context, i) {
-                    final tx = _transactions.isNotEmpty
-                        ? _transactions[i]
-                        : {
-                            'id': 'TX_2086567924',
-                            'title': 'Bank Transfer Inbound Deposit',
-                            'reference': '100004260831215927169930701067',
-                            'amount': 1000.00,
-                            'type': 'Direct Inbound Transfer',
-                            'beneficiary': _user?.fullName ?? 'Patrick Achua',
-                            'sender': 'TOMISIN OLAMIPO KOLAWOLE',
-                            'date': DateTime.now().toIso8601String(),
-                            'status': 'SUCCESSFUL',
-                            'isCredit': true,
-                          };
+                    final tx = _transactions[i];
 
                     final isCredit = tx['isCredit'] == true;
                     final amt = (tx['amount'] as num?)?.toDouble() ?? 0.0;

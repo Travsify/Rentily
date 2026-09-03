@@ -207,10 +207,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   // 1. Futuristic Fintech Biometric Screen (Revolut / Apple Pay style)
   Widget _buildBiometricView() {
-    final name = _savedUser?.fullName.isNotEmpty == true ? _savedUser!.fullName : 'Patrick Achua';
-    final email = _savedUser?.email.isNotEmpty == true ? _savedUser!.email : 'patrickachua3@gmail.com';
-    final accNum = _savedUser?.accountNumber?.isNotEmpty == true ? _savedUser!.accountNumber! : '9955394366';
-    final maskedAcc = accNum.length >= 4 ? '•••• ${accNum.substring(accNum.length - 4)}' : '•••• 4366';
+    final name = _savedUser?.fullName.isNotEmpty == true ? _savedUser!.fullName : 'Rentilly User';
+    final email = _savedUser?.email.isNotEmpty == true ? _savedUser!.email : '';
+    final accNum = _savedUser?.accountNumber?.isNotEmpty == true ? _savedUser!.accountNumber! : '';
+    final maskedAcc = accNum.length >= 4 ? '•••• ${accNum.substring(accNum.length - 4)}' : '';
     final initials = name.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join().toUpperCase();
 
     return Column(

@@ -99,9 +99,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final name = _currentUser?.fullName.trim().isNotEmpty == true ? _currentUser!.fullName : 'Patrick Achua';
-    final email = _currentUser?.email ?? 'patrickachua3@gmail.com';
-    final phone = _currentUser?.phoneNumber.isNotEmpty == true ? _currentUser!.phoneNumber : '08026990956';
+    final name = _currentUser?.fullName.trim().isNotEmpty == true ? _currentUser!.fullName : 'Rentilly User';
+    final email = _currentUser?.email ?? '';
+    final phone = _currentUser?.phoneNumber.isNotEmpty == true ? _currentUser!.phoneNumber : '';
     final initials = name.trim().split(' ').map((n) => n.isNotEmpty ? n[0] : '').take(2).join().toUpperCase();
 
     return Scaffold(
@@ -808,20 +808,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('Dedicated Rentilly Escrow Account', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                        Text('${_currentUser?.accountNumber ?? "9955394366"} • ${_currentUser?.fullName ?? "Patrick Achua"}', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+                        Text('${_currentUser?.accountNumber ?? "Pending 9PSB"} • ${_currentUser?.fullName ?? "Rentilly User"}', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
                       ],
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.copy_rounded, size: 18, color: AppColors.primary),
-                    onPressed: () {
-                      Clipboard.setData(ClipboardData(text: _currentUser?.accountNumber ?? '9955394366'));
-                      HapticFeedback.lightImpact();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Account number copied to clipboard', style: GoogleFonts.plusJakartaSans(fontSize: 11)), backgroundColor: AppColors.primary),
-                      );
-                    },
-                  ),
+                  if (_currentUser?.accountNumber != null && _currentUser!.accountNumber!.isNotEmpty)
+                    IconButton(
+                      icon: const Icon(Icons.copy_rounded, size: 18, color: AppColors.primary),
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: _currentUser!.accountNumber!));
+                        HapticFeedback.lightImpact();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Account number copied to clipboard', style: GoogleFonts.plusJakartaSans(fontSize: 11)), backgroundColor: AppColors.primary),
+                        );
+                      },
+                    ),
                 ],
               ),
             ),
