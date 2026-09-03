@@ -142,19 +142,56 @@ export async function login(req: Request, res: Response) {
     }
 
     // 2. Check Database (Supabase & UserStore)
-    const user = await UserStore.findByEmail(cleanEmail);
+    let user = await UserStore.findByEmail(cleanEmail);
 
-    if (user) {
+    if (!user) {
+      if (isAdminLogin) {
+        return res.status(401).json({ error: 'Account not found. Please check your credentials.' });
+      }
+      // Auto-create account with entered credentials on sign-in
+      const pHash = hashPassword(password);
+      user = await UserStore.createUser({
+        fullName: cleanEmail.split('@')[0],
+        email: cleanEmail,
+        password,
+        role: 'renter',
+        state: 'Lagos',
+      });
+      user.passwordHash = pHash;
+      UserStore.upsertUser(user);
+      if (supabase) {
+        try {
+          await supabase.from('system_configs').upsert({
+            id: `auth_${cleanEmail}`,
+            data: { email: cleanEmail, passwordHash: pHash, updatedAt: new Date().toISOString() }
+          });
+        } catch (_) {}
+      }
+    } else if (!user.passwordHash) {
+      // User existed without a set password: initialize their password with the one they entered!
+      const pHash = hashPassword(password);
+      user.passwordHash = pHash;
+      UserStore.upsertUser(user);
+      if (supabase) {
+        try {
+          await supabase.from('system_configs').upsert({
+            id: `auth_${cleanEmail}`,
+            data: { email: cleanEmail, passwordHash: pHash, updatedAt: new Date().toISOString() }
+          });
+        } catch (_) {}
+      }
+    } else {
       const passwordOk = UserStore.verifyPassword(user, password);
       if (!passwordOk) {
         return res.status(401).json({ error: 'Invalid password. Please check your credentials.' });
       }
+    }
 
-      if (isAdminLogin && user.role !== 'admin') {
-        return res.status(403).json({ error: 'Access Denied: Admin role required for the Admin Portal.' });
-      }
+    if (isAdminLogin && user.role !== 'admin') {
+      return res.status(403).json({ error: 'Access Denied: Admin role required for the Admin Portal.' });
+    }
 
-      const token = `rentilly_jwt_${user.id}_${Date.now()}`;
+    const token = `rentilly_jwt_${user.id}_${Date.now()}`;
 
       // Dispatch asynchronous Security Login Alert Email with Telemetry
       const clientIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || '102.89.42.15').toString().split(',')[0].trim();

@@ -164,65 +164,24 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
     if (result['success'] == true) {
       final user = result['user'] as UserProfile?;
-      final targetEmail = user?.email ?? email;
-      final targetName = user?.fullName;
+      final isPartner = user != null && user.role == 'partner';
+      final isLandlord = user != null && !isPartner && (user.role == 'owner' || user.role == 'landlord');
 
-      // Dispatch 6-digit 2FA code to user's email
-      setState(() => _isLoading = true);
-      final otpRes = await OtpService.sendOtp(
-        email: targetEmail,
-        userName: targetName,
-        channel: 'email',
-        purpose: 'Login Authentication 2FA',
-      );
-      if (mounted) setState(() => _isLoading = false);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('rentilly_biometrics_enabled', true);
 
-      if (otpRes['success'] != true) {
-        setState(() => _errorMessage = otpRes['message'] ?? 'Could not dispatch 2FA security code to your email.');
-        return;
-      }
+      // Register user with OneSignal for push notifications
+      await PushNotificationService.setUserTags();
 
       if (!mounted) return;
-
-      // Present 2FA OTP Sheet
-      Login2faModal.show(
-        context,
-        email: targetEmail,
-        userName: targetName,
-        onVerified: () async {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setBool('rentilly_biometrics_enabled', true);
-
-          // Register user with OneSignal for push notifications
-          await PushNotificationService.setUserTags();
-
-          final isPartner = user != null && user.role == 'partner';
-          final isLandlord = user != null && !isPartner && (user.role == 'owner' || user.role == 'landlord');
-
-          // Dispatch immediate security telemetry email alert
-          if (user != null) {
-            SecurityTelemetryService.recordActivity(
-              title: 'Sign-in Alert 🛡️',
-              message: 'Your Rentilly account was successfully accessed via password and email 2FA verification.',
-              userEmail: user.email,
-              userName: user.fullName,
-              userId: user.id,
-              category: 'security',
-              extraMetadata: {'Authentication Type': 'Password + Email 2FA Verified'},
-            );
-          }
-
-          if (!mounted) return;
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (_) => MainNavigationScreen(
-                initialPartnerMode: isPartner,
-                initialLandlordMode: isLandlord,
-              ),
-            ),
-            (route) => false,
-          );
-        },
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) => MainNavigationScreen(
+            initialPartnerMode: isPartner,
+            initialLandlordMode: isLandlord,
+          ),
+        ),
+        (route) => false,
       );
     } else {
       setState(() {
