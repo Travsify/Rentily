@@ -128,12 +128,15 @@ apiRouter.patch('/properties/:id/status', propertyController.updatePropertyStatu
 apiRouter.get('/kyp/records', kypController.getKYPRecords);
 apiRouter.post('/kyp/:id/review', kypController.reviewKYP);
 
-// 6. Identitypass / Prembly Verification (NIN, BVN, CAC) & Automated Flutterwave Issuance
+// 6. Identitypass / Prembly Verification (NIN, BVN, CAC) & Maplerad Banking & Card Provisioning
 apiRouter.post('/verification/verify-and-provision', verificationController.verifyAndProvision);
 apiRouter.post('/verification/sync-nuban', verificationController.syncNuban);
 apiRouter.post('/verify/nin', verificationController.verifyNIN);
 apiRouter.post('/verify/bvn', verificationController.verifyBVN);
 apiRouter.post('/verify/cac', verificationController.verifyCAC);
+apiRouter.get('/verification/rekyc-status', verificationController.getVerificationStatus);
+apiRouter.post('/verification/complete-maplerad-kyc', verificationController.completeMapleradKyc);
+apiRouter.post('/admin/request-rekyc', verificationController.requestReKyc);
 
 // 7. Flutterwave Virtual Bank Accounts & Utility Bills
 apiRouter.post('/payments/create-virtual-account', paymentController.createVirtualAccount);

@@ -59,8 +59,11 @@ class VerificationService {
         if (data['status'] == true && data['accountNumber'] != null) {
           final accNum = data['accountNumber']?.toString() ?? '';
           if (accNum.isNotEmpty) {
-            String rawBank = data['bankName']?.toString() ?? 'Flutterwave MFB';
+            String rawBank = data['bankName']?.toString() ?? '9PSB';
             final cleanBank = rawBank.contains('(') ? rawBank.split('(')[0].trim() : rawBank;
+
+            final serverBal = (data['walletBalance'] as num?)?.toDouble() ?? currentUser?.walletBalance ?? 0.0;
+            final serverUsdt = (data['usdtBalance'] as num?)?.toDouble() ?? currentUser?.usdtBalance ?? 0.0;
 
             final updatedUser = (currentUser ?? UserProfile(
               id: userId,
@@ -76,6 +79,8 @@ class VerificationService {
               ninNumber: idType == 'nin' ? idNumber : currentUser?.ninNumber,
               accountNumber: accNum,
               bankName: cleanBank,
+              walletBalance: serverBal,
+              usdtBalance: serverUsdt,
             );
 
             await AuthService.updateUser(updatedUser);

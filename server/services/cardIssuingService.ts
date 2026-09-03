@@ -308,10 +308,9 @@ export class CardIssuingService {
     let bridgeCardData: any = null;
 
     // ─── 1. LIVE MAPLERAD API INTEGRATION ───
-    if (process.env.MAPLERAD_SECRET_KEY) {
-      try {
-        console.log(`[CardIssuingService] Attempting live card issuance via Maplerad for ${cleanEmail}...`);
-        const mapleradRes = await MapleradCardService.issueCard({
+    try {
+      console.log(`[CardIssuingService] Attempting live card issuance via Maplerad for ${cleanEmail}...`);
+      const mapleradRes = await MapleradCardService.issueCard({
           email: cleanEmail,
           cardholderName: cleanName,
           currency: currency as any,
@@ -335,7 +334,6 @@ export class CardIssuingService {
       } catch (err: any) {
         console.warn('[CardIssuingService] Maplerad card issuance error:', err.message);
       }
-    }
 
     // ─── 2. LIVE BRIDGECARD API INTEGRATION (FALLBACK) ───
     const bridgeAppId = process.env.BRIDGECARD_ISSUING_APP_ID;

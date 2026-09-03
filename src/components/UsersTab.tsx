@@ -45,7 +45,29 @@ export const UsersTab: React.FC<UsersTabProps> = ({ users }) => {
   const [selectedRoleVal, setSelectedRoleVal] = useState<string>('renter');
 
   const [saving, setSaving] = useState(false);
+  const [requestingReKyc, setRequestingReKyc] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const handleRequestReKyc = async (email?: string, all = false) => {
+    setRequestingReKyc(email || 'all');
+    setMessage(null);
+    try {
+      const res = await fetch('/api/admin/request-rekyc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, allUsers: all })
+      });
+      const data = await res.json();
+      if (res.ok && data.status) {
+        setMessage({ type: 'success', text: data.message || 'Maplerad Re-KYC request dispatched successfully!' });
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to request Re-KYC' });
+      }
+    } catch (e: any) {
+      setMessage({ type: 'error', text: e.message || 'Network error' });
+    }
+    setRequestingReKyc(null);
+  };
 
   // Synchronize incoming users prop if updated
   React.useEffect(() => {
@@ -221,13 +243,24 @@ export const UsersTab: React.FC<UsersTabProps> = ({ users }) => {
           </button>
 
           {localUsers.length > 0 && (
-            <button
-              onClick={exportToCSV}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-slate-600 text-xs font-semibold text-white shadow-sm transition"
-            >
-              <Download className="w-4 h-4 text-emerald-400" />
-              <span>Export (CSV)</span>
-            </button>
+            <>
+              <button
+                onClick={() => handleRequestReKyc(undefined, true)}
+                disabled={requestingReKyc === 'all'}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-950/70 border border-emerald-500/40 hover:bg-emerald-900/80 text-xs font-semibold text-emerald-300 shadow-sm transition"
+              >
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                <span>{requestingReKyc === 'all' ? 'Dispatching...' : 'Request Maplerad Re-KYC (All)'}</span>
+              </button>
+
+              <button
+                onClick={exportToCSV}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 border border-slate-700 hover:border-slate-600 text-xs font-semibold text-white shadow-sm transition"
+              >
+                <Download className="w-4 h-4 text-emerald-400" />
+                <span>Export (CSV)</span>
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -393,6 +426,16 @@ export const UsersTab: React.FC<UsersTabProps> = ({ users }) => {
                       </td>
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => handleRequestReKyc(u.email)}
+                            disabled={requestingReKyc === u.email}
+                            title="Request Maplerad Re-KYC Upgrade with Date of Birth"
+                            className="p-1.5 rounded-lg bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-500/30 text-emerald-300 transition flex items-center gap-1 text-[11px]"
+                          >
+                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                            <span className="hidden lg:inline">{requestingReKyc === u.email ? 'Sending...' : 'Maplerad KYC'}</span>
+                          </button>
+
                           <button
                             onClick={() => {
                               setSelectedUserForPassword(u);

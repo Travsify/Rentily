@@ -37,54 +37,49 @@ export class MapleradCardService {
     const lastName = nameParts.slice(1).join(' ') || 'User';
 
     try {
-      // 1. Check if customer already exists on Maplerad
-      console.log(`[Maplerad] Resolving customer for ${cleanEmail}...`);
+      // 1. Check if customer already exists in Supabase or on Maplerad
+      console.log(`[Maplerad] Resolving Tier 1 customer for ${cleanEmail}...`);
       let customerId: string | null = null;
 
-      try {
-        const getRes = await fetch(`${this.baseUrl}/customers?email=${encodeURIComponent(cleanEmail)}`, {
-          method: 'GET',
-          headers: this.headers,
-          signal: AbortSignal.timeout(6000)
-        });
-        const getData = await getRes.json().catch(() => ({}));
-        if (getData?.status && Array.isArray(getData?.data) && getData.data.length > 0) {
-          customerId = getData.data[0].id;
-          console.log(`[Maplerad] Found existing customer: ${customerId}`);
-        }
-      } catch (err: any) {
-        console.warn('[Maplerad] Customer lookup failed:', err.message);
+      if (supabase) {
+        try {
+          const { data: prof } = await supabase
+            .from('profiles')
+            .select('maplerad_customer_id, maplerad_tier, phone_number, nin_number, dob')
+            .eq('email', cleanEmail)
+            .maybeSingle();
+          if (prof?.maplerad_customer_id) {
+            customerId = prof.maplerad_customer_id;
+            console.log(`[Maplerad] Using cached customerId from profile: ${customerId}`);
+          }
+        } catch (_) {}
       }
 
-      // 2. If not found, create new customer
       if (!customerId) {
-        console.log(`[Maplerad] Creating new customer for ${cleanEmail}...`);
-        const custRes = await fetch(`${this.baseUrl}/customers`, {
-          method: 'POST',
-          headers: this.headers,
-          signal: AbortSignal.timeout(6000),
-          body: JSON.stringify({
-            first_name: firstName,
-            last_name: lastName,
-            email: cleanEmail,
-            country: 'NG'
-          })
-        });
-
-        const custData = await custRes.json().catch(() => ({}));
-        console.log('[Maplerad] Customer create response:', JSON.stringify(custData));
-
-        customerId = custData?.data?.id || custData?.id;
-        if (!customerId) {
-          if (custData?.message?.includes('already enrolled')) {
-            const retryRes = await fetch(`${this.baseUrl}/customers?email=${encodeURIComponent(cleanEmail)}`, {
-              method: 'GET',
-              headers: this.headers
-            });
-            const retryData = await retryRes.json().catch(() => ({}));
-            customerId = retryData?.data?.[0]?.id || null;
+        try {
+          const getRes = await fetch(`${this.baseUrl}/customers?email=${encodeURIComponent(cleanEmail)}`, {
+            method: 'GET',
+            headers: this.headers,
+            signal: AbortSignal.timeout(6000)
+          });
+          const getData = await getRes.json().catch(() => ({}));
+          if (getData?.status && Array.isArray(getData?.data) && getData.data.length > 0) {
+            customerId = getData.data[0].id;
+            console.log(`[Maplerad] Found existing Maplerad customer: ${customerId}`);
           }
+        } catch (err: any) {
+          console.warn('[Maplerad] Customer lookup failed:', err.message);
         }
+      }
+
+      // 2. If still not found, enroll as Tier 1 customer with KYC data
+      if (!customerId) {
+        console.log(`[Maplerad] Enrolling customer for ${cleanEmail}...`);
+        const { MapleradBankingService } = await import('./mapleradBankingService');
+        customerId = await MapleradBankingService.resolveOrEnrollCustomer({
+          email: cleanEmail,
+          fullName: params.cardholderName
+        });
       }
 
       if (!customerId) {
