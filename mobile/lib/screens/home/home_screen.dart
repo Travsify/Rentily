@@ -118,7 +118,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _user = u;
         _isLoadingUser = false;
         if (u?.state != null && u!.state!.isNotEmpty) {
-          _userLocation = '${u.state}, Nigeria';
+          _userLocation = '${u?.state ?? "Lagos"}, Nigeria';
         }
       });
     }

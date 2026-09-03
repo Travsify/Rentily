@@ -21,6 +21,7 @@ class UserProfile {
   final String? officeAddress;
   final String? officeUtilityBillUrl;
   final String? officeBannerPhotoUrl;
+  final String partnerStatus; // 'unverified', 'pending_review', 'verified'
   final bool rekycRequired;
   final String? dob;
   final String? bvn;

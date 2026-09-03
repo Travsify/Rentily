@@ -417,7 +417,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                       ),
                 onTap: () {
-                  VerificationModal.show(context, onVerified: (u) {
+                  VerificationModal.show(context, onSuccess: (u) {
                     setState(() => _currentUser = u);
                   });
                 },
@@ -698,7 +698,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               child: OutlinedButton.icon(
                 onPressed: () {
                   Navigator.of(ctx).pop();
-                  VerificationModal.show(context, onVerified: (u) {
+                  VerificationModal.show(context, onSuccess: (u) {
                     setState(() => _currentUser = u);
                   });
                 },
