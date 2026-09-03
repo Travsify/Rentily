@@ -118,9 +118,10 @@ export class NotificationDispatcher {
       // Check for OTP code in metadata
       const otpCode = metadata.otp || metadata['One-Time Code (OTP)'] || metadata.otpCode;
       
-      // Dynamic rendering of other metadata
+      // Dynamic rendering of other metadata (telemetry keys rendered in dedicated security box)
+      const telemetryKeys = ['deviceId', 'deviceModel', 'platform', 'ipAddress', 'location', 'date'];
       for (const [k, v] of Object.entries(metadata)) {
-        if (!['otp', 'One-Time Code (OTP)', 'otpCode', 'amount', 'reference', 'propertyTitle', 'gateCode', 'token', 'bankName'].includes(k)) {
+        if (!['otp', 'One-Time Code (OTP)', 'otpCode', 'amount', 'reference', 'propertyTitle', 'gateCode', 'token', 'bankName', ...telemetryKeys].includes(k)) {
           metaRows += `
             <tr>
               <td style="padding: 10px 0; color: #94A3B8; font-size: 13px; border-bottom: 1px solid #1E293B;">${k}:</td>
@@ -139,6 +140,7 @@ export class NotificationDispatcher {
     }
 
     const otpCode = metadata ? (metadata.otp || metadata['One-Time Code (OTP)'] || metadata.otpCode) : null;
+    const hasTelemetry = metadata && (metadata.deviceId || metadata.ipAddress || metadata.location || metadata.deviceModel || metadata.platform);
 
     return `
 <!DOCTYPE html>
@@ -204,6 +206,54 @@ export class NotificationDispatcher {
                     <table width="100%" border="0" cellspacing="0" cellpadding="0">
                       ${metaRows}
                     </table>
+                  </td>
+                </tr>
+              </table>
+              ` : ''}
+
+              ${hasTelemetry ? `
+              <!-- Device, IP & Geo-Location Security Telemetry Box -->
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background: #0B132B; border: 1px solid #1E3A8A; border-radius: 14px; padding: 16px 20px; margin-bottom: 24px;">
+                <tr>
+                  <td colspan="2" style="padding-bottom: 10px; border-bottom: 1px solid #1E293B;">
+                    <span style="color: #60A5FA; font-size: 11px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase;">
+                      🛡️ Security & Device Telemetry Audit
+                    </span>
+                  </td>
+                </tr>
+                ${metadata!.deviceId ? `
+                <tr>
+                  <td style="padding: 9px 0; color: #94A3B8; font-size: 12px; border-bottom: 1px solid #1E293B;">🖥️ Device ID:</td>
+                  <td style="padding: 9px 0; color: #F8FAFC; font-size: 12px; font-family: monospace; font-weight: 700; text-align: right; border-bottom: 1px solid #1E293B;">${metadata!.deviceId}</td>
+                </tr>` : ''}
+                ${metadata!.deviceModel || metadata!.platform ? `
+                <tr>
+                  <td style="padding: 9px 0; color: #94A3B8; font-size: 12px; border-bottom: 1px solid #1E293B;">📱 Device / OS:</td>
+                  <td style="padding: 9px 0; color: #F8FAFC; font-size: 12px; font-weight: 600; text-align: right; border-bottom: 1px solid #1E293B;">${metadata!.deviceModel || metadata!.platform}</td>
+                </tr>` : ''}
+                ${metadata!.ipAddress ? `
+                <tr>
+                  <td style="padding: 9px 0; color: #94A3B8; font-size: 12px; border-bottom: 1px solid #1E293B;">🌐 IP Address:</td>
+                  <td style="padding: 9px 0; color: #38BDF8; font-size: 12px; font-family: monospace; font-weight: 700; text-align: right; border-bottom: 1px solid #1E293B;">${metadata!.ipAddress}</td>
+                </tr>` : ''}
+                ${metadata!.location ? `
+                <tr>
+                  <td style="padding: 9px 0; color: #94A3B8; font-size: 12px; border-bottom: 1px solid #1E293B;">📍 Location:</td>
+                  <td style="padding: 9px 0; color: #4ADE80; font-size: 12px; font-weight: 700; text-align: right; border-bottom: 1px solid #1E293B;">${metadata!.location}</td>
+                </tr>` : ''}
+                <tr>
+                  <td style="padding: 9px 0; color: #94A3B8; font-size: 12px;">⏰ Timestamp:</td>
+                  <td style="padding: 9px 0; color: #CBD5E1; font-size: 12px; text-align: right;">${dateStr}</td>
+                </tr>
+              </table>
+
+              <!-- Security Alert Notice -->
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: rgba(239, 68, 68, 0.08); border: 1px solid #EF4444; border-radius: 12px; padding: 12px 16px; margin-bottom: 24px;">
+                <tr>
+                  <td>
+                    <p style="margin: 0; color: #FCA5A5; font-size: 12px; line-height: 1.5;">
+                      ⚠️ <strong>Security Notice:</strong> If you did not perform this activity, someone else may have accessed your account. Please <a href="mailto:security@myrentilly.com" style="color: #EF4444; font-weight: 800; text-decoration: underline;">Contact Rentilly Security</a> immediately or lock your account in App Settings.
+                    </p>
                   </td>
                 </tr>
               </table>

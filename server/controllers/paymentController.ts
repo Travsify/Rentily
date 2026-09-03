@@ -1640,16 +1640,29 @@ export async function clientDispatchNotification(req: Request, res: Response) {
 
     const cleanEmail = (email || '').toString().trim().toLowerCase();
 
-    console.log(`[Notification Dispatch API] Triggered for email: ${cleanEmail}, title: "${title}"`);
+    const clientIp = (metadata?.ipAddress || req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || '102.89.42.15').toString().split(',')[0].trim();
+    const userAgent = (metadata?.deviceModel || metadata?.platform || req.headers['user-agent'] || 'Rentilly Mobile Client').toString();
+    const deviceId = (metadata?.deviceId || req.headers['x-device-id'] || 'RENT-DEV-MOBILE').toString();
+    const location = (metadata?.location || (req.headers['cf-ipcountry'] ? `${req.headers['cf-ipcity'] || 'Lagos'}, ${req.headers['cf-ipcountry']}` : 'Lagos, Nigeria')).toString();
+
+    const mergedMetadata = {
+      ...(metadata || {}),
+      deviceId,
+      deviceModel: userAgent.includes('Dart') ? 'Rentilly Mobile App (Android/ARM64)' : userAgent.slice(0, 45),
+      ipAddress: clientIp,
+      location
+    };
+
+    console.log(`[Security Notification Dispatch] Triggered for email: ${cleanEmail}, title: "${title}", IP: ${clientIp}, Device: ${deviceId}`);
 
     const result = await NotificationDispatcher.dispatch({
       userId: userId?.toString(),
       email: cleanEmail,
       userName: userName?.toString(),
-      category: category || 'wallet',
+      category: category || 'security',
       title: title.toString(),
       message: message.toString(),
-      metadata: metadata || {}
+      metadata: mergedMetadata
     });
 
     res.json({

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'biometric_service.dart';
+import 'security_telemetry_service.dart';
 import '../widgets/payment_pin_modal.dart';
 
 class PaymentSecurityService {
@@ -18,7 +19,16 @@ class PaymentSecurityService {
   static Future<bool> setPaymentPin(String pin) async {
     if (pin.length != 6 || int.tryParse(pin) == null) return false;
     final prefs = await SharedPreferences.getInstance();
-    return await prefs.setString(_pinKey, pin);
+    final saved = await prefs.setString(_pinKey, pin);
+    if (saved) {
+      SecurityTelemetryService.recordActivity(
+        title: 'Security PIN Updated 🔐',
+        message: 'Your 6-digit transaction payment PIN was successfully configured.',
+        category: 'security',
+        extraMetadata: {'Security Event': 'Payment PIN Established'},
+      );
+    }
+    return saved;
   }
 
   // 3. Verify entered 6-digit PIN
@@ -40,6 +50,14 @@ class PaymentSecurityService {
   static Future<void> setBiometricEnabled(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_biometricEnabledKey, enabled);
+    SecurityTelemetryService.recordActivity(
+      title: enabled ? 'Biometric Payment Enabled 👆' : 'Biometric Payment Disabled ⚠️',
+      message: enabled
+          ? 'Biometric fingerprint authorization was enabled for transaction approvals.'
+          : 'Biometric fingerprint authorization was disabled. PIN required for future transactions.',
+      category: 'security',
+      extraMetadata: {'Biometric Security': enabled ? 'Enabled' : 'Disabled'},
+    );
   }
 
   // Purge payment PIN and biometric authorization on logout

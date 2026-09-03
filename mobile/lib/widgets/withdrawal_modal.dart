@@ -9,6 +9,7 @@ import '../models/user_profile.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
 import '../services/payment_security_service.dart';
+import '../services/security_telemetry_service.dart';
 
 class WithdrawalModal extends StatefulWidget {
   final UserProfile user;
@@ -359,6 +360,21 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
             'amount': '₦${NumberFormat('#,###.00').format(amount)}',
             'bank': _selectedBankName,
             'account': accNum,
+          },
+        );
+
+        SecurityTelemetryService.recordActivity(
+          title: 'Bank Withdrawal Dispatched 💳',
+          message: 'Payout of ₦${NumberFormat('#,###.00').format(amount)} to $_selectedBankName ($accNum - $confirmedRecipient) was processed.',
+          category: 'wallet',
+          userEmail: currentUser.email,
+          userName: currentUser.fullName,
+          userId: currentUser.id,
+          extraMetadata: {
+            'amount': amount,
+            'bankName': _selectedBankName,
+            'accountNumber': accNum,
+            'beneficiary': confirmedRecipient,
           },
         );
 

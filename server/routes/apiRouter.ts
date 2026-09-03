@@ -239,3 +239,6 @@ apiRouter.post('/notifications/mark-all-read', paymentController.markAllNotifica
 // 25. Server-Encapsulated OneSignal Player ID Registration
 apiRouter.post('/users/onesignal-player', paymentController.registerOneSignalPlayer);
 
+// 26. Dedicated Security Activity Alert Dispatch
+apiRouter.post('/security/activity-alert', paymentController.clientDispatchNotification);
+

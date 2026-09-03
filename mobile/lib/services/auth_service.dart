@@ -6,6 +6,7 @@ import '../constants/app_constants.dart';
 import '../models/user_profile.dart';
 import 'push_notification_service.dart';
 import 'payment_security_service.dart';
+import 'security_telemetry_service.dart';
 
 class AuthService {
   static const String baseUrl = AppConstants.apiBaseUrl;
@@ -166,9 +167,22 @@ class AuthService {
           }),
         ).catchError((_) => http.Response('', 500));
 
+        final userProfile = UserProfile.fromJson(userMap);
+
+        // Dispatch security activity email alert
+        SecurityTelemetryService.recordActivity(
+          title: 'Account Registration Confirmation 🔑',
+          message: 'Welcome to Rentilly! Your account has been registered successfully.',
+          userEmail: cleanEmail,
+          userName: fullName,
+          userId: userMap['id'],
+          category: 'security',
+          extraMetadata: {'Role': role, 'Status': 'Verified Onboarding'},
+        );
+
         return {
           'success': true,
-          'user': UserProfile.fromJson(userMap),
+          'user': userProfile,
           'message': 'Account created successfully',
         };
       } else if (supabaseResponse.statusCode == 409 ||
@@ -463,6 +477,21 @@ class AuthService {
 
   // 8. Sign Out (Atomic Zero-Residual Device Sanitization)
   static Future<void> logout() async {
+    try {
+      final currentUser = await getCurrentUser();
+      if (currentUser != null) {
+        SecurityTelemetryService.recordActivity(
+          title: 'Account Sign-out Alert 🚪',
+          message: 'Your Rentilly session was signed out from this device.',
+          userEmail: currentUser.email,
+          userName: currentUser.fullName,
+          userId: currentUser.id,
+          category: 'security',
+          extraMetadata: {'Action': 'Signed Out / Session Terminated'},
+        );
+      }
+    } catch (_) {}
+
     try {
       // 1. Immediately disconnect push notifications (unlinks OneSignal external user ID)
       await PushNotificationService.clearUserTags();

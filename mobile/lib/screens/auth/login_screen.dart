@@ -7,6 +7,7 @@ import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
 import '../../services/biometric_service.dart';
 import '../../services/push_notification_service.dart';
+import '../../services/security_telemetry_service.dart';
 import '../main_navigation_screen.dart';
 import 'register_screen.dart';
 import 'forgot_password_screen.dart';
@@ -100,6 +101,19 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         // Register user with OneSignal for push notifications
         await PushNotificationService.setUserTags();
 
+        // Dispatch immediate security telemetry email alert
+        if (user != null) {
+          SecurityTelemetryService.recordActivity(
+            title: 'Biometric Sign-in Alert 🛡️',
+            message: 'Your Rentilly account was successfully unlocked using biometric authentication.',
+            userEmail: user.email,
+            userName: user.fullName,
+            userId: user.id,
+            category: 'security',
+            extraMetadata: {'Authentication Type': 'Biometric Fingerprint / Face ID'},
+          );
+        }
+
         if (!mounted) return;
         Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
@@ -156,6 +170,19 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       final user = result['user'] as UserProfile?;
       final isPartner = user != null && user.role == 'partner';
       final isLandlord = user != null && !isPartner && (user.role == 'owner' || user.role == 'landlord');
+
+      // Dispatch immediate security telemetry email alert
+      if (user != null) {
+        SecurityTelemetryService.recordActivity(
+          title: 'Sign-in Alert 🛡️',
+          message: 'Your Rentilly account was successfully accessed via password authentication.',
+          userEmail: user.email,
+          userName: user.fullName,
+          userId: user.id,
+          category: 'security',
+          extraMetadata: {'Authentication Type': 'Password Verified'},
+        );
+      }
 
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(

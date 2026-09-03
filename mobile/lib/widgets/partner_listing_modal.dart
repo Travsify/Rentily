@@ -12,6 +12,7 @@ import '../models/property.dart';
 import '../models/user_profile.dart';
 import '../services/api_service.dart';
 import '../services/notification_service.dart';
+import '../services/security_telemetry_service.dart';
 import '../widgets/verification_modal.dart';
 
 class PartnerListingModal extends StatefulWidget {
@@ -483,6 +484,21 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
         category: 'property',
       );
     }
+
+    SecurityTelemetryService.recordActivity(
+      title: _isDirectLandlord ? 'Title Audit Listing Submitted 🔑📄' : 'Mandate Listing Submitted 🏢🛡️',
+      message: 'Property listing "$title" located in $_selectedLga, $_selectedState was successfully submitted.',
+      userEmail: widget.user.email,
+      userName: widget.user.fullName,
+      userId: widget.user.id,
+      category: 'property',
+      extraMetadata: {
+        'Property Title': title,
+        'Price': '₦${_currencyFormat.format(price)}',
+        'Category': _propertyType,
+        'Location': '$_selectedLga, $_selectedState',
+      },
+    );
 
     if (mounted) {
       setState(() => _isSubmitting = false);

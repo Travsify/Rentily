@@ -68,6 +68,27 @@ export async function register(req: Request, res: Response) {
         createdAt: newUser.createdAt,
       },
     });
+
+    // Dispatch asynchronous Security Registration Alert Email with Telemetry
+    const clientIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || '102.89.42.15').toString().split(',')[0].trim();
+    const userAgent = (req.headers['user-agent'] || 'Rentilly Mobile App').toString();
+    const deviceId = (req.headers['x-device-id'] || req.body.deviceId || 'RENT-DEV-ENROLLED').toString();
+
+    NotificationDispatcher.dispatch({
+      userId: newUser.id,
+      email: newUser.email,
+      userName: newUser.fullName,
+      category: 'security',
+      title: 'Account Registration Confirmation 🔑',
+      message: 'Your Rentilly account has been created successfully. Welcome to the platform.',
+      metadata: {
+        'Activity': 'New Account Registered',
+        deviceId,
+        deviceModel: userAgent.includes('Dart') ? 'Rentilly Mobile App (Android/ARM64)' : userAgent.slice(0, 45),
+        ipAddress: clientIp,
+        location: req.headers['cf-ipcountry'] ? `${req.headers['cf-ipcity'] || 'Lagos'}, ${req.headers['cf-ipcountry']}` : 'Lagos, Nigeria'
+      }
+    }).catch(err => console.error('[Security Alert] Register email dispatch failed:', err.message));
   } catch (err: any) {
     console.error('Register error:', err);
     res.status(500).json({ error: err.message || 'Registration failed' });
@@ -124,6 +145,28 @@ export async function login(req: Request, res: Response) {
       }
 
       const token = `rentilly_jwt_${user.id}_${Date.now()}`;
+
+      // Dispatch asynchronous Security Login Alert Email with Telemetry
+      const clientIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || '102.89.42.15').toString().split(',')[0].trim();
+      const userAgent = (req.headers['user-agent'] || 'Rentilly Mobile App').toString();
+      const deviceId = (req.headers['x-device-id'] || req.body.deviceId || 'RENT-DEV-ACTIVE').toString();
+
+      NotificationDispatcher.dispatch({
+        userId: user.id,
+        email: user.email,
+        userName: user.fullName || user.businessName,
+        category: 'security',
+        title: 'New Sign-in Alert 🛡️',
+        message: 'A successful sign-in was completed on your account.',
+        metadata: {
+          'Activity': 'Account Sign-In',
+          deviceId,
+          deviceModel: userAgent.includes('Dart') ? 'Rentilly Mobile App (Android/ARM64)' : userAgent.slice(0, 45),
+          ipAddress: clientIp,
+          location: req.headers['cf-ipcountry'] ? `${req.headers['cf-ipcity'] || 'Lagos'}, ${req.headers['cf-ipcountry']}` : 'Lagos, Nigeria'
+        }
+      }).catch(err => console.error('[Security Alert] Login email dispatch failed:', err.message));
+
       return res.json({
         token,
         user: {
