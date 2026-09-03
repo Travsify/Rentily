@@ -321,7 +321,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Provision an encrypted USD Visa debit card via Bridgecard CaaS for global SaaS, travel, and international ad spend.',
+                  'Provision an encrypted USD Visa debit card for global SaaS, travel, and international ad spend.',
                   style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary, height: 1.4),
                 ),
                 const SizedBox(height: 16),
@@ -453,7 +453,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
                                 content: Text(
-                                  '🎉 Corporate Virtual Dollar Card activated! ($feeFormatted debited from $selectedFundingWallet wallet)',
+                                  '🎉 Virtual Dollar Card activated! ($feeFormatted debited from $selectedFundingWallet wallet)',
                                   style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
                                 ),
                                 backgroundColor: AppColors.primary,
@@ -1601,7 +1601,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      'Corporate Virtual Dollar Card',
+                      'Virtual Dollar Card',
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 13,
                         fontWeight: FontWeight.bold,
@@ -1615,7 +1615,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        (_cardData != null) ? 'Bridgecard Active' : 'Not Issued',
+                        (_cardData != null) ? 'Active' : 'Not Issued',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 8.5,
                           fontWeight: FontWeight.w700,
@@ -1664,7 +1664,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Request an encrypted USD virtual Visa card instantly via Bridgecard CaaS. Pay the \$3.00 card fee from your Naira, Dollar, Pound, or Euro wallet.',
+                          'Request an encrypted USD virtual Visa card instantly. Pay the card fee from your Naira, Dollar, Pound, or Euro wallet.',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 11.5,

@@ -762,7 +762,7 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
                       _buildGridCard(
                         icon: Icons.credit_card_rounded,
                         title: 'Dollar Cards Desk',
-                        subtitle: 'Virtual USD Visa (Bridgecard)',
+                        subtitle: 'Virtual USD Visa',
                         badge: 'GLOBAL',
                         color: const Color(0xFF0284C7),
                         onTap: () {

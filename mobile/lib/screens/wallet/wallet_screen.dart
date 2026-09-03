@@ -220,7 +220,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Provision an encrypted USD Visa debit card via Bridgecard CaaS for global subscriptions, shopping, and international travel.',
+                  'Provision an encrypted USD Visa debit card for global subscriptions, shopping, and international travel.',
                   style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary, height: 1.4),
                 ),
                 const SizedBox(height: 16),
@@ -1303,7 +1303,7 @@ class _WalletScreenState extends State<WalletScreen> {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        (_cardData != null) ? 'Bridgecard Active' : 'Not Issued',
+                        (_cardData != null) ? 'Active' : 'Not Issued',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 8.5,
                           fontWeight: FontWeight.w700,
@@ -1352,7 +1352,7 @@ class _WalletScreenState extends State<WalletScreen> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'Issue an instant virtual debit card powered by Bridgecard for global shopping, subscriptions & escrow payments.',
+                          'Issue an instant virtual debit card for global shopping, subscriptions & escrow payments.',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 11.5,
