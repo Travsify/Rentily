@@ -1,4 +1,4 @@
-﻿import type { Request, Response } from 'express';
+import type { Request, Response } from 'express';
 import { ResendService } from '../services/resendService';
 import { TwilioService } from '../services/twilioService';
 import { OtpStore } from '../services/otpStore';
@@ -18,6 +18,7 @@ export async function sendOtp(req: Request, res: Response) {
 
     const primaryIdentifier = (email || phoneNumber).trim().toLowerCase();
     const { code, expiresAt } = OtpStore.createOtp(primaryIdentifier, purpose);
+    console.log(`[OtpController] 🔑 Dispatched OTP for ${primaryIdentifier}: [${code}] (Purpose: ${purpose})`);
 
     const deliveryResults: { email?: any; sms?: any } = {};
     let atLeastOneSuccess = false;

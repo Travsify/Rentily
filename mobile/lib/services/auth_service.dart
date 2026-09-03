@@ -277,6 +277,48 @@ class AuthService {
     };
   }
 
+  // 2b. Log In via 6-digit Email OTP (Passwordless authentication)
+  static Future<Map<String, dynamic>> loginWithOtp({
+    required String email,
+    required String code,
+  }) async {
+    final cleanEmail = email.trim().toLowerCase();
+
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/auth/login-otp'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'email': cleanEmail,
+          'code': code.trim(),
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200 && data['user'] != null) {
+        final token = data['token'];
+        final userData = data['user'];
+
+        await _saveSession(token, userData);
+        return {
+          'success': true,
+          'user': UserProfile.fromJson(userData),
+        };
+      } else {
+        return {
+          'success': false,
+          'message': data['error'] ?? data['message'] ?? 'Invalid or expired OTP code.',
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Connection error. Please check your internet connection.',
+      };
+    }
+  }
+
   // 3. Check if user is currently logged in
   static Future<bool> isLoggedIn() async {
     final prefs = await SharedPreferences.getInstance();

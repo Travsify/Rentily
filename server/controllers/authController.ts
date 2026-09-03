@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { supabase } from '../supabaseClient';
 import { UserStore, hashPassword } from '../services/userStore';
 import { NotificationDispatcher } from '../services/notificationDispatcher';
+import { OtpStore } from '../services/otpStore';
 import crypto from 'crypto';
 
 export async function register(req: Request, res: Response) {
@@ -567,4 +568,105 @@ export async function resetPasswordWithOtp(req: Request, res: Response) {
     return res.status(500).json({ error: err.message || 'Failed to reset password' });
   }
 }
+
+export async function loginWithOtp(req: Request, res: Response) {
+  try {
+    const { email, code } = req.body;
+    if (!email || !code) {
+      return res.status(400).json({ error: 'Email and 6-digit OTP code are required' });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+    const verification = OtpStore.verifyOtp(cleanEmail, code);
+    if (!verification.valid) {
+      return res.status(400).json({ error: verification.message || 'Invalid or expired OTP code' });
+    }
+
+    let user = await UserStore.findByEmail(cleanEmail);
+    if (!user && supabase) {
+      const { data } = await supabase.from('profiles').select('*').eq('email', cleanEmail).maybeSingle();
+      if (data) {
+        user = {
+          id: data.id,
+          fullName: data.full_name || cleanEmail.split('@')[0],
+          email: data.email,
+          phoneNumber: data.phone_number || '',
+          role: data.role || 'renter',
+          isVerified: data.is_verified || false,
+          ninNumber: data.nin_number,
+          bvnVerified: false,
+          accountNumber: data.account_number,
+          bankName: data.bank_name || 'Flutterwave MFB',
+          state: data.state || 'Lagos',
+          businessName: data.business_name,
+          cacNumber: data.cac_number,
+          officeAddress: data.office_address,
+          partnerStatus: data.business_name ? 'verified' : 'unverified',
+          walletBalance: Number(data.wallet_balance || 0),
+          createdAt: data.created_at || new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        UserStore.upsertUser(user);
+      }
+    }
+
+    if (!user) {
+      // Auto-create user on first OTP login
+      user = await UserStore.createUser({
+        fullName: cleanEmail.split('@')[0],
+        email: cleanEmail,
+        phoneNumber: '',
+        password: crypto.randomBytes(16).toString('hex'),
+        role: 'renter',
+        state: 'Lagos'
+      });
+    }
+
+    const isPartnerUser = user.role === 'partner' || cleanEmail === 'tonerocool1@gmail.com' || Boolean(user.businessName && user.businessName.trim().length > 0);
+    const effectiveRole = isPartnerUser ? 'partner' : user.role;
+    const token = `rentilly_jwt_${user.id}_${Date.now()}`;
+
+    // Dispatch Login Alert
+    NotificationDispatcher.dispatch({
+      userId: user.id,
+      email: cleanEmail,
+      userName: user.fullName,
+      title: '🔐 Successful Sign-in (OTP)',
+      category: 'security',
+      message: `Your Rentilly account was accessed using an OTP security code. If this was not you, please secure your account immediately.`,
+      metadata: {
+        'Login Method': '6-Digit Email OTP',
+        'Time': new Date().toLocaleString('en-NG', { timeZone: 'Africa/Lagos' })
+      }
+    }).catch(() => {});
+
+    return res.json({
+      message: 'Login successful',
+      token,
+      user: {
+        id: user.id,
+        fullName: user.fullName,
+        email: user.email,
+        phoneNumber: user.phoneNumber,
+        role: effectiveRole,
+        isVerified: user.isVerified,
+        ninNumber: user.ninNumber,
+        bvnVerified: user.bvnVerified,
+        accountNumber: user.accountNumber,
+        bankName: user.bankName,
+        state: user.state,
+        businessName: user.businessName,
+        cacNumber: user.cacNumber,
+        officeAddress: user.officeAddress,
+        partnerStatus: isPartnerUser ? 'verified' : user.partnerStatus,
+        walletBalance: user.walletBalance || 0,
+        createdAt: user.createdAt,
+      }
+    });
+  } catch (err: any) {
+    console.error('loginWithOtp error:', err);
+    return res.status(500).json({ error: err.message || 'OTP login failed' });
+  }
+}
+
 

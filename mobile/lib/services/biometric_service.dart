@@ -28,14 +28,14 @@ class BiometricService {
       final authFuture = _auth.authenticate(
         localizedReason: reason ?? 'Scan your fingerprint or face to authenticate into Rentilly',
         options: const AuthenticationOptions(
-          stickyAuth: false,
+          stickyAuth: true,
           biometricOnly: false,
-          useErrorDialogs: false,
+          useErrorDialogs: true,
           sensitiveTransaction: false,
         ),
       );
 
-      return await authFuture.timeout(const Duration(seconds: 12), onTimeout: () => false);
+      return await authFuture.timeout(const Duration(seconds: 30), onTimeout: () => false);
     } on PlatformException catch (e) {
       if (e.code == 'NotAvailable' || e.code == 'PasscodeNotSet') {
         return true;

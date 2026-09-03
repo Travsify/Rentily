@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../constants/app_colors.dart';
 import '../services/otp_service.dart';
+import '../services/auth_service.dart';
 
 class Login2faModal extends StatefulWidget {
   final String email;
@@ -131,7 +132,7 @@ class _Login2faModalState extends State<Login2faModal> {
       _errorMessage = null;
     });
 
-    final result = await OtpService.verifyOtp(
+    final result = await AuthService.loginWithOtp(
       email: widget.email,
       code: code,
     );

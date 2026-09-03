@@ -104,6 +104,7 @@ apiRouter.get('/debug/store', (_req, res) => {
 // 2. Authentication & Multi-Channel OTP (Resend + Twilio)
 apiRouter.post('/auth/register', authController.register);
 apiRouter.post('/auth/login', authController.login);
+apiRouter.post('/auth/login-otp', authController.loginWithOtp);
 apiRouter.get('/auth/me', authController.getMe);
 apiRouter.get('/users', authController.listUsers);
 apiRouter.post('/auth/send-otp', otpController.sendOtp);

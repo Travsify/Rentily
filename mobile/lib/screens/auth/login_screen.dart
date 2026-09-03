@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -206,6 +205,68 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       setState(() {
         _errorMessage = result['message'] ?? 'Authentication failed.';
       });
+    }
+  }
+
+  void _handleDirectOtpLogin() async {
+    final email = _emailController.text.trim();
+    if (email.isEmpty) {
+      setState(() => _errorMessage = 'Please enter your email address to receive a login OTP code.');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final res = await OtpService.sendOtp(
+        email: email,
+        channel: 'email',
+        purpose: 'Sign-in Login OTP',
+      );
+
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+
+      if (res['success'] == true) {
+        Login2faModal.show(
+          context,
+          email: email,
+          onVerified: () async {
+            final currentUser = await AuthService.getCurrentUser();
+            final isPartner = currentUser != null && currentUser.isPartner;
+            final isLandlord = currentUser != null && currentUser.isLandlord;
+
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setBool('rentilly_biometrics_enabled', true);
+            await PushNotificationService.setUserTags();
+
+            if (!mounted) return;
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(
+                builder: (_) => MainNavigationScreen(
+                  initialPartnerMode: isPartner,
+                  initialLandlordMode: isLandlord,
+                ),
+              ),
+              (route) => false,
+            );
+          },
+        );
+      } else {
+        setState(() {
+          _errorMessage = res['message'] ?? 'Could not send login OTP. Please check your email.';
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Network error while sending OTP. Please try again.';
+        });
+      }
     }
   }
 
@@ -628,7 +689,26 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             ),
             child: _isLoading
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
-                : Text('Sign In', style: GoogleFonts.plusJakartaSans(fontSize: 13.5, fontWeight: FontWeight.bold, color: Colors.white)),
+                : Text('Sign In with Password', style: GoogleFonts.plusJakartaSans(fontSize: 13.5, fontWeight: FontWeight.bold, color: Colors.white)),
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Direct Login with OTP Code
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _isLoading ? null : _handleDirectOtpLogin,
+            icon: const Icon(Icons.mark_email_read_outlined, size: 18, color: AppColors.primary),
+            label: Text(
+              'Sign In with OTP Code (Email)',
+              style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primary),
+            ),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              side: const BorderSide(color: AppColors.primary, width: 1.5),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
           ),
         ),
         const SizedBox(height: 16),
