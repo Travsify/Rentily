@@ -118,18 +118,21 @@
     "fullName": "Ehomes Global Inclusive Limited",
     "phoneNumber": "+2348026990956",
     "role": "partner",
-    "isVerified": false,
+    "isVerified": true,
     "ninNumber": "96434424445",
-    "bvnVerified": false,
-    "accountNumber": null,
-    "bankName": "Flutterwave MFB",
-    "state": "Lagos",
+    "bvnVerified": true,
+    "accountNumber": "6195771529",
+    "bankName": "9PSB (Rentilly)",
+    "state": "Oyo",
     "walletBalance": 8256,
     "businessName": "Ehomes Global Inclusive Limited",
     "cacNumber": "9063796",
     "partnerStatus": "verified",
     "createdAt": "2026-09-02T07:50:58.103846+00:00",
-    "updatedAt": "2026-09-03T19:27:03.62+00:00",
-    "passwordHash": "daf0e831a31884c472837cdfeef2132be3e7f2561b52611043e8f82280803552"
+    "updatedAt": "2026-09-03T20:07:35.179+00:00",
+    "passwordHash": "daf0e831a31884c472837cdfeef2132be3e7f2561b52611043e8f82280803552",
+    "rekycRequired": false,
+    "kycFailureReason": null,
+    "dob": "27-06-1997"
   }
 ]

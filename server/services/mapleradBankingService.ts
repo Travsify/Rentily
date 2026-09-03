@@ -112,8 +112,8 @@ export class MapleradBankingService {
           first_name: firstName,
           last_name: lastName,
           email: cleanEmail,
-          phone_number: {
-            phone_country_code: '234',
+          phone: {
+            phone_country_code: '+234',
             phone_number: cleanPhone
           },
           dob: params.dob || '01-01-1990',
@@ -502,6 +502,21 @@ export class MapleradBankingService {
       const idNumber = bvnNumber || ninNumber || params.bvn || params.nin || '';
 
       if (mapleradCustomerId) {
+        // Step B1: Sync customer name with director/BVN name so upgrade doesn't fail on name mismatch
+        if (firstName && lastName) {
+          try {
+            await fetch(`${this.baseUrl}/customers/update`, {
+              method: 'PATCH',
+              headers: this.headers,
+              body: JSON.stringify({
+                customer_id: mapleradCustomerId,
+                first_name: firstName,
+                last_name: lastName
+              })
+            });
+          } catch (_) {}
+        }
+
         console.log(`[MapleradTier1] Upgrading existing customer ${mapleradCustomerId} to Tier 1 using BVN...`);
         const upgradeRes = await fetch(`${this.baseUrl}/customers/upgrade/tier1`, {
           method: 'PATCH',
@@ -545,8 +560,8 @@ export class MapleradBankingService {
             country: 'NG',
             dob: dob,
             identification_number: idNumber,
-            phone_number: {
-              phone_country_code: '234',
+            phone: {
+              phone_country_code: '+234',
               phone_number: cleanPhone
             },
             address: {

@@ -1433,8 +1433,8 @@ export async function getWalletBalance(req: Request, res: Response) {
     let accountNumber = dbUser?.account_number || memUser?.accountNumber;
     let bankName = dbUser?.bank_name || memUser?.bankName;
 
-    // Auto-provision Maplerad Virtual NGN Account for new users who don't have an account
-    if (!accountNumber && cleanEmail) {
+    // Auto-provision Maplerad Virtual NGN Account ONLY if user is verified but missing account
+    if (!accountNumber && cleanEmail && (dbUser?.is_verified || memUser?.isVerified)) {
       try {
         const mapleAcc = await MapleradBankingService.createVirtualAccount({
           email: cleanEmail,
