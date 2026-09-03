@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 
 export interface PlatformFeeConfig {
   withdrawalFee: number;            // ₦ flat fee on bank withdrawals (default 50)
+  usdtWithdrawalFeePct: number;     // % fee on USDT withdrawals (default 2.0)
   electricityFee: number;           // ₦ convenience fee on Disco tokens (default 100)
   airtimeDataMarginPct: number;     // % margin on airtime/data (default 2.5)
   rentLegalFeePct: number;          // % on rent leases (default 10)
@@ -17,6 +18,7 @@ export interface PlatformFeeConfig {
 
 const DEFAULT_FEES: PlatformFeeConfig = {
   withdrawalFee: 50,
+  usdtWithdrawalFeePct: 2.0,
   electricityFee: 100,
   airtimeDataMarginPct: 2.5,
   rentLegalFeePct: 10.0,

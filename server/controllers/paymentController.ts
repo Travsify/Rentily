@@ -296,32 +296,40 @@ export async function withdrawCrypto(req: Request, res: Response) {
       return res.status(400).json({ error: 'Valid recipient crypto address and USDT amount are required.' });
     }
 
+    // Platform fee: Percentage fee on USDT withdrawals (default 2.0%)
+    const platformFees = getStoredFees();
+    const feePercent = Number(platformFees.usdtWithdrawalFeePct ?? 2.0);
+    const feeUsdt = Number(((numUsdt * feePercent) / 100).toFixed(4));
+    const netUsdtToSend = Number((numUsdt - feeUsdt).toFixed(4));
+
+    if (netUsdtToSend <= 0) {
+      return res.status(400).json({
+        error: `Withdrawal amount (${numUsdt} USDT) is too low to cover the ${feePercent}% withdrawal fee (${feeUsdt} USDT).`
+      });
+    }
+
     // Live FX benchmark
     const rates = MultiCurrencyService.getFxRates();
     const fxRate = rates.USD_NGN || 1510.0;
     const equivalentNgn = numUsdt * fxRate;
-
-    // Platform fee (₦50)
-    const platformFees = getStoredFees();
-    const withdrawalFeeNgn = Number(platformFees.withdrawalFee ?? 50);
-    const totalDebitNgn = equivalentNgn + withdrawalFeeNgn;
+    const totalDebitNgn = equivalentNgn;
 
     const currentBal = TransactionStore.computeNetBalance(cleanEmail);
     const memUser = await UserStore.findByEmail(cleanEmail);
 
     if (currentBal < totalDebitNgn) {
       return res.status(400).json({
-        error: `Insufficient wallet balance. Withdrawing ${numUsdt} USDT requires ₦${totalDebitNgn.toLocaleString()} NGN equivalent (including standard fee). Available: ₦${currentBal.toLocaleString()}.`
+        error: `Insufficient wallet balance. Withdrawing ${numUsdt} USDT requires ₦${totalDebitNgn.toLocaleString()} NGN equivalent. Available: ₦${currentBal.toLocaleString()}.`
       });
     }
 
     const txRef = `WD_CRYPTO_${Date.now()}`;
     const targetUserId = userId || memUser?.id || (cleanEmail === 'tonerocool1@gmail.com' ? 'c0000000-0000-0000-0000-000000000001' : 'b0000000-0000-0000-0000-000000000001');
 
-    // Call Maplerad withdrawCrypto
+    // Call Maplerad withdrawCrypto with netUsdtToSend
     const cryptoRes = await MapleradBankingService.withdrawCrypto({
       address,
-      amountUsdt: numUsdt,
+      amountUsdt: netUsdtToSend,
       reference: txRef,
       chain: chain || 'tron'
     });
@@ -333,7 +341,7 @@ export async function withdrawCrypto(req: Request, res: Response) {
       id: `TX_WD_CRYPTO_${Date.now()}`,
       userId: targetUserId,
       email: cleanEmail,
-      title: `Crypto Withdrawal: ${numUsdt} USDT`,
+      title: `Crypto Withdrawal: ${numUsdt} USDT (${feePercent}% Fee: $${feeUsdt.toFixed(2)})`,
       type: 'Direct Crypto Withdrawal',
       category: 'withdrawal',
       amount: totalDebitNgn,
@@ -385,9 +393,12 @@ export async function withdrawCrypto(req: Request, res: Response) {
       userName: memUser?.fullName,
       title: `Crypto Payout: ${numUsdt} USDT Dispatched`,
       category: 'wallet',
-      message: `Your withdrawal of ${numUsdt} USDT (₦${equivalentNgn.toLocaleString()} NGN) to address ${address} has been dispatched.`,
+      message: `Your withdrawal of ${numUsdt} USDT to ${address} has been dispatched. ${feePercent}% withdrawal fee ($${feeUsdt.toFixed(2)}) was applied; recipient receives ${netUsdtToSend} USDT.`,
       metadata: {
         amountUsdt: numUsdt,
+        feeUsdt,
+        netUsdtToSend,
+        feePercent,
         amountNgn: totalDebitNgn,
         address,
         reference: txRef
@@ -397,6 +408,10 @@ export async function withdrawCrypto(req: Request, res: Response) {
     res.json({
       status: true,
       message: `Successfully processed withdrawal of ${numUsdt} USDT!`,
+      amountUsdt: numUsdt,
+      feeUsdt,
+      feePercent,
+      netUsdtToSend,
       newBalance: newBal,
       reference: txRef
     });
@@ -2389,6 +2404,52 @@ export async function registerOneSignalPlayer(req: Request, res: Response) {
     res.json({ status: true, message: 'OneSignal Player ID successfully registered', playerId });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
+  }
+}
+
+// 27. Remote In-App Notifications Fetcher
+export async function getUserNotifications(req: Request, res: Response) {
+  try {
+    const email = (req.query.email || '').toString().toLowerCase().trim();
+    const userId = (req.query.userId || '').toString().trim();
+
+    if (!email && !userId) {
+      return res.status(400).json({ error: 'email or userId is required' });
+    }
+
+    let notifs: any[] = [];
+    if (supabase) {
+      let targetUuid = userId;
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUuid);
+      if (!isUuid && email) {
+        try {
+          const { data: prof } = await supabase.from('profiles').select('id').eq('email', email).maybeSingle();
+          if (prof?.id) targetUuid = prof.id;
+        } catch (_) {}
+      }
+
+      if (!targetUuid || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUuid)) {
+        if (email.includes('tonero')) {
+          targetUuid = 'c0000000-0000-0000-0000-000000000001';
+        }
+      }
+
+      if (targetUuid) {
+        const { data, error } = await supabase
+          .from('notifications')
+          .select('*')
+          .eq('user_id', targetUuid)
+          .order('created_at', { ascending: false })
+          .limit(50);
+        if (!error && data) {
+          notifs = data;
+        }
+      }
+    }
+
+    return res.json({ status: true, notifications: notifs });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
 }
 

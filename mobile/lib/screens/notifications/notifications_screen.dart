@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../constants/app_colors.dart';
+import '../../services/auth_service.dart';
 import '../../services/notification_service.dart';
+import '../../widgets/date_of_birth_modal.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -200,11 +202,25 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     final formattedTime = _dateFormat.format(notif.timestamp);
 
+    final bool isRekycNotif = notif.title.toLowerCase().contains('upgrade') ||
+        notif.title.toLowerCase().contains('birth') ||
+        notif.message.toLowerCase().contains('birth') ||
+        notif.title.toLowerCase().contains('action required') ||
+        notif.title.toLowerCase().contains('complete your rentilly');
+
     return InkWell(
       onTap: () async {
         if (!notif.isRead) {
           await NotificationService.markAsRead(notif.id);
           setState(() => notif.isRead = true);
+        }
+        if (isRekycNotif) {
+          final user = await AuthService.getCurrentUser();
+          if (user != null && mounted) {
+            DateOfBirthModal.show(context, user: user, onSuccess: (_) {
+              _loadNotifications();
+            });
+          }
         }
       },
       borderRadius: BorderRadius.circular(16),
@@ -271,6 +287,33 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       height: 1.4,
                     ),
                   ),
+                  if (isRekycNotif) ...[
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      height: 34,
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          final user = await AuthService.getCurrentUser();
+                          if (user != null && mounted) {
+                            DateOfBirthModal.show(context, user: user, onSuccess: (_) {
+                              _loadNotifications();
+                            });
+                          }
+                        },
+                        icon: const Icon(Icons.cake_rounded, size: 14, color: Colors.white),
+                        label: Text(
+                          'Confirm Date of Birth & Activate',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 6),
                   // Metadata Pills (Device, IP, Reference)
                   if (notif.metadata != null && notif.metadata!.isNotEmpty)

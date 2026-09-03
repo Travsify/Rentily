@@ -42,6 +42,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
   String _withdrawalMode = 'NGN'; // 'NGN' or 'USDT'
   String _usdtDestinationType = 'BANK'; // 'BANK' (Convert to NGN) or 'CRYPTO' (Send on-chain)
   double _fxUsdtToNgn = 1400.0;
+  double _usdtWithdrawalFeePct = 2.0; // Dynamic from Admin Fee Settings (default 2%)
 
   String _selectedBankCode = '058'; // Default GTBank
   String _selectedBankName = 'Guaranty Trust Bank';
@@ -54,6 +55,14 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
 
   double get _enteredAmount {
     return double.tryParse(_amountController.text.replaceAll(',', '').trim()) ?? 0.0;
+  }
+
+  double get _usdtFeeAmount {
+    return (_enteredAmount * _usdtWithdrawalFeePct) / 100.0;
+  }
+
+  double get _usdtNetPayoutAmount {
+    return (_enteredAmount - _usdtFeeAmount).clamp(0.0, double.infinity);
   }
 
   double get _computedNgnAmount {
@@ -95,6 +104,24 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
     super.initState();
     _fetchPaystackBanks();
     _fetchSpreadRates();
+    _fetchPlatformFees();
+  }
+
+  void _fetchPlatformFees() async {
+    try {
+      final url = Uri.parse('${AppConstants.apiBaseUrl}/config/fees');
+      final res = await http.get(url).timeout(const Duration(seconds: 10));
+      if (res.statusCode == 200) {
+        final data = json.decode(res.body);
+        if (data['fees'] != null && data['fees']['usdtWithdrawalFeePct'] != null) {
+          if (mounted) {
+            setState(() {
+              _usdtWithdrawalFeePct = (data['fees']['usdtWithdrawalFeePct'] as num).toDouble();
+            });
+          }
+        }
+      }
+    } catch (_) {}
   }
 
   void _fetchSpreadRates() async {
@@ -325,12 +352,15 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
         return;
       }
 
+      final feeAmount = _usdtFeeAmount;
+      final netAmount = _usdtNetPayoutAmount;
+
       if (!mounted) return;
       final authorized = await PaymentSecurityService.authorizeTransaction(
         context,
-        title: 'Crypto Payout to $cryptoAddress',
+        title: 'Crypto Payout: ${entered.toStringAsFixed(2)} USDT',
         amount: totalNgnRequired,
-        recipient: '$entered USDT (TRON TRC20)',
+        recipient: '$cryptoAddress (Fee: ${_usdtWithdrawalFeePct.toStringAsFixed(1)}% | Net: ${netAmount.toStringAsFixed(2)} USDT)',
       );
       if (!authorized) {
         setState(() => _errorMessage = 'Payment authorization cancelled or incorrect.');
@@ -367,10 +397,12 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
 
           NotificationService.addNotification(
             title: 'USDT Withdrawal Dispatched ⚡',
-            message: 'Payout of $entered USDT (₦${NumberFormat('#,###.00').format(totalNgnRequired)}) dispatched to $cryptoAddress.',
+            message: 'Payout of $entered USDT dispatched to $cryptoAddress. ${_usdtWithdrawalFeePct.toStringAsFixed(1)}% fee (${feeAmount.toStringAsFixed(2)} USDT) applied; recipient receives ${netAmount.toStringAsFixed(2)} USDT.',
             category: 'transaction',
             metadata: {
               'amountUsdt': entered.toString(),
+              'feeUsdt': feeAmount.toString(),
+              'netUsdt': netAmount.toString(),
               'amountNgn': totalNgnRequired.toString(),
               'address': cryptoAddress,
             },

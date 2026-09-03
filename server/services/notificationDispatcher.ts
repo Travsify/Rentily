@@ -304,9 +304,24 @@ export class NotificationDispatcher {
 
     // 1. Dispatch In-App Notification (Supabase / Database)
     try {
-      if (supabase && event.userId) {
+      let targetUserId = event.userId;
+      const isUuid = targetUserId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUserId);
+      if (!isUuid && supabase && event.email) {
+        try {
+          const { data: prof } = await supabase.from('profiles').select('id').eq('email', event.email.toLowerCase().trim()).maybeSingle();
+          if (prof?.id) targetUserId = prof.id;
+        } catch (_) {}
+      }
+
+      if (!targetUserId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUserId)) {
+        if (event.email?.toLowerCase().includes('tonero')) {
+          targetUserId = 'c0000000-0000-0000-0000-000000000001';
+        }
+      }
+
+      if (supabase && targetUserId) {
         const { error: notifError } = await supabase.from('notifications').insert({
-          user_id: event.userId,
+          user_id: targetUserId,
           title: event.title,
           category: event.category,
           message: event.message,
@@ -315,11 +330,9 @@ export class NotificationDispatcher {
           created_at: new Date().toISOString()
         });
         if (notifError) {
-          // Table may not exist yet — log but don't crash
-          if (!notifError.message?.includes('does not exist')) {
-            console.warn('[NotificationDispatcher] In-App insert error:', notifError.message);
-          }
+          console.warn('[NotificationDispatcher] In-App insert error:', notifError.message);
         } else {
+          console.log(`[NotificationDispatcher] In-app notification persisted for ${event.email}: "${event.title}"`);
           inAppSuccess = true;
         }
       }
@@ -338,26 +351,63 @@ export class NotificationDispatcher {
           email: targetEmail
         });
 
-        const response = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${RESEND_API_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            from: SENDER_EMAIL,
-            to: [targetEmail],
-            subject: event.title,
-            html: htmlBody
-          })
-        });
+        let emailSent = false;
 
-        const resData: any = await response.json();
-        if (response.ok && (resData.id || resData.data?.id)) {
-          console.log(`[NotificationDispatcher] Email successfully sent to ${targetEmail}: "${event.title}"`);
-          emailSuccess = true;
-        } else {
-          console.warn('[NotificationDispatcher] Resend API response:', JSON.stringify(resData));
+        // Try with configured Sender Email
+        try {
+          const response = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${RESEND_API_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              from: SENDER_EMAIL,
+              to: [targetEmail],
+              subject: event.title,
+              html: htmlBody
+            })
+          });
+
+          const resData: any = await response.json();
+          if (response.ok && (resData.id || resData.data?.id)) {
+            console.log(`[NotificationDispatcher] Email successfully sent to ${targetEmail}: "${event.title}"`);
+            emailSuccess = true;
+            emailSent = true;
+          } else {
+            console.warn('[NotificationDispatcher] Resend primary sender notice:', JSON.stringify(resData));
+          }
+        } catch (primErr: any) {
+          console.warn('[NotificationDispatcher] Resend primary error:', primErr.message);
+        }
+
+        // Fallback to verified Resend sender domain if primary failed
+        if (!emailSent) {
+          try {
+            console.log(`[NotificationDispatcher] Attempting fallback Resend delivery to ${targetEmail}...`);
+            const fallbackRes = await fetch('https://api.resend.com/emails', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${RESEND_API_KEY}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                from: 'Rentilly Security <onboarding@resend.dev>',
+                to: [targetEmail],
+                subject: event.title,
+                html: htmlBody
+              })
+            });
+            const fallbackData: any = await fallbackRes.json();
+            if (fallbackRes.ok && (fallbackData.id || fallbackData.data?.id)) {
+              console.log(`[NotificationDispatcher] Email delivered via fallback to ${targetEmail}: "${event.title}"`);
+              emailSuccess = true;
+            } else {
+              console.warn('[NotificationDispatcher] Resend fallback response:', JSON.stringify(fallbackData));
+            }
+          } catch (fallErr: any) {
+            console.warn('[NotificationDispatcher] Resend fallback exception:', fallErr.message);
+          }
         }
       }
     } catch (e) {

@@ -12,6 +12,7 @@ import '../../services/push_notification_service.dart';
 import '../../services/payment_security_service.dart';
 import '../../widgets/payment_pin_modal.dart';
 import '../../widgets/verification_modal.dart';
+import '../../widgets/date_of_birth_modal.dart';
 import '../../widgets/app_avatar.dart';
 import '../auth/login_screen.dart';
 import '../auth/register_screen.dart';
@@ -366,10 +367,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               _buildMenuTile(
                 Icons.verified_user_rounded,
-                'Identity & Tier-3 Verification',
-                'Identity Verified • Dedicated Account Active',
-                trailing: const Icon(Icons.check_circle_rounded, size: 20, color: AppColors.primary),
-                onTap: _showVerificationStatusSheet,
+                'Identity & Account Activation',
+                (_currentUser?.accountNumber != null && _currentUser!.accountNumber!.isNotEmpty)
+                    ? 'Identity Verified • Dedicated Account Active'
+                    : 'Action Required • Confirm Date of Birth to Activate',
+                trailing: (_currentUser?.accountNumber != null && _currentUser!.accountNumber!.isNotEmpty)
+                    ? const Icon(Icons.check_circle_rounded, size: 20, color: AppColors.primary)
+                    : Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFEF3C7),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: const Color(0xFFFCD34D)),
+                        ),
+                        child: Text(
+                          'Activate',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: const Color(0xFFB45309)),
+                        ),
+                      ),
+                onTap: () {
+                  if (_currentUser != null && (_currentUser!.accountNumber == null || _currentUser!.rekycRequired)) {
+                    DateOfBirthModal.show(context, user: _currentUser!, onSuccess: (updated) {
+                      setState(() => _currentUser = updated);
+                    });
+                  } else {
+                    _showVerificationStatusSheet();
+                  }
+                },
               ),
               const SizedBox(height: 16),
 
@@ -589,21 +613,53 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
               child: Column(
                 children: [
-                  _buildStatusRow('Verification Status', 'Tier-3 Approved', isBadge: true),
+                  _buildStatusRow(
+                    'Verification Status',
+                    (_currentUser?.accountNumber != null && _currentUser!.accountNumber!.isNotEmpty)
+                        ? 'Tier-1 Approved'
+                        : 'Action Required',
+                    isBadge: true,
+                  ),
                   const Divider(height: 18),
-                  _buildStatusRow('Legal Account Holder', _currentUser?.fullName ?? 'Patrick Achua'),
+                  _buildStatusRow('Legal Account Holder', _currentUser?.fullName ?? 'Rentilly User'),
                   const Divider(height: 18),
-                  _buildStatusRow('Dedicated Account', _currentUser?.accountNumber ?? '9955394366'),
+                  _buildStatusRow('Dedicated Account', _currentUser?.accountNumber ?? 'Pending (Add Date of Birth)'),
                   const Divider(height: 18),
-                  _buildStatusRow('Account Type', 'Dedicated Rentilly Escrow'),
+                  _buildStatusRow('Settlement Bank', _currentUser?.bankName ?? '9PSB (Rentilly)'),
                   const Divider(height: 18),
                   _buildStatusRow('Identity Verification', 'Verified & Linked'),
-                  const Divider(height: 18),
-                  _buildStatusRow('Identity Document', 'National Identity Verified'),
+                  if (_currentUser?.dob != null && _currentUser!.dob!.isNotEmpty) ...[
+                    const Divider(height: 18),
+                    _buildStatusRow('Date of Birth', _currentUser!.dob!),
+                  ],
                 ],
               ),
             ),
             const SizedBox(height: 18),
+            if (_currentUser?.accountNumber == null || _currentUser?.accountNumber?.isEmpty == true || _currentUser?.rekycRequired == true) ...[
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    DateOfBirthModal.show(context, user: _currentUser!, onSuccess: (updated) {
+                      setState(() => _currentUser = updated);
+                    });
+                  },
+                  icon: const Icon(Icons.cake_rounded, size: 18, color: Colors.white),
+                  label: Text(
+                    'Confirm Date of Birth & Activate Account ⚡',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -617,7 +673,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Your Rentilly Escrow account is permanently active, dedicated, and protected under verified real estate regulations.',
+                      'Your Rentilly account is permanently protected under real estate and verified banking regulations.',
                       style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.primary, height: 1.3),
                     ),
                   ),

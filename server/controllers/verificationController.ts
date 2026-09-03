@@ -461,6 +461,12 @@ export async function requestReKyc(req: Request, res: Response) {
               .update({ rekyc_required: true, updated_at: new Date().toISOString() })
               .eq('email', cleanEmail);
           } catch (_) {}
+          try {
+            await supabase.from('system_configs').upsert({
+              id: `rekyc_${cleanEmail}`,
+              data: { rekycRequired: true, updatedAt: new Date().toISOString() }
+            });
+          } catch (_) {}
         }
 
         NotificationDispatcher.dispatch({
@@ -549,6 +555,12 @@ export async function completeMapleradKyc(req: Request, res: Response) {
             updated_at: new Date().toISOString()
           })
           .eq('email', cleanEmail);
+      } catch (_) {}
+      try {
+        await supabase.from('system_configs').upsert({
+          id: `rekyc_${cleanEmail}`,
+          data: { rekycRequired: !accountNumber, updatedAt: new Date().toISOString() }
+        });
       } catch (_) {}
     }
 

@@ -154,35 +154,35 @@ class NotificationService {
       }
     } catch (_) {}
 
-    // 3. Fetch from Supabase Cloud notifications table
+    // 3. Fetch from Rentilly Backend notifications API
     try {
       final user = await AuthService.getCurrentUser();
-      if (user != null && user.id.isNotEmpty) {
-        final uri = Uri.parse('${AppConstants.supabaseUrl}/rest/v1/notifications?user_id=eq.${user.id}&order=created_at.desc&limit=30');
-        final response = await http.get(uri, headers: {
-          'apikey': AppConstants.supabaseAnonKey,
-          'Authorization': 'Bearer ${AppConstants.supabaseAnonKey}',
-        }).timeout(const Duration(seconds: 5));
+      if (user != null && user.email.isNotEmpty) {
+        final uri = Uri.parse('${AppConstants.apiBaseUrl}/notifications?email=${Uri.encodeComponent(user.email.trim())}&userId=${user.id}');
+        final response = await http.get(uri).timeout(const Duration(seconds: 8));
 
         if (response.statusCode == 200) {
-          final List<dynamic> sbNotifs = json.decode(response.body);
-          for (final item in sbNotifs) {
-            final rawId = item['id']?.toString() ?? '';
-            if (rawId.isEmpty) continue;
-            final notifId = 'NOTIF_SB_$rawId';
+          final data = json.decode(response.body);
+          if (data['status'] == true && data['notifications'] is List) {
+            final List<dynamic> apiNotifs = data['notifications'];
+            for (final item in apiNotifs) {
+              final rawId = item['id']?.toString() ?? '';
+              if (rawId.isEmpty) continue;
+              final notifId = 'NOTIF_API_$rawId';
 
-            final alreadyExists = list.any((n) => n.id == notifId || n.id == rawId);
-            if (!alreadyExists) {
-              final isDbRead = item['read'] == true;
-              list.add(InAppNotification(
-                id: notifId,
-                title: item['title'] ?? 'Notification',
-                message: item['message'] ?? '',
-                category: item['category'] ?? 'general',
-                timestamp: DateTime.tryParse(item['created_at'] ?? '') ?? DateTime.now(),
-                isRead: isDbRead || readSet.contains(notifId) || readSet.contains(rawId),
-                metadata: item['metadata'] != null ? Map<String, dynamic>.from(item['metadata']) : null,
-              ));
+              final alreadyExists = list.any((n) => n.id == notifId || n.id == rawId);
+              if (!alreadyExists) {
+                final isDbRead = item['read'] == true;
+                list.add(InAppNotification(
+                  id: notifId,
+                  title: item['title'] ?? 'Notification',
+                  message: item['message'] ?? '',
+                  category: item['category'] ?? 'general',
+                  timestamp: DateTime.tryParse(item['created_at'] ?? '') ?? DateTime.now(),
+                  isRead: isDbRead || readSet.contains(notifId) || readSet.contains(rawId),
+                  metadata: item['metadata'] != null ? Map<String, dynamic>.from(item['metadata']) : null,
+                ));
+              }
             }
           }
         }

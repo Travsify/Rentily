@@ -195,6 +195,7 @@ apiRouter.get('/support/tickets', supportController.listTickets);
 
 // 13. Platform Fee & Tariff Configuration
 apiRouter.get('/config/fees', feeController.getFees);
+apiRouter.get('/platform/fees', feeController.getFees);
 apiRouter.post('/config/fees', feeController.updateFees);
 
 // 13b. Dynamic Remote Feature Flags & App Rollout
@@ -251,6 +252,7 @@ apiRouter.get('/cards/transactions/:cardId', paymentController.getCardTransactio
 apiRouter.post('/notifications/dispatch', paymentController.clientDispatchNotification);
 
 // 24. Server-Encapsulated Notification Mutations
+apiRouter.get('/notifications', paymentController.getUserNotifications);
 apiRouter.post('/notifications/mark-read', paymentController.markNotificationRead);
 apiRouter.post('/notifications/mark-all-read', paymentController.markAllNotificationsRead);
 
@@ -259,4 +261,5 @@ apiRouter.post('/users/onesignal-player', paymentController.registerOneSignalPla
 
 // 26. Dedicated Security Activity Alert Dispatch
 apiRouter.post('/security/activity-alert', paymentController.clientDispatchNotification);
+
 

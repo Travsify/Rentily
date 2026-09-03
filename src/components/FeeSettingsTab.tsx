@@ -11,6 +11,7 @@ import {
 
 interface FeeConfig {
   withdrawalFee: number;
+  usdtWithdrawalFeePct: number;
   electricityFee: number;
   airtimeDataMarginPct: number;
   rentLegalFeePct: number;
@@ -26,6 +27,7 @@ interface FeeConfig {
 export const FeeSettingsTab: React.FC = () => {
   const [fees, setFees] = useState<FeeConfig>({
     withdrawalFee: 50,
+    usdtWithdrawalFeePct: 2.0,
     electricityFee: 100,
     airtimeDataMarginPct: 2.5,
     rentLegalFeePct: 10.0,
@@ -117,6 +119,23 @@ export const FeeSettingsTab: React.FC = () => {
                 className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono focus:outline-none focus:border-emerald-500"
               />
               <p className="text-[10px] text-slate-500">Charged on every bank transfer payout (industry standard ₦50).</p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-slate-300 font-semibold flex items-center justify-between">
+                <span>USDT On-Chain Withdrawal Fee (%)</span>
+                <span className="text-emerald-400 font-mono font-bold">{fees.usdtWithdrawalFeePct ?? 2.0}%</span>
+              </label>
+              <input
+                type="number"
+                step="0.1"
+                min="0"
+                max="50"
+                value={fees.usdtWithdrawalFeePct ?? 2.0}
+                onChange={(e) => setFees({ ...fees, usdtWithdrawalFeePct: Number(e.target.value) })}
+                className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white font-mono focus:outline-none focus:border-emerald-500"
+              />
+              <p className="text-[10px] text-slate-500">Percentage fee deducted on on-chain USDT (TRC20) withdrawals (default 2.0%).</p>
             </div>
 
             <div className="space-y-1.5">

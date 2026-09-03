@@ -14,6 +14,7 @@ import '../vaults/vaults_screen.dart';
 import '../../widgets/add_money_modal.dart';
 import '../../widgets/rentilly_bottom_bar.dart';
 import '../../widgets/verification_modal.dart';
+import '../../widgets/date_of_birth_modal.dart';
 import '../../widgets/withdrawal_modal.dart';
 import '../../widgets/currency_selector_widget.dart';
 import '../../widgets/virtual_card_widget.dart';
@@ -380,9 +381,15 @@ class _WalletScreenState extends State<WalletScreen> {
   void _copyAccount() {
     final acc = _user?.accountNumber;
     if (acc == null || acc.isEmpty) {
-      VerificationModal.show(context, onSuccess: (updated) {
-        setState(() => _user = updated);
-      });
+      if (_user != null && (_user!.accountNumber == null || _user!.rekycRequired)) {
+        DateOfBirthModal.show(context, user: _user!, onSuccess: (updated) {
+          setState(() => _user = updated);
+        });
+      } else {
+        VerificationModal.show(context, onSuccess: (updated) {
+          setState(() => _user = updated);
+        });
+      }
       return;
     }
     Clipboard.setData(ClipboardData(text: acc));
@@ -908,9 +915,15 @@ class _WalletScreenState extends State<WalletScreen> {
                       else
                         GestureDetector(
                           onTap: () {
-                            VerificationModal.show(context, onSuccess: (updated) {
-                              setState(() => _user = updated);
-                            });
+                            if (_user != null && (_user!.accountNumber == null || _user!.rekycRequired)) {
+                              DateOfBirthModal.show(context, user: _user!, onSuccess: (updated) {
+                                setState(() => _user = updated);
+                              });
+                            } else {
+                              VerificationModal.show(context, onSuccess: (updated) {
+                                setState(() => _user = updated);
+                              });
+                            }
                           },
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),

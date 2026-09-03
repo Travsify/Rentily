@@ -22,6 +22,8 @@ class UserProfile {
   final String? officeUtilityBillUrl;
   final String? officeBannerPhotoUrl;
   final String partnerStatus; // 'unverified', 'pending_review', 'verified'
+  final bool rekycRequired;
+  final String? dob;
 
   UserProfile({
     required this.id,
@@ -45,6 +47,8 @@ class UserProfile {
     this.officeUtilityBillUrl,
     this.officeBannerPhotoUrl,
     this.partnerStatus = 'unverified',
+    this.rekycRequired = false,
+    this.dob,
   });
 
   // Extract real first name or corporate business name
@@ -113,6 +117,8 @@ class UserProfile {
       officeUtilityBillUrl: json['officeUtilityBillUrl']?.toString() ?? json['office_utility_bill_url']?.toString(),
       officeBannerPhotoUrl: json['officeBannerPhotoUrl']?.toString() ?? json['office_banner_photo_url']?.toString(),
       partnerStatus: isCorporatePartner ? 'verified' : (json['partnerStatus']?.toString() ?? json['partner_status']?.toString() ?? 'unverified'),
+      rekycRequired: json['rekycRequired'] ?? json['rekyc_required'] ?? false,
+      dob: json['dob']?.toString(),
     );
   }
 
@@ -139,6 +145,8 @@ class UserProfile {
       'officeUtilityBillUrl': officeUtilityBillUrl,
       'officeBannerPhotoUrl': officeBannerPhotoUrl,
       'partnerStatus': partnerStatus,
+      'rekycRequired': rekycRequired,
+      'dob': dob,
     };
   }
 
@@ -164,6 +172,8 @@ class UserProfile {
     String? officeUtilityBillUrl,
     String? officeBannerPhotoUrl,
     String? partnerStatus,
+    bool? rekycRequired,
+    String? dob,
   }) {
     return UserProfile(
       id: id ?? this.id,
@@ -187,6 +197,8 @@ class UserProfile {
       officeUtilityBillUrl: officeUtilityBillUrl ?? this.officeUtilityBillUrl,
       officeBannerPhotoUrl: officeBannerPhotoUrl ?? this.officeBannerPhotoUrl,
       partnerStatus: partnerStatus ?? this.partnerStatus,
+      rekycRequired: rekycRequired ?? this.rekycRequired,
+      dob: dob ?? this.dob,
     );
   }
 }

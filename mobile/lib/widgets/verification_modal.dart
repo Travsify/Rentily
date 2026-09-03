@@ -506,7 +506,7 @@ class _VerificationModalState extends State<VerificationModal> {
                 child: Divider(height: 1, color: AppColors.borderDark),
               ),
               _buildAuditItem('DEDICATED COMMISSIONS ACCOUNT', '$acc ($bank)', Icons.account_balance_rounded),
-              if (acc.startsWith('78') || bank.contains('Fallback')) ...[
+              if (acc.isEmpty || acc == 'null' || acc.startsWith('78') || bank.contains('Processing') || bank.contains('Pending')) ...[
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
@@ -514,14 +514,14 @@ class _VerificationModalState extends State<VerificationModal> {
                     onPressed: _isSyncingNuban ? null : _syncLiveNuban,
                     icon: _isSyncingNuban
                         ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Icon(Icons.sync_rounded, size: 16, color: Colors.white),
+                        : const Icon(Icons.cake_rounded, size: 16, color: Colors.white),
                     label: Text(
-                      _isSyncingNuban ? 'Provisioning Live Flutterwave NUBAN...' : 'Sync Live NIBSS Bank Account ⚡',
+                      _isSyncingNuban ? 'Activating Dedicated Settlement Account...' : 'Confirm Date of Birth & Activate Account ⚡',
                       style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white),
                     ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF16A34A),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                     ),
                   ),
@@ -554,12 +554,25 @@ class _VerificationModalState extends State<VerificationModal> {
   }
 
   void _syncLiveNuban() async {
+    final user = _currentUser;
+    if (user == null) return;
+
+    // Show date picker if DOB is missing
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime(now.year - 25, 1, 1),
+      firstDate: DateTime(now.year - 100),
+      lastDate: DateTime(now.year - 18, now.month, now.day),
+    );
+
+    if (picked == null) return;
+
+    final formattedDob = '${picked.day.toString().padLeft(2, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.year}';
+
     setState(() => _isSyncingNuban = true);
     try {
-      final user = _currentUser;
-      if (user == null) return;
-
-      final url = Uri.parse('${AppConstants.apiBaseUrl}/verification/sync-nuban');
+      final url = Uri.parse('${AppConstants.apiBaseUrl}/verification/complete-maplerad-kyc');
       final res = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
@@ -568,16 +581,18 @@ class _VerificationModalState extends State<VerificationModal> {
           'email': user.email,
           'fullName': user.fullName,
           'businessName': user.businessName,
-          'role': user.role,
           'phoneNumber': user.phoneNumber,
+          'dob': formattedDob,
         }),
-      ).timeout(const Duration(seconds: 20));
+      ).timeout(const Duration(seconds: 30));
 
       final data = json.decode(res.body);
       if (res.statusCode == 200 && data['status'] == true && data['accountNumber'] != null) {
         final updatedUser = user.copyWith(
           accountNumber: data['accountNumber'],
-          bankName: data['bankName'] ?? 'Flutterwave MFB',
+          bankName: data['bankName'] ?? '9PSB (Rentilly)',
+          dob: formattedDob,
+          rekycRequired: false,
         );
         await AuthService.updateUser(updatedUser);
         widget.onSuccess(updatedUser);
@@ -589,7 +604,7 @@ class _VerificationModalState extends State<VerificationModal> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'Live Flutterwave NUBAN active: ${data['accountNumber']} (${data['bankName']}) 🎉',
+                'Dedicated Rentilly Account Active: ${data['accountNumber']} (${data['bankName'] ?? '9PSB'}) 🎉',
                 style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold),
               ),
               backgroundColor: const Color(0xFF16A34A),
@@ -604,8 +619,8 @@ class _VerificationModalState extends State<VerificationModal> {
         setState(() => _isSyncingNuban = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Sync error: $e', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
-            backgroundColor: Colors.red,
+            content: Text('Activation notice: $e', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
+            backgroundColor: AppColors.primary,
           ),
         );
       }

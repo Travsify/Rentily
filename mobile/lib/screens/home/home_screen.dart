@@ -17,6 +17,7 @@ import '../main_navigation_screen.dart';
 import '../../services/notification_service.dart';
 import '../../widgets/add_money_modal.dart';
 import '../../widgets/verification_modal.dart';
+import '../../widgets/date_of_birth_modal.dart';
 import '../../widgets/biometric_prompt_modal.dart';
 import '../../widgets/withdrawal_modal.dart';
 import '../../widgets/daily_quotes_card.dart';
@@ -229,10 +230,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                 if (_user?.isVerified == true && _user?.accountNumber != null) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text('Your dedicated Rentilly Escrow bank account is active and verified.', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
+                                      content: Text('Your dedicated Rentilly bank account is active and verified.', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
                                       backgroundColor: AppColors.primary,
                                     ),
                                   );
+                                } else if (_user != null && (_user!.accountNumber == null || _user!.rekycRequired)) {
+                                  DateOfBirthModal.show(context, user: _user!, onSuccess: (updated) {
+                                    setState(() => _user = updated);
+                                  });
                                 } else {
                                   VerificationModal.show(context, onSuccess: (updated) {
                                     setState(() => _user = updated);
@@ -532,9 +537,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       else
                         GestureDetector(
                           onTap: () {
-                            VerificationModal.show(context, onSuccess: (updated) {
-                              setState(() => _user = updated);
-                            });
+                            if (_user != null && (_user!.accountNumber == null || _user!.rekycRequired)) {
+                              DateOfBirthModal.show(context, user: _user!, onSuccess: (updated) {
+                                setState(() => _user = updated);
+                              });
+                            } else {
+                              VerificationModal.show(context, onSuccess: (updated) {
+                                setState(() => _user = updated);
+                              });
+                            }
                           },
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -1054,18 +1065,35 @@ class _HomeScreenState extends State<HomeScreen> {
               // 5. Verification Notice
               GestureDetector(
                 onTap: () {
-                  if (_user?.isVerified != true) {
+                  if (_user != null && (_user!.accountNumber == null || _user!.rekycRequired)) {
+                    DateOfBirthModal.show(context, user: _user!, onSuccess: (updated) {
+                      setState(() => _user = updated);
+                    });
+                  } else if (_user?.isVerified != true) {
                     VerificationModal.show(context, onSuccess: (updated) {
                       setState(() => _user = updated);
                     });
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Your dedicated Rentilly 9PSB account is active (${_user!.accountNumber}).', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
+                        backgroundColor: AppColors.primary,
+                      ),
+                    );
                   }
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: (_user != null && (_user!.accountNumber == null || _user!.rekycRequired))
+                        ? const Color(0xFFFEF3C7)
+                        : Colors.white,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.borderDark),
+                    border: Border.all(
+                      color: (_user != null && (_user!.accountNumber == null || _user!.rekycRequired))
+                          ? const Color(0xFFFCD34D)
+                          : AppColors.borderDark,
+                    ),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.02),
@@ -1078,10 +1106,20 @@ class _HomeScreenState extends State<HomeScreen> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.08),
+                          color: (_user != null && (_user!.accountNumber == null || _user!.rekycRequired))
+                              ? const Color(0xFFF59E0B).withValues(alpha: 0.15)
+                              : AppColors.primary.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Icon(Icons.verified_user_rounded, size: 18, color: AppColors.primary),
+                        child: Icon(
+                          (_user != null && (_user!.accountNumber == null || _user!.rekycRequired))
+                              ? Icons.cake_rounded
+                              : Icons.verified_user_rounded,
+                          size: 18,
+                          color: (_user != null && (_user!.accountNumber == null || _user!.rekycRequired))
+                              ? const Color(0xFFB45309)
+                              : AppColors.primary,
+                        ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -1089,26 +1127,41 @@ class _HomeScreenState extends State<HomeScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              _user?.isVerified == true ? 'Tier-3 Identity & Bank Verification' : 'Tier 1 Account (Unverified)',
+                              (_user != null && (_user!.accountNumber == null || _user!.rekycRequired))
+                                  ? 'Action Required: Confirm Date of Birth'
+                                  : (_user?.isVerified == true ? 'Tier-1 Identity & Bank Verification' : 'Tier 1 Account (Unverified)'),
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
-                                color: AppColors.textPrimary,
+                                color: (_user != null && (_user!.accountNumber == null || _user!.rekycRequired))
+                                    ? const Color(0xFF92400E)
+                                    : AppColors.textPrimary,
                               ),
                             ),
                             Text(
-                              _user?.isVerified == true
-                                  ? 'Full banking and direct lease execution enabled.'
-                                  : 'Tap to complete NIN / BVN check & unlock bank account.',
+                              (_user != null && (_user!.accountNumber == null || _user!.rekycRequired))
+                                  ? 'Tap to confirm your Date of Birth & activate dedicated account.'
+                                  : (_user?.isVerified == true
+                                      ? 'Full banking and direct lease execution enabled.'
+                                      : 'Tap to complete NIN / BVN check & unlock bank account.'),
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 10,
-                                color: AppColors.textSecondary,
+                                color: (_user != null && (_user!.accountNumber == null || _user!.rekycRequired))
+                                    ? const Color(0xFFB45309)
+                                    : AppColors.textSecondary,
                               ),
                             ),
                           ],
                         ),
                       ),
-                      const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.textMuted),
+                      if (_user != null && (_user!.accountNumber == null || _user!.rekycRequired))
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                          decoration: BoxDecoration(color: const Color(0xFFF59E0B), borderRadius: BorderRadius.circular(6)),
+                          child: Text('Activate', style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white)),
+                        )
+                      else
+                        const Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.textMuted),
                     ],
                   ),
                 ),
