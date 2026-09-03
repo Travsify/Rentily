@@ -174,8 +174,9 @@ class _CardsScreenState extends State<CardsScreen> {
     final card = _currentCard;
     if (card == null || _user == null) return;
 
-    final amountController = TextEditingController();
-    double fundAmountUsd = 0.0;
+    final amountController = TextEditingController(text: '5.00');
+    double fundAmountUsd = 5.0;
+    String selectedSource = 'NGN'; // 'NGN' or 'USDT'
 
     showModalBottomSheet(
       context: context,
@@ -184,6 +185,12 @@ class _CardsScreenState extends State<CardsScreen> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setModalState) {
           final requiredNgn = fundAmountUsd * _fxUsdToNgn;
+          final userBalNgn = _user?.walletBalance ?? 0.0;
+          final userBalUsdt = _user?.usdtBalance ?? 0.0;
+          final hasEnoughBal = selectedSource == 'USDT'
+              ? (userBalUsdt >= fundAmountUsd)
+              : (userBalNgn >= requiredNgn);
+          final isValidAmount = fundAmountUsd >= 1.0;
 
           return Container(
             padding: EdgeInsets.only(
@@ -193,7 +200,7 @@ class _CardsScreenState extends State<CardsScreen> {
               bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
             ),
             decoration: const BoxDecoration(
-              color: AppColors.surfaceDark,
+              color: Colors.white,
               borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
             ),
             child: Column(
@@ -205,7 +212,7 @@ class _CardsScreenState extends State<CardsScreen> {
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: Colors.white24,
+                      color: const Color(0xFFE5E7EB),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -216,10 +223,10 @@ class _CardsScreenState extends State<CardsScreen> {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.15),
+                        color: const Color(0xFF0D5C46).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.add_card_rounded, color: AppColors.primary, size: 22),
+                      child: const Icon(Icons.add_card_rounded, color: Color(0xFF0D5C46), size: 22),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -231,11 +238,11 @@ class _CardsScreenState extends State<CardsScreen> {
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 17,
                               fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                              color: AppColors.textPrimary,
                             ),
                           ),
                           Text(
-                            'Fund your USD Visa from your wallet',
+                            'Min. \$1.00 USD • Fund via Naira or USDT',
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 11.5,
                               color: AppColors.textSecondary,
@@ -246,17 +253,90 @@ class _CardsScreenState extends State<CardsScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 18),
+
+                // Payment Source Selector (Naira vs USDT)
+                Text(
+                  'Select Funding Source',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setModalState(() => selectedSource = 'NGN'),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: selectedSource == 'NGN' ? const Color(0xFF0D5C46).withValues(alpha: 0.1) : const Color(0xFFF9FAFB),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: selectedSource == 'NGN' ? const Color(0xFF0D5C46) : const Color(0xFFE5E7EB),
+                              width: selectedSource == 'NGN' ? 1.5 : 1,
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Text('🇳🇬', style: TextStyle(fontSize: 14)),
+                                  const SizedBox(width: 6),
+                                  Text('Naira Wallet', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text('Bal: ₦${_currencyFormat.format(userBalNgn)}', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () => setModalState(() => selectedSource = 'USDT'),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: selectedSource == 'USDT' ? const Color(0xFF10B981).withValues(alpha: 0.1) : const Color(0xFFF9FAFB),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: selectedSource == 'USDT' ? const Color(0xFF10B981) : const Color(0xFFE5E7EB),
+                              width: selectedSource == 'USDT' ? 1.5 : 1,
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Text('🪙', style: TextStyle(fontSize: 14)),
+                                  const SizedBox(width: 6),
+                                  Text('USDT Balance', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text('Bal: \$${userBalUsdt.toStringAsFixed(2)} USDT', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
 
                 Text(
-                  'Amount in USD (\$)',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white70),
+                  'Amount in USD (Min \$1.00)',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                 ),
                 const SizedBox(height: 8),
                 TextField(
                   controller: amountController,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+                  style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                   onChanged: (val) {
                     setModalState(() {
                       fundAmountUsd = double.tryParse(val) ?? 0.0;
@@ -265,38 +345,42 @@ class _CardsScreenState extends State<CardsScreen> {
                   decoration: InputDecoration(
                     prefixIcon: const Padding(
                       padding: EdgeInsets.only(left: 16, right: 8, top: 12),
-                      child: Text('\$', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                      child: Text('\$', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Color(0xFF0D5C46))),
                     ),
                     filled: true,
-                    fillColor: AppColors.backgroundDark,
-                    hintText: '0.00',
-                    hintStyle: const TextStyle(color: Colors.white30),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                    fillColor: const Color(0xFFF9FAFB),
+                    hintText: '5.00',
+                    hintStyle: const TextStyle(color: Colors.black26),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFF0D5C46), width: 1.5)),
                   ),
                 ),
                 const SizedBox(height: 14),
 
-                // Live Exchange Rate Conversion Pill
+                // Live Summary Pill
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
-                    color: AppColors.backgroundDark,
+                    color: const Color(0xFFF9FAFB),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white10),
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Total Debit (NGN):',
+                        selectedSource == 'USDT' ? 'Debit from USDT Balance:' : 'Debit from Naira Wallet:',
                         style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary),
                       ),
                       Text(
-                        '≈ ₦${_currencyFormat.format(requiredNgn)}',
+                        selectedSource == 'USDT'
+                            ? '\$${fundAmountUsd.toStringAsFixed(2)} USDT'
+                            : '≈ ₦${_currencyFormat.format(requiredNgn)}',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 13,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.primary,
+                          color: const Color(0xFF0D5C46),
                         ),
                       ),
                     ],
@@ -307,38 +391,45 @@ class _CardsScreenState extends State<CardsScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: fundAmountUsd <= 0
+                    onPressed: (!isValidAmount || !hasEnoughBal)
                         ? null
                         : () async {
                             Navigator.pop(ctx);
                             setState(() => _isLoading = true);
 
                             final cardId = card['id'] ?? card['cardId'];
-                            final success = await ApiService.fundVirtualCard(_user!.email, cardId, fundAmountUsd);
+                            final res = await ApiService.fundVirtualCard(
+                              email: _user!.email,
+                              cardId: cardId,
+                              amount: fundAmountUsd,
+                              paymentSource: selectedSource,
+                            );
 
                             if (mounted) {
-                              setState(() {
-                                if (success) {
-                                  card['balance'] = ((card['balance'] as num?)?.toDouble() ?? 0.0) + fundAmountUsd;
-                                }
-                                _isLoading = false;
-                              });
-
+                              await _loadData();
+                              final isSuccess = res['success'] == true;
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text(success ? '✅ Card funded successfully with \$${fundAmountUsd.toStringAsFixed(2)} USD!' : 'Failed to fund card. Please check your balance.'),
-                                  backgroundColor: success ? AppColors.primary : Colors.red,
+                                  content: Text(isSuccess
+                                      ? '✅ Card funded with \$${fundAmountUsd.toStringAsFixed(2)} USD from your $selectedSource!'
+                                      : (res['message'] ?? 'Failed to fund card. Check balance.')),
+                                  backgroundColor: isSuccess ? const Color(0xFF0D5C46) : Colors.red,
                                 ),
                               );
                             }
                           },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
+                      backgroundColor: const Color(0xFF0D5C46),
+                      disabledBackgroundColor: Colors.grey.shade300,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     ),
                     child: Text(
-                      'Fund \$${fundAmountUsd.toStringAsFixed(2)} USD Now',
+                      !isValidAmount
+                          ? 'Min. Amount is \$1.00 USD'
+                          : (!hasEnoughBal
+                              ? 'Insufficient $selectedSource Balance'
+                              : 'Fund \$${fundAmountUsd.toStringAsFixed(2)} USD from $selectedSource'),
                       style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
                     ),
                   ),
@@ -886,236 +977,300 @@ class _CardsScreenState extends State<CardsScreen> {
     );
   }
 
-  // --- 6. ISSUE NEW VIRTUAL CARD MODAL (BRANDED IN RENTILLY COLORS) ---
+  // --- 6. ISSUE NEW VIRTUAL CARD MODAL (MANDATORY $1 FUNDING & DUAL SOURCE) ---
   void _showIssueCardModal() {
     if (_user == null) return;
 
-    double feeInSelectedCurr = _cardIssuanceFeeUsd * _fxUsdToNgn;
-    String feeFormatted = '₦${_currencyFormat.format(feeInSelectedCurr)} NGN';
+    final initialFundingController = TextEditingController(text: '1.00');
+    double initialFundingUsd = 1.0;
+    String selectedSource = 'NGN'; // 'NGN' or 'USDT'
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
-        padding: EdgeInsets.only(
-          left: 20,
-          right: 20,
-          top: 20,
-          bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-        ),
-        decoration: const BoxDecoration(
-          color: AppColors.surfaceDark,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) {
+          final totalUsd = _cardIssuanceFeeUsd + initialFundingUsd;
+          final totalNgn = totalUsd * _fxUsdToNgn;
+          final userBalNgn = _user?.walletBalance ?? 0.0;
+          final userBalUsdt = _user?.usdtBalance ?? 0.0;
+          final hasEnoughBal = selectedSource == 'USDT'
+              ? (userBalUsdt >= totalUsd)
+              : (userBalNgn >= totalNgn);
+          final isValidInitial = initialFundingUsd >= 1.0;
 
-              // Title Header
-              Row(
+          return Container(
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 20,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+            ),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(Icons.credit_card_rounded, color: AppColors.primary, size: 24),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Issue Virtual USD Visa',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        Text(
-                          'International payments with Delaware USA billing',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE5E7EB),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 20),
+                  const SizedBox(height: 18),
 
-              // ─── VISUAL CARD MOCKUP PREVIEW ───
-              Container(
-                height: 180,
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(20),
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF064E3B), Color(0xFF0F172A), Color(0xFF022C22)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.35), width: 1.5),
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.primary.withValues(alpha: 0.15),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
+                  // Title Header
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0D5C46).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.credit_card_rounded, color: Color(0xFF0D5C46), size: 24),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.credit_card_rounded, color: Colors.white, size: 18),
-                            const SizedBox(width: 8),
                             Text(
-                              'Rentilly USD Card',
+                              'Issue Virtual USD Visa',
                               style: GoogleFonts.plusJakartaSans(
-                                fontSize: 13,
+                                fontSize: 18,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            Text(
+                              'Universal Acceptance with San Francisco USA billing',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
                               ),
                             ),
                           ],
                         ),
-                        const Icon(Icons.contactless_rounded, color: Colors.white70, size: 20),
-                      ],
-                    ),
-                    Text(
-                      '4829 •••• •••• ••••',
-                      style: GoogleFonts.sourceCodePro(
-                        fontSize: 17,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 2.5,
-                        color: Colors.white,
                       ),
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('CARDHOLDER', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, color: Colors.white60, letterSpacing: 1.0)),
-                            Text(_user!.fullName.toUpperCase(), style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
-                          ],
-                        ),
-                        Text(
-                          'VISA',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w900,
-                            fontStyle: FontStyle.italic,
-                            color: Colors.white,
-                            letterSpacing: 1.5,
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+
+                  // Payment Source Toggle
+                  Text(
+                    'Select Payment Source',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setModalState(() => selectedSource = 'NGN'),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: selectedSource == 'NGN' ? const Color(0xFF0D5C46).withValues(alpha: 0.1) : const Color(0xFFF9FAFB),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: selectedSource == 'NGN' ? const Color(0xFF0D5C46) : const Color(0xFFE5E7EB),
+                                width: selectedSource == 'NGN' ? 1.5 : 1,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Text('🇳🇬', style: TextStyle(fontSize: 14)),
+                                    const SizedBox(width: 6),
+                                    Text('Naira Wallet', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text('Bal: ₦${_currencyFormat.format(userBalNgn)}', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+                              ],
+                            ),
                           ),
                         ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setModalState(() => selectedSource = 'USDT'),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: selectedSource == 'USDT' ? const Color(0xFF10B981).withValues(alpha: 0.1) : const Color(0xFFF9FAFB),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: selectedSource == 'USDT' ? const Color(0xFF10B981) : const Color(0xFFE5E7EB),
+                                width: selectedSource == 'USDT' ? 1.5 : 1,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Text('🪙', style: TextStyle(fontSize: 14)),
+                                    const SizedBox(width: 6),
+                                    Text('USDT Balance', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text('Bal: \$${userBalUsdt.toStringAsFixed(2)} USDT', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Initial Card Funding Field
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Initial Card Funding (Min \$1.00 USD)',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                      ),
+                      Text(
+                        'Loaded to Card',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF10B981)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: initialFundingController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    style: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                    onChanged: (val) {
+                      setModalState(() {
+                        initialFundingUsd = double.tryParse(val) ?? 0.0;
+                      });
+                    },
+                    decoration: InputDecoration(
+                      prefixIcon: const Padding(
+                        padding: EdgeInsets.only(left: 14, right: 8, top: 12),
+                        child: Text('\$', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Color(0xFF0D5C46))),
+                      ),
+                      filled: true,
+                      fillColor: const Color(0xFFF9FAFB),
+                      hintText: '1.00',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFF0D5C46), width: 1.5)),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Pricing Breakdown Card
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF9FAFB),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                    ),
+                    child: Column(
+                      children: [
+                        _buildSpecRow('Card Network', 'VISA Virtual Debit'),
+                        const Divider(color: Color(0xFFE5E7EB), height: 16),
+                        _buildSpecRow('Billing Address', '1 Sansome St, San Francisco, CA'),
+                        const Divider(color: Color(0xFFE5E7EB), height: 16),
+                        _buildSpecRow('Card Issuance Fee', '\$${_cardIssuanceFeeUsd.toStringAsFixed(2)} USD'),
+                        const Divider(color: Color(0xFFE5E7EB), height: 16),
+                        _buildSpecRow('Initial Card Balance', '\$${initialFundingUsd.toStringAsFixed(2)} USD'),
+                        const Divider(color: Color(0xFFE5E7EB), height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Total Debit ($selectedSource):',
+                              style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                            ),
+                            Text(
+                              selectedSource == 'USDT'
+                                  ? '\$${totalUsd.toStringAsFixed(2)} USDT'
+                                  : '≈ ₦${_currencyFormat.format(totalNgn)}',
+                              style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w900, color: const Color(0xFF0D5C46)),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // ─── KEY FEATURES LIST ───
-              _buildBenefitBullet('Universal Acceptance: OpenAI, Netflix, Apple, AWS, Google, Spotify'),
-              const SizedBox(height: 8),
-              _buildBenefitBullet('Real Delaware, USA Billing Address included with every card'),
-              const SizedBox(height: 8),
-              _buildBenefitBullet('Instant top-up and liquidation directly to your Nigerian Naira wallet'),
-              const SizedBox(height: 20),
-
-              // ─── PRICING BREAKDOWN ───
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppColors.backgroundDark,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.white12),
-                ),
-                child: Column(
-                  children: [
-                    _buildSpecRow('Card Network', 'VISA Virtual Debit'),
-                    const Divider(color: Colors.white10, height: 16),
-                    _buildSpecRow('Card Currency', 'USD (\$)'),
-                    const Divider(color: Colors.white10, height: 16),
-                    _buildSpecRow('Billing Address', '651 N Broad St, Middletown, Delaware'),
-                    const Divider(color: Colors.white10, height: 16),
-                    _buildSpecRow('Issuance Fee', '\$${_cardIssuanceFeeUsd.toStringAsFixed(2)} USD ($feeFormatted)'),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 22),
-
-              // Issue Card CTA Button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () async {
-                    Navigator.pop(ctx);
-                    setState(() => _isLoading = true);
-
-                    final success = await ApiService.issueVirtualCard(
-                      email: _user!.email,
-                      cardholderName: _user!.fullName,
-                      currency: 'USD',
-                      brand: 'VISA',
-                      initialFunding: 0.0,
-                    );
-
-                    if (mounted) {
-                      await _loadData();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(success ? '🎉 Virtual USD Visa card issued successfully!' : 'Failed to issue card. Please try again.'),
-                          backgroundColor: success ? AppColors.primary : Colors.red,
-                        ),
-                      );
-                    }
-                  },
-                  icon: const Icon(Icons.flash_on_rounded, color: Colors.white, size: 20),
-                  label: Text(
-                    'Pay $feeFormatted & Issue Card',
-                    style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
                   ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    elevation: 4,
+                  const SizedBox(height: 20),
+
+                  // Issue Card CTA Button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: (!isValidInitial || !hasEnoughBal)
+                          ? null
+                          : () async {
+                              Navigator.pop(ctx);
+                              setState(() => _isLoading = true);
+
+                              final res = await ApiService.issueVirtualCard(
+                                email: _user!.email,
+                                cardholderName: _user!.fullName,
+                                currency: 'USD',
+                                brand: 'VISA',
+                                initialFunding: initialFundingUsd,
+                                paymentSource: selectedSource,
+                              );
+
+                              if (mounted) {
+                                await _loadData();
+                                final isSuccess = res['success'] == true;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(isSuccess
+                                        ? '🎉 Virtual USD Visa card issued with \$${initialFundingUsd.toStringAsFixed(2)} initial balance!'
+                                        : (res['message'] ?? 'Failed to issue card. Please check balance.')),
+                                    backgroundColor: isSuccess ? const Color(0xFF0D5C46) : Colors.red,
+                                  ),
+                                );
+                              }
+                            },
+                      icon: const Icon(Icons.flash_on_rounded, color: Colors.white, size: 20),
+                      label: Text(
+                        !isValidInitial
+                            ? 'Min. Initial Funding is \$1.00 USD'
+                            : (!hasEnoughBal
+                                ? 'Insufficient $selectedSource Balance'
+                                : 'Pay ${selectedSource == 'USDT' ? '\$${totalUsd.toStringAsFixed(2)} USDT' : '₦${_currencyFormat.format(totalNgn)}'} & Issue Card'),
+                        style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0D5C46),
+                        disabledBackgroundColor: Colors.grey.shade300,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        elevation: 0,
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -1129,7 +1284,7 @@ class _CardsScreenState extends State<CardsScreen> {
         Expanded(
           child: Text(
             text,
-            style: GoogleFonts.plusJakartaSans(fontSize: 12, color: Colors.white70, height: 1.3),
+            style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary, height: 1.3),
           ),
         ),
       ],
@@ -1141,7 +1296,7 @@ class _CardsScreenState extends State<CardsScreen> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary)),
-        Text(value, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white)),
+        Text(value, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
       ],
     );
   }

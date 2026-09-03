@@ -429,18 +429,18 @@ class ApiService {
     return [];
   }
 
-  /// Issue a new virtual card directly to Supabase
-  static Future<bool> issueVirtualCard({
+  /// Issue a new virtual card directly via backend with mandatory $1 initial funding & dual currency support
+  static Future<Map<String, dynamic>> issueVirtualCard({
     required String email,
     required String cardholderName,
     String currency = 'USD',
     String brand = 'VISA',
-    double initialFunding = 0.0,
+    required double initialFunding,
+    String paymentSource = 'NGN',
   }) async {
     final cleanEmail = email.trim().toLowerCase();
     final cleanName = cardholderName.trim().toUpperCase();
 
-    // 1. Render Core Backend API (Executes Wallet Balance Debit, Transaction Logging & Email/Push)
     try {
       final res = await http.post(
         Uri.parse('$baseUrl/cards/create'),
@@ -451,60 +451,46 @@ class ApiService {
           'currency': currency,
           'brand': brand,
           'initialFunding': initialFunding,
+          'paymentSource': paymentSource,
         }),
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(const Duration(seconds: 25));
 
-      if (res.statusCode == 200 || res.statusCode == 201) {
-        final data = json.decode(res.body);
-        if (data['status'] == true) return true;
+      final data = json.decode(res.body);
+      if ((res.statusCode == 200 || res.statusCode == 201) && data['status'] == true) {
+        return {'success': true, 'data': data['data'], 'message': data['message']};
       }
-    } catch (_) {}
-
-    return false;
+      return {'success': false, 'message': data['error'] ?? data['message'] ?? 'Card creation failed'};
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
   }
 
-  /// Fund virtual card directly in Supabase
-  static Future<bool> fundVirtualCard(String email, String cardId, double amount) async {
-    // 1. Direct Supabase Cloud REST
-    try {
-      // Fetch current balance
-      final sbGet = await http.get(
-        Uri.parse('${AppConstants.supabaseUrl}/rest/v1/virtual_cards?or=(id.eq.$cardId,card_id.eq.$cardId)&select=balance'),
-        headers: {
-          'apikey': AppConstants.supabaseAnonKey,
-          'Authorization': 'Bearer ${AppConstants.supabaseAnonKey}',
-        },
-      ).timeout(const Duration(seconds: 4));
-
-      if (sbGet.statusCode == 200) {
-        final List<dynamic> list = json.decode(sbGet.body);
-        if (list.isNotEmpty) {
-          final current = (list[0]['balance'] as num?)?.toDouble() ?? 0.0;
-          final newBal = current + amount;
-          await http.patch(
-            Uri.parse('${AppConstants.supabaseUrl}/rest/v1/virtual_cards?or=(id.eq.$cardId,card_id.eq.$cardId)'),
-            headers: {
-              'Content-Type': 'application/json',
-              'apikey': AppConstants.supabaseAnonKey,
-              'Authorization': 'Bearer ${AppConstants.supabaseAnonKey}',
-            },
-            body: json.encode({'balance': newBal, 'updated_at': DateTime.now().toIso8601String()}),
-          );
-          return true;
-        }
-      }
-    } catch (_) {}
-
-    // 2. Render Core API Fallback
+  /// Fund virtual card directly through backend issuing engine with Naira or USDT
+  static Future<Map<String, dynamic>> fundVirtualCard({
+    required String email,
+    required String cardId,
+    required double amount,
+    String paymentSource = 'NGN',
+  }) async {
     try {
       final res = await http.post(
         Uri.parse('$baseUrl/cards/fund'),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode({'email': email, 'cardId': cardId, 'amount': amount}),
-      ).timeout(const Duration(seconds: 10));
-      return res.statusCode == 200;
-    } catch (_) {
-      return false;
+        body: json.encode({
+          'email': email.trim().toLowerCase(),
+          'cardId': cardId,
+          'amount': amount,
+          'paymentSource': paymentSource,
+        }),
+      ).timeout(const Duration(seconds: 20));
+
+      final data = json.decode(res.body);
+      if (res.statusCode == 200 && data['status'] == true) {
+        return {'success': true, 'newBalance': data['newBalance'], 'message': data['message']};
+      }
+      return {'success': false, 'message': data['error'] ?? data['message'] ?? 'Top-up failed'};
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
     }
   }
 

@@ -1716,7 +1716,12 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                         currency: 'USD',
                         brand: 'VISA',
                         isFrozen: _cardData!['isFrozen'] == true,
-                        onFundCard: () {},
+                        onFundCard: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const CardsScreen()),
+                          ).then((_) => _syncLiveBalance());
+                        },
                         onToggleFreeze: () {
                           setState(() {
                             _cardData!['isFrozen'] = !(_cardData!['isFrozen'] == true);

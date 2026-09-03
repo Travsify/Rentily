@@ -1943,23 +1943,73 @@ export async function getUserCards(req: Request, res: Response) {
 
 export async function issueVirtualCard(req: Request, res: Response) {
   try {
-    const { email, cardholderName, currency, brand, initialFunding } = req.body;
+    const { email, cardholderName, currency, brand, initialFunding, paymentSource } = req.body;
     const cleanEmail = (email || 'tonerocool1@gmail.com').toString().trim().toLowerCase();
     const user = await UserStore.findByEmail(cleanEmail);
     const name = cardholderName || user?.fullName || user?.businessName || 'Valued Partner';
 
-    // 1. Calculate issuance fee in NGN
+    // 1. Mandatory Minimum $1.00 USD initial funding
+    const initialUsd = Number(initialFunding || 0);
+    if (isNaN(initialUsd) || initialUsd < 1.00) {
+      return res.status(400).json({
+        error: 'A minimum initial card funding of $1.00 USD is mandatory to create a virtual card.'
+      });
+    }
+
     const rates = typeof MultiCurrencyService.getFxRates === 'function'
       ? MultiCurrencyService.getFxRates()
-      : (typeof (MultiCurrencyService as any).getRates === 'function' ? (MultiCurrencyService as any).getRates() : { USD_NGN: 1510.0 });
-    const fxRate = rates.USD_NGN || 1510.0;
+      : { USD_NGN: 1420.0 };
+    const fxRate = rates.USD_NGN || 1420.0;
     const pricing = typeof CardIssuingService.getCardPricing === 'function' ? CardIssuingService.getCardPricing() : { issuanceFeeUsd: 3.00 };
     const issuanceFeeUsd = pricing.issuanceFeeUsd || 3.00;
-    const initialUsd = Number(initialFunding || 0);
-    const totalDebitUsd = issuanceFeeUsd + initialUsd;
+    
+    // Total debit in USD = $3.00 fee + initial funding ($1.00 min)
+    const totalDebitUsd = Number((issuanceFeeUsd + initialUsd).toFixed(2));
     const totalDebitNgn = Number((totalDebitUsd * fxRate).toFixed(2));
+    const source = (paymentSource || 'NGN').toString().toUpperCase(); // 'NGN' or 'USDT'
 
-    // 2. Issue the virtual card in Supabase
+    // Verify balances based on chosen source
+    let resolvedUserId = user?.id;
+    let currentBalNgn = 0;
+    let currentBalUsdt = 0;
+
+    if (supabase) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, wallet_balance, full_name')
+        .eq('email', cleanEmail)
+        .single();
+      if (profile) {
+        resolvedUserId = profile.id;
+        currentBalNgn = Number(profile.wallet_balance || 0);
+      }
+      const { data: usdtCfg } = await supabase
+        .from('system_configs')
+        .select('data')
+        .eq('id', `usdt_balance_${cleanEmail}`)
+        .single();
+      if (usdtCfg?.data?.usdtBalance != null) {
+        currentBalUsdt = Number(usdtCfg.data.usdtBalance);
+      }
+    }
+    if (!currentBalUsdt && user?.usdtBalance != null) currentBalUsdt = Number(user.usdtBalance);
+    if (!currentBalNgn && user?.walletBalance != null) currentBalNgn = Number(user.walletBalance);
+
+    if (source === 'USDT') {
+      if (currentBalUsdt < totalDebitUsd) {
+        return res.status(400).json({
+          error: `Insufficient USDT balance. Total required is $${totalDebitUsd.toFixed(2)} USDT ($${issuanceFeeUsd.toFixed(2)} issuance fee + $${initialUsd.toFixed(2)} initial balance), but your balance is $${currentBalUsdt.toFixed(2)} USDT.`
+        });
+      }
+    } else {
+      if (currentBalNgn < totalDebitNgn) {
+        return res.status(400).json({
+          error: `Insufficient Naira balance. Total required is ₦${totalDebitNgn.toLocaleString()} ($${totalDebitUsd.toFixed(2)} USD), but your balance is ₦${currentBalNgn.toLocaleString()}.`
+        });
+      }
+    }
+
+    // 2. Issue the virtual card via Maplerad
     const card = await CardIssuingService.issueCard({
       email: cleanEmail,
       cardholderName: name,
@@ -1969,61 +2019,50 @@ export async function issueVirtualCard(req: Request, res: Response) {
     });
 
     // 3. Debit individual user balance in Supabase & record in ledger
-    let resolvedUserId = user?.id;
-    if (supabase) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('id, wallet_balance, full_name')
-        .eq('email', cleanEmail)
-        .single();
-
-      if (profile) {
-        resolvedUserId = profile.id;
-        const currentBal = Number(profile.wallet_balance || 0);
-        const newBal = Math.max(0, currentBal - totalDebitNgn);
-
-        await supabase
-          .from('profiles')
-          .update({ wallet_balance: newBal, updated_at: new Date().toISOString() })
-          .eq('email', cleanEmail);
-
-        // Record debit transaction in Supabase
-        const txRef = `RENTILLY_CARD_ISSUE_${Date.now()}`;
-        await supabase
-          .from('transactions')
-          .insert({
-            user_id: profile.id,
-            email: cleanEmail,
-            amount: totalDebitNgn,
-            type: 'debit',
-            status: 'completed',
-            reference: txRef,
-            title: `Virtual Dollar Card Issuance Fee ($${issuanceFeeUsd.toFixed(2)} USD)`,
-            created_at: new Date().toISOString()
-          });
-
-        await TransactionStore.addTransaction({
-          id: `TX_${Date.now()}`,
-          userId: profile.id,
+    const txRef = `RENTILLY_CARD_ISSUE_${Date.now()}`;
+    if (source === 'USDT') {
+      const newUsdtBal = Number(Math.max(0, currentBalUsdt - totalDebitUsd).toFixed(2));
+      if (user) {
+        user.usdtBalance = newUsdtBal;
+        UserStore.upsertUserForced(user);
+      }
+      if (supabase) {
+        await supabase.from('system_configs').upsert({
+          id: `usdt_balance_${cleanEmail}`,
+          data: { usdtBalance: newUsdtBal, email: cleanEmail, updatedAt: new Date().toISOString() }
+        });
+        await supabase.from('wallet_transactions').insert({
+          user_id: resolvedUserId,
           email: cleanEmail,
-          title: `Virtual Dollar Card Issuance Fee ($${issuanceFeeUsd.toFixed(2)} USD)`,
-          type: 'Virtual Card Issuance',
-          category: 'debit',
-          amount: totalDebitNgn,
-          isCredit: false,
-          reference: txRef,
-          sender: `${name} (Rentilly Wallet)`,
-          beneficiary: 'Rentilly Virtual Card Issuance System',
-          status: 'SUCCESSFUL',
-          date: new Date().toISOString()
+          amount: totalDebitUsd,
+          type: 'debit',
+          status: 'completed',
+          flw_ref: txRef,
+          tx_ref: txRef,
+          narration: `Virtual USD Card Issuance & Initial Funding ($${totalDebitUsd.toFixed(2)} USDT)`,
+          created_at: new Date().toISOString()
         });
       }
-    }
-
-    if (user) {
-      const memBal = Number(user.walletBalance || 0);
-      user.walletBalance = Math.max(0, memBal - totalDebitNgn);
-      UserStore.upsertUserForced(user);
+    } else {
+      const newNgnBal = Math.max(0, currentBalNgn - totalDebitNgn);
+      if (user) {
+        user.walletBalance = newNgnBal;
+        UserStore.upsertUserForced(user);
+      }
+      if (supabase) {
+        await supabase.from('profiles').update({ wallet_balance: newNgnBal, updated_at: new Date().toISOString() }).eq('email', cleanEmail);
+        await supabase.from('wallet_transactions').insert({
+          user_id: resolvedUserId,
+          email: cleanEmail,
+          amount: totalDebitNgn,
+          type: 'debit',
+          status: 'completed',
+          flw_ref: txRef,
+          tx_ref: txRef,
+          narration: `Virtual USD Card Issuance & Initial Funding ($${totalDebitUsd.toFixed(2)} USD)`,
+          created_at: new Date().toISOString()
+        });
+      }
     }
 
     // 4. Dispatch Realtime Push & Branded HTML Email
@@ -2033,22 +2072,23 @@ export async function issueVirtualCard(req: Request, res: Response) {
       userName: name,
       category: 'wallet',
       title: `Virtual USD Visa Card Issued! 💳`,
-      message: `Your new virtual card ending in ${card.maskedPan.slice(-4)} is active. Issuance fee of $${issuanceFeeUsd.toFixed(2)} USD (₦${totalDebitNgn.toLocaleString()}) was debited from your wallet balance.`,
+      message: `Your new virtual card ending in ${card.maskedPan.slice(-4)} is active with $${initialUsd.toFixed(2)} initial balance. Total debit of ${source === 'USDT' ? `$${totalDebitUsd.toFixed(2)} USDT` : `₦${totalDebitNgn.toLocaleString()}`} was processed from your ${source} balance.`,
       metadata: {
         cardId: card.id,
         maskedPan: card.maskedPan,
         currency: card.currency,
         brand: card.brand,
-        amount: totalDebitNgn,
-        reference: `CARD_ISSUE_${card.id}`
+        amount: source === 'USDT' ? totalDebitUsd : totalDebitNgn,
+        reference: txRef
       }
     });
 
     res.json({
       status: true,
-      message: `Virtual ${card.currency} card issued successfully! ₦${totalDebitNgn.toLocaleString()} debited from wallet.`,
+      message: `Virtual USD Visa card issued successfully with $${initialUsd.toFixed(2)} initial balance! Debited from ${source}.`,
       data: card,
-      debitedAmount: totalDebitNgn,
+      debitedAmount: source === 'USDT' ? totalDebitUsd : totalDebitNgn,
+      paymentSource: source
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -2057,80 +2097,104 @@ export async function issueVirtualCard(req: Request, res: Response) {
 
 export async function fundVirtualCard(req: Request, res: Response) {
   try {
-    const { cardId, amount, email } = req.body;
-    if (!cardId || !amount || Number(amount) <= 0) {
-      return res.status(400).json({ error: 'Valid cardId and amount are required' });
+    const { cardId, amount, email, paymentSource } = req.body;
+    const amountUsd = Number(amount || 0);
+    if (!cardId || isNaN(amountUsd) || amountUsd < 1.00) {
+      return res.status(400).json({ error: 'Valid cardId and minimum funding amount of $1.00 USD are required.' });
     }
 
     const cleanEmail = (email || 'tonerocool1@gmail.com').toString().trim().toLowerCase();
-    const fxRate = MultiCurrencyService.getFxRates().USD_NGN || 1510.0;
-    const debitAmountNgn = Number((Number(amount) * fxRate).toFixed(2));
+    const source = (paymentSource || 'NGN').toString().toUpperCase(); // 'NGN' or 'USDT'
+    const fxRate = MultiCurrencyService.getFxRates().USD_NGN || 1420.0;
+    const debitAmountNgn = Number((amountUsd * fxRate).toFixed(2));
 
-    // 1. Fund the virtual card
-    const result = await CardIssuingService.fundCard(cardId, Number(amount));
+    const user = await UserStore.findByEmail(cleanEmail);
+    const name = user?.fullName || user?.businessName || 'Valued Partner';
+
+    // Verify user balance before calling Maplerad
+    let resolvedUserId = user?.id;
+    let currentBalNgn = 0;
+    let currentBalUsdt = 0;
+
+    if (supabase) {
+      const { data: profile } = await supabase.from('profiles').select('id, wallet_balance').eq('email', cleanEmail).single();
+      if (profile) {
+        resolvedUserId = profile.id;
+        currentBalNgn = Number(profile.wallet_balance || 0);
+      }
+      const { data: usdtCfg } = await supabase.from('system_configs').select('data').eq('id', `usdt_balance_${cleanEmail}`).single();
+      if (usdtCfg?.data?.usdtBalance != null) {
+        currentBalUsdt = Number(usdtCfg.data.usdtBalance);
+      }
+    }
+    if (!currentBalUsdt && user?.usdtBalance != null) currentBalUsdt = Number(user.usdtBalance);
+    if (!currentBalNgn && user?.walletBalance != null) currentBalNgn = Number(user.walletBalance);
+
+    if (source === 'USDT') {
+      if (currentBalUsdt < amountUsd) {
+        return res.status(400).json({
+          error: `Insufficient USDT balance. Funding $${amountUsd.toFixed(2)} USD requires $${amountUsd.toFixed(2)} USDT, but your balance is $${currentBalUsdt.toFixed(2)} USDT.`
+        });
+      }
+    } else {
+      if (currentBalNgn < debitAmountNgn) {
+        return res.status(400).json({
+          error: `Insufficient Naira balance. Funding $${amountUsd.toFixed(2)} USD requires ₦${debitAmountNgn.toLocaleString()}, but your balance is ₦${currentBalNgn.toLocaleString()}.`
+        });
+      }
+    }
+
+    // 1. Fund the virtual card on Maplerad & Supabase
+    const result = await CardIssuingService.fundCard(cardId, amountUsd);
     if (!result.success) {
       return res.status(400).json({ error: result.message });
     }
 
-    // 2. Debit user's Naira wallet & insert into ledger
-    const user = await UserStore.findByEmail(cleanEmail);
-    const name = user?.fullName || user?.businessName || 'Valued Partner';
-
-    if (supabase) {
-      try {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('id, wallet_balance, full_name')
-          .eq('email', cleanEmail)
-          .single();
-
-        if (profile) {
-          const currentBal = Number(profile.wallet_balance || 0);
-          const newBal = Math.max(0, currentBal - debitAmountNgn);
-
-          await supabase
-            .from('profiles')
-            .update({ wallet_balance: newBal, updated_at: new Date().toISOString() })
-            .eq('email', cleanEmail);
-
-          const txRef = `CARD_FUND_${Date.now()}`;
-          await supabase
-            .from('transactions')
-            .insert({
-              user_id: profile.id,
-              email: cleanEmail,
-              amount: debitAmountNgn,
-              type: 'debit',
-              status: 'completed',
-              reference: txRef,
-              title: `Virtual Dollar Card Top-Up ($${Number(amount).toFixed(2)} USD)`,
-              created_at: new Date().toISOString()
-            });
-
-          await TransactionStore.addTransaction({
-            id: `TX_${Date.now()}`,
-            userId: profile.id,
-            email: cleanEmail,
-            title: `Virtual Dollar Card Top-Up ($${Number(amount).toFixed(2)} USD)`,
-            type: 'Virtual Card Funding',
-            category: 'debit',
-            amount: debitAmountNgn,
-            isCredit: false,
-            reference: txRef,
-            sender: `${name} (Rentilly Wallet)`,
-            beneficiary: 'Rentilly Virtual Card Top-Up System',
-            status: 'SUCCESSFUL',
-            date: new Date().toISOString()
-          });
-        }
-      } catch (err: any) {
-        console.warn('[PaymentController] Ledger recording notice on card fund:', err.message);
+    // 2. Debit user's chosen balance (USDT or NGN) & insert into ledger
+    const txRef = `CARD_FUND_${Date.now()}`;
+    if (source === 'USDT') {
+      const newUsdtBal = Number(Math.max(0, currentBalUsdt - amountUsd).toFixed(2));
+      if (user) {
+        user.usdtBalance = newUsdtBal;
+        UserStore.upsertUserForced(user);
       }
-    }
-
-    if (user) {
-      const memBal = Number(user.walletBalance || 0);
-      user.walletBalance = Math.max(0, memBal - debitAmountNgn);
+      if (supabase) {
+        await supabase.from('system_configs').upsert({
+          id: `usdt_balance_${cleanEmail}`,
+          data: { usdtBalance: newUsdtBal, email: cleanEmail, updatedAt: new Date().toISOString() }
+        });
+        await supabase.from('wallet_transactions').insert({
+          user_id: resolvedUserId,
+          email: cleanEmail,
+          amount: amountUsd,
+          type: 'debit',
+          status: 'completed',
+          flw_ref: txRef,
+          tx_ref: txRef,
+          narration: `Virtual Dollar Card Top-Up ($${amountUsd.toFixed(2)} USDT)`,
+          created_at: new Date().toISOString()
+        });
+      }
+    } else {
+      const newNgnBal = Math.max(0, currentBalNgn - debitAmountNgn);
+      if (user) {
+        user.walletBalance = newNgnBal;
+        UserStore.upsertUserForced(user);
+      }
+      if (supabase) {
+        await supabase.from('profiles').update({ wallet_balance: newNgnBal, updated_at: new Date().toISOString() }).eq('email', cleanEmail);
+        await supabase.from('wallet_transactions').insert({
+          user_id: resolvedUserId,
+          email: cleanEmail,
+          amount: debitAmountNgn,
+          type: 'debit',
+          status: 'completed',
+          flw_ref: txRef,
+          tx_ref: txRef,
+          narration: `Virtual Dollar Card Top-Up ($${amountUsd.toFixed(2)} USD)`,
+          created_at: new Date().toISOString()
+        });
+      }
     }
 
     // 3. Dispatch Email & Push Notification
@@ -2138,16 +2202,17 @@ export async function fundVirtualCard(req: Request, res: Response) {
       email: cleanEmail,
       userName: name,
       category: 'wallet',
-      title: `Virtual Dollar Card Top-Up ($${Number(amount).toFixed(2)} USD)`,
-      message: `Successfully funded $${Number(amount).toFixed(2)} USD onto your virtual card. ₦${debitAmountNgn.toLocaleString()} was debited from your wallet. New card balance: $${result.newBalance.toFixed(2)} USD.`,
-      metadata: { cardId, amountUsd: Number(amount), amountNgn: debitAmountNgn, newBalance: result.newBalance }
+      title: `Virtual Dollar Card Top-Up ($${amountUsd.toFixed(2)} USD)`,
+      message: `Successfully funded $${amountUsd.toFixed(2)} USD onto your virtual card. Debited from your ${source} balance. New card balance: $${result.newBalance.toFixed(2)} USD.`,
+      metadata: { cardId, amountUsd, paymentSource: source, newBalance: result.newBalance }
     });
 
     res.json({
       status: true,
       message: result.message,
       newBalance: result.newBalance,
-      debitedAmountNgn: debitAmountNgn
+      debitedAmount: source === 'USDT' ? amountUsd : debitAmountNgn,
+      paymentSource: source
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

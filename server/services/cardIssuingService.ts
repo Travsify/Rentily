@@ -461,6 +461,31 @@ export class CardIssuingService {
       }
     }
 
+    // Invoke Maplerad Live Funding API if valid Maplerad issuing card
+    const targetCardId = data?.card_id || cardId;
+    if (process.env.MAPLERAD_SECRET_KEY && targetCardId) {
+      try {
+        console.log(`[CardIssuingService] Calling Maplerad fund API for card ${targetCardId} with $${amount}...`);
+        const mprRes = await fetch(`https://api.maplerad.com/v1/issuing/${targetCardId}/fund`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${process.env.MAPLERAD_SECRET_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            amount: Math.round(amount * 100) // in cents
+          })
+        });
+        const mprData = await mprRes.json().catch(() => ({}));
+        console.log('[CardIssuingService] Maplerad card fund status:', mprRes.status, mprData);
+        if (mprData?.data?.balance != null) {
+          currentBalance = Number(mprData.data.balance) / 100;
+        }
+      } catch (err: any) {
+        console.warn('[CardIssuingService] Maplerad card fund error:', err.message);
+      }
+    }
+
     const newBalance = Number((currentBalance + amount).toFixed(2));
 
     // Update in Supabase
