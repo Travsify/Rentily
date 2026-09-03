@@ -115,52 +115,78 @@ class _AddMoneyModalState extends State<AddMoneyModal> {
     );
   }
 
-  void _processDirectFunding() async {
-    final rawAmount = _amountController.text.replaceAll(',', '').trim();
-    final amount = double.tryParse(rawAmount);
-
-    if (amount == null || amount < 100) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Please enter a minimum funding amount of ₦100', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
-          backgroundColor: Colors.red,
-        ),
-      );
-      return;
-    }
-
+  void _checkForInboundTransfer() async {
     setState(() => _isProcessing = true);
-    await Future.delayed(const Duration(milliseconds: 900));
 
-    final newBalance = widget.user.walletBalance + amount;
-    final updatedUser = widget.user.copyWith(walletBalance: newBalance);
-    await AuthService.updateUser(updatedUser);
+    try {
+      final cleanEmail = widget.user.email.toLowerCase().trim();
+      final url = Uri.parse('${AppConstants.apiBaseUrl}/wallet/balance?email=$cleanEmail');
+      final res = await http.get(url).timeout(const Duration(seconds: 12));
 
-    if (widget.onAccountUpdated != null) {
-      widget.onAccountUpdated!(updatedUser);
-    }
+      if (res.statusCode == 200) {
+        final data = json.decode(res.body);
+        if (data['status'] == true && data['walletBalance'] != null) {
+          final double serverBalance = (data['walletBalance'] as num).toDouble();
+
+          if (serverBalance > widget.user.walletBalance) {
+            final difference = serverBalance - widget.user.walletBalance;
+            final updatedUser = widget.user.copyWith(walletBalance: serverBalance);
+            await AuthService.updateUser(updatedUser);
+
+            if (widget.onAccountUpdated != null) {
+              widget.onAccountUpdated!(updatedUser);
+            }
+
+            if (mounted) {
+              setState(() => _isProcessing = false);
+              Navigator.of(context).pop();
+
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Row(
+                    children: [
+                      const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Transfer confirmed! +₦${difference.toStringAsFixed(2)} credited to your wallet.',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                      ),
+                    ],
+                  ),
+                  backgroundColor: const Color(0xFF16A34A),
+                  behavior: SnackBarBehavior.floating,
+                  duration: const Duration(seconds: 4),
+                ),
+              );
+            }
+            return;
+          }
+        }
+      }
+    } catch (_) {}
 
     if (mounted) {
       setState(() => _isProcessing = false);
-      Navigator.of(context).pop();
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
             children: [
-              const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20),
+              const Icon(Icons.schedule_rounded, color: Colors.white, size: 20),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Wallet successfully funded with ₦${amount.toStringAsFixed(2)}! 🚀',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                  'No new inbound transfer detected yet. Bank transfers usually reflect within 10-60 seconds. Your wallet will update automatically once received.',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white),
                 ),
               ),
             ],
           ),
-          backgroundColor: const Color(0xFF16A34A),
+          backgroundColor: const Color(0xFF0F172A),
           behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 4),
+          duration: const Duration(seconds: 5),
         ),
       );
     }
@@ -341,10 +367,12 @@ class _AddMoneyModalState extends State<AddMoneyModal> {
                   width: double.infinity,
                   height: 46,
                   child: OutlinedButton.icon(
-                    onPressed: _isProcessing ? null : _processDirectFunding,
-                    icon: const Icon(Icons.check_circle_outline_rounded, size: 18, color: Color(0xFF16A34A)),
+                    onPressed: _isProcessing ? null : _checkForInboundTransfer,
+                    icon: _isProcessing
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF16A34A)))
+                        : const Icon(Icons.sync_rounded, size: 18, color: Color(0xFF16A34A)),
                     label: Text(
-                      'I Have Transferred (Confirm Credit)',
+                      _isProcessing ? 'Verifying with Central Switch...' : 'I Have Sent The Transfer (Check Inflow)',
                       style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF16A34A)),
                     ),
                     style: OutlinedButton.styleFrom(

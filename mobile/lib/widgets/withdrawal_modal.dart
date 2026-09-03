@@ -40,6 +40,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
   String _selectedBankCode = '058'; // Default GTBank
   String _selectedBankName = 'Guaranty Trust Bank';
   String? _resolvedAccountName;
+  String? _accountResolutionError;
   bool _isResolving = false;
   bool _isProcessing = false;
   bool _isLoadingBanks = false;
@@ -224,11 +225,18 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
 
   void _resolveAccount() async {
     final accNum = _accountController.text.trim();
-    if (accNum.length != 10) return;
+    if (accNum.length != 10) {
+      setState(() {
+        _resolvedAccountName = null;
+        _accountResolutionError = null;
+      });
+      return;
+    }
 
     setState(() {
       _isResolving = true;
       _resolvedAccountName = null;
+      _accountResolutionError = null;
       _errorMessage = null;
     });
 
@@ -239,20 +247,30 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
 
       if (res.statusCode == 200 && data['status'] == true && data['data'] != null) {
         final resolved = data['data']['accountName'] ?? data['data']['account_name'];
-        if (resolved != null && resolved.toString().isNotEmpty) {
+        if (resolved != null && resolved.toString().trim().isNotEmpty) {
           setState(() {
-            _resolvedAccountName = resolved.toString();
+            _resolvedAccountName = resolved.toString().trim();
+            _accountResolutionError = null;
             _isResolving = false;
           });
           return;
         }
       }
-    } catch (_) {}
 
-    setState(() {
-      _resolvedAccountName = widget.user.fullName;
-      _isResolving = false;
-    });
+      // Explicit verification failure: NEVER fallback to user's own name
+      final serverMsg = data['message'] ?? 'Could not resolve account details. Please check the account number and bank.';
+      setState(() {
+        _resolvedAccountName = null;
+        _accountResolutionError = serverMsg.toString();
+        _isResolving = false;
+      });
+    } catch (_) {
+      setState(() {
+        _resolvedAccountName = null;
+        _accountResolutionError = 'Unable to verify account with bank. Please verify account number and selected bank.';
+        _isResolving = false;
+      });
+    }
   }
 
   void _executeWithdrawal() async {
@@ -278,12 +296,25 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
       return;
     }
 
+    if (_isResolving) {
+      setState(() => _errorMessage = 'Please wait for account verification to complete.');
+      return;
+    }
+
+    // STRICT FINTECH CHECK: Must have an authentic verified recipient name from bank
+    if (_resolvedAccountName == null || _resolvedAccountName!.trim().isEmpty) {
+      setState(() => _errorMessage = 'Cannot proceed: Recipient account is unverified or invalid. Please check account details.');
+      return;
+    }
+
+    final confirmedRecipient = _resolvedAccountName!.trim();
+
     // Dual Security: Biometric (FaceID / Fingerprint) OR 6-Digit Payment Code
     final authorized = await PaymentSecurityService.authorizeTransaction(
       context,
       title: 'Withdrawal to $_selectedBankName ($accNum)',
       amount: amount,
-      recipient: _resolvedAccountName ?? currentUser.fullName,
+      recipient: confirmedRecipient,
     );
     if (!authorized) {
       setState(() => _errorMessage = 'Payment authorization cancelled or incorrect.');
@@ -305,7 +336,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
           'email': currentUser.email,
           'accountNumber': accNum,
           'bankCode': _selectedBankCode,
-          'accountName': _resolvedAccountName ?? currentUser.fullName,
+          'accountName': confirmedRecipient,
           'amount': amount,
           'reason': 'Rentilly Payout'
         }),
@@ -316,14 +347,14 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
       setState(() => _isProcessing = false);
 
       if (res.statusCode == 200 && data['status'] == true) {
-        final newBal = (currentBal - amount).clamp(0.0, double.infinity);
-        final updatedUser = currentUser.copyWith(walletBalance: newBal);
-        await AuthService.updateUser(updatedUser);
-        widget.onWithdrawalSuccess(newBal);
+        final serverNewBal = (data['newBalance'] != null)
+            ? (data['newBalance'] as num).toDouble()
+            : (currentBal - amount).clamp(0.0, double.infinity);
+        widget.onWithdrawalSuccess(serverNewBal);
 
         NotificationService.addNotification(
           title: 'Bank Withdrawal Dispatched 💳',
-          message: 'Payout of ₦${NumberFormat('#,###.00').format(amount)} to $_selectedBankName ($accNum - ${_resolvedAccountName ?? widget.user.fullName}) was processed.',
+          message: 'Payout of ₦${NumberFormat('#,###.00').format(amount)} to $_selectedBankName ($accNum - $confirmedRecipient) was processed.',
           category: 'transaction',
           metadata: {
             'amount': '₦${NumberFormat('#,###.00').format(amount)}',

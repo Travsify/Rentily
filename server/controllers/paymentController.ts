@@ -132,18 +132,20 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
       const newBal = Math.max(0, currentBal - totalDebit);
       const txRef = transferRes.data?.reference || `WD_${Date.now()}`;
 
-      // Record primary withdrawal in TransactionStore
+      const targetUserId = userId || memUser?.id || (cleanEmail === 'tonerocool1@gmail.com' ? 'c0000000-0000-0000-0000-000000000001' : 'b0000000-0000-0000-0000-000000000001');
+
+      // Record single consolidated withdrawal in TransactionStore (amount + fee unified)
       await TransactionStore.addTransaction({
         id: `TX_WD_${Date.now()}`,
-        userId: userId || memUser?.id || (cleanEmail === 'tonerocool1@gmail.com' ? 'c0000000-0000-0000-0000-000000000001' : 'b0000000-0000-0000-0000-000000000001'),
+        userId: targetUserId,
         email: cleanEmail,
         title: `Bank Transfer Payout to ${accountName || 'Bank Account'}`,
         type: 'Instant Direct Bank Payout',
         category: 'withdrawal',
-        amount: numAmount,
+        amount: totalDebit,
         isCredit: false,
         reference: txRef,
-        sender: `${memUser?.businessName || memUser?.fullName || 'Rentilly Partner'} (Rentilly Payout)`,
+        sender: `${memUser?.businessName || memUser?.fullName || 'Rentilly User'} (Rentilly Payout)`,
         beneficiary: accountName || 'Bank Account',
         recipientAccount: accountNumber.toString(),
         recipientBank: 'Direct Bank Transfer',
@@ -151,26 +153,7 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
         date: new Date().toISOString(),
       });
 
-      // Record platform fee transaction in TransactionStore if applicable
-      if (withdrawalFee > 0) {
-        await TransactionStore.addTransaction({
-          id: `TX_FEE_${Date.now()}`,
-          userId: userId || memUser?.id || (cleanEmail === 'tonerocool1@gmail.com' ? 'c0000000-0000-0000-0000-000000000001' : 'b0000000-0000-0000-0000-000000000001'),
-          email: cleanEmail,
-          title: `Bank Transfer Processing Fee (₦${withdrawalFee})`,
-          type: 'fee',
-          category: 'withdrawal',
-          amount: withdrawalFee,
-          isCredit: false,
-          reference: `FEE_${txRef}`,
-          sender: `${memUser?.businessName || memUser?.fullName || 'Rentilly Partner'} (Rentilly Payout)`,
-          beneficiary: 'Rentilly Platform Revenue',
-          status: 'SUCCESSFUL',
-          date: new Date().toISOString(),
-        });
-      }
-
-      // Update UserStore and Supabase
+      // Update in-memory user cache
       if (memUser) {
         UserStore.upsertUser({
           ...memUser,
@@ -178,10 +161,29 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
           updatedAt: new Date().toISOString()
         });
       }
+
+      // Authoritative Supabase Cloud profiles & ledger updates
       if (supabase) {
         try {
-          await supabase.from('users').update({ wallet_balance: newBal }).eq('email', cleanEmail);
-        } catch (_) {}
+          await supabase
+            .from('profiles')
+            .update({ wallet_balance: newBal, updated_at: new Date().toISOString() })
+            .eq('id', targetUserId);
+
+          await supabase.from('wallet_transactions').insert({
+            user_id: targetUserId,
+            email: cleanEmail,
+            amount: totalDebit,
+            type: 'debit',
+            status: 'completed',
+            flw_ref: txRef,
+            tx_ref: txRef,
+            narration: `Payout to ${accountName || 'Bank Account'} (${accountNumber}) • Incl. ₦${withdrawalFee} Fee`,
+            created_at: new Date().toISOString()
+          });
+        } catch (e: any) {
+          console.warn('[Withdrawal] Supabase profiles update warning:', e?.message);
+        }
       }
 
       // Dispatch In-App Alert & Resend HTML Email
