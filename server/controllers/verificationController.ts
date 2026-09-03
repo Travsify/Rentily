@@ -102,11 +102,15 @@ export async function verifyAndProvision(req: Request, res: Response) {
     const currentBalance = existing?.walletBalance ?? 0;
     const currentUsdtBalance = existing?.usdtBalance ?? 0;
 
-    // Step 2: Provision Dedicated Maplerad NGN Virtual Account & USDT TRC20 Wallet
+    // Step 2: Multi-Rail Account Provisioning:
+    // - For KYB / Partners: Issue NGN Corporate Account via Flutterwave in the Registered Business Name
+    // - For KYC / Individuals: Issue NGN Account via Maplerad Tier 1 (9PSB)
+    // - For ALL users: Enroll Director on Maplerad for dedicated USDT TRON Wallet & Virtual Dollar Card
     let accountNumber = '';
-    let bankName = '9PSB (Rentilly)';
+    let bankName = 'Flutterwave MFB (Rentilly)';
     let usdtTronAddress = '';
 
+    // A. Ensure Maplerad Tier 1 enrollment for Crypto & Virtual Dollar Card access
     console.log(`[verifyAndProvision] Calling Maplerad Tier 1 Provisioning for ${cleanEmail}...`);
     const mapleRes = await MapleradBankingService.enrollAndProvisionTier1({
       email: cleanEmail,
@@ -117,16 +121,39 @@ export async function verifyAndProvision(req: Request, res: Response) {
       dob: dob
     });
 
-    if (mapleRes.accountNumber) {
+    if (mapleRes.usdtAddress) {
+      usdtTronAddress = mapleRes.usdtAddress;
+    }
+
+    // B. If KYB / Partner: Provision dedicated Corporate Virtual Account in Business Name via Flutterwave
+    if (isPartner && partnerBizName.length > 0) {
+      console.log(`[verifyAndProvision] 🏢 Provisioning Corporate Account via Flutterwave for ${partnerBizName}...`);
+      try {
+        const flwRes = await FlutterwaveService.createPermanentUserVirtualAccount({
+          userId: existing?.id || req.body.userId || `usr_${Date.now()}`,
+          email: cleanEmail,
+          fullName: cleanName,
+          businessName: partnerBizName,
+          role: 'partner',
+          bvn: bvnToUse,
+          phoneNumber: phoneNumber || existing?.phoneNumber
+        });
+
+        if (flwRes.status && flwRes.data?.accountNumber) {
+          accountNumber = flwRes.data.accountNumber;
+          bankName = `${flwRes.data.bankName || 'Flutterwave MFB'} (Rentilly)`;
+          console.log(`[verifyAndProvision] ✅ Corporate Account provisioned in Business Name via Flutterwave: ${accountNumber} (${bankName}) for ${partnerBizName}`);
+        }
+      } catch (flwErr: any) {
+        console.warn('[verifyAndProvision] Flutterwave corporate account warning:', flwErr.message);
+      }
+    }
+
+    // C. Fallback to Maplerad account if corporate rail did not return, or if user is individual KYC
+    if (!accountNumber && mapleRes.accountNumber) {
       accountNumber = mapleRes.accountNumber;
       bankName = mapleRes.bankName || '9PSB (Rentilly)';
       console.log(`[verifyAndProvision] ✅ Maplerad Account provisioned: ${accountNumber} (${bankName}) for ${cleanEmail}`);
-    } else {
-      console.warn(`[verifyAndProvision] ⚠️ Maplerad did not return account number for ${cleanEmail}. Errors:`, mapleRes.errors);
-    }
-
-    if (mapleRes.usdtAddress) {
-      usdtTronAddress = mapleRes.usdtAddress;
     }
 
     const isProcessing = !accountNumber || accountNumber.length === 0;

@@ -1,5 +1,33 @@
 [
   {
+    "id": "bf5642c9-d735-424d-9067-8f0ab32bbd22",
+    "userId": "c0000000-0000-0000-0000-000000000001",
+    "email": "tonerocool1@gmail.com",
+    "title": "Virtual Dollar Card Issuance Fee ($3.00 USD)",
+    "type": "rent",
+    "category": "deposit",
+    "amount": 4314,
+    "isCredit": false,
+    "reference": "RENTILLY_CARD_ISSUE_1788433537071",
+    "status": "SUCCESSFUL",
+    "escrowStatus": "held_in_escrow",
+    "date": "2026-09-03T11:05:37.158+00:00"
+  },
+  {
+    "id": "ea94de99-bf6f-468b-b3b2-6f6ed1c4971f",
+    "userId": "c0000000-0000-0000-0000-000000000001",
+    "email": "tonerocool1@gmail.com",
+    "title": "Direct Inbound Transfer — ₦10,000",
+    "type": "rent",
+    "category": "deposit",
+    "amount": 10000,
+    "isCredit": true,
+    "reference": "100004260903110141170171521274",
+    "status": "SUCCESSFUL",
+    "escrowStatus": "released_to_owner",
+    "date": "2026-09-03T11:01:41+00:00"
+  },
+  {
     "id": "5963a29c-898e-4e90-807a-f8c2b76cca69",
     "userId": "a197e323-d8b1-4d54-800a-65c4f16299c0",
     "email": "pickpadigroup@gmail.com",

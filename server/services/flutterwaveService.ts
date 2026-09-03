@@ -117,9 +117,15 @@ export class FlutterwaveService {
 
     if (isPartner) {
       const bizName = (params.businessName || params.fullName).trim();
-      firstName = bizName;
-      lastName = 'Rentilly Partner';
-      narration = `Rentilly Partner - ${bizName}`;
+      const parts = bizName.split(' ');
+      if (parts.length > 1) {
+        firstName = parts.slice(0, -1).join(' ');
+        lastName = parts[parts.length - 1];
+      } else {
+        firstName = bizName;
+        lastName = 'Limited';
+      }
+      narration = `Rentilly - ${bizName}`;
     } else {
       const resolvedName = params.fullName.trim();
       const nameParts = resolvedName.split(' ');
