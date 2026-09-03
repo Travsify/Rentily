@@ -4,7 +4,7 @@ const DEFAULT_RESEND_KEY = ['re_', 'TDzSXw', 'pG_EiKY', 'cSEVf46', 'LAbtYv5', 'j
 const RESEND_API_KEY = process.env.RESEND_API_KEY || DEFAULT_RESEND_KEY;
 const SENDER_EMAIL = (process.env.RESEND_FROM_EMAIL && process.env.RESEND_FROM_EMAIL.includes('myrentilly.com'))
   ? process.env.RESEND_FROM_EMAIL
-  : 'Rentilly Security <info@myrentilly.com>';
+  : 'Rentilly <info@myrentilly.com>';
 
 export type NotificationCategory = 'security' | 'wallet' | 'escrow' | 'inspection' | 'property' | 'utilities' | 'system';
 
@@ -418,7 +418,7 @@ export class NotificationDispatcher {
                 'Content-Type': 'application/json'
               },
               body: JSON.stringify({
-                from: 'Rentilly Security <onboarding@resend.dev>',
+                from: 'Rentilly <onboarding@resend.dev>',
                 to: [targetEmail],
                 subject: event.title,
                 html: htmlBody
