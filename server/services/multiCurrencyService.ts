@@ -180,4 +180,8 @@ export class MultiCurrencyService {
 
     return [];
   }
+
+  static async getUserAccounts(email: string, fullName?: string): Promise<VirtualBankAccount[]> {
+    return this.getUserMultiCurrencyAccounts(email, fullName || 'Valued User');
+  }
 }

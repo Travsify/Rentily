@@ -121,17 +121,31 @@
     "isVerified": true,
     "ninNumber": "96434424445",
     "bvnVerified": true,
-    "accountNumber": "6195771529",
-    "bankName": "9PSB (Rentilly)",
+    "accountNumber": "9128932373",
+    "bankName": "Flutterwave MFB (Rentilly)",
     "state": "Oyo",
     "walletBalance": 8256,
     "businessName": "Ehomes Global Inclusive Limited",
     "cacNumber": "9063796",
     "partnerStatus": "verified",
     "createdAt": "2026-09-02T07:50:58.103846+00:00",
-    "updatedAt": "2026-09-03T20:07:42.791+00:00",
-    "passwordHash": "daf0e831a31884c472837cdfeef2132be3e7f2561b52611043e8f82280803552",
-    "rekycRequired": false,
-    "kycFailureReason": null
+    "updatedAt": "2026-09-03T20:25:08.374+00:00",
+    "passwordHash": "daf0e831a31884c472837cdfeef2132be3e7f2561b52611043e8f82280803552"
+  },
+  {
+    "id": "1ed19f63-8dba-4b04-bfbe-16d6ff9a59fd",
+    "email": "admin@rentilly.com",
+    "fullName": "admin",
+    "phoneNumber": "",
+    "passwordHash": "61ee9832f4ba2d6919996edb79512ef01aad18f9ff80c4d7273f73c8d2e19112",
+    "role": "renter",
+    "isVerified": false,
+    "state": "Lagos",
+    "walletBalance": 0,
+    "businessName": null,
+    "cacNumber": null,
+    "officeAddress": null,
+    "createdAt": "2026-09-03T20:29:48.499Z",
+    "updatedAt": "2026-09-03T20:29:48.504Z"
   }
 ]

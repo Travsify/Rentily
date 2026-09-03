@@ -330,97 +330,17 @@ export class CardIssuingService {
             cvv: m.cvv || '123',
             provider: 'MAPLERAD'
           };
+        } else {
+          throw new Error(mapleradRes.error || 'Maplerad issuing rail rejected card request. Ensure issuing balance is funded.');
         }
       } catch (err: any) {
-        console.warn('[CardIssuingService] Maplerad card issuance error:', err.message);
+        console.error('[CardIssuingService] Maplerad card issuance error:', err.message);
+        throw err;
       }
 
-    // ─── 2. LIVE BRIDGECARD API INTEGRATION (FALLBACK) ───
-    const bridgeAppId = process.env.BRIDGECARD_ISSUING_APP_ID;
-    const bridgeToken = process.env.BRIDGECARD_ACCESS_TOKEN;
-
-    if (!liveCardData && bridgeToken && bridgeAppId) {
-      try {
-        console.log(`[Bridgecard] Attempting live card issuance for ${cleanEmail} (${cleanName})...`);
-        
-        // Try Production first, then Sandbox fallback
-        const baseUrls = [
-          'https://issuecards.api.bridgecard.co/v1/issuing',
-          'https://issuecards.api.bridgecard.co/v1/issuing/sandbox'
-        ];
-
-        for (const baseUrl of baseUrls) {
-          try {
-            const chRes = await fetch(`${baseUrl}/cardholder/register_cardholder_synchronously`, {
-              method: 'POST',
-              headers: {
-                'token': `Bearer ${bridgeToken}`,
-                'issue_app_id': bridgeAppId,
-                'issuing_app_id': bridgeAppId,
-                'Content-Type': 'application/json'
-              },
-              signal: AbortSignal.timeout(3500),
-              body: JSON.stringify({
-                first_name: cleanName.split(' ')[0] || 'Rentilly',
-                last_name: cleanName.split(' ').slice(1).join(' ') || 'User',
-                email_address: cleanEmail,
-                phone_number: '+2348000000000',
-                address: {
-                  address: this.DEFAULT_BILLING_ADDRESS.street,
-                  city: this.DEFAULT_BILLING_ADDRESS.city,
-                  state: this.DEFAULT_BILLING_ADDRESS.state,
-                  country: 'USA',
-                  postal_code: this.DEFAULT_BILLING_ADDRESS.postalCode
-                },
-                identity: {
-                  id_type: 'PASSPORT',
-                  id_no: 'A' + Math.floor(10000000 + Math.random() * 90000000)
-                }
-              })
-            });
-
-            const chJson: any = await chRes.json();
-            console.log(`[Bridgecard] Cardholder response from ${baseUrl}:`, JSON.stringify(chJson));
-
-            const cardholderId = chJson?.data?.cardholder_id || chJson?.cardholder_id;
-            if (cardholderId) {
-              const cardRes = await fetch(`${baseUrl}/cards/create_card`, {
-                method: 'POST',
-                headers: {
-                  'token': `Bearer ${bridgeToken}`,
-                  'issue_app_id': bridgeAppId,
-                  'issuing_app_id': bridgeAppId,
-                  'Content-Type': 'application/json'
-                },
-                signal: AbortSignal.timeout(3500),
-                body: JSON.stringify({
-                  cardholder_id: cardholderId,
-                  card_currency: currency,
-                  card_type: 'virtual',
-                  brand: brand.toLowerCase(),
-                  card_limit: 10000,
-                })
-              });
-
-              const cardJson: any = await cardRes.json();
-              console.log(`[Bridgecard] Card creation response from ${baseUrl}:`, JSON.stringify(cardJson));
-              if (cardJson?.data || cardJson?.card_id) {
-                bridgeCardData = cardJson.data || cardJson;
-                break; // Successfully issued on Bridgecard!
-              }
-            }
-          } catch (e: any) {
-            console.warn(`[Bridgecard] Call to ${baseUrl} failed:`, e.message);
-          }
-        }
-      } catch (err: any) {
-        console.warn('[Bridgecard] Bridgecard API outer error:', err.message);
-      }
-    }
-
-    const finalLive = liveCardData || bridgeCardData;
+    const finalLive = liveCardData;
     if (!finalLive || (!finalLive.card_pan && !finalLive.masked_pan)) {
-      throw new Error('Virtual Card issuance is currently processing or awaiting Tier 1 KYC verification. Please confirm your Date of Birth and details to activate.');
+      throw new Error('Virtual Card issuance could not be completed on Maplerad. Please verify issuing balance.');
     }
 
     const last4 = finalLive.last_4 || '0000';

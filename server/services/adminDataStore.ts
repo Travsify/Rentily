@@ -351,4 +351,29 @@ export class AdminDataStore {
 
     return la;
   }
+
+  static buildEscrowTransactions(walletTxs: any[]): Transaction[] {
+    if (!Array.isArray(walletTxs)) return [];
+    return walletTxs.map((tx: any) => ({
+      id: tx.id || `escrow_${Date.now()}`,
+      propertyId: tx.propertyId || 'wallet_movement',
+      propertyTitle: tx.description || tx.title || 'Escrow Settlement',
+      payerId: tx.userId || tx.senderId || 'user',
+      payerName: tx.userName || tx.senderName || 'Rentilly User',
+      ownerId: tx.ownerId || tx.recipientId || 'system',
+      ownerName: tx.recipientName || 'Rentilly Settlement Vault',
+      transactionType: (tx.type || 'rent').toLowerCase(),
+      paymentReference: tx.reference || tx.flwRef || tx.txRef || tx.id,
+      paymentGateway: tx.provider || tx.gateway || 'flutterwave',
+      baseAmount: Number(tx.amount || 0),
+      rentillyLegalFee: Number(tx.fee || 0),
+      cautionFee: 0,
+      serviceCharge: 0,
+      totalAmount: Number(tx.amount || 0),
+      escrowStatus: (tx.status === 'completed' || tx.status === 'success') ? 'held_in_escrow' : 'pending',
+      ownerPayoutReference: tx.payoutReference,
+      payoutReleasedAt: tx.payoutReleasedAt,
+      createdAt: tx.createdAt || tx.timestamp || new Date().toISOString()
+    })) as Transaction[];
+  }
 }

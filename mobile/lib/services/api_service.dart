@@ -452,66 +452,12 @@ class ApiService {
           'brand': brand,
           'initialFunding': initialFunding,
         }),
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(const Duration(seconds: 15));
 
-      if (res.statusCode == 200 || res.statusCode == 201) return true;
-    } catch (_) {}
-
-    // 2. Direct Supabase Cloud REST Fallback with Balance Debit & Ledger Recording
-    try {
-      final prefix = brand == 'VISA' ? '4829' : '5399';
-      final mid1 = (1000 + (DateTime.now().microsecond % 8999)).toString();
-      final mid2 = (1000 + (DateTime.now().millisecond % 8999)).toString();
-      final last4 = (1000 + (DateTime.now().second % 8999)).toString();
-      final maskedPan = '$prefix •••• •••• $last4';
-      final fullPan = '$prefix $mid1 $mid2 $last4';
-      final cardId = 'CARD_${DateTime.now().millisecondsSinceEpoch}_$last4';
-
-      final sbRes = await http.post(
-        Uri.parse('${AppConstants.supabaseUrl}/rest/v1/virtual_cards'),
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': AppConstants.supabaseAnonKey,
-          'Authorization': 'Bearer ${AppConstants.supabaseAnonKey}',
-          'Prefer': 'return=minimal',
-        },
-        body: json.encode({
-          'card_id': cardId,
-          'email': cleanEmail,
-          'cardholder_name': cleanName,
-          'masked_pan': maskedPan,
-          'expiry_month': '12',
-          'expiry_year': '28',
-          'cvv': '819',
-          'brand': brand,
-          'currency': currency,
-          'balance': initialFunding,
-          'is_frozen': false,
-          'status': 'ACTIVE',
-        }),
-      ).timeout(const Duration(seconds: 5));
-
-      // Record issuance fee debit in Supabase transactions ledger
-      final feeNgn = 4530.0;
-      await http.post(
-        Uri.parse('${AppConstants.supabaseUrl}/rest/v1/transactions'),
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': AppConstants.supabaseAnonKey,
-          'Authorization': 'Bearer ${AppConstants.supabaseAnonKey}',
-          'Prefer': 'return=minimal',
-        },
-        body: json.encode({
-          'email': cleanEmail,
-          'title': 'Virtual Dollar Card Issuance Fee (\$3.00 USD)',
-          'type': 'debit',
-          'status': 'completed',
-          'amount': feeNgn,
-          'reference': 'CARD_FEE_${DateTime.now().millisecondsSinceEpoch}',
-        }),
-      ).timeout(const Duration(seconds: 5));
-
-      if (sbRes.statusCode == 200 || sbRes.statusCode == 201) return true;
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        final data = json.decode(res.body);
+        if (data['status'] == true) return true;
+      }
     } catch (_) {}
 
     return false;

@@ -140,20 +140,6 @@
     "date": "2026-09-03T00:51:21.481+00:00"
   },
   {
-    "id": "1eb2a1c5-40a3-4e33-8305-f551b97c6e0c",
-    "userId": "c0000000-0000-0000-0000-000000000001",
-    "email": "tonerocool1@gmail.com",
-    "title": "Direct Inbound Transfer from TOMISIN OLAMIPO KOLAWOLE",
-    "type": "rent",
-    "category": "deposit",
-    "amount": 2000,
-    "isCredit": true,
-    "reference": "100004260902135555170088528786",
-    "status": "SUCCESSFUL",
-    "escrowStatus": "released_to_owner",
-    "date": "2026-09-02T13:55:57+00:00"
-  },
-  {
     "id": "a4586057-66a8-494c-8fbb-e28e33cd6b91",
     "userId": "b0000000-0000-0000-0000-000000000001",
     "email": "patrickachua3@gmail.com",
@@ -168,6 +154,20 @@
     "status": "SUCCESSFUL",
     "escrowStatus": "released_to_owner",
     "date": "2026-09-02T14:22:55+00:00"
+  },
+  {
+    "id": "1eb2a1c5-40a3-4e33-8305-f551b97c6e0c",
+    "userId": "c0000000-0000-0000-0000-000000000001",
+    "email": "tonerocool1@gmail.com",
+    "title": "Direct Inbound Transfer from TOMISIN OLAMIPO KOLAWOLE",
+    "type": "rent",
+    "category": "deposit",
+    "amount": 2000,
+    "isCredit": true,
+    "reference": "100004260902135555170088528786",
+    "status": "SUCCESSFUL",
+    "escrowStatus": "released_to_owner",
+    "date": "2026-09-02T13:55:57+00:00"
   },
   {
     "id": "e08467c0-088f-40da-a9f2-0d4def2bd8c1",
