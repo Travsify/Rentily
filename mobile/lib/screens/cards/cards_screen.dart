@@ -119,15 +119,22 @@ class _CardsScreenState extends State<CardsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surfaceDark,
+        backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Row(
           children: [
-            const Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 28),
-            const SizedBox(width: 10),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEE2E2),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.warning_amber_rounded, color: Color(0xFFEF4444), size: 22),
+            ),
+            const SizedBox(width: 12),
             Text(
               'Delete Virtual Card',
-              style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+              style: GoogleFonts.plusJakartaSans(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 16),
             ),
           ],
         ),
@@ -138,12 +145,13 @@ class _CardsScreenState extends State<CardsScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: Colors.white70)),
+            child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
+              backgroundColor: const Color(0xFFEF4444),
+              elevation: 0,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
             child: Text('Delete Card', style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -356,6 +364,49 @@ class _CardsScreenState extends State<CardsScreen> {
                     focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFF0D5C46), width: 1.5)),
                   ),
                 ),
+                const SizedBox(height: 10),
+
+                // Quick USD amount presets
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [5, 10, 20, 50, 100].map((amt) {
+                    final isSelected = fundAmountUsd == amt.toDouble();
+                    return Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 2.5),
+                        child: GestureDetector(
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            setModalState(() {
+                              fundAmountUsd = amt.toDouble();
+                              amountController.text = amt.toString();
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 7),
+                            decoration: BoxDecoration(
+                              color: isSelected ? const Color(0xFF0D5C46) : const Color(0xFFF3F4F6),
+                              borderRadius: BorderRadius.circular(9),
+                              border: Border.all(
+                                color: isSelected ? const Color(0xFF0D5C46) : const Color(0xFFE5E7EB),
+                              ),
+                            ),
+                            child: Center(
+                              child: Text(
+                                '\$$amt',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: isSelected ? Colors.white : AppColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
                 const SizedBox(height: 14),
 
                 // Live Summary Pill
@@ -461,9 +512,12 @@ class _CardsScreenState extends State<CardsScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) => Container(
-        padding: const EdgeInsets.only(left: 20, right: 20, top: 20, bottom: 32),
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(ctx).size.height * 0.88,
+        ),
+        padding: const EdgeInsets.only(left: 20, right: 20, top: 16, bottom: 32),
         decoration: const BoxDecoration(
-          color: AppColors.surfaceDark,
+          color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
         ),
         child: SingleChildScrollView(
@@ -473,11 +527,11 @@ class _CardsScreenState extends State<CardsScreen> {
             children: [
               Center(
                 child: Container(
-                  width: 40,
-                  height: 4,
+                  width: 44,
+                  height: 4.5,
                   decoration: BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(2),
+                    color: const Color(0xFFE5E7EB),
+                    borderRadius: BorderRadius.circular(3),
                   ),
                 ),
               ),
@@ -489,10 +543,10 @@ class _CardsScreenState extends State<CardsScreen> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.15),
+                      color: const Color(0xFF0D5C46).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.lock_open_rounded, color: AppColors.primary, size: 22),
+                    child: const Icon(Icons.badge_outlined, color: Color(0xFF0D5C46), size: 22),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -504,7 +558,7 @@ class _CardsScreenState extends State<CardsScreen> {
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 17,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            color: AppColors.textPrimary,
                           ),
                         ),
                         Text(
@@ -526,9 +580,9 @@ class _CardsScreenState extends State<CardsScreen> {
                 'CARD CREDENTIALS',
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 11,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w800,
                   letterSpacing: 1.2,
-                  color: AppColors.primary,
+                  color: const Color(0xFF0D5C46),
                 ),
               ),
               const SizedBox(height: 10),
@@ -536,9 +590,9 @@ class _CardsScreenState extends State<CardsScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.backgroundDark,
+                  color: const Color(0xFFF9FAFB),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white12),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
                 ),
                 child: Column(
                   children: [
@@ -554,7 +608,7 @@ class _CardsScreenState extends State<CardsScreen> {
                         );
                       },
                     ),
-                    const Divider(color: Colors.white10, height: 20),
+                    const Divider(color: Color(0xFFE5E7EB), height: 20),
 
                     // Cardholder Name
                     _buildCopyableRow(
@@ -567,7 +621,7 @@ class _CardsScreenState extends State<CardsScreen> {
                         );
                       },
                     ),
-                    const Divider(color: Colors.white10, height: 20),
+                    const Divider(color: Color(0xFFE5E7EB), height: 20),
 
                     // Expiry, CVV & PIN in 3 columns
                     Row(
@@ -584,7 +638,7 @@ class _CardsScreenState extends State<CardsScreen> {
                             },
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: _buildCopyableRow(
                             label: 'CVV / CVC',
@@ -598,7 +652,7 @@ class _CardsScreenState extends State<CardsScreen> {
                             },
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: _buildCopyableRow(
                             label: 'Card PIN',
@@ -617,7 +671,7 @@ class _CardsScreenState extends State<CardsScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 22),
 
               // ─── SECTION 2: OFFICIAL BILLING ADDRESS (USA) ───
               Row(
@@ -627,9 +681,9 @@ class _CardsScreenState extends State<CardsScreen> {
                     'BILLING ADDRESS (SAN FRANCISCO, USA)',
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 11,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w800,
                       letterSpacing: 1.2,
-                      color: AppColors.primary,
+                      color: const Color(0xFF0D5C46),
                     ),
                   ),
                   GestureDetector(
@@ -643,7 +697,7 @@ class _CardsScreenState extends State<CardsScreen> {
                     },
                     child: Text(
                       'Copy Full Address',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
+                      style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF0D5C46)),
                     ),
                   ),
                 ],
@@ -653,9 +707,9 @@ class _CardsScreenState extends State<CardsScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.backgroundDark,
+                  color: const Color(0xFFF9FAFB),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white12),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
                 ),
                 child: Column(
                   children: [
@@ -669,7 +723,7 @@ class _CardsScreenState extends State<CardsScreen> {
                         );
                       },
                     ),
-                    const Divider(color: Colors.white10, height: 16),
+                    const Divider(color: Color(0xFFE5E7EB), height: 16),
                     _buildCopyableRow(
                       label: 'City',
                       value: 'San Francisco',
@@ -680,7 +734,7 @@ class _CardsScreenState extends State<CardsScreen> {
                         );
                       },
                     ),
-                    const Divider(color: Colors.white10, height: 16),
+                    const Divider(color: Color(0xFFE5E7EB), height: 16),
                     _buildCopyableRow(
                       label: 'State',
                       value: 'California (CA)',
@@ -691,7 +745,7 @@ class _CardsScreenState extends State<CardsScreen> {
                         );
                       },
                     ),
-                    const Divider(color: Colors.white10, height: 16),
+                    const Divider(color: Color(0xFFE5E7EB), height: 16),
                     _buildCopyableRow(
                       label: 'Postal / ZIP Code',
                       value: '94104',
@@ -703,7 +757,7 @@ class _CardsScreenState extends State<CardsScreen> {
                         );
                       },
                     ),
-                    const Divider(color: Colors.white10, height: 16),
+                    const Divider(color: Color(0xFFE5E7EB), height: 16),
                     _buildCopyableRow(
                       label: 'Country',
                       value: 'United States (USA)',
@@ -723,18 +777,18 @@ class _CardsScreenState extends State<CardsScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.08),
+                  color: const Color(0xFFECFDF5),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                  border: Border.all(color: const Color(0xFFA7F3D0)),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.info_outline_rounded, color: AppColors.primary, size: 18),
+                    const Icon(Icons.verified_user_rounded, color: Color(0xFF059669), size: 18),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'Use this exact Delaware billing address when paying on Apple, Google, OpenAI, AWS, and Netflix to guarantee 100% authorization.',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 11, color: Colors.white70, height: 1.3),
+                        'Use this exact US billing address when paying on Apple, Google, OpenAI, AWS, and Netflix to guarantee 100% authorization.',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 11, color: const Color(0xFF065F46), height: 1.3),
                       ),
                     ),
                   ],
@@ -756,36 +810,41 @@ class _CardsScreenState extends State<CardsScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
-            const SizedBox(height: 2),
-            Text(
-              value,
-              style: isMonospace
-                  ? GoogleFonts.sourceCodePro(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)
-                  : GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
-            ),
-          ],
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: isMonospace
+                    ? GoogleFonts.sourceCodePro(fontSize: 13.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary)
+                    : GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+              ),
+            ],
+          ),
         ),
+        const SizedBox(width: 8),
         GestureDetector(
           onTap: () {
             HapticFeedback.lightImpact();
             onCopy();
           },
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.08),
+              color: const Color(0xFF0D5C46).withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.copy_rounded, size: 12, color: AppColors.primary),
+                const Icon(Icons.copy_rounded, size: 12, color: Color(0xFF0D5C46)),
                 const SizedBox(width: 4),
-                Text('Copy', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                Text('Copy', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: const Color(0xFF0D5C46))),
               ],
             ),
           ),
@@ -802,6 +861,7 @@ class _CardsScreenState extends State<CardsScreen> {
     final pinController = TextEditingController();
     final confirmController = TextEditingController();
     String? errorText;
+    bool showDigits = true;
 
     showModalBottomSheet(
       context: context,
@@ -812,11 +872,11 @@ class _CardsScreenState extends State<CardsScreen> {
           padding: EdgeInsets.only(
             left: 20,
             right: 20,
-            top: 20,
+            top: 16,
             bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
           ),
           decoration: const BoxDecoration(
-            color: AppColors.surfaceDark,
+            color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
           ),
           child: Column(
@@ -825,11 +885,11 @@ class _CardsScreenState extends State<CardsScreen> {
             children: [
               Center(
                 child: Container(
-                  width: 40,
-                  height: 4,
+                  width: 44,
+                  height: 4.5,
                   decoration: BoxDecoration(
-                    color: Colors.white24,
-                    borderRadius: BorderRadius.circular(2),
+                    color: const Color(0xFFE5E7EB),
+                    borderRadius: BorderRadius.circular(3),
                   ),
                 ),
               ),
@@ -839,10 +899,10 @@ class _CardsScreenState extends State<CardsScreen> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: Colors.purple.withValues(alpha: 0.15),
+                      color: const Color(0xFFD97706).withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.pin_rounded, color: Colors.purpleAccent, size: 22),
+                    child: const Icon(Icons.pin_rounded, color: Color(0xFFD97706), size: 22),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -854,7 +914,7 @@ class _CardsScreenState extends State<CardsScreen> {
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 17,
                             fontWeight: FontWeight.bold,
-                            color: Colors.white,
+                            color: AppColors.textPrimary,
                           ),
                         ),
                         Text(
@@ -867,58 +927,91 @@ class _CardsScreenState extends State<CardsScreen> {
                       ],
                     ),
                   ),
+                  IconButton(
+                    icon: Icon(
+                      showDigits ? Icons.visibility_rounded : Icons.visibility_off_rounded,
+                      color: const Color(0xFF0D5C46),
+                    ),
+                    tooltip: showDigits ? 'Hide PIN' : 'Show PIN',
+                    onPressed: () {
+                      setModalState(() => showDigits = !showDigits);
+                    },
+                  ),
                 ],
               ),
               const SizedBox(height: 20),
 
-              Text(
-                'New 4-Digit Card PIN',
-                style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white70),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'New 4-Digit Card PIN',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                  ),
+                  Text(
+                    showDigits ? 'Visible' : 'Hidden',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF0D5C46)),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: pinController,
                 keyboardType: TextInputType.number,
                 maxLength: 4,
-                obscureText: true,
+                obscureText: !showDigits,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.sourceCodePro(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 8, color: Colors.white),
+                style: GoogleFonts.sourceCodePro(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 12,
+                  color: const Color(0xFF0D5C46),
+                ),
                 decoration: InputDecoration(
                   counterText: '',
                   filled: true,
-                  fillColor: AppColors.backgroundDark,
-                  hintText: '••••',
-                  hintStyle: const TextStyle(letterSpacing: 8, color: Colors.white30),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                  fillColor: const Color(0xFFF9FAFB),
+                  hintText: '1234',
+                  hintStyle: const TextStyle(letterSpacing: 12, color: Colors.black26),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFF0D5C46), width: 1.8)),
                 ),
               ),
               const SizedBox(height: 14),
 
               Text(
                 'Confirm 4-Digit Card PIN',
-                style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white70),
+                style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
               ),
               const SizedBox(height: 8),
               TextField(
                 controller: confirmController,
                 keyboardType: TextInputType.number,
                 maxLength: 4,
-                obscureText: true,
+                obscureText: !showDigits,
                 textAlign: TextAlign.center,
-                style: GoogleFonts.sourceCodePro(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 8, color: Colors.white),
+                style: GoogleFonts.sourceCodePro(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 12,
+                  color: const Color(0xFF0D5C46),
+                ),
                 decoration: InputDecoration(
                   counterText: '',
                   filled: true,
-                  fillColor: AppColors.backgroundDark,
-                  hintText: '••••',
-                  hintStyle: const TextStyle(letterSpacing: 8, color: Colors.white30),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                  fillColor: const Color(0xFFF9FAFB),
+                  hintText: '1234',
+                  hintStyle: const TextStyle(letterSpacing: 12, color: Colors.black26),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFF0D5C46), width: 1.8)),
                 ),
               ),
 
               if (errorText != null) ...[
                 const SizedBox(height: 10),
-                Text(errorText!, style: const TextStyle(color: Colors.redAccent, fontSize: 12)),
+                Text(errorText!, style: const TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold)),
               ],
               const SizedBox(height: 20),
 
@@ -960,8 +1053,9 @@ class _CardsScreenState extends State<CardsScreen> {
                     }
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    backgroundColor: const Color(0xFF0D5C46),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 15),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
                   child: Text(
@@ -1416,19 +1510,26 @@ class _CardsScreenState extends State<CardsScreen> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
       decoration: BoxDecoration(
-        color: AppColors.surfaceDark,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white12),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.12),
+              color: const Color(0xFF0D5C46).withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.credit_card_off_rounded, color: AppColors.primary, size: 48),
+            child: const Icon(Icons.credit_card_off_rounded, color: Color(0xFF0D5C46), size: 48),
           ),
           const SizedBox(height: 20),
           Text(
@@ -1436,12 +1537,12 @@ class _CardsScreenState extends State<CardsScreen> {
             style: GoogleFonts.plusJakartaSans(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: AppColors.textPrimary,
             ),
           ),
           const SizedBox(height: 8),
           Text(
-            'Get an institutional USD virtual Visa card. Pay online, subscribe to global services (OpenAI, AWS, Apple, Netflix) with standard Delaware USA billing address.',
+            'Get an institutional USD virtual Visa card. Pay online, subscribe to global services (OpenAI, AWS, Apple, Netflix) with standard US billing address.',
             textAlign: TextAlign.center,
             style: GoogleFonts.plusJakartaSans(
               fontSize: 12.5,
@@ -1464,10 +1565,10 @@ class _CardsScreenState extends State<CardsScreen> {
                 ),
               ),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
+                backgroundColor: const Color(0xFF0D5C46),
+                elevation: 0,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                elevation: 4,
               ),
             ),
           ),
@@ -1484,7 +1585,6 @@ class _CardsScreenState extends State<CardsScreen> {
     final expMonth = card['expiryMonth']?.toString() ?? '12';
     final expYear = card['expiryYear']?.toString() ?? '28';
     final cvv = card['cvv']?.toString() ?? '819';
-    final pin = card['pin']?.toString() ?? '2491';
 
     return Container(
       width: double.infinity,
@@ -1630,38 +1730,42 @@ class _CardsScreenState extends State<CardsScreen> {
                   ],
                 ),
 
-                // Bottom Row: Cardholder, Expiry, CVV, PIN & Visa Badge
+                // Bottom Row: Cardholder, Expiry, CVV & Visa Badge (Well-contained, zero overflow)
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('CARDHOLDER', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, color: Colors.white60, letterSpacing: 1.0)),
-                        Text(cardholder, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
-                      ],
+                    Expanded(
+                      flex: 4,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('CARDHOLDER', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, color: Colors.white60, letterSpacing: 1.0)),
+                          Text(
+                            cardholder,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white),
+                          ),
+                        ],
+                      ),
                     ),
+                    const SizedBox(width: 8),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('EXPIRES', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, color: Colors.white60, letterSpacing: 1.0)),
-                        Text('$expMonth/$expYear', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+                        Text('$expMonth/$expYear', style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white)),
                       ],
                     ),
+                    const SizedBox(width: 8),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('CVV', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, color: Colors.white60, letterSpacing: 1.0)),
-                        Text(_showCardDetails ? cvv : '•••', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+                        Text(_showCardDetails ? cvv : '•••', style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white)),
                       ],
                     ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('PIN', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, color: Colors.white60, letterSpacing: 1.0)),
-                        Text(_showCardDetails ? pin : '••••', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
-                      ],
-                    ),
+                    const SizedBox(width: 10),
                     Text(
                       'VISA',
                       style: GoogleFonts.plusJakartaSans(
@@ -1682,54 +1786,64 @@ class _CardsScreenState extends State<CardsScreen> {
     );
   }
 
-  // --- 3. 5 CORE ACTION BUTTONS (CIRCULAR LUXURY FINTECH STYLE) ---
+  // --- 3. 5 CORE ACTION BUTTONS (WELL CONTAINED, 100% VISIBLE) ---
   Widget _buildCardActionButtons(bool isFrozen) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
         // 1. Details & Address
-        _buildCircleActionButton(
-          icon: Icons.badge_outlined,
-          label: 'Details',
-          color: const Color(0xFF0D5C46),
-          bgColor: const Color(0xFF0D5C46).withValues(alpha: 0.1),
-          onTap: _showCardDetailsAndAddressModal,
+        Expanded(
+          child: _buildCircleActionButton(
+            icon: Icons.badge_outlined,
+            label: 'Details',
+            color: const Color(0xFF0D5C46),
+            bgColor: const Color(0xFF0D5C46).withValues(alpha: 0.1),
+            onTap: _showCardDetailsAndAddressModal,
+          ),
         ),
 
         // 2. Top-Up Card
-        _buildCircleActionButton(
-          icon: Icons.add_rounded,
-          label: 'Top-Up',
-          color: const Color(0xFF10B981),
-          bgColor: const Color(0xFF10B981).withValues(alpha: 0.12),
-          onTap: _showFundCardModal,
+        Expanded(
+          child: _buildCircleActionButton(
+            icon: Icons.add_rounded,
+            label: 'Top-Up',
+            color: const Color(0xFF10B981),
+            bgColor: const Color(0xFF10B981).withValues(alpha: 0.12),
+            onTap: _showFundCardModal,
+          ),
         ),
 
         // 3. Card PIN
-        _buildCircleActionButton(
-          icon: Icons.pin_rounded,
-          label: 'PIN',
-          color: const Color(0xFFD97706),
-          bgColor: const Color(0xFFF59E0B).withValues(alpha: 0.12),
-          onTap: _showChangePinModal,
+        Expanded(
+          child: _buildCircleActionButton(
+            icon: Icons.pin_rounded,
+            label: 'PIN',
+            color: const Color(0xFFD97706),
+            bgColor: const Color(0xFFF59E0B).withValues(alpha: 0.12),
+            onTap: _showChangePinModal,
+          ),
         ),
 
         // 4. Freeze / Unfreeze
-        _buildCircleActionButton(
-          icon: isFrozen ? Icons.lock_open_rounded : Icons.lock_outline_rounded,
-          label: isFrozen ? 'Unfreeze' : 'Freeze',
-          color: isFrozen ? Colors.green : const Color(0xFFEA580C),
-          bgColor: (isFrozen ? Colors.green : const Color(0xFFEA580C)).withValues(alpha: 0.12),
-          onTap: _toggleFreeze,
+        Expanded(
+          child: _buildCircleActionButton(
+            icon: isFrozen ? Icons.lock_open_rounded : Icons.lock_outline_rounded,
+            label: isFrozen ? 'Unfreeze' : 'Freeze',
+            color: isFrozen ? Colors.green : const Color(0xFFEA580C),
+            bgColor: (isFrozen ? Colors.green : const Color(0xFFEA580C)).withValues(alpha: 0.12),
+            onTap: _toggleFreeze,
+          ),
         ),
 
         // 5. Delete Card
-        _buildCircleActionButton(
-          icon: Icons.delete_outline_rounded,
-          label: 'Delete',
-          color: const Color(0xFFEF4444),
-          bgColor: const Color(0xFFEF4444).withValues(alpha: 0.1),
-          onTap: _confirmDeleteCard,
+        Expanded(
+          child: _buildCircleActionButton(
+            icon: Icons.delete_outline_rounded,
+            label: 'Delete',
+            color: const Color(0xFFEF4444),
+            bgColor: const Color(0xFFEF4444).withValues(alpha: 0.1),
+            onTap: _confirmDeleteCard,
+          ),
         ),
       ],
     );
@@ -1742,51 +1856,57 @@ class _CardsScreenState extends State<CardsScreen> {
     required Color bgColor,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
+    return InkWell(
       onTap: () {
         HapticFeedback.lightImpact();
         onTap();
       },
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: color.withValues(alpha: 0.22), width: 1.2),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
+      borderRadius: BorderRadius.circular(16),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: color.withValues(alpha: 0.25), width: 1.2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Center(
+                child: Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: bgColor,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: color, size: 20),
                 ),
-              ],
-            ),
-            child: Center(
-              child: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: bgColor,
-                  borderRadius: BorderRadius.circular(13),
-                ),
-                child: Icon(icon, color: color, size: 21),
               ),
             ),
-          ),
-          const SizedBox(height: 7),
-          Text(
-            label,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary,
+            const SizedBox(height: 6),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textPrimary,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
