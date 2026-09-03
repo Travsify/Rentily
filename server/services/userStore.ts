@@ -56,6 +56,24 @@ function hashPassword(password: string): string {
 // In-memory user cache
 let _userCache: StoredUser[] | null = null;
 
+// Supabase write throttle: prevents write-on-every-read spam
+// Only allows 1 Supabase persist per user per PERSIST_INTERVAL_MS
+const PERSIST_INTERVAL_MS = 30_000; // 30 seconds
+const _lastSupabasePersist: Map<string, number> = new Map();
+
+function shouldPersistToSupabase(email: string, force = false): boolean {
+  if (force) {
+    _lastSupabasePersist.set(email, Date.now());
+    return true;
+  }
+  const last = _lastSupabasePersist.get(email) ?? 0;
+  if (Date.now() - last >= PERSIST_INTERVAL_MS) {
+    _lastSupabasePersist.set(email, Date.now());
+    return true;
+  }
+  return false;
+}
+
 // Initial deterministic seeds with RFC4122 compliant UUIDs
 function seedKnownUsers(): StoredUser[] {
   const now = new Date().toISOString();
@@ -245,7 +263,8 @@ export class UserStore {
             createdAt: data.created_at || new Date().toISOString(),
             updatedAt: data.updated_at || new Date().toISOString(),
           };
-          this.upsertUser(stored);
+          // Only sync to local in-memory cache (NO Supabase write)
+          this._syncLocalOnly(stored);
           return stored;
         }
       } catch (e: any) {
@@ -294,7 +313,8 @@ export class UserStore {
             createdAt: user.created_at || new Date().toISOString(),
             updatedAt: user.updated_at || new Date().toISOString(),
           };
-          this.upsertUser(stored);
+          // Only sync to local in-memory cache (NO Supabase write — avoids write-on-every-read spam)
+          this._syncLocalOnly(stored);
           return stored;
         }
       } catch (e: any) {
@@ -305,7 +325,21 @@ export class UserStore {
     return localUser || null;
   }
 
-
+  /**
+   * Syncs fetched Supabase data into local in-memory cache ONLY.
+   * Does NOT write back to Supabase — prevents the write-on-every-read infinite loop.
+   */
+  private static _syncLocalOnly(user: StoredUser): void {
+    const users = this.getAllUsers();
+    const index = users.findIndex(u => u.id === user.id || u.email.toLowerCase() === user.email.toLowerCase());
+    if (index >= 0) {
+      users[index] = { ...users[index], ...user };
+    } else {
+      users.push(user);
+    }
+    _userCache = users;
+    // Intentionally do NOT call saveUsers or supabase.upsert here
+  }
 
   static upsertUser(user: StoredUser): StoredUser {
     // Ensure valid UUID
@@ -332,8 +366,8 @@ export class UserStore {
 
     this.saveUsers(users);
 
-    // Persist to Supabase Cloud profiles table
-    if (supabase) {
+    // Persist to Supabase Cloud profiles table (throttled: max 1 write per 30s per user)
+    if (supabase && shouldPersistToSupabase(user.email.toLowerCase().trim())) {
       const dbRole = (user.role === 'partner' ? 'owner' : (user.role === 'legal_officer' ? 'admin' : user.role)) as any;
       supabase.from('profiles').upsert({
         id: user.id,
@@ -355,7 +389,7 @@ export class UserStore {
         if (error) {
           console.error('[UserStore] Supabase profile update error:', error.message);
         } else {
-          console.log(`[UserStore] Successfully persisted ${user.email} (₦${user.walletBalance}) to Supabase cloud! ☁️`);
+          console.log(`[UserStore] Persisted ${user.email} (₦${user.walletBalance}) to Supabase ☁️`);
         }
       }).catch(err => {
         console.error('[UserStore] Supabase profile upsert network error:', err);
@@ -363,6 +397,15 @@ export class UserStore {
     }
 
     return user;
+  }
+
+  /**
+   * Force-writes to Supabase regardless of throttle.
+   * Use this when a balance is debited/credited (payment, withdrawal, swap).
+   */
+  static upsertUserForced(user: StoredUser): StoredUser {
+    _lastSupabasePersist.delete(user.email.toLowerCase().trim()); // reset throttle clock
+    return this.upsertUser(user);
   }
 
   static async createUser(data: {

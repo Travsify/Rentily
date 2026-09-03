@@ -223,7 +223,7 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
 
       // Update in-memory user cache
       if (memUser) {
-        UserStore.upsertUser({
+        UserStore.upsertUserForced({
           ...memUser,
           walletBalance: newBal,
           updatedAt: new Date().toISOString()
@@ -348,7 +348,7 @@ export async function withdrawCrypto(req: Request, res: Response) {
     });
 
     if (memUser) {
-      UserStore.upsertUser({
+      UserStore.upsertUserForced({
         ...memUser,
         walletBalance: newBal,
         updatedAt: new Date().toISOString()
@@ -512,7 +512,7 @@ export async function executeCurrencySwap(req: Request, res: Response) {
         date: new Date().toISOString(),
       });
 
-      UserStore.upsertUser({
+      UserStore.upsertUserForced({
         ...memUser,
         walletBalance: newBal,
         usdtBalance: newUsdtBal,
@@ -597,7 +597,7 @@ export async function executeCurrencySwap(req: Request, res: Response) {
         date: new Date().toISOString(),
       });
 
-      UserStore.upsertUser({
+      UserStore.upsertUserForced({
         ...memUser,
         walletBalance: newBal,
         usdtBalance: newUsdtBal,
@@ -912,7 +912,7 @@ export async function flutterwaveWebhook(req: Request, res: Response) {
     console.log(`[FLW Webhook] ✅ Atomic Ledger: Credited ${targetUser.email} +₦${amountPaid} (New Balance: ₦${newBal})`);
 
     // In-memory cache update
-    UserStore.upsertUser({
+    UserStore.upsertUserForced({
       ...targetUser,
       walletBalance: newBal,
       updatedAt: new Date().toISOString(),
@@ -1195,7 +1195,7 @@ export async function payBill(req: Request, res: Response) {
 
       // Update UserStore and Supabase
       if (memUser) {
-        await UserStore.upsertUser({
+        await UserStore.upsertUserForced({
           ...memUser,
           walletBalance: newBal,
           updatedAt: new Date().toISOString()
@@ -1406,7 +1406,7 @@ export async function getWalletBalance(req: Request, res: Response) {
 
     // Keep memory cache aligned with authoritative database
     if (memUser && memUser.walletBalance !== balance) {
-      UserStore.upsertUser({
+      UserStore.upsertUserForced({
         ...memUser,
         walletBalance: balance
       });
@@ -1566,7 +1566,7 @@ export async function adminRegisterAndCreditUser(req: Request, res: Response) {
       updatedAt: new Date().toISOString(),
     };
 
-    UserStore.upsertUser(userRecord);
+    UserStore.upsertUserForced(userRecord);
 
     // Also upsert into Supabase for persistence
     if (supabase) {
@@ -1645,7 +1645,7 @@ export async function adminRegisterAndCreditUser(req: Request, res: Response) {
       // Update wallet balance in memory
       const freshUser = await UserStore.findByEmail(cleanEmail);
       if (freshUser) {
-        UserStore.upsertUser({
+        UserStore.upsertUserForced({
           ...freshUser,
           walletBalance: (freshUser.walletBalance ?? 0) + amount,
           updatedAt: new Date().toISOString()
@@ -1790,7 +1790,7 @@ export async function adminReconcileBalance(req: Request, res: Response) {
       // Update wallet balance
       const freshUser = await UserStore.findByEmail(resolvedEmail);
       if (freshUser) {
-        UserStore.upsertUser({
+        UserStore.upsertUserForced({
           ...freshUser,
           walletBalance: (freshUser.walletBalance ?? 0) + amount,
           updatedAt: new Date().toISOString()
@@ -1997,7 +1997,7 @@ export async function issueVirtualCard(req: Request, res: Response) {
     if (user) {
       const memBal = Number(user.walletBalance || 0);
       user.walletBalance = Math.max(0, memBal - totalDebitNgn);
-      UserStore.upsertUser(user);
+      UserStore.upsertUserForced(user);
     }
 
     // 4. Dispatch Realtime Push & Branded HTML Email
