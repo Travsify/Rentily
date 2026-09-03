@@ -56,7 +56,25 @@ export class MapleradBankingService {
   }
 
   /**
-   * 1. Resolves or Enrolls Customer on Maplerad (Tier 1 Eligible)
+   * Normalizes any incoming Date of Birth to strict DD-MM-YYYY format
+   */
+  static normalizeDob(raw?: string): string {
+    if (!raw || !raw.trim()) return '01-01-1990';
+    const cleaned = raw.trim().replace(/[\/\.]/g, '-');
+    const parts = cleaned.split('-');
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        // YYYY-MM-DD -> DD-MM-YYYY
+        return `${parts[2].padStart(2, '0')}-${parts[1].padStart(2, '0')}-${parts[0]}`;
+      }
+      // DD-MM-YYYY
+      return `${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}-${parts[2]}`;
+    }
+    return cleaned;
+  }
+
+  /**
+   * 1. Resolves or Enrolls Customer (Tier 1 Eligible)
    */
   static async resolveOrEnrollCustomer(params: {
     email: string;
@@ -440,7 +458,7 @@ export class MapleradBankingService {
     const rawPhone = (params.phoneNumber || '').replace(/\D/g, '');
     const cleanPhone = rawPhone.length === 11 && rawPhone.startsWith('0')
       ? rawPhone.substring(1) : (rawPhone.length >= 10 ? rawPhone.slice(-10) : '8000000000');
-    const dob = params.dob || '01-01-1990';
+    const dob = this.normalizeDob(params.dob);
 
     console.log(`[MapleradTier1] Starting Tier 1 enrollment for ${cleanEmail}...`);
 
@@ -494,7 +512,7 @@ export class MapleradBankingService {
             dob: dob,
             identification_number: idNumber,
             phone: {
-              phone_country_code: '234',
+              phone_country_code: '+234',
               phone_number: cleanPhone
             },
             address: {
@@ -579,7 +597,7 @@ export class MapleradBankingService {
         bankName = `${vbaData.data.bank_name || '9PSB'} (Rentilly)`;
         console.log(`[MapleradTier1] ✅ Rentilly NGN Virtual Account: ${accountNumber} via ${bankName}`);
       } else {
-        errors.push(`Maplerad NGN VBA notice: ${vbaData?.message || 'Account not returned'}`);
+        errors.push(`Central settlement account notice: ${vbaData?.message || 'Pending identity confirmation'}`);
       }
     } catch (e: any) {
       errors.push(`VBA error: ${e.message}`);
@@ -620,7 +638,7 @@ export class MapleradBankingService {
           }, { onConflict: 'id' });
         }
       } else {
-        errors.push(`Maplerad USDT notice: ${cryptoData?.message || 'Requires Tier 1'}`);
+        errors.push(`USDT wallet notice: ${cryptoData?.message || 'Pending identity confirmation'}`);
       }
     } catch (e: any) {
       errors.push(`USDT address error: ${e.message}`);

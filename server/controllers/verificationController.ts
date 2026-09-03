@@ -69,7 +69,7 @@ export async function verifyCAC(req: Request, res: Response) {
 // 4. Automated Identity Verification -> Instant Maplerad Tier 1 Account, USDT Wallet & Card Provisioning
 export async function verifyAndProvision(req: Request, res: Response) {
   try {
-    const { userId, email, fullName, businessName, cacNumber, role, idType = 'nin', idNumber, bvn, dob, phoneNumber } = req.body;
+    const { email, fullName, phoneNumber, idType, idNumber, bvn, dob, role, businessName, cacNumber, officeAddress, state, city, lga, landmark } = req.body;
 
     if (!idNumber) {
       return res.status(400).json({ error: 'Identification document number is required' });
@@ -111,32 +111,42 @@ export async function verifyAndProvision(req: Request, res: Response) {
     const mapleRes = await MapleradBankingService.enrollAndProvisionTier1({
       email: cleanEmail,
       fullName: cleanName,
-      phoneNumber: phoneNumber || premblyResult.data?.phone || existing?.phoneNumber,
+      phoneNumber: phoneNumber || existing?.phoneNumber,
       nin: idType === 'nin' ? idNumber : (existing?.ninNumber || undefined),
       bvn: bvnToUse,
-      dob: dob || '01-01-1990'
+      dob: dob
     });
 
     if (mapleRes.accountNumber) {
       accountNumber = mapleRes.accountNumber;
-      bankName = '9PSB (Rentilly)';
-      usdtTronAddress = mapleRes.usdtTronAddress || '';
+      bankName = mapleRes.bankName || '9PSB (Rentilly)';
+      console.log(`[verifyAndProvision] ✅ Maplerad Account provisioned: ${accountNumber} (${bankName}) for ${cleanEmail}`);
+    } else {
+      console.warn(`[verifyAndProvision] ⚠️ Maplerad did not return account number for ${cleanEmail}. Errors:`, mapleRes.errors);
     }
 
-    const isProcessing = !accountNumber;
+    if (mapleRes.usdtAddress) {
+      usdtTronAddress = mapleRes.usdtAddress;
+    }
+
+    const isProcessing = !accountNumber || accountNumber.length === 0;
 
     // Step 3: Update UserStore & Supabase Database — preserve wallet balance completely!
     const updatedUser = {
       ...(existing || {
-        id: userId || `usr_${Date.now()}`,
+        id: req.body.userId || `usr_${Date.now()}`,
         email: cleanEmail,
         createdAt: new Date().toISOString(),
       }),
       fullName: cleanName,
+      phoneNumber: phoneNumber || existing?.phoneNumber || '',
       businessName: isPartner ? partnerBizName : (existing?.businessName ?? null),
       cacNumber: isPartner ? (cacNumber || existing?.cacNumber) : (existing?.cacNumber ?? null),
+      officeAddress: officeAddress || existing?.officeAddress,
+      state: state || existing?.state || 'Lagos',
       isVerified: !isProcessing,
       bvnVerified: !isProcessing,
+      bvn: bvnToUse,
       ninNumber: idType === 'nin' ? idNumber : existing?.ninNumber,
       accountNumber: accountNumber || (existing?.accountNumber ?? null),
       bankName: accountNumber ? bankName : (existing?.bankName || '9PSB (Rentilly Processing)'),
@@ -161,6 +171,8 @@ export async function verifyAndProvision(req: Request, res: Response) {
             bank_name: accountNumber ? bankName : (existing?.bankName || '9PSB (Rentilly Processing)'),
             business_name: isPartner ? partnerBizName : undefined,
             cac_number: isPartner ? cacNumber : undefined,
+            office_address: officeAddress || existing?.officeAddress || undefined,
+            state: state || existing?.state || undefined,
             rekyc_required: isProcessing,
             updated_at: new Date().toISOString()
           })
@@ -213,9 +225,35 @@ export async function verifyAndProvision(req: Request, res: Response) {
         message: `Your KYC verification documents have been received and are currently being processed by Rentilly. Your existing wallet balance of ₦${currentBalance.toLocaleString()} is 100% safe and visible. You will receive an email the moment your dedicated account and dollar card are activated.`
       });
 
-      const failureReason = mapleRes?.errors?.length
+function sanitizeVerificationError(raw?: string): string {
+  if (!raw) return 'Central Banking NIBSS Registry could not validate your identity details. Please check your BVN and Date of Birth.';
+  
+  if (raw.includes('dob_format') || raw.includes('TierOneCustomerUpgradeRequest.DOB') || raw.toLowerCase().includes('dob')) {
+    return 'Invalid Date of Birth format. Please select your Date of Birth in DD-MM-YYYY format (e.g. 27-06-1990).';
+  }
+  
+  if (raw.toLowerCase().includes('could not validate bvn') || raw.toLowerCase().includes('bvn')) {
+    return 'Central Banking NIBSS Registry could not validate your 11-digit BVN against your Date of Birth. Please check that your BVN and Date of Birth match your official bank records.';
+  }
+
+  let cleaned = raw
+    .replace(/Maplerad\s*/gi, 'Rentilly Settlement Rail ')
+    .replace(/VBA notice:\s*/gi, '')
+    .replace(/service is only available for Tier 1 customers/gi, 'Settlement account will be provisioned upon identity confirmation.')
+    .replace(/USDT notice:\s*/gi, '')
+    .trim();
+
+  if (cleaned.includes('TierOneCustomerUpgradeRequest') || cleaned.includes('Field validation')) {
+    return 'Please check that your 11-digit BVN and Date of Birth match your official bank records.';
+  }
+
+  return cleaned || 'Verification is being reviewed by Rentilly compliance.';
+}
+
+      const rawReason = mapleRes?.errors?.length
         ? mapleRes.errors.join('; ')
-        : 'Maplerad 9PSB BVN validation pending with NIBSS';
+        : '9PSB BVN validation pending with NIBSS central banking registry';
+      const failureReason = sanitizeVerificationError(rawReason);
 
       if (supabase) {
         try {
@@ -573,10 +611,11 @@ export async function completeMapleradKyc(req: Request, res: Response) {
     });
 
     if (!result.accountNumber) {
-      console.warn(`[completeMapleradKyc] ⚠️ Maplerad did not return a new account number for ${cleanEmail}:`, result.errors);
+      console.warn(`[completeMapleradKyc] ⚠️ Verification did not return a new account number for ${cleanEmail}:`, result.errors);
+      const cleanErr = sanitizeVerificationError(result.errors?.join('; '));
       return res.status(400).json({
         status: false,
-        error: result.errors?.join('; ') || 'Maplerad KYC verification failed. Please enter your valid 11-digit BVN or NIN that matches your Date of Birth.'
+        error: cleanErr || 'Identity verification pending. Please ensure your 11-digit BVN matches your Date of Birth.'
       });
     }
 

@@ -17,6 +17,11 @@ class VerificationService {
     required String dob,
     String? businessName,
     String? cacNumber,
+    String? officeAddress,
+    String? state,
+    String? city,
+    String? lga,
+    String? landmark,
   }) async {
     final currentUser = await AuthService.getCurrentUser();
     final userId = currentUser?.id ?? 'usr_${DateTime.now().millisecondsSinceEpoch}';
@@ -31,7 +36,7 @@ class VerificationService {
 
     final bvnToUse = bvn.trim().isNotEmpty ? bvn.trim() : (idType == 'bvn' ? idNumber.trim() : '');
 
-    // Sole authoritative call: Rentilly Maplerad Tier 1 KYC / KYB Provisioning Router
+    // Sole authoritative call: Rentilly Central Tier 1 KYC / KYB Provisioning Router
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/verification/verify-and-provision'),
@@ -48,6 +53,11 @@ class VerificationService {
           'bvn': bvnToUse,
           'dob': dob,
           'role': currentUser?.role ?? 'renter',
+          'officeAddress': officeAddress ?? currentUser?.officeAddress,
+          'state': state ?? currentUser?.state,
+          'city': city,
+          'lga': lga,
+          'landmark': landmark,
         }),
       ).timeout(const Duration(seconds: 30));
 

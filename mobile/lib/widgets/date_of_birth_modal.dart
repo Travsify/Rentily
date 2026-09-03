@@ -174,7 +174,12 @@ class _DateOfBirthModalState extends State<DateOfBirthModal> {
         );
       } else {
         setState(() {
-          _errorMessage = data['message'] ?? data['error'] ?? 'Could not activate account. Please try again.';
+          final rawMsg = data['message']?.toString() ?? data['error']?.toString() ?? 'Could not activate account. Please check your BVN and Date of Birth.';
+          _errorMessage = rawMsg
+              .replaceAll(RegExp(r'Maplerad\s*', caseSensitive: false), 'Rentilly Settlement Rail ')
+              .replaceAll(RegExp(r'VBA notice:\s*', caseSensitive: false), '')
+              .replaceAll(RegExp(r'USDT notice:\s*', caseSensitive: false), '')
+              .trim();
         });
       }
     } catch (e) {

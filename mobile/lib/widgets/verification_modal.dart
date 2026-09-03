@@ -31,19 +31,39 @@ class VerificationModal extends StatefulWidget {
 
 class _VerificationModalState extends State<VerificationModal> {
   UserProfile? _currentUser;
-  int _currentStep = 0; // 0: Business Info, 1: Director Info (for Partners)
+  int _currentStep = 0; // KYB: 0=Corporate, 1=Office, 2=Director, 3=Review. KYC: 0=Profile, 1=Address, 2=Identity
 
-  // Step 1: Corporate Fields
+  // 36 Nigerian States + FCT
+  static const List<String> _nigerianStates = [
+    'Abia', 'Adamawa', 'Akwa Ibom', 'Anambra', 'Bauchi', 'Bayelsa', 'Benue', 'Borno',
+    'Cross River', 'Delta', 'Ebonyi', 'Edo', 'Ekiti', 'Enugu', 'Federal Capital Territory (Abuja)',
+    'Gombe', 'Imo', 'Jigawa', 'Kaduna', 'Kano', 'Katsina', 'Kebbi', 'Kogi', 'Kwara',
+    'Lagos', 'Nasarawa', 'Niger', 'Ogun', 'Ondo', 'Osun', 'Oyo', 'Plateau', 'Rivers',
+    'Sokoto', 'Taraba', 'Yobe', 'Zamfara'
+  ];
+
+  // KYC Step 0: Personal Fields
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+
+  // KYB Step 0: Corporate Fields
   final TextEditingController _businessNameController = TextEditingController();
   final TextEditingController _cacNumberController = TextEditingController();
   final TextEditingController _tinController = TextEditingController();
-  final TextEditingController _officeAddressController = TextEditingController();
 
-  // Step 2: Director KYC Fields
+  // Physical Address Fields (Collation: State, LGA, City, Street, Landmark)
+  String _selectedState = 'Lagos';
+  final TextEditingController _lgaController = TextEditingController();
+  final TextEditingController _cityController = TextEditingController();
+  final TextEditingController _streetController = TextEditingController();
+  final TextEditingController _landmarkController = TextEditingController();
+
+  // Identity KYC / Director Fields
   String _selectedIdType = 'nin'; // 'nin', 'voters_card', 'drivers_license', 'passport'
   final TextEditingController _idController = TextEditingController();
   final TextEditingController _bvnController = TextEditingController();
   final TextEditingController _dobController = TextEditingController();
+  bool _certifiedAccurate = true;
 
   bool _isLoading = false;
   bool _isSyncingNuban = false;
@@ -61,6 +81,8 @@ class _VerificationModalState extends State<VerificationModal> {
     if (mounted && u != null) {
       setState(() {
         _currentUser = u;
+        _nameController.text = u.fullName;
+        _phoneController.text = u.phoneNumber;
         if (u.businessName != null && u.businessName!.isNotEmpty) {
           _businessNameController.text = u.businessName!;
         } else if (u.role == 'partner' && u.fullName.isNotEmpty) {
@@ -69,13 +91,23 @@ class _VerificationModalState extends State<VerificationModal> {
         if (u.cacNumber != null && u.cacNumber!.isNotEmpty) {
           _cacNumberController.text = u.cacNumber!;
         }
+        if (u.taxId != null && u.taxId!.isNotEmpty) {
+          _tinController.text = u.taxId!;
+        }
+        if (u.state != null && _nigerianStates.contains(u.state)) {
+          _selectedState = u.state!;
+        }
         if (u.officeAddress != null && u.officeAddress!.isNotEmpty) {
-          _officeAddressController.text = u.officeAddress!;
-        } else {
-          _officeAddressController.text = '${u.state ?? "Lagos"}, Nigeria';
+          _streetController.text = u.officeAddress!;
         }
         if (u.ninNumber != null && u.ninNumber!.isNotEmpty) {
           _idController.text = u.ninNumber!;
+        }
+        if (u.bvn != null && u.bvn!.isNotEmpty) {
+          _bvnController.text = u.bvn!;
+        }
+        if (u.dob != null && u.dob!.isNotEmpty) {
+          _dobController.text = u.dob!.replaceAll('/', '-');
         }
       });
     }
@@ -83,10 +115,15 @@ class _VerificationModalState extends State<VerificationModal> {
 
   @override
   void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
     _businessNameController.dispose();
     _cacNumberController.dispose();
     _tinController.dispose();
-    _officeAddressController.dispose();
+    _lgaController.dispose();
+    _cityController.dispose();
+    _streetController.dispose();
+    _landmarkController.dispose();
     _idController.dispose();
     _bvnController.dispose();
     _dobController.dispose();
@@ -125,23 +162,80 @@ class _VerificationModalState extends State<VerificationModal> {
     }
   }
 
-  void _goToStep2() {
-    final bName = _businessNameController.text.trim();
-    final cac = _cacNumberController.text.trim();
-
-    if (bName.isEmpty) {
-      setState(() => _errorMessage = 'Please enter your registered Business / Company Name.');
-      return;
+  void _nextStep() {
+    setState(() => _errorMessage = null);
+    if (_isPartner) {
+      if (_currentStep == 0) {
+        if (_businessNameController.text.trim().isEmpty) {
+          setState(() => _errorMessage = 'Please enter your registered Business / Corporate Name.');
+          return;
+        }
+        if (_cacNumberController.text.trim().isEmpty) {
+          setState(() => _errorMessage = 'Please enter your CAC RC or Business Number (BN).');
+          return;
+        }
+        setState(() => _currentStep = 1);
+      } else if (_currentStep == 1) {
+        if (_streetController.text.trim().isEmpty) {
+          setState(() => _errorMessage = 'Please enter your physical office street address.');
+          return;
+        }
+        if (_cityController.text.trim().isEmpty) {
+          setState(() => _errorMessage = 'Please enter your office city / district.');
+          return;
+        }
+        if (_lgaController.text.trim().isEmpty) {
+          setState(() => _errorMessage = 'Please enter your Local Government Area (LGA).');
+          return;
+        }
+        setState(() => _currentStep = 2);
+      } else if (_currentStep == 2) {
+        if (_idController.text.trim().length < 6) {
+          setState(() => _errorMessage = 'Please enter a valid $_idTypeLabel number.');
+          return;
+        }
+        if (_bvnController.text.trim().length != 11) {
+          setState(() => _errorMessage = 'Please enter a valid 11-digit Bank Verification Number (BVN).');
+          return;
+        }
+        if (_dobController.text.trim().isEmpty) {
+          setState(() => _errorMessage = 'Please select your Date of Birth.');
+          return;
+        }
+        setState(() => _currentStep = 3);
+      }
+    } else {
+      if (_currentStep == 0) {
+        if (_nameController.text.trim().isEmpty) {
+          setState(() => _errorMessage = 'Please enter your full legal name.');
+          return;
+        }
+        if (_phoneController.text.trim().isEmpty) {
+          setState(() => _errorMessage = 'Please enter your mobile phone number.');
+          return;
+        }
+        setState(() => _currentStep = 1);
+      } else if (_currentStep == 1) {
+        if (_streetController.text.trim().isEmpty) {
+          setState(() => _errorMessage = 'Please enter your residential street address.');
+          return;
+        }
+        if (_cityController.text.trim().isEmpty) {
+          setState(() => _errorMessage = 'Please enter your city / district.');
+          return;
+        }
+        setState(() => _currentStep = 2);
+      }
     }
-    if (cac.isEmpty) {
-      setState(() => _errorMessage = 'Please enter your CAC RC or Business Number (BN).');
-      return;
-    }
+  }
 
-    setState(() {
-      _errorMessage = null;
-      _currentStep = 1;
-    });
+  void _prevStep() {
+    if (_currentStep > 0) {
+      setState(() {
+        _errorMessage = null;
+        _currentStep--;
+      });
+    }
   }
 
   void _handleVerify() async {
@@ -150,7 +244,8 @@ class _VerificationModalState extends State<VerificationModal> {
     final dob = _dobController.text.trim();
     final bName = _businessNameController.text.trim();
     final cac = _cacNumberController.text.trim();
-    final office = _officeAddressController.text.trim();
+    final tin = _tinController.text.trim();
+    final cleanDob = dob.replaceAll('/', '-');
 
     if (_isPartner) {
       if (bName.isEmpty || cac.isEmpty) {
@@ -158,6 +253,10 @@ class _VerificationModalState extends State<VerificationModal> {
           _currentStep = 0;
           _errorMessage = 'Please complete the business information first.';
         });
+        return;
+      }
+      if (!_certifiedAccurate) {
+        setState(() => _errorMessage = 'Please confirm and certify your details before submitting.');
         return;
       }
     }
@@ -177,6 +276,8 @@ class _VerificationModalState extends State<VerificationModal> {
       return;
     }
 
+    final fullOffice = '${_streetController.text.trim()}${_landmarkController.text.trim().isNotEmpty ? " (Near ${_landmarkController.text.trim()})" : ""}, ${_cityController.text.trim()}, ${_lgaController.text.trim().isNotEmpty ? "${_lgaController.text.trim()} LGA, " : ""}$_selectedState, Nigeria';
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -186,9 +287,14 @@ class _VerificationModalState extends State<VerificationModal> {
       idType: _selectedIdType,
       idNumber: idNum,
       bvn: bvn,
-      dob: dob,
+      dob: cleanDob,
       businessName: _isPartner ? bName : null,
       cacNumber: _isPartner ? cac : null,
+      officeAddress: fullOffice,
+      state: _selectedState,
+      city: _cityController.text.trim(),
+      lga: _lgaController.text.trim(),
+      landmark: _landmarkController.text.trim(),
     );
 
     setState(() => _isLoading = false);
@@ -196,12 +302,12 @@ class _VerificationModalState extends State<VerificationModal> {
     if (res['success'] == true && res['user'] != null) {
       var updatedUser = res['user'] as UserProfile;
       if (_isPartner) {
-        final tin = _tinController.text.trim();
         updatedUser = updatedUser.copyWith(
           businessName: bName,
           cacNumber: cac,
           taxId: tin.isNotEmpty ? tin : updatedUser.taxId,
-          officeAddress: office.isNotEmpty ? office : updatedUser.officeAddress,
+          officeAddress: fullOffice,
+          state: _selectedState,
           isVerified: true,
           bvnVerified: true,
         );
@@ -215,7 +321,18 @@ class _VerificationModalState extends State<VerificationModal> {
       _showSuccessDialog(updatedUser);
     } else {
       setState(() {
-        _errorMessage = res['message'] ?? 'Verification could not be completed. Please check your BVN and ID details.';
+        final rawMsg = res['message']?.toString() ?? 'Verification could not be completed. Please check your BVN and ID details.';
+        if (rawMsg.contains('dob_format') || rawMsg.contains('TierOneCustomerUpgradeRequest.DOB') || rawMsg.toLowerCase().contains('dob')) {
+          _errorMessage = 'Invalid Date of Birth format. Please select your Date of Birth in DD-MM-YYYY format (e.g. 27-06-1990).';
+        } else if (rawMsg.toLowerCase().contains('could not validate bvn')) {
+          _errorMessage = 'Central Banking NIBSS Registry could not validate your 11-digit BVN against your Date of Birth. Please ensure your BVN and Date of Birth match your bank records.';
+        } else {
+          _errorMessage = rawMsg
+              .replaceAll(RegExp(r'Maplerad\s*', caseSensitive: false), 'Rentilly Settlement Rail ')
+              .replaceAll(RegExp(r'VBA notice:\s*', caseSensitive: false), '')
+              .replaceAll(RegExp(r'USDT notice:\s*', caseSensitive: false), '')
+              .trim();
+        }
       });
     }
   }
@@ -323,7 +440,7 @@ class _VerificationModalState extends State<VerificationModal> {
     if (picked != null) {
       setState(() {
         _selectedDob = picked;
-        _dobController.text = "${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}";
+        _dobController.text = "${picked.day.toString().padLeft(2, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.year}";
       });
     }
   }
@@ -428,7 +545,7 @@ class _VerificationModalState extends State<VerificationModal> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        user.kycFailureReason ?? _errorMessage ?? 'Maplerad could not validate your BVN with NIBSS central banking database. Please ensure your 11-digit BVN and Date of Birth match your bank records.',
+                        user.kycFailureReason ?? _errorMessage ?? 'Central Banking NIBSS Registry could not validate your BVN against your Date of Birth. Please ensure your 11-digit BVN and Date of Birth match your bank records.',
                         style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.w600, color: const Color(0xFF78350F), height: 1.35),
                       ),
                     ],
@@ -890,101 +1007,99 @@ class _VerificationModalState extends State<VerificationModal> {
             ),
             const SizedBox(height: 14),
 
-            // Partner 2-Step Progress Indicator
-            if (_isPartner) ...[
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF8FAFC),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFE2E8F0)),
-                ),
-                child: Row(
-                  children: [
-                    // Step 1 Pill
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => setState(() => _currentStep = 0),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 22,
-                              height: 22,
-                              decoration: BoxDecoration(
-                                color: _currentStep == 0 ? AppColors.primary : const Color(0xFF16A34A),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Center(
-                                child: _currentStep > 0
-                                    ? const Icon(Icons.check, size: 13, color: Colors.white)
-                                    : Text('1', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                'Business Info',
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 11,
-                                  fontWeight: _currentStep == 0 ? FontWeight.bold : FontWeight.w500,
-                                  color: _currentStep == 0 ? AppColors.primary : AppColors.textPrimary,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-
-                    // Divider
-                    Container(
-                      width: 20,
-                      height: 1.5,
-                      color: const Color(0xFFCBD5E1),
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                    ),
-
-                    // Step 2 Pill
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () {
-                          if (_businessNameController.text.trim().isNotEmpty && _cacNumberController.text.trim().isNotEmpty) {
-                            setState(() => _currentStep = 1);
-                          }
-                        },
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 22,
-                              height: 22,
-                              decoration: BoxDecoration(
-                                color: _currentStep == 1 ? AppColors.primary : const Color(0xFFE2E8F0),
-                                shape: BoxShape.circle,
-                              ),
-                              child: Center(
-                                child: Text('2', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: _currentStep == 1 ? Colors.white : AppColors.textMuted)),
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                'Director Identity',
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 11,
-                                  fontWeight: _currentStep == 1 ? FontWeight.bold : FontWeight.w500,
-                                  color: _currentStep == 1 ? AppColors.primary : AppColors.textMuted,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+            // Stepper Progress Indicator (4 steps for KYB, 3 steps for KYC)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
               ),
-              const SizedBox(height: 14),
-            ],
+              child: Row(
+                children: (_isPartner
+                    ? [
+                        {'title': 'Corporate', 'idx': 0},
+                        {'title': 'Office', 'idx': 1},
+                        {'title': 'Director', 'idx': 2},
+                        {'title': 'Review', 'idx': 3},
+                      ]
+                    : [
+                        {'title': 'Profile', 'idx': 0},
+                        {'title': 'Address', 'idx': 1},
+                        {'title': 'Identity', 'idx': 2},
+                      ]
+                ).map((s) {
+                  final idx = s['idx'] as int;
+                  final title = s['title'] as String;
+                  final totalSteps = _isPartner ? 4 : 3;
+                  final isActive = _currentStep == idx;
+                  final isCompleted = _currentStep > idx;
+
+                  return Expanded(
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              if (idx < _currentStep) {
+                                setState(() => _currentStep = idx);
+                              }
+                            },
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Container(
+                                  width: 20,
+                                  height: 20,
+                                  decoration: BoxDecoration(
+                                    color: isCompleted
+                                        ? const Color(0xFF16A34A)
+                                        : (isActive ? AppColors.primary : const Color(0xFFE2E8F0)),
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Center(
+                                    child: isCompleted
+                                        ? const Icon(Icons.check, size: 12, color: Colors.white)
+                                        : Text(
+                                            '${idx + 1}',
+                                            style: GoogleFonts.plusJakartaSans(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              color: isActive ? Colors.white : AppColors.textMuted,
+                                            ),
+                                          ),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Flexible(
+                                  child: Text(
+                                    title,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 10.5,
+                                      fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
+                                      color: isActive ? AppColors.primary : (isCompleted ? AppColors.textPrimary : AppColors.textMuted),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        if (idx < totalSteps - 1)
+                          Container(
+                            width: 10,
+                            height: 1.5,
+                            color: const Color(0xFFCBD5E1),
+                            margin: const EdgeInsets.symmetric(horizontal: 2),
+                          ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 14),
 
             // Error Banner
             if (_errorMessage != null) ...[
@@ -1011,192 +1126,371 @@ class _VerificationModalState extends State<VerificationModal> {
               const SizedBox(height: 14),
             ],
 
-            // ==========================================
-            // STEP 0: BUSINESS INFORMATION (PARTNERS)
-            // ==========================================
-            if (_isPartner && _currentStep == 0) ...[
-              Text(
-                'STEP 1: CORPORATE CAC REGISTRATION',
-                style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w900, color: AppColors.primary, letterSpacing: 0.8),
-              ),
-              const SizedBox(height: 10),
-
-              // Business Name
-              TextField(
-                controller: _businessNameController,
-                style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
-                decoration: InputDecoration(
-                  labelText: 'Registered Business / Entity Name',
-                  hintText: 'e.g. Eoms Global Inclusive Limited',
-                  prefixIcon: const Icon(Icons.business_outlined, size: 18, color: AppColors.textMuted),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // CAC Number & TIN
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _cacNumberController,
-                      style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
-                      decoration: InputDecoration(
-                        labelText: 'CAC RC / BN Number',
-                        hintText: 'e.g. RC 1928374',
-                        prefixIcon: const Icon(Icons.badge_outlined, size: 18, color: AppColors.textMuted),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: _tinController,
-                      style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
-                      decoration: InputDecoration(
-                        labelText: 'Tax Number (TIN)',
-                        hintText: 'e.g. 23819284-0001',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // Physical Office Address
-              TextField(
-                controller: _officeAddressController,
-                style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
-                decoration: InputDecoration(
-                  labelText: 'Physical Office / Operational Address',
-                  hintText: 'e.g. 14 Admiralty Way, Lekki Phase 1, Lagos',
-                  prefixIcon: const Icon(Icons.location_on_outlined, size: 18, color: AppColors.textMuted),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Next Button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _goToStep2,
-                  icon: const Icon(Icons.arrow_forward_rounded, size: 16, color: Colors.white),
-                  label: Text('Next: Director Identity', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ),
-            ]
-
-            // ==========================================
-            // STEP 1: DIRECTOR IDENTITY (PARTNERS) OR STANDARD KYC
-            // ==========================================
-            else ...[
-              if (_isPartner) ...[
+            // =================================================================
+            // KYB WORKFLOW (4 NON-CLUSTERED STEPS)
+            // =================================================================
+            if (_isPartner) ...[
+              // STEP 0: CORPORATE CAC REGISTRATION
+              if (_currentStep == 0) ...[
                 Text(
-                  'STEP 2: PRINCIPAL DIRECTOR / BROKER IDENTITY',
+                  'STEP 1 OF 4: CORPORATE CAC PROFILE',
                   style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w900, color: AppColors.primary, letterSpacing: 0.8),
                 ),
                 const SizedBox(height: 10),
+
+                TextField(
+                  controller: _businessNameController,
+                  style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
+                  decoration: InputDecoration(
+                    labelText: 'Registered Business / Company Name',
+                    hintText: 'e.g. Ehomes Global Inclusive Limited',
+                    prefixIcon: const Icon(Icons.business_outlined, size: 18, color: AppColors.textMuted),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: TextField(
+                        controller: _cacNumberController,
+                        style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
+                        decoration: InputDecoration(
+                          labelText: 'CAC RC / BN Number',
+                          hintText: 'e.g. RC 1928374',
+                          prefixIcon: const Icon(Icons.badge_outlined, size: 18, color: AppColors.textMuted),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 2,
+                      child: TextField(
+                        controller: _tinController,
+                        style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
+                        decoration: InputDecoration(
+                          labelText: 'Tax ID (TIN)',
+                          hintText: 'Optional',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _nextStep,
+                    icon: const Icon(Icons.arrow_forward_rounded, size: 16, color: Colors.white),
+                    label: Text('Next: Physical Office Address', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
               ],
 
-              // ID Type Selector
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.borderDark),
+              // STEP 1: PHYSICAL OPERATIONAL OFFICE ADDRESS (COLLATED)
+              if (_currentStep == 1) ...[
+                Text(
+                  'STEP 2 OF 4: PHYSICAL OPERATIONAL OFFICE',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w900, color: AppColors.primary, letterSpacing: 0.8),
                 ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: _selectedIdType,
-                    isExpanded: true,
-                    items: const [
-                      DropdownMenuItem(value: 'nin', child: Text('National Identity Number (NIN)')),
-                      DropdownMenuItem(value: 'voters_card', child: Text("Voter's Card (VIN)")),
-                      DropdownMenuItem(value: 'drivers_license', child: Text("Driver's License (FRSC)")),
-                      DropdownMenuItem(value: 'passport', child: Text('International Passport')),
-                    ],
-                    onChanged: (val) {
-                      if (val != null) setState(() => _selectedIdType = val);
-                    },
+                const SizedBox(height: 10),
+
+                DropdownButtonFormField<String>(
+                  initialValue: _selectedState,
+                  decoration: InputDecoration(
+                    labelText: 'Operational State (36 States + FCT)',
+                    prefixIcon: const Icon(Icons.map_outlined, size: 18, color: AppColors.textMuted),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   ),
+                  items: _nigerianStates.map((s) => DropdownMenuItem(value: s, child: Text(s, style: GoogleFonts.plusJakartaSans(fontSize: 12.5)))).toList(),
+                  onChanged: (val) {
+                    if (val != null) setState(() => _selectedState = val);
+                  },
                 ),
-              ),
-              const SizedBox(height: 12),
+                const SizedBox(height: 12),
 
-              // ID Number Field
-              TextField(
-                controller: _idController,
-                keyboardType: TextInputType.text,
-                style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
-                decoration: InputDecoration(
-                  labelText: _idTypeLabel,
-                  hintText: _idInputHint,
-                  prefixIcon: const Icon(Icons.credit_card_rounded, size: 18, color: AppColors.textMuted),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // BVN & DOB Row
-              Row(
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: TextField(
-                      controller: _bvnController,
-                      keyboardType: TextInputType.number,
-                      maxLength: 11,
-                      style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
-                      decoration: InputDecoration(
-                        labelText: _isPartner ? 'Director BVN (11 digits)' : 'Bank Verification No. (BVN)',
-                        hintText: '22XXXXXXXXX',
-                        counterText: '',
-                        prefixIcon: const Icon(Icons.fingerprint_rounded, size: 18, color: AppColors.textMuted),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _lgaController,
+                        style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
+                        decoration: InputDecoration(
+                          labelText: 'L.G.A (Local Govt Area)',
+                          hintText: 'e.g. Eti-Osa / Ikeja',
+                          prefixIcon: const Icon(Icons.account_balance_outlined, size: 18, color: AppColors.textMuted),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    flex: 2,
-                    child: TextField(
-                      controller: _dobController,
-                      readOnly: true,
-                      onTap: _pickDateOfBirth,
-                      style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
-                      decoration: InputDecoration(
-                        labelText: 'Date of Birth',
-                        hintText: 'Select Date',
-                        prefixIcon: const Icon(Icons.calendar_month_rounded, size: 18, color: AppColors.primary),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        controller: _cityController,
+                        style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
+                        decoration: InputDecoration(
+                          labelText: 'City / District',
+                          hintText: 'e.g. Lekki Phase 1',
+                          prefixIcon: const Icon(Icons.location_city_outlined, size: 18, color: AppColors.textMuted),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
+                  ],
+                ),
+                const SizedBox(height: 12),
 
-              // Actions (Back + Submit)
-              if (_isPartner) ...[
+                TextField(
+                  controller: _streetController,
+                  style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
+                  decoration: InputDecoration(
+                    labelText: 'Physical Street Address & Suite / Building No.',
+                    hintText: 'e.g. Plot 14 Admiralty Way, Suite 2B',
+                    prefixIcon: const Icon(Icons.signpost_outlined, size: 18, color: AppColors.textMuted),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                TextField(
+                  controller: _landmarkController,
+                  style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
+                  decoration: InputDecoration(
+                    labelText: 'Nearest Landmark / Bus Stop (Optional)',
+                    hintText: 'e.g. Opposite Ebeano Supermarket',
+                    prefixIcon: const Icon(Icons.pin_drop_outlined, size: 18, color: AppColors.textMuted),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
                 Row(
                   children: [
                     OutlinedButton.icon(
-                      onPressed: () => setState(() => _currentStep = 0),
+                      onPressed: _prevStep,
+                      icon: const Icon(Icons.arrow_back_rounded, size: 16, color: AppColors.textSecondary),
+                      label: Text('Back', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        side: const BorderSide(color: AppColors.borderDark),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _nextStep,
+                        icon: const Icon(Icons.arrow_forward_rounded, size: 16, color: Colors.white),
+                        label: Text('Next: Director Identity', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+
+              // STEP 2: PRINCIPAL DIRECTOR / BROKER IDENTITY
+              if (_currentStep == 2) ...[
+                Text(
+                  'STEP 3 OF 4: PRINCIPAL DIRECTOR IDENTITY',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w900, color: AppColors.primary, letterSpacing: 0.8),
+                ),
+                const SizedBox(height: 10),
+
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.borderDark),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _selectedIdType,
+                      isExpanded: true,
+                      items: const [
+                        DropdownMenuItem(value: 'nin', child: Text('National Identity Number (NIN)')),
+                        DropdownMenuItem(value: 'voters_card', child: Text("Voter's Card (VIN)")),
+                        DropdownMenuItem(value: 'drivers_license', child: Text("Driver's License (FRSC)")),
+                        DropdownMenuItem(value: 'passport', child: Text('International Passport')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) setState(() => _selectedIdType = val);
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                TextField(
+                  controller: _idController,
+                  keyboardType: TextInputType.text,
+                  style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
+                  decoration: InputDecoration(
+                    labelText: _idTypeLabel,
+                    hintText: _idInputHint,
+                    prefixIcon: const Icon(Icons.credit_card_rounded, size: 18, color: AppColors.textMuted),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: TextField(
+                        controller: _bvnController,
+                        keyboardType: TextInputType.number,
+                        maxLength: 11,
+                        style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
+                        decoration: InputDecoration(
+                          labelText: 'Director BVN (11 digits)',
+                          hintText: '22XXXXXXXXX',
+                          counterText: '',
+                          prefixIcon: const Icon(Icons.fingerprint_rounded, size: 18, color: AppColors.textMuted),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 2,
+                      child: TextField(
+                        controller: _dobController,
+                        readOnly: true,
+                        onTap: _pickDateOfBirth,
+                        style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
+                        decoration: InputDecoration(
+                          labelText: 'Date of Birth',
+                          hintText: 'DD-MM-YYYY',
+                          prefixIcon: const Icon(Icons.calendar_month_rounded, size: 18, color: AppColors.primary),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                Row(
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: _prevStep,
+                      icon: const Icon(Icons.arrow_back_rounded, size: 16, color: AppColors.textSecondary),
+                      label: Text('Back', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        side: const BorderSide(color: AppColors.borderDark),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _nextStep,
+                        icon: const Icon(Icons.arrow_forward_rounded, size: 16, color: Colors.white),
+                        label: Text('Next: Review & Declare', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+
+              // STEP 3: COMPLIANCE AUDIT & DECLARATION
+              if (_currentStep == 3) ...[
+                Text(
+                  'STEP 4 OF 4: AUDIT REVIEW & DECLARATION',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w900, color: AppColors.primary, letterSpacing: 0.8),
+                ),
+                const SizedBox(height: 10),
+
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildAuditItem('Corporate Entity', _businessNameController.text.trim(), Icons.business_rounded),
+                      const SizedBox(height: 8),
+                      _buildAuditItem('Registration No.', _cacNumberController.text.trim(), Icons.badge_rounded),
+                      const SizedBox(height: 8),
+                      _buildAuditItem(
+                        'Physical Office',
+                        '${_streetController.text.trim()}, ${_cityController.text.trim()}, ${_lgaController.text.trim()} LGA, $_selectedState',
+                        Icons.location_on_rounded,
+                      ),
+                      const SizedBox(height: 8),
+                      _buildAuditItem('Director Identity', '$_idTypeLabel: ${_idController.text.trim()}', Icons.person_rounded),
+                      const SizedBox(height: 8),
+                      _buildAuditItem(
+                        'Banking / BVN',
+                        '*******${_bvnController.text.trim().length >= 4 ? _bvnController.text.trim().substring(_bvnController.text.trim().length - 4) : ''} (DOB: ${_dobController.text.trim()})',
+                        Icons.account_balance_rounded,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                GestureDetector(
+                  onTap: () => setState(() => _certifiedAccurate = !_certifiedAccurate),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Checkbox(
+                        value: _certifiedAccurate,
+                        activeColor: AppColors.primary,
+                        onChanged: (v) => setState(() => _certifiedAccurate = v ?? true),
+                      ),
+                      Expanded(
+                        child: Text(
+                          'I certify that I am an authorized principal of this entity and that all CAC, address, and BVN records submitted are authentic and match official regulatory databases.',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary, height: 1.35),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
+
+                Row(
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: _prevStep,
                       icon: const Icon(Icons.arrow_back_rounded, size: 16, color: AppColors.textSecondary),
                       label: Text('Back', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
                       style: OutlinedButton.styleFrom(
@@ -1221,34 +1515,281 @@ class _VerificationModalState extends State<VerificationModal> {
                                 child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                               )
                             : Text(
-                                'Submit Corporate KYB',
+                                'Submit Corporate KYB ⚡',
                                 style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
                               ),
                       ),
                     ),
                   ],
                 ),
-              ] else ...[
+              ],
+            ]
+
+            // =================================================================
+            // STANDARD KYC WORKFLOW (3 NON-CLUSTERED STEPS)
+            // =================================================================
+            else ...[
+              // KYC STEP 0: PERSONAL PROFILE
+              if (_currentStep == 0) ...[
+                Text(
+                  'STEP 1 OF 3: PERSONAL PROFILE',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w900, color: AppColors.primary, letterSpacing: 0.8),
+                ),
+                const SizedBox(height: 10),
+
+                TextField(
+                  controller: _nameController,
+                  style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
+                  decoration: InputDecoration(
+                    labelText: 'Full Legal Name (as registered with BVN)',
+                    hintText: 'e.g. Anthony Chukwuma',
+                    prefixIcon: const Icon(Icons.person_outline_rounded, size: 18, color: AppColors.textMuted),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                TextField(
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
+                  decoration: InputDecoration(
+                    labelText: 'Mobile Phone Number',
+                    hintText: 'e.g. 08012345678',
+                    prefixIcon: const Icon(Icons.phone_outlined, size: 18, color: AppColors.textMuted),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _handleVerify,
+                  child: ElevatedButton.icon(
+                    onPressed: _nextStep,
+                    icon: const Icon(Icons.arrow_forward_rounded, size: 16, color: Colors.white),
+                    label: Text('Next: Residential Address', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 18,
-                            width: 18,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                          )
-                        : Text(
-                            'Verify Identity & Provision Account',
-                            style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
-                          ),
                   ),
+                ),
+              ],
+
+              // KYC STEP 1: RESIDENTIAL ADDRESS
+              if (_currentStep == 1) ...[
+                Text(
+                  'STEP 2 OF 3: RESIDENTIAL ADDRESS',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w900, color: AppColors.primary, letterSpacing: 0.8),
+                ),
+                const SizedBox(height: 10),
+
+                DropdownButtonFormField<String>(
+                  initialValue: _selectedState,
+                  decoration: InputDecoration(
+                    labelText: 'State of Residence',
+                    prefixIcon: const Icon(Icons.map_outlined, size: 18, color: AppColors.textMuted),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  ),
+                  items: _nigerianStates.map((s) => DropdownMenuItem(value: s, child: Text(s, style: GoogleFonts.plusJakartaSans(fontSize: 12.5)))).toList(),
+                  onChanged: (val) {
+                    if (val != null) setState(() => _selectedState = val);
+                  },
+                ),
+                const SizedBox(height: 12),
+
+                TextField(
+                  controller: _cityController,
+                  style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
+                  decoration: InputDecoration(
+                    labelText: 'City / District',
+                    hintText: 'e.g. Ikeja / Yaba',
+                    prefixIcon: const Icon(Icons.location_city_outlined, size: 18, color: AppColors.textMuted),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                TextField(
+                  controller: _streetController,
+                  style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
+                  decoration: InputDecoration(
+                    labelText: 'Residential Street Address',
+                    hintText: 'e.g. 24 Allen Avenue, Flat 4',
+                    prefixIcon: const Icon(Icons.signpost_outlined, size: 18, color: AppColors.textMuted),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                TextField(
+                  controller: _landmarkController,
+                  style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
+                  decoration: InputDecoration(
+                    labelText: 'Nearest Landmark (Optional)',
+                    hintText: 'e.g. Near Ikeja City Mall',
+                    prefixIcon: const Icon(Icons.pin_drop_outlined, size: 18, color: AppColors.textMuted),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                Row(
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: _prevStep,
+                      icon: const Icon(Icons.arrow_back_rounded, size: 16, color: AppColors.textSecondary),
+                      label: Text('Back', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        side: const BorderSide(color: AppColors.borderDark),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: _nextStep,
+                        icon: const Icon(Icons.arrow_forward_rounded, size: 16, color: Colors.white),
+                        label: Text('Next: Identity Verification', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+
+              // KYC STEP 2: IDENTITY & BANKING VERIFICATION
+              if (_currentStep == 2) ...[
+                Text(
+                  'STEP 3 OF 3: IDENTITY & BVN VALIDATION',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w900, color: AppColors.primary, letterSpacing: 0.8),
+                ),
+                const SizedBox(height: 10),
+
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.borderDark),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _selectedIdType,
+                      isExpanded: true,
+                      items: const [
+                        DropdownMenuItem(value: 'nin', child: Text('National Identity Number (NIN)')),
+                        DropdownMenuItem(value: 'voters_card', child: Text("Voter's Card (VIN)")),
+                        DropdownMenuItem(value: 'drivers_license', child: Text("Driver's License (FRSC)")),
+                        DropdownMenuItem(value: 'passport', child: Text('International Passport')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) setState(() => _selectedIdType = val);
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                TextField(
+                  controller: _idController,
+                  keyboardType: TextInputType.text,
+                  style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
+                  decoration: InputDecoration(
+                    labelText: _idTypeLabel,
+                    hintText: _idInputHint,
+                    prefixIcon: const Icon(Icons.credit_card_rounded, size: 18, color: AppColors.textMuted),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: TextField(
+                        controller: _bvnController,
+                        keyboardType: TextInputType.number,
+                        maxLength: 11,
+                        style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
+                        decoration: InputDecoration(
+                          labelText: '11-digit BVN',
+                          hintText: '22XXXXXXXXX',
+                          counterText: '',
+                          prefixIcon: const Icon(Icons.fingerprint_rounded, size: 18, color: AppColors.textMuted),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 2,
+                      child: TextField(
+                        controller: _dobController,
+                        readOnly: true,
+                        onTap: _pickDateOfBirth,
+                        style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
+                        decoration: InputDecoration(
+                          labelText: 'Date of Birth',
+                          hintText: 'DD-MM-YYYY',
+                          prefixIcon: const Icon(Icons.calendar_month_rounded, size: 18, color: AppColors.primary),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                Row(
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: _prevStep,
+                      icon: const Icon(Icons.arrow_back_rounded, size: 16, color: AppColors.textSecondary),
+                      label: Text('Back', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        side: const BorderSide(color: AppColors.borderDark),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _handleVerify,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: _isLoading
+                            ? const SizedBox(
+                                height: 18,
+                                width: 18,
+                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                              )
+                            : Text(
+                                'Verify & Provision Account ⚡',
+                                style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                              ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ],
