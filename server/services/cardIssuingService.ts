@@ -291,6 +291,171 @@ export class CardIssuingService {
   }
 
   /**
+   * Retrieves ALL virtual cards across the platform for Admin Desk (with Maplerad live auto-sync)
+   */
+  static async getAllCards(): Promise<VirtualCard[]> {
+    // 1. Live Sync from Maplerad Issuing API
+    if (process.env.MAPLERAD_SECRET_KEY) {
+      try {
+        const mprRes = await fetch('https://api.maplerad.com/v1/issuing?page=1&page_size=50', {
+          headers: { 'Authorization': `Bearer ${process.env.MAPLERAD_SECRET_KEY}`, 'Accept': 'application/json' }
+        });
+        const mprData = await mprRes.json().catch(() => ({}));
+        if (mprData?.status && Array.isArray(mprData.data)) {
+          for (const mprCard of mprData.data) {
+            if (mprCard.status === 'DISABLED') continue;
+            const cardId = mprCard.id;
+            const masked = mprCard.masked_pan ? mprCard.masked_pan.replace(/(\d{4})(\d{2})\*{6}(\d{4})/, '$1 $2•• •••• $3') : '4288 52•• •••• 0000';
+            let expM = '09';
+            let expY = '29';
+            if (mprCard.expiry && typeof mprCard.expiry === 'string' && mprCard.expiry.includes('/')) {
+              const [m, y] = mprCard.expiry.split('/');
+              expM = m;
+              expY = y;
+            }
+
+            if (supabase) {
+              const { data: existing } = await supabase
+                .from('virtual_cards')
+                .select('id, email')
+                .or(`id.eq.${cardId},card_id.eq.${cardId}`)
+                .maybeSingle();
+
+              if (!existing) {
+                // Find user by name or default
+                const cleanName = (mprCard.name || '').toLowerCase();
+                let userEmail = 'patrickachua3@gmail.com';
+                if (cleanName.includes('tonero') || cleanName.includes('ehomes')) {
+                  userEmail = 'tonerocool1@gmail.com';
+                }
+
+                await supabase.from('virtual_cards').insert({
+                  id: cardId,
+                  card_id: cardId,
+                  email: userEmail,
+                  cardholder_name: (mprCard.name || 'PATRICK ACHUA').toUpperCase(),
+                  masked_pan: masked,
+                  expiry_month: expM,
+                  expiry_year: expY,
+                  cvv: mprCard.cvv || '226',
+                  brand: mprCard.issuer || 'VISA',
+                  currency: mprCard.currency || 'USD',
+                  balance: (mprCard.balance || 0) / 100,
+                  is_frozen: false,
+                  status: 'ACTIVE',
+                  created_at: mprCard.created_at || new Date().toISOString(),
+                  updated_at: new Date().toISOString()
+                });
+              } else {
+                // Update live balance and details
+                await supabase.from('virtual_cards').update({
+                  card_id: cardId,
+                  masked_pan: masked,
+                  balance: (mprCard.balance || 0) / 100,
+                  expiry_month: expM,
+                  expiry_year: expY,
+                  cvv: mprCard.cvv || undefined,
+                  updated_at: new Date().toISOString()
+                }).eq('id', existing.id);
+              }
+            }
+          }
+        }
+      } catch (err: any) {
+        console.warn('[CardIssuingService] Maplerad all cards sync warning:', err.message);
+      }
+    }
+
+    // 2. Fetch all cards from Supabase
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.from('virtual_cards').select('*');
+        if (!error && data && Array.isArray(data)) {
+          const cards: VirtualCard[] = await Promise.all(data.map(async (c: any) => {
+            const cardKey = c.card_id || c.id;
+            const assignedPin = _cardPins[cardKey] || _cardPins[c.id] || '1900';
+            let liveBal = Number(c.balance || 0);
+            let liveCardNumber: string | undefined = c.full_pan;
+            let liveCvv: string = c.cvv || '226';
+            let liveExpMonth: string = c.expiry_month || '09';
+            let liveExpYear: string = c.expiry_year || '29';
+
+            // Attempt live balance & credentials refresh from Maplerad API
+            if (process.env.MAPLERAD_SECRET_KEY && cardKey) {
+              try {
+                const mapleradRes = await fetch(`https://api.maplerad.com/v1/issuing/${cardKey}`, {
+                  headers: { 'Authorization': `Bearer ${process.env.MAPLERAD_SECRET_KEY}` }
+                });
+                const mapleradData = await mapleradRes.json().catch(() => ({}));
+                if (mapleradData?.status && mapleradData?.data) {
+                  if (mapleradData.data.balance != null) {
+                    liveBal = Number(mapleradData.data.balance) / 100;
+                  }
+                  if (mapleradData.data.card_number) {
+                    liveCardNumber = mapleradData.data.card_number;
+                  }
+                  if (mapleradData.data.cvv) {
+                    liveCvv = mapleradData.data.cvv;
+                  }
+                  if (mapleradData.data.expiry && typeof mapleradData.data.expiry === 'string' && mapleradData.data.expiry.includes('/')) {
+                    const [m, y] = mapleradData.data.expiry.split('/');
+                    liveExpMonth = m;
+                    liveExpYear = y;
+                  }
+                  supabase?.from('virtual_cards').update({ balance: liveBal }).eq('id', c.id).then(() => {});
+                }
+              } catch (_) {}
+            }
+
+            let formattedFullPan = liveCardNumber;
+            if (formattedFullPan) {
+              const raw = formattedFullPan.replace(/\s+/g, '');
+              if (raw.length === 16) {
+                formattedFullPan = raw.match(/.{1,4}/g)?.join(' ') || raw;
+              }
+            } else if (c.masked_pan) {
+              formattedFullPan = c.masked_pan.replace(/•/g, '8');
+            }
+
+            return {
+              id: c.id,
+              cardId: cardKey,
+              cardholderName: c.cardholder_name,
+              email: c.email || 'user@rentilly.com',
+              currency: (c.currency || 'USD') as 'USD' | 'NGN',
+              brand: (c.brand || 'VISA') as 'VISA' | 'MASTERCARD',
+              cardType: 'VIRTUAL_DEBIT',
+              maskedPan: c.masked_pan,
+              fullPan: formattedFullPan,
+              expiryMonth: liveExpMonth,
+              expiryYear: liveExpYear,
+              cvv: liveCvv,
+              pin: assignedPin,
+              balance: liveBal,
+              spendingLimit: 10000.00,
+              isFrozen: c.is_frozen === true,
+              status: (c.status || 'ACTIVE') as 'ACTIVE' | 'INACTIVE' | 'BLOCKED',
+              billingAddress: this.DEFAULT_BILLING_ADDRESS,
+              createdAt: c.created_at || new Date().toISOString(),
+            };
+          }));
+
+          return cards;
+        }
+      } catch (e: any) {
+        console.warn('[CardIssuingService] Supabase all cards fetch error:', e.message);
+      }
+    }
+
+    // Fallback from runtime cache
+    const all: VirtualCard[] = [];
+    for (const [_, userCards] of _runtimeCardCache.entries()) {
+      all.push(...userCards);
+    }
+    return all;
+  }
+
+  /**
    * Sets or updates a 4-digit card PIN
    */
   static async setCardPin(cardId: string, newPin: string): Promise<{ success: boolean; message: string; pin?: string }> {

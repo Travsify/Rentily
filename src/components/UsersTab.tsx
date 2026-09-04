@@ -194,8 +194,8 @@ export const UsersTab: React.FC<UsersTabProps> = ({ users }) => {
 
   const exportToCSV = () => {
     if (localUsers.length === 0) return;
-    const headers = ['User ID', 'Full Name', 'Email', 'Phone', 'Role', 'Verified', 'Account Number', 'Bank', 'Wallet Balance (NGN)', 'Created At'];
-    const rows = localUsers.map(u => {
+    const headers = ['User ID', 'Full Name', 'Email', 'Phone', 'Role', 'Verified', 'Account Number', 'Bank Name', 'Naira Balance', 'USDT Balance', 'TRON Address', 'Created At'];
+    const rows = filteredUsers.map(u => {
       const anyU = u as any;
       return [
         u.id,
@@ -207,6 +207,8 @@ export const UsersTab: React.FC<UsersTabProps> = ({ users }) => {
         anyU.accountNumber || '',
         `"${(anyU.bankName || '').replace(/"/g, '""')}"`,
         anyU.walletBalance || 0,
+        anyU.usdtBalance || 0,
+        anyU.usdtTronAddress || '',
         u.createdAt || ''
       ];
     });
@@ -427,8 +429,11 @@ export const UsersTab: React.FC<UsersTabProps> = ({ users }) => {
                           <span className="text-slate-500 text-[10px] italic">Not Assigned</span>
                         )}
                       </td>
-                      <td className="py-3 font-mono font-bold text-white text-xs">
-                        ₦{(anyU.walletBalance || 0).toLocaleString()}
+                      <td className="py-3 font-mono text-xs">
+                        <div className="font-bold text-white">₦{(anyU.walletBalance || 0).toLocaleString()}</div>
+                        {anyU.usdtBalance != null && anyU.usdtBalance > 0 && (
+                          <div className="text-[10px] text-teal-400 font-semibold tracking-wide">${Number(anyU.usdtBalance).toFixed(2)} USDT</div>
+                        )}
                       </td>
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">

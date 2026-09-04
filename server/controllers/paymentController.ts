@@ -1646,14 +1646,15 @@ async function syncMapleradTransactionsForUser(cleanEmail: string) {
       const isOurCustomer = (txCustomerEmail && txCustomerEmail === cleanEmail) || 
                             (customerId && txCustomerId === customerId);
       if (!isOurCustomer) continue;
-      if (TransactionStore.isTreasuryTransaction({ title: tx.summary || tx.reason, reference: tx.reference || tx.id, amount })) continue;
+      const amount = Number(tx.amount || 0) / 100; // kobo to NGN
+      if (amount <= 0) continue;
 
       const rawStatus = (tx.status || '').toUpperCase();
       if (rawStatus !== 'SUCCESS' && rawStatus !== 'PENDING') continue;
 
+      if (TransactionStore.isTreasuryTransaction({ title: tx.summary || tx.reason, reference: tx.reference || tx.id, amount })) continue;
+
       const isCredit = (tx.entry || '').toUpperCase() === 'CREDIT';
-      const amount = Number(tx.amount || 0) / 100; // kobo to NGN
-      if (amount <= 0) continue;
 
       const ref = tx.reference || tx.id;
       const exists = existing.some(e => e.reference === ref || e.id === `MAPLE_TX_${tx.id}` || (ref && e.reference && e.reference.includes(ref)));
@@ -2400,12 +2401,32 @@ export async function convertVaultCurrency(req: Request, res: Response) {
 
 export async function getUserCards(req: Request, res: Response) {
   try {
-    const { email } = req.query;
-    const cleanEmail = (email || 'tonerocool1@gmail.com').toString().trim().toLowerCase();
+    const { email, all } = req.query;
+    if (all === 'true' || email === 'all' || !email) {
+      const cards = await CardIssuingService.getAllCards();
+      return res.json({
+        status: true,
+        data: cards
+      });
+    }
+
+    const cleanEmail = email.toString().trim().toLowerCase();
     const user = await UserStore.findByEmail(cleanEmail);
     const fullName = user?.fullName || user?.businessName || 'Valued Partner';
 
     const cards = await CardIssuingService.getUserCards(cleanEmail, fullName);
+    res.json({
+      status: true,
+      data: cards
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+export async function getAllCardsHandler(_req: Request, res: Response) {
+  try {
+    const cards = await CardIssuingService.getAllCards();
     res.json({
       status: true,
       data: cards

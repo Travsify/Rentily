@@ -97,7 +97,7 @@ export const GlobalCardsDeskTab: React.FC = () => {
     try {
       const [accRes, cardRes, fxRes, pricingRes, spreadRes] = await Promise.all([
         fetch('/api/wallet/multi-currency-accounts?email=tonerocool1@gmail.com'),
-        fetch('/api/cards/user-cards?email=tonerocool1@gmail.com'),
+        fetch('/api/cards/all'),
         fetch('/api/wallet/fx-rates'),
         fetch('/api/cards/pricing'),
         fetch('/api/fx/spread-rates')
@@ -584,9 +584,14 @@ export const GlobalCardsDeskTab: React.FC = () => {
                   <div className="flex items-end justify-between relative z-10 pt-2 border-t border-slate-800/80">
                     <div>
                       <span className="text-[9px] text-slate-400 uppercase block font-medium">Cardholder</span>
-                      <span className="text-xs font-bold text-white tracking-wide truncate max-w-[140px] block">
+                      <span className="text-xs font-bold text-white tracking-wide truncate max-w-[150px] block">
                         {card.cardholderName}
                       </span>
+                      {card.email && (
+                        <span className="text-[9px] text-slate-400 truncate max-w-[150px] block font-mono">
+                          {card.email}
+                        </span>
+                      )}
                     </div>
 
                     <div className="text-right">

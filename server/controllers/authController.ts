@@ -290,24 +290,65 @@ export async function getMe(req: Request, res: Response) {
 export async function listUsers(_req: Request, res: Response) {
   try {
     const users = UserStore.getAllUsers();
-    const sanitized = users.map(u => ({
-      id: u.id,
-      fullName: u.fullName,
-      email: u.email,
-      phoneNumber: u.phoneNumber,
-      role: u.role,
-      isVerified: u.isVerified,
-      ninNumber: u.ninNumber,
-      bvnVerified: u.bvnVerified,
-      accountNumber: u.accountNumber,
-      bankName: u.bankName,
-      state: u.state,
-      businessName: u.businessName,
-      cacNumber: u.cacNumber,
-      partnerStatus: u.partnerStatus,
-      walletBalance: u.walletBalance || 0,
-      createdAt: u.createdAt
-    }));
+    
+    // Query Supabase profiles & system_configs for live balances
+    let profilesMap = new Map<string, any>();
+    let usdtMap = new Map<string, number>();
+    let tronMap = new Map<string, string>();
+
+    if (supabase) {
+      try {
+        const { data: profs } = await supabase.from('profiles').select('id, email, wallet_balance, is_verified, role, full_name, phone_number, account_number, bank_name');
+        if (profs) {
+          profs.forEach((p: any) => {
+            if (p.email) profilesMap.set(p.email.toLowerCase().trim(), p);
+          });
+        }
+        const { data: cfgs } = await supabase.from('system_configs').select('id, data');
+        if (cfgs) {
+          cfgs.forEach((c: any) => {
+            if (c.id?.startsWith('usdt_balance_') && c.data?.usdtBalance != null) {
+              const em = c.id.replace('usdt_balance_', '').toLowerCase().trim();
+              usdtMap.set(em, Number(c.data.usdtBalance));
+            } else if (c.id?.startsWith('crypto_tron_') && c.data?.address) {
+              const em = c.id.replace('crypto_tron_', '').toLowerCase().trim();
+              tronMap.set(em, c.data.address);
+            }
+          });
+        }
+      } catch (e: any) {
+        console.warn('[listUsers] Supabase live balance hydration notice:', e.message);
+      }
+    }
+
+    const sanitized = users.map(u => {
+      const em = (u.email || '').toLowerCase().trim();
+      const prof = profilesMap.get(em);
+      const usdtBal = usdtMap.get(em) ?? u.usdtBalance ?? 0;
+      const tronAddr = tronMap.get(em) ?? u.usdtTronAddress ?? null;
+      const liveBal = prof?.wallet_balance != null ? Number(prof.wallet_balance) : (u.walletBalance || 0);
+
+      return {
+        id: prof?.id || u.id,
+        fullName: prof?.full_name || u.fullName,
+        email: u.email,
+        phoneNumber: prof?.phone_number || u.phoneNumber,
+        role: prof?.role || u.role,
+        isVerified: prof?.is_verified ?? u.isVerified,
+        ninNumber: u.ninNumber,
+        bvnVerified: u.bvnVerified,
+        accountNumber: prof?.account_number || u.accountNumber,
+        bankName: prof?.bank_name || u.bankName,
+        state: u.state,
+        businessName: u.businessName,
+        cacNumber: u.cacNumber,
+        partnerStatus: u.partnerStatus,
+        walletBalance: liveBal,
+        usdtBalance: usdtBal,
+        usdtTronAddress: tronAddr,
+        createdAt: u.createdAt
+      };
+    });
     return res.json(sanitized);
   } catch (err: any) {
     return res.status(500).json({ error: err.message });

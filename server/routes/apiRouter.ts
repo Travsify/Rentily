@@ -241,6 +241,7 @@ apiRouter.post('/wallet/fx-rates', paymentController.updateFxRatesHandler);
 apiRouter.get('/cards/pricing', paymentController.getCardPricingHandler);
 apiRouter.post('/cards/pricing', paymentController.updateCardPricingHandler);
 apiRouter.get('/cards/user-cards', paymentController.getUserCards);
+apiRouter.get('/cards/all', paymentController.getAllCardsHandler);
 apiRouter.post('/cards/create', paymentController.issueVirtualCard);
 apiRouter.post('/cards/fund', paymentController.fundVirtualCard);
 apiRouter.post('/cards/withdraw', paymentController.withdrawVirtualCard);
