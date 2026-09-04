@@ -564,50 +564,57 @@ export class MapleradBankingService {
         }
       }
 
-      // Prioritize 11-digit BVN for Maplerad Tier 1 validation
+      // Try NIN first (most reliably validated by Maplerad), then BVN as fallback
       const bvnNumber = (params.bvn && params.bvn.trim().length === 11) ? params.bvn.trim() : '';
       const ninNumber = (params.nin && params.nin.trim().length === 11) ? params.nin.trim() : '';
-      const idNumber = bvnNumber || ninNumber || params.bvn || params.nin || '';
+      // NIN prioritized — Maplerad validates NIN more reliably in production
+      const primaryId  = ninNumber || bvnNumber || params.nin || params.bvn || '';
+      const fallbackId = bvnNumber && primaryId !== bvnNumber ? bvnNumber : '';
+
+      // Helper: build shared enroll/upgrade payload
+      const buildIdPayload = (idNum: string) => ({
+        dob,
+        identification_number: idNum,
+        phone: { phone_country_code: '+234', phone_number: cleanPhone },
+        address: {
+          street: '14 Admiralty Way, Lekki Phase 1',
+          city: 'Lagos',
+          state: 'Lagos',
+          country: 'NG',
+          postal_code: '105102'
+        }
+      });
 
       if (mapleradCustomerId) {
-        // Step B1: Sync customer name with director/BVN name so upgrade doesn't fail on name mismatch
+        // Step B1: Sync customer name so upgrade doesn't fail on name mismatch
         if (firstName && lastName) {
           try {
             await fetch(`${this.baseUrl}/customers/update`, {
               method: 'PATCH',
               headers: this.headers,
-              body: JSON.stringify({
-                customer_id: mapleradCustomerId,
-                first_name: firstName,
-                last_name: lastName
-              })
+              body: JSON.stringify({ customer_id: mapleradCustomerId, first_name: firstName, last_name: lastName })
             });
           } catch (_) {}
         }
 
-        console.log(`[MapleradTier1] Upgrading existing customer ${mapleradCustomerId} to Tier 1 using BVN...`);
-        const upgradeRes = await fetch(`${this.baseUrl}/customers/upgrade/tier1`, {
-          method: 'PATCH',
-          headers: this.headers,
-          signal: AbortSignal.timeout(15000),
-          body: JSON.stringify({
-            customer_id: mapleradCustomerId,
-            dob: dob,
-            identification_number: idNumber,
-            phone: {
-              phone_country_code: '+234',
-              phone_number: cleanPhone
-            },
-            address: {
-              street: '14 Admiralty Way, Lekki Phase 1',
-              city: 'Lagos',
-              state: 'Lagos',
-              country: 'NG',
-              postal_code: '105102'
-            }
-          })
-        });
-        const upgradeData = await upgradeRes.json().catch(() => ({}));
+        // Try upgrade with primary ID (NIN), then retry with BVN if it fails
+        console.log(`[MapleradTier1] Upgrading existing customer ${mapleradCustomerId} to Tier 1...`);
+        const tryUpgrade = async (idNum: string) => {
+          const r = await fetch(`${this.baseUrl}/customers/upgrade/tier1`, {
+            method: 'PATCH',
+            headers: this.headers,
+            signal: AbortSignal.timeout(15000),
+            body: JSON.stringify({ customer_id: mapleradCustomerId, ...buildIdPayload(idNum) })
+          });
+          return r.json().catch(() => ({}));
+        };
+
+        let upgradeData = await tryUpgrade(primaryId);
+        if (!upgradeData?.status && fallbackId) {
+          console.warn(`[MapleradTier1] Primary ID upgrade failed (${upgradeData?.message}), retrying with fallback ID...`);
+          upgradeData = await tryUpgrade(fallbackId);
+        }
+
         if (upgradeData?.status && upgradeData?.data?.id) {
           mapleradTier = upgradeData.data.tier ?? 1;
           console.log(`[MapleradTier1] ✅ Upgraded customer ${mapleradCustomerId} to Tier ${mapleradTier}`);
@@ -616,36 +623,52 @@ export class MapleradBankingService {
           errors.push(upgradeData?.message || 'Tier 1 upgrade failed');
         }
       } else {
-        console.log(`[MapleradTier1] Enrolling new Tier 1 customer for ${cleanEmail}...`);
-        const enrollRes = await fetch(`${this.baseUrl}/customers/enroll`, {
-          method: 'POST',
-          headers: this.headers,
-          signal: AbortSignal.timeout(15000),
-          body: JSON.stringify({
-            first_name: firstName,
-            last_name: lastName,
-            email: cleanEmail,
-            country: 'NG',
-            dob: dob,
-            identification_number: idNumber,
-            phone: {
-              phone_country_code: '+234',
-              phone_number: cleanPhone
-            },
-            address: {
-              street: '14 Admiralty Way, Lekki Phase 1',
-              city: 'Lagos',
-              state: 'Lagos',
+        // Enroll new customer — try primary ID (NIN), then BVN fallback
+        const tryEnroll = async (idNum: string) => {
+          console.log(`[MapleradTier1] Enrolling new customer for ${cleanEmail} with ID: ${idNum.substring(0,4)}...`);
+          const r = await fetch(`${this.baseUrl}/customers/enroll`, {
+            method: 'POST',
+            headers: this.headers,
+            signal: AbortSignal.timeout(15000),
+            body: JSON.stringify({
+              first_name: firstName,
+              last_name: lastName,
+              email: cleanEmail,
               country: 'NG',
-              postal_code: '105102'
-            }
-          })
-        });
-        const enrollData = await enrollRes.json().catch(() => ({}));
+              ...buildIdPayload(idNum)
+            })
+          });
+          return r.json().catch(() => ({}));
+        };
+
+        let enrollData = await tryEnroll(primaryId);
+
+        // If primary fails and we have a fallback, retry with BVN
+        if (!enrollData?.status && fallbackId) {
+          console.warn(`[MapleradTier1] NIN enroll failed (${enrollData?.message}), retrying with BVN...`);
+          enrollData = await tryEnroll(fallbackId);
+        }
+
         if (enrollData?.status && enrollData?.data?.id) {
           mapleradCustomerId = enrollData.data.id;
           mapleradTier = enrollData.data.tier ?? 1;
           console.log(`[MapleradTier1] ✅ Enrolled ${cleanEmail} -> Customer ID: ${mapleradCustomerId} at Tier ${mapleradTier}`);
+        } else if (enrollData?.message?.toLowerCase().includes('already exist') ||
+                   enrollData?.message?.toLowerCase().includes('email already')) {
+          // Customer already exists from a prior attempt — look them up by email and continue
+          console.warn(`[MapleradTier1] Customer already exists for ${cleanEmail}, fetching existing record...`);
+          const getRes = await fetch(`${this.baseUrl}/customers?page=1&page_size=100`, {
+            headers: this.headers, signal: AbortSignal.timeout(8000)
+          });
+          const getData = await getRes.json().catch(() => ({}));
+          const existing = (getData?.data || []).find((c: any) => c.email?.toLowerCase().trim() === cleanEmail);
+          if (existing?.id) {
+            mapleradCustomerId = existing.id;
+            mapleradTier = existing.tier ?? 0;
+            console.log(`[MapleradTier1] ✅ Recovered existing customer ${mapleradCustomerId} (Tier ${mapleradTier})`);
+          } else {
+            errors.push('Customer already exists but could not be recovered. Please contact support.');
+          }
         } else {
           console.error(`[MapleradTier1] ❌ Customer enrollment failed:`, enrollData);
           errors.push(enrollData?.message || 'Customer enrollment failed');
