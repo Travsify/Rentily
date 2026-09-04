@@ -15,8 +15,13 @@ import 'forgot_password_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final bool forcePasswordMode;
+  final bool isFromInactivityTimeout;
 
-  const LoginScreen({super.key, this.forcePasswordMode = false});
+  const LoginScreen({
+    super.key,
+    this.forcePasswordMode = false,
+    this.isFromInactivityTimeout = false,
+  });
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -60,13 +65,27 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     final prefs = await SharedPreferences.getInstance();
     final biometricsEnabled = prefs.getBool('rentilly_biometrics_enabled') ?? false;
     final rememberedUser = await AuthService.getRememberedUser();
+    final wasLockedFromInactivity = prefs.getBool('rentilly_session_locked_inactivity') ?? false;
 
-    if (rememberedUser != null && biometricsEnabled && !widget.forcePasswordMode) {
+    final canUseBiometrics = (rememberedUser != null && biometricsEnabled && !widget.forcePasswordMode) ||
+        (rememberedUser != null && (widget.isFromInactivityTimeout || wasLockedFromInactivity) && !widget.forcePasswordMode);
+
+    if (canUseBiometrics) {
       if (mounted) {
         setState(() {
           _savedUser = rememberedUser;
           _isBiometricMode = true;
+          if (rememberedUser.email.isNotEmpty) {
+            _emailController.text = rememberedUser.email;
+          }
         });
+
+        // Automatically prompt biometrics if returning from inactivity timeout
+        if (widget.isFromInactivityTimeout || wasLockedFromInactivity) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _handleBiometricAuth();
+          });
+        }
       }
     } else {
       if (mounted) {
@@ -508,19 +527,56 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         ),
         const SizedBox(height: 12),
 
-        // Switch to Email & Password
-        TextButton(
-          onPressed: () {
-            setState(() {
-              _isBiometricMode = false;
-              _errorMessage = null;
-            });
-          },
-          child: Text(
-            'Log in with Password instead',
-            style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
+        // Alternative 1: Sign in with Password
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () {
+              setState(() {
+                _isBiometricMode = false;
+                _errorMessage = null;
+              });
+            },
+            icon: const Icon(Icons.lock_outline_rounded, size: 16, color: AppColors.textSecondary),
+            label: Text(
+              'Sign in with Password instead',
+              style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+            ),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 13),
+              side: const BorderSide(color: AppColors.borderDark, width: 1.2),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
           ),
         ),
+        const SizedBox(height: 10),
+
+        // Alternative 2: Sign in with Email OTP
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () {
+              setState(() {
+                _isBiometricMode = false;
+                _errorMessage = null;
+              });
+              _handleDirectOtpLogin();
+            },
+            icon: const Icon(Icons.mark_email_read_outlined, size: 16, color: AppColors.primary),
+            label: Text(
+              'Sign in with OTP Code instead',
+              style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.primary),
+            ),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 13),
+              side: const BorderSide(color: AppColors.primary, width: 1.2),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Switch / Use Another Account
         TextButton(
           onPressed: () {
             setState(() {
@@ -532,8 +588,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             });
           },
           child: Text(
-            'Switch Account',
-            style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppColors.primary),
+            'Use Another Account',
+            style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
           ),
         ),
       ],

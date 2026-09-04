@@ -1,9 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../constants/app_colors.dart';
 import '../services/auth_service.dart';
-import '../services/push_notification_service.dart';
 import '../screens/auth/login_screen.dart';
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -52,27 +50,43 @@ class _InactivityWatcherState extends State<InactivityWatcher> {
     final inactiveDuration = DateTime.now().difference(_lastActivity);
     if (inactiveDuration.inMinutes >= widget.timeoutMinutes && !_isLoggedOut) {
       _isLoggedOut = true;
-      await PushNotificationService.clearUserTags();
-      await AuthService.logout();
+      // Lock session instead of wiping credentials — keeps biometric quick unlock intact!
+      await AuthService.lockSessionForInactivity();
 
-      final context = rootNavigatorKey.currentContext;
-      if (context != null) {
-        rootNavigatorKey.currentState?.pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
+      final navState = rootNavigatorKey.currentState;
+      if (navState != null) {
+        navState.pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) => const LoginScreen(isFromInactivityTimeout: true),
+          ),
           (route) => false,
         );
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Session timed out after 5 minutes of inactivity for your account security.',
-              style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w600),
+        // ignore: use_build_context_synchronously
+        final currentCtx = rootNavigatorKey.currentContext;
+        if (currentCtx != null) {
+          // ignore: use_build_context_synchronously
+          ScaffoldMessenger.of(currentCtx).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.lock_clock_rounded, color: Colors.white, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Session locked due to 5 min inactivity. Unlock with fingerprint or face.',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: const Color(0xFF0F172A),
+              duration: const Duration(seconds: 4),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
-            backgroundColor: AppColors.error,
-            duration: const Duration(seconds: 4),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+          );
+        }
       }
     }
   }

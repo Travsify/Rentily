@@ -483,7 +483,41 @@ class AuthService {
     }
   }
 
-  // 8. Sign Out (Atomic Zero-Residual Device Sanitization)
+  // 8. Inactivity Timeout Session Lock (Keeps Biometric Credentials for Instant Re-auth)
+  static Future<void> lockSessionForInactivity() async {
+    try {
+      final currentUser = await getCurrentUser();
+      if (currentUser != null) {
+        SecurityTelemetryService.recordActivity(
+          title: 'Session Inactivity Lock ⏱️',
+          message: 'Your Rentilly session was locked due to inactivity. Biometric unlock is available.',
+          userEmail: currentUser.email,
+          userName: currentUser.fullName,
+          userId: currentUser.id,
+          category: 'security',
+          extraMetadata: {'Action': 'Inactivity Lock'},
+        );
+      }
+    } catch (_) {}
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      // Remove the live session token so app guards treat session as locked
+      await prefs.remove(AppConstants.tokenKey);
+      // Mark session as locked from inactivity
+      await prefs.setBool('rentilly_session_locked_inactivity', true);
+      // Ensure the user profile is explicitly preserved in rentilly_last_user
+      final userJson = prefs.getString(AppConstants.userKey);
+      if (userJson != null) {
+        await prefs.setString('rentilly_last_user', userJson);
+      }
+    } catch (_) {}
+
+    // Reset reactive user state so dashboard navigation unloads
+    currentUserNotifier.value = null;
+  }
+
+  // 9. Sign Out / Voluntary Logout (Requires OTP/Password on next sign-in)
   static Future<void> logout() async {
     try {
       final currentUser = await getCurrentUser();
@@ -511,9 +545,10 @@ class AuthService {
     } catch (_) {}
 
     try {
-      // 3. Purge device storage while preserving onboarding completion
+      // 3. Purge session & biometric quick-login flags so voluntary logout requires full OTP/Password
       final prefs = await SharedPreferences.getInstance();
       final seenOnboarding = prefs.getBool(AppConstants.seenOnboardingKey) ?? true;
+      final savedAvatar = prefs.getString('rentilly_persistent_avatar_url');
 
       final keys = prefs.getKeys().toList();
       for (final key in keys) {
@@ -525,6 +560,12 @@ class AuthService {
       if (seenOnboarding) {
         await prefs.setBool(AppConstants.seenOnboardingKey, true);
       }
+      if (savedAvatar != null) {
+        await prefs.setString('rentilly_persistent_avatar_url', savedAvatar);
+      }
+      // Explicitly disable biometric auto-mode for voluntary logout
+      await prefs.setBool('rentilly_biometrics_enabled', false);
+      await prefs.setBool('rentilly_session_locked_inactivity', false);
     } catch (_) {}
 
     // 4. Reset reactive user state
