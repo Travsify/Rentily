@@ -62,49 +62,11 @@ class AuthService {
       };
     }
 
-    // Security Gate 1: Check if email already exists in Supabase
-    try {
-      final checkEmailResponse = await http.get(
-        Uri.parse('$supabaseUrl/rest/v1/profiles?email=eq.$cleanEmail&select=id'),
-        headers: {
-          'apikey': supabaseKey,
-          'Authorization': 'Bearer $supabaseKey',
-        },
-      ).timeout(const Duration(seconds: 6));
-
-      if (checkEmailResponse.statusCode == 200) {
-        final List<dynamic> existingUsers = json.decode(checkEmailResponse.body);
-        if (existingUsers.isNotEmpty) {
-          return {
-            'success': false,
-            'message': 'An account with this email address already exists. Please log in.',
-          };
-        }
-      }
-    } catch (_) {}
-
-    // Security Gate 2: Check if phone number already exists
-    if (cleanPhone.isNotEmpty) {
-      try {
-        final checkPhoneResponse = await http.get(
-          Uri.parse('$supabaseUrl/rest/v1/profiles?phone_number=eq.$cleanPhone&select=id'),
-          headers: {
-            'apikey': supabaseKey,
-            'Authorization': 'Bearer $supabaseKey',
-          },
-        ).timeout(const Duration(seconds: 6));
-
-        if (checkPhoneResponse.statusCode == 200) {
-          final List<dynamic> existingPhones = json.decode(checkPhoneResponse.body);
-          if (existingPhones.isNotEmpty) {
-            return {
-              'success': false,
-              'message': 'An account with this phone number already exists. Please log in.',
-            };
-          }
-        }
-      } catch (_) {}
-    }
+    // NOTE: We no longer do a Supabase pre-check for existing email/phone here.
+    // The server handles this correctly:
+    //   - If email exists with a GOOD name: returns 409 "please log in"
+    //   - If email exists with a BAD/empty name (ghost account): overwrites name and proceeds
+    // A mobile-side Supabase check would block users with ghost accounts from fixing their name.
 
     // Layer 1: Direct Supabase Cloud REST API (Primary Instant Database)
     // Layer 1: Render Core API (Primary Auth Authority - Computes & Stores Salted Password Hash)
@@ -579,9 +541,8 @@ class AuthService {
     var userMap = Map<String, dynamic>.from(userData);
     final email = (userMap['email'] ?? '').toString().toLowerCase().trim();
     var cleanName = (userMap['fullName'] ?? userMap['full_name'] ?? '').toString().trim();
-    if (cleanName.isEmpty) {
-      cleanName = email.split('@')[0];
-    }
+    // Do NOT fall back to email prefix — an empty name is better than a wrong name.
+    // Users with empty names will be prompted to fill in their name in the profile screen.
     userMap['fullName'] = cleanName;
 
     final rawRole = (userMap['role'] ?? '').toString().toLowerCase();
