@@ -2444,6 +2444,34 @@ export async function fundVirtualCard(req: Request, res: Response) {
   }
 }
 
+export async function withdrawVirtualCard(req: Request, res: Response) {
+  try {
+    const { cardId, amountUsd, email, destination } = req.body;
+    const amount = Number(amountUsd || 0);
+    if (!cardId || isNaN(amount) || amount < 1.00) {
+      return res.status(400).json({ error: 'Valid cardId and minimum withdrawal amount of $1.00 USD are required.' });
+    }
+
+    const cleanEmail = (email || 'tonerocool1@gmail.com').toString().trim().toLowerCase();
+    const dest = (destination || 'NGN').toString().toUpperCase() as 'NGN' | 'USDT';
+
+    const result = await CardIssuingService.withdrawFromCard({
+      cardId,
+      email: cleanEmail,
+      amountUsd: amount,
+      destination: dest
+    });
+
+    res.json({
+      status: true,
+      message: result.message,
+      data: result
+    });
+  } catch (err: any) {
+    res.status(400).json({ error: err.message });
+  }
+}
+
 export async function toggleFreezeVirtualCard(req: Request, res: Response) {
   try {
     const { cardId } = req.body;

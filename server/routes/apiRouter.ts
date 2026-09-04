@@ -243,6 +243,7 @@ apiRouter.post('/cards/pricing', paymentController.updateCardPricingHandler);
 apiRouter.get('/cards/user-cards', paymentController.getUserCards);
 apiRouter.post('/cards/create', paymentController.issueVirtualCard);
 apiRouter.post('/cards/fund', paymentController.fundVirtualCard);
+apiRouter.post('/cards/withdraw', paymentController.withdrawVirtualCard);
 apiRouter.post('/cards/toggle-freeze', paymentController.toggleFreezeVirtualCard);
 apiRouter.post('/cards/delete', paymentController.deleteVirtualCard);
 apiRouter.post('/cards/set-pin', paymentController.setCardPin);

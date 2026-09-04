@@ -121,4 +121,28 @@ export class MapleradCardService {
       return { success: false, error: err.message };
     }
   }
+
+  /**
+   * Unloads/withdraws funds from a live Maplerad Virtual Card
+   */
+  static async withdrawCard(cardId: string, amountCents: number): Promise<{ success: boolean; data?: any; error?: string }> {
+    try {
+      console.log(`[Maplerad] Withdrawing ${amountCents} cents from card ${cardId}...`);
+      const res = await fetch(`${this.baseUrl}/issuing/${cardId}/withdraw`, {
+        method: 'POST',
+        headers: this.headers,
+        signal: AbortSignal.timeout(10000),
+        body: JSON.stringify({ amount: Math.round(amountCents) })
+      });
+      const data = await res.json().catch(() => ({}));
+      console.log(`[Maplerad] Card withdraw response for ${cardId}:`, JSON.stringify(data));
+      if (data?.status) {
+        return { success: true, data: data.data };
+      }
+      return { success: false, error: data?.message || 'Card withdrawal failed on issuing rail' };
+    } catch (err: any) {
+      console.error('[Maplerad] Card withdraw exception:', err.message);
+      return { success: false, error: err.message };
+    }
+  }
 }

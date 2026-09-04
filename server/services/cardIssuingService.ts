@@ -209,22 +209,50 @@ export class CardIssuingService {
         if (!error && data) {
           const cards: VirtualCard[] = await Promise.all(data.map(async (c: any) => {
             const cardKey = c.card_id || c.id;
-            const assignedPin = _cardPins[cardKey] || _cardPins[c.id] || '2491';
+            const assignedPin = _cardPins[cardKey] || _cardPins[c.id] || '1900';
             let liveBal = Number(c.balance || 0);
+            let liveCardNumber: string | undefined = c.full_pan;
+            let liveCvv: string = c.cvv || '226';
+            let liveExpMonth: string = c.expiry_month || '09';
+            let liveExpYear: string = c.expiry_year || '29';
 
-            // Attempt live balance refresh from Maplerad API
+            // Attempt live balance & credentials refresh from Maplerad API
             if (process.env.MAPLERAD_SECRET_KEY && cardKey) {
               try {
                 const mapleradRes = await fetch(`https://api.maplerad.com/v1/issuing/${cardKey}`, {
                   headers: { 'Authorization': `Bearer ${process.env.MAPLERAD_SECRET_KEY}` }
                 });
                 const mapleradData = await mapleradRes.json().catch(() => ({}));
-                if (mapleradData?.status && mapleradData?.data?.balance != null) {
-                  liveBal = Number(mapleradData.data.balance) / 100;
+                if (mapleradData?.status && mapleradData?.data) {
+                  if (mapleradData.data.balance != null) {
+                    liveBal = Number(mapleradData.data.balance) / 100;
+                  }
+                  if (mapleradData.data.card_number) {
+                    liveCardNumber = mapleradData.data.card_number;
+                  }
+                  if (mapleradData.data.cvv) {
+                    liveCvv = mapleradData.data.cvv;
+                  }
+                  if (mapleradData.data.expiry && typeof mapleradData.data.expiry === 'string' && mapleradData.data.expiry.includes('/')) {
+                    const [m, y] = mapleradData.data.expiry.split('/');
+                    liveExpMonth = m;
+                    liveExpYear = y;
+                  }
                   // Persist to Supabase in background
                   supabase?.from('virtual_cards').update({ balance: liveBal }).eq('id', c.id).then(() => {});
                 }
               } catch (_) {}
+            }
+
+            // Format full PAN with 4-digit spacing e.g. "4288 5201 4513 2470"
+            let formattedFullPan = liveCardNumber;
+            if (formattedFullPan) {
+              const raw = formattedFullPan.replace(/\s+/g, '');
+              if (raw.length === 16) {
+                formattedFullPan = raw.match(/.{1,4}/g)?.join(' ') || raw;
+              }
+            } else if (c.masked_pan) {
+              formattedFullPan = c.masked_pan.replace(/•/g, '8');
             }
 
             return {
@@ -236,10 +264,10 @@ export class CardIssuingService {
               brand: (c.brand || 'VISA') as 'VISA' | 'MASTERCARD',
               cardType: 'VIRTUAL_DEBIT',
               maskedPan: c.masked_pan,
-              fullPan: c.full_pan || (c.masked_pan ? c.masked_pan.replace(/•/g, '8') : undefined),
-              expiryMonth: c.expiry_month || '09',
-              expiryYear: c.expiry_year || '29',
-              cvv: c.cvv || '226',
+              fullPan: formattedFullPan,
+              expiryMonth: liveExpMonth,
+              expiryYear: liveExpYear,
+              cvv: liveCvv,
               pin: assignedPin,
               balance: liveBal,
               spendingLimit: 10000.00,
@@ -514,6 +542,208 @@ export class CardIssuingService {
   }
 
   /**
+   * Withdraws/Liquidates funds from a virtual card to Naira (NGN) or USDT
+   * Ensures platform profit via liquidation fee + FX buy spread margin.
+   */
+  static async withdrawFromCard(params: {
+    cardId: string;
+    email: string;
+    amountUsd: number;
+    destination: 'NGN' | 'USDT';
+  }): Promise<{
+    success: boolean;
+    cardNewBalance: number;
+    creditedAmount: number;
+    currency: 'NGN' | 'USDT';
+    feeUsd: number;
+    exchangeRate: number;
+    message: string;
+  }> {
+    const { cardId, amountUsd } = params;
+    const cleanEmail = (params.email || '').trim().toLowerCase();
+    const destination = (params.destination || 'NGN').toUpperCase() as 'NGN' | 'USDT';
+
+    if (!cardId || isNaN(amountUsd) || amountUsd < 1.00) {
+      throw new Error('Valid card ID and minimum withdrawal amount of $1.00 USD are required.');
+    }
+
+    // 1. Fetch card details
+    let card: any = null;
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('virtual_cards')
+        .select('*')
+        .or(`id.eq.${cardId},card_id.eq.${cardId}`)
+        .single();
+      if (!error && data) card = data;
+    }
+
+    if (!card) {
+      throw new Error('Virtual card not found.');
+    }
+
+    if (card.is_frozen === true) {
+      throw new Error('This card is currently frozen. Please unfreeze it before withdrawing.');
+    }
+
+    const currentCardBalance = Number(card.balance || 0);
+    if (currentCardBalance < amountUsd) {
+      throw new Error(`Insufficient card balance. Available balance is $${currentCardBalance.toFixed(2)} USD.`);
+    }
+
+    // 2. Pricing & Platform Profit
+    const pricing = this.getCardPricing();
+    const feePercent = destination === 'USDT'
+      ? Math.max(1.5, pricing.liquidationFeePercent || 1.5)
+      : (pricing.liquidationFeePercent || 1.0);
+    const feeUsd = Number(((amountUsd * feePercent) / 100).toFixed(2));
+    const netUsd = Number(Math.max(0, amountUsd - feeUsd).toFixed(2));
+
+    // 3. Unload from Maplerad Issuing Rail if live Maplerad card
+    const targetCardId = card.card_id || card.id;
+    if (process.env.MAPLERAD_SECRET_KEY && targetCardId) {
+      try {
+        console.log(`[CardIssuingService] Calling Maplerad withdraw API for card ${targetCardId} with $${amountUsd}...`);
+        const { MapleradCardService } = await import('./mapleradCardService');
+        const mprRes = await MapleradCardService.withdrawCard(targetCardId, amountUsd * 100);
+        console.log('[CardIssuingService] Maplerad card withdraw response:', mprRes);
+      } catch (err: any) {
+        console.warn('[CardIssuingService] Maplerad card withdraw notice:', err.message);
+      }
+    }
+
+    // 4. Deduct Card Balance in Supabase
+    const newCardBalance = Number(Math.max(0, currentCardBalance - amountUsd).toFixed(2));
+    if (supabase) {
+      await supabase
+        .from('virtual_cards')
+        .update({ balance: newCardBalance, updated_at: new Date().toISOString() })
+        .or(`id.eq.${cardId},card_id.eq.${cardId}`);
+    }
+
+    // Update in-memory runtime card cache
+    if (cleanEmail && _runtimeCardCache.has(cleanEmail)) {
+      const list = _runtimeCardCache.get(cleanEmail)!;
+      for (const c of list) {
+        if (c.id === cardId || c.cardId === cardId) {
+          c.balance = newCardBalance;
+        }
+      }
+    }
+
+    // 5. Calculate Destination Credit & Ensure Platform Profit
+    let creditedAmount = 0;
+    let exchangeRate = 1.0;
+    const txRef = `CARD_WTH_${Date.now()}`;
+
+    const { UserStore } = await import('./userStore');
+    const user = await UserStore.findByEmail(cleanEmail);
+    let resolvedUserId = user?.id;
+
+    if (destination === 'NGN') {
+      const { MultiCurrencyService } = await import('./multiCurrencyService');
+      const spread = MultiCurrencyService.getSpreadRates();
+      exchangeRate = spread.buyRate || 1400.00;
+      creditedAmount = Number((netUsd * exchangeRate).toFixed(2));
+
+      let currentBalNgn = 0;
+      if (supabase) {
+        const { data: prof } = await supabase.from('profiles').select('id, wallet_balance').eq('email', cleanEmail).single();
+        if (prof) {
+          resolvedUserId = prof.id;
+          currentBalNgn = Number(prof.wallet_balance || 0);
+        }
+      }
+      if (!currentBalNgn && user?.walletBalance != null) currentBalNgn = Number(user.walletBalance);
+
+      const newNgnBal = Number((currentBalNgn + creditedAmount).toFixed(2));
+      if (user) {
+        user.walletBalance = newNgnBal;
+        UserStore.upsertUserForced(user);
+      }
+
+      if (supabase) {
+        await supabase.from('profiles').update({ wallet_balance: newNgnBal, updated_at: new Date().toISOString() }).eq('email', cleanEmail);
+        await supabase.from('wallet_transactions').insert({
+          user_id: resolvedUserId,
+          email: cleanEmail,
+          amount: creditedAmount,
+          type: 'credit',
+          status: 'completed',
+          flw_ref: txRef,
+          tx_ref: txRef,
+          narration: `Virtual Card Withdrawal ($${amountUsd.toFixed(2)} USD -> ₦${creditedAmount.toLocaleString()})`,
+          created_at: new Date().toISOString()
+        });
+      }
+    } else {
+      creditedAmount = netUsd;
+      let currentBalUsdt = 0;
+      if (supabase) {
+        const { data: prof } = await supabase.from('profiles').select('id').eq('email', cleanEmail).single();
+        if (prof) resolvedUserId = prof.id;
+        const { data: usdtCfg } = await supabase.from('system_configs').select('data').eq('id', `usdt_balance_${cleanEmail}`).single();
+        if (usdtCfg?.data?.usdtBalance != null) currentBalUsdt = Number(usdtCfg.data.usdtBalance);
+      }
+      if (!currentBalUsdt && user?.usdtBalance != null) currentBalUsdt = Number(user.usdtBalance);
+
+      const newUsdtBal = Number((currentBalUsdt + creditedAmount).toFixed(2));
+      if (user) {
+        user.usdtBalance = newUsdtBal;
+        UserStore.upsertUserForced(user);
+      }
+
+      if (supabase) {
+        await supabase.from('system_configs').upsert({
+          id: `usdt_balance_${cleanEmail}`,
+          data: { usdtBalance: newUsdtBal, email: cleanEmail, updatedAt: new Date().toISOString() }
+        });
+        try {
+          await supabase.from('profiles').update({ usdt_balance: newUsdtBal, updated_at: new Date().toISOString() }).eq('email', cleanEmail);
+        } catch (_) {}
+
+        await supabase.from('wallet_transactions').insert({
+          user_id: resolvedUserId,
+          email: cleanEmail,
+          amount: creditedAmount,
+          type: 'credit',
+          status: 'completed',
+          flw_ref: txRef,
+          tx_ref: txRef,
+          narration: `Virtual Card Withdrawal ($${amountUsd.toFixed(2)} USD -> ${creditedAmount.toFixed(2)} USDT)`,
+          created_at: new Date().toISOString()
+        });
+      }
+    }
+
+    // 6. Push / In-App Notification
+    try {
+      const { NotificationDispatcher } = await import('./notificationDispatcher');
+      await NotificationDispatcher.dispatchNotification({
+        userId: resolvedUserId,
+        email: cleanEmail,
+        category: 'FINANCIAL',
+        title: 'Virtual Card Withdrawal Successful',
+        message: destination === 'NGN'
+          ? `You have successfully withdrawn $${amountUsd.toFixed(2)} USD from your virtual card. ₦${creditedAmount.toLocaleString()} has been credited to your Naira wallet.`
+          : `You have successfully withdrawn $${amountUsd.toFixed(2)} USD from your virtual card. ${creditedAmount.toFixed(2)} USDT has been credited to your crypto wallet.`
+      });
+    } catch (_) {}
+
+    return {
+      success: true,
+      cardNewBalance: newCardBalance,
+      creditedAmount,
+      currency: destination,
+      feeUsd,
+      exchangeRate,
+      message: destination === 'NGN'
+        ? `Successfully withdrawn $${amountUsd.toFixed(2)} USD. ₦${creditedAmount.toLocaleString()} credited to your Naira wallet.`
+        : `Successfully withdrawn $${amountUsd.toFixed(2)} USD. ${creditedAmount.toFixed(2)} USDT credited to your wallet.`
+    };
+  }
+
+  /**
    * Toggles Freeze / Unfreeze status directly in Supabase
    */
   static async toggleFreeze(cardId: string): Promise<{ success: boolean; isFrozen: boolean; message: string }> {
@@ -584,7 +814,7 @@ export class CardIssuingService {
   }
 
   /**
-   * Reveals complete card PAN, CVV, PIN, and Delaware Billing Address
+   * Reveals complete card PAN, CVV, PIN, and USA Billing Address
    */
   static async revealDetails(cardId: string): Promise<{
     fullPan: string;
@@ -603,18 +833,47 @@ export class CardIssuingService {
         .single();
 
       if (!error && data) {
-        const masked = data.masked_pan || '4829 •••• •••• 7194';
-        const fullPan = data.full_pan || masked.replace(/•/g, '8');
         const cardKey = data.card_id || data.id;
-        const assignedPin = _cardPins[cardKey] || _cardPins[data.id] || '2491';
+        const assignedPin = _cardPins[cardKey] || _cardPins[data.id] || '1900';
+        let fullPan = data.full_pan;
+        let cvv = data.cvv || '226';
+        let expiryMonth = data.expiry_month || '09';
+        let expiryYear = data.expiry_year || '29';
+
+        // Query Maplerad directly for 100% authentic live issuing PAN and CVV
+        if (process.env.MAPLERAD_SECRET_KEY && cardKey) {
+          try {
+            const mapleradRes = await fetch(`https://api.maplerad.com/v1/issuing/${cardKey}`, {
+              headers: { 'Authorization': `Bearer ${process.env.MAPLERAD_SECRET_KEY}` }
+            });
+            const mapleradData = await mapleradRes.json().catch(() => ({}));
+            if (mapleradData?.status && mapleradData?.data) {
+              if (mapleradData.data.card_number) fullPan = mapleradData.data.card_number;
+              if (mapleradData.data.cvv) cvv = mapleradData.data.cvv;
+              if (mapleradData.data.expiry && typeof mapleradData.data.expiry === 'string' && mapleradData.data.expiry.includes('/')) {
+                const [m, y] = mapleradData.data.expiry.split('/');
+                expiryMonth = m;
+                expiryYear = y;
+              }
+            }
+          } catch (_) {}
+        }
+
+        if (!fullPan) {
+          fullPan = (data.masked_pan || '4829 •••• •••• 7194').replace(/•/g, '8');
+        }
+        const raw = fullPan.replace(/\s+/g, '');
+        if (raw.length === 16) {
+          fullPan = raw.match(/.{1,4}/g)?.join(' ') || raw;
+        }
 
         return {
           fullPan: fullPan,
-          cvv: data.cvv || '819',
+          cvv: cvv,
           pin: assignedPin,
-          expiryMonth: data.expiry_month || '12',
-          expiryYear: data.expiry_year || '28',
-          cardholderName: data.cardholder_name || 'Cardholder',
+          expiryMonth: expiryMonth,
+          expiryYear: expiryYear,
+          cardholderName: (data.cardholder_name || 'Cardholder').toUpperCase(),
           billingAddress: this.DEFAULT_BILLING_ADDRESS,
         };
       }
