@@ -750,46 +750,36 @@ export class MapleradBankingService {
       errors.push(`USDT address error: ${e.message}`);
     }
 
-    // Step E: Persist to Supabase profiles (preserving wallet balance!)
+    // Step E: Persist to Supabase profiles — ONLY write confirmed real columns
+    // Columns in profiles: id, email, full_name, phone_number, role, is_verified,
+    // nin_number, bvn_verified, avatar_url, created_at, updated_at, wallet_balance,
+    // account_number, bank_name, business_name, cac_number, state, onesignal_player_id
+    // All Maplerad metadata (customer_id, tier, USDT addr) goes to system_configs.
     if (supabase) {
       try {
-        const updateFields: Record<string, any> = {
-          maplerad_customer_id: mapleradCustomerId,
-          maplerad_tier: mapleradTier || 1,
+        const safeProfileUpdate: Record<string, any> = {
           is_verified: true,
-          rekyc_required: false,
-          kyc_enrolled_at: new Date().toISOString(),
+          bvn_verified: true,
           updated_at: new Date().toISOString()
         };
-        if (params.dob) updateFields.dob = params.dob;
-        if (params.nin) updateFields.nin_number = params.nin;
+        if (params.nin) safeProfileUpdate.nin_number = params.nin;
         if (accountNumber) {
-          updateFields.account_number = accountNumber;
-          updateFields.bank_name = bankName;
-        }
-        if (usdtTronAddress) {
-          updateFields.usdt_tron_address = usdtTronAddress;
+          safeProfileUpdate.account_number = accountNumber;
+          safeProfileUpdate.bank_name = bankName;
         }
 
         const { error: upErr } = await supabase
           .from('profiles')
-          .update(updateFields)
+          .update(safeProfileUpdate)
           .eq('email', cleanEmail);
 
         if (upErr) {
-          // If columns don't exist yet in profiles table, update existing known columns
-          await supabase
-            .from('profiles')
-            .update({
-              is_verified: true,
-              account_number: accountNumber,
-              bank_name: bankName,
-              updated_at: new Date().toISOString()
-            })
-            .eq('email', cleanEmail);
+          console.error(`[MapleradTier1] ⚠️ Supabase profile update error for ${cleanEmail}:`, upErr.message);
+        } else {
+          console.log(`[MapleradTier1] ✅ Supabase profile marked verified + account provisioned for ${cleanEmail}`);
         }
 
-        // Also save Maplerad customer linkage in system_configs for resilience
+        // Store Maplerad-specific metadata in system_configs (no schema migration needed)
         await supabase.from('system_configs').upsert({
           id: `maplerad_tier1_${cleanEmail}`,
           data: {
@@ -798,12 +788,14 @@ export class MapleradBankingService {
             accountNumber,
             bankName,
             usdtTronAddress,
-            dob,
+            dob: params.dob,
+            nin: params.nin,
+            bvn: params.bvn,
             updatedAt: new Date().toISOString()
           }
         }, { onConflict: 'id' });
 
-        console.log(`[MapleradTier1] ✅ Persisted Maplerad Tier 1 profile for ${cleanEmail}`);
+        console.log(`[MapleradTier1] ✅ Maplerad metadata saved to system_configs for ${cleanEmail}`);
       } catch (e: any) {
         errors.push(`Supabase persist error: ${e.message}`);
       }

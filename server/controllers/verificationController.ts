@@ -688,27 +688,30 @@ export async function completeMapleradKyc(req: Request, res: Response) {
       });
     }
 
-    // Clear rekyc_required in Supabase profiles
+    // Sync verified status to Supabase profiles — only write real columns
     if (supabase) {
       try {
-        await supabase
+        const { error: upErr } = await supabase
           .from('profiles')
           .update({
-            rekyc_required: false,
             is_verified: true,
-            dob: dob,
-            bvn: cleanBvn,
+            bvn_verified: true,
             nin_number: cleanNin,
             account_number: accountNumber,
             bank_name: bankName,
             updated_at: new Date().toISOString()
           })
           .eq('email', cleanEmail);
+        if (upErr) {
+          console.error(`[completeMapleradKyc] Supabase update error for ${cleanEmail}:`, upErr.message);
+        } else {
+          console.log(`[completeMapleradKyc] ✅ Auto-approved ${cleanEmail} in Supabase — account: ${accountNumber}`);
+        }
       } catch (_) {}
       try {
         await supabase.from('system_configs').upsert({
           id: `rekyc_${cleanEmail}`,
-          data: { rekycRequired: false, updatedAt: new Date().toISOString() }
+          data: { rekycRequired: false, accountNumber, bankName, updatedAt: new Date().toISOString() }
         });
       } catch (_) {}
     }
