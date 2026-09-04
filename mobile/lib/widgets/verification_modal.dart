@@ -496,13 +496,18 @@ class _VerificationModalState extends State<VerificationModal> {
         ? user.officeAddress!
         : '${user.state ?? "Lagos"}, Nigeria';
     final state = user.state ?? 'Lagos';
-    final bank = user.bankName ?? '9PSB (Rentilly)';
-    final acc = user.accountNumber ?? 'Active';
+    final bank = (user.bankName != null && user.bankName!.isNotEmpty) ? user.bankName! : '9PSB (Rentilly)';
+    final acc = (user.accountNumber != null && user.accountNumber!.isNotEmpty && user.accountNumber != 'null') ? user.accountNumber! : '';
+    // True account pending = verified but no real account yet provisioned
+    final bool accountPending = acc.isEmpty || acc.startsWith('78');
+    // True reverification needed = explicitly flagged by admin OR not verified at all
+    final bool needsReverification = user.rekycRequired == true || user.isVerified != true;
+
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (user.accountNumber == null || user.accountNumber!.isEmpty || user.accountNumber == 'null' || user.accountNumber!.startsWith('78') || user.dob == null || user.rekycRequired == true) ...[
+        if (needsReverification) ...[
           Container(
             width: double.infinity,
             margin: const EdgeInsets.only(bottom: 16),
@@ -735,8 +740,13 @@ class _VerificationModalState extends State<VerificationModal> {
                 padding: EdgeInsets.symmetric(vertical: 8),
                 child: Divider(height: 1, color: AppColors.borderDark),
               ),
-              _buildAuditItem('DEDICATED COMMISSIONS ACCOUNT', '$acc ($bank)', Icons.account_balance_rounded),
-              if (acc.isEmpty || acc == 'null' || acc.startsWith('78') || bank.contains('Processing') || bank.contains('Pending')) ...[
+              _buildAuditItem(
+                'DEDICATED COMMISSIONS ACCOUNT',
+                acc.isNotEmpty ? '$acc ($bank)' : 'Provisioning your 9PSB account...',
+                Icons.account_balance_rounded,
+              ),
+              // Only show Confirm DOB button when verified but account not yet provisioned
+              if (!needsReverification && accountPending) ...[
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
@@ -778,39 +788,40 @@ class _VerificationModalState extends State<VerificationModal> {
             ),
           ),
         ),
-        const SizedBox(height: 10),
-
-        // Redo Full KYC Button
-        SizedBox(
-          width: double.infinity,
-          height: 46,
-          child: OutlinedButton.icon(
-            onPressed: () {
-              setState(() {
-                _isRedoMode = true;
-                _currentStep = 0;
-                if (_currentUser?.fullName != null) {
-                  _businessNameController.text = _currentUser?.businessName ?? _currentUser?.fullName ?? '';
-                }
-                if (_currentUser?.cacNumber != null) {
-                  _cacNumberController.text = _currentUser?.cacNumber ?? '';
-                }
-                if (_currentUser?.ninNumber != null) {
-                  _idController.text = _currentUser?.ninNumber ?? '';
-                }
-              });
-            },
-            icon: const Icon(Icons.refresh_rounded, size: 16, color: AppColors.primary),
-            label: Text(
-              'Redo Full KYC / Re-Verify Details 🔄',
-              style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.primary),
-            ),
-            style: OutlinedButton.styleFrom(
-              side: const BorderSide(color: AppColors.primary),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        // Only show Redo button when user genuinely needs to re-verify
+        if (needsReverification) ...[
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            height: 46,
+            child: OutlinedButton.icon(
+              onPressed: () {
+                setState(() {
+                  _isRedoMode = true;
+                  _currentStep = 0;
+                  if (_currentUser?.fullName != null) {
+                    _businessNameController.text = _currentUser?.businessName ?? _currentUser?.fullName ?? '';
+                  }
+                  if (_currentUser?.cacNumber != null) {
+                    _cacNumberController.text = _currentUser?.cacNumber ?? '';
+                  }
+                  if (_currentUser?.ninNumber != null) {
+                    _idController.text = _currentUser?.ninNumber ?? '';
+                  }
+                });
+              },
+              icon: const Icon(Icons.refresh_rounded, size: 16, color: AppColors.primary),
+              label: Text(
+                _isPartner ? 'Re-Submit KYB Details 🔄' : 'Re-Submit KYC Details 🔄',
+                style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.primary),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: AppColors.primary),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
             ),
           ),
-        ),
+        ],
         const SizedBox(height: 16),
       ],
     );
