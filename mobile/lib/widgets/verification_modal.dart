@@ -1705,16 +1705,21 @@ class _VerificationModalState extends State<VerificationModal> {
                 TextField(
                   controller: _idController,
                   keyboardType: TextInputType.text,
+                  maxLength: _selectedIdType == 'nin' ? 11 : 20,
                   style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
                   decoration: InputDecoration(
                     labelText: _idTypeLabel,
                     hintText: _idInputHint,
+                    helperText: _selectedIdType == 'nin' ? 'NIN ≠ BVN. Check NIMC app or dial *346#' : null,
+                    helperStyle: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textMuted),
+                    counterText: '',
                     prefixIcon: const Icon(Icons.credit_card_rounded, size: 18, color: AppColors.textMuted),
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   ),
                 ),
                 const SizedBox(height: 12),
+
 
                 Row(
                   children: [
@@ -1727,7 +1732,9 @@ class _VerificationModalState extends State<VerificationModal> {
                         style: GoogleFonts.plusJakartaSans(fontSize: 12.5),
                         decoration: InputDecoration(
                           labelText: '11-digit BVN',
-                          hintText: '22XXXXXXXXX',
+                          hintText: 'Bank Verification No.',
+                          helperText: 'From your bank app or USSD *565*0#',
+                          helperStyle: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textMuted),
                           counterText: '',
                           prefixIcon: const Icon(Icons.fingerprint_rounded, size: 18, color: AppColors.textMuted),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
