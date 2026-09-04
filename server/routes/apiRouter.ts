@@ -265,4 +265,15 @@ apiRouter.post('/users/onesignal-player', paymentController.registerOneSignalPla
 // 26. Dedicated Security Activity Alert Dispatch
 apiRouter.post('/security/activity-alert', paymentController.clientDispatchNotification);
 
+// 27. Outbound Server IP Utility (For Maplerad IP Whitelisting)
+apiRouter.get('/admin/outbound-ip', async (_req, res) => {
+  try {
+    const ipRes = await fetch('https://api.ipify.org?format=json');
+    const data = await ipRes.json();
+    res.json({ status: true, outboundIp: data.ip, message: 'Current server public egress IP for Maplerad whitelist' });
+  } catch (err: any) {
+    res.status(500).json({ status: false, error: err.message });
+  }
+});
+
 
