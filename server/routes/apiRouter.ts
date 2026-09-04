@@ -28,12 +28,20 @@ export const apiRouter = Router();
 
 // 1. Health & Third-Party Service Status
 apiRouter.get('/health', (_req, res) => {
+  const premblyKey = process.env.PREMBLY_API_KEY || '';
+  const identitypassKey = process.env.IDENTITYPASS_API_KEY || '';
   res.json({
     status: 'healthy',
     platform: 'Rentilly Admin & Core API',
     version: '1.0.0',
     supabaseConnected: isSupabaseConfigured(),
     identitypassConfigured: IdentitypassService.isConfigured(),
+    kyp: {
+      premblyKeyPresent: premblyKey.length > 5,
+      identitypassKeyPresent: identitypassKey.length > 5,
+      resolvedKeyPrefix: premblyKey ? premblyKey.substring(0, 12) + '...' : (identitypassKey ? identitypassKey.substring(0, 12) + '...' : 'NONE'),
+      appId: process.env.PREMBLY_APP_ID || process.env.IDENTITYPASS_APP_ID || 'NOT SET'
+    },
     flutterwaveConfigured: FlutterwaveService.isConfigured(),
     timestamp: new Date().toISOString()
   });
