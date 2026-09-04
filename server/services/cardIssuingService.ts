@@ -1086,14 +1086,62 @@ export class CardIssuingService {
           const json = await res.json();
           if (json.status && Array.isArray(json.data)) {
             for (const tx of json.data) {
-              const txId = tx.id?.toString() || `MPR_CTX_${Date.now()}`;
+              const txId = tx.id?.toString() || `RTL_CTX_${Date.now()}`;
               if (list.some(t => t.id === txId)) continue;
               const isCredit = (tx.entry || '').toUpperCase() === 'CREDIT';
+
+              // ── Sanitize merchant/description names ──────────────────────────
+              // Maplerad internal names must never be shown to users.
+              // Map to clean Rentilly-branded labels.
+              const rawMerchant = (tx.merchant?.name || '').trim();
+              const rawDesc     = (tx.description || '').trim();
+              const rawNarration = (tx.narration || '').trim();
+
+              const sanitizeName = (name: string): string => {
+                if (!name) return '';
+                // Strip any Maplerad reference
+                return name
+                  .replace(/maplerad/gi, 'Rentilly')
+                  .replace(/maple\s*rad/gi, 'Rentilly')
+                  .trim();
+              };
+
+              // Detect internal Rentilly platform operations vs real merchant transactions
+              const isInternalFund = isCredit && (
+                rawDesc.toLowerCase().includes('card funding') ||
+                rawDesc.toLowerCase().includes('fund') ||
+                rawMerchant.toLowerCase().includes('card funding') ||
+                rawMerchant.toLowerCase().includes('maplerad')
+              );
+              const isInternalIssue = !isCredit && (
+                rawDesc.toLowerCase().includes('card issuan') ||
+                rawDesc.toLowerCase().includes('issuance') ||
+                rawMerchant.toLowerCase().includes('issuance') ||
+                rawMerchant.toLowerCase().includes('maplerad')
+              );
+
+              let displayMerchantName: string;
+              let displayCategory: string;
+
+              if (isInternalFund) {
+                const amt = (Number(tx.amount || 0) / 100).toFixed(2);
+                displayMerchantName = `Rentilly Card Top-Up ($${amt} USD)`;
+                displayCategory = 'Card Funding';
+              } else if (isInternalIssue) {
+                displayMerchantName = 'Rentilly Card Issuance Fee';
+                displayCategory = 'Card Service';
+              } else {
+                // Real merchant transaction — sanitize any accidental Maplerad references
+                const preferred = sanitizeName(rawMerchant) || sanitizeName(rawDesc) || sanitizeName(rawNarration) || 'Virtual Card Authorisation';
+                displayMerchantName = preferred;
+                displayCategory = tx.card_acceptor_mcc || 'Card Purchase';
+              }
+
               list.push({
                 id: txId,
                 cardId,
-                merchantName: tx.merchant?.name || tx.description || 'Virtual Card Authorisation',
-                merchantCategory: tx.card_acceptor_mcc || 'Card Service',
+                merchantName: displayMerchantName,
+                merchantCategory: displayCategory,
                 amount: Number(tx.amount || 0) / 100,
                 currency: (tx.currency || 'USD') as 'USD' | 'NGN',
                 type: isCredit ? 'CREDIT' : 'DEBIT',
