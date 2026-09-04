@@ -45,6 +45,7 @@ export class AutoReconciliationWorker {
   static async syncAll() {
     await Promise.allSettled([
       this.syncFlutterwaveTransactions(),
+      this.syncMapleradTransactions(),
     ]);
   }
 
@@ -242,6 +243,151 @@ export class AutoReconciliationWorker {
       }
     } catch (e: any) {
       // Quiet failover if external provider is unreachable
+    }
+  }
+
+  /**
+   * Maplerad Inbound Collections Realtime Sync
+   *
+   * Polls Maplerad transactions API for incoming bank transfers / collections,
+   * matches to user profiles idempotently, credits user wallets atomically,
+   * and dispatches real-time Email, OneSignal Push, and In-App notifications.
+   */
+  private static async syncMapleradTransactions() {
+    const key = process.env.MAPLERAD_SECRET_KEY || 'mpr_sk_35d197e6-3f6b-437c-995b-a0dff522b3dc';
+    if (!key || !supabase) return;
+
+    try {
+      // Fetch latest 30 transactions from Maplerad
+      const res = await fetch('https://api.maplerad.com/v1/transactions?page=1&page_size=30', {
+        headers: {
+          'Authorization': `Bearer ${key}`,
+          'Accept': 'application/json'
+        }
+      });
+
+      const json: any = await res.json();
+      if (!json.status || !Array.isArray(json.data)) return;
+
+      for (const tx of json.data) {
+        const rawStatus = (tx.status || '').toUpperCase();
+        const rawEntry = (tx.entry || '').toUpperCase();
+        const rawType = (tx.type || '').toUpperCase();
+
+        // Only reconcile successful inbound collections/deposits
+        if (rawStatus !== 'SUCCESS') continue;
+        if (rawEntry !== 'CREDIT') continue;
+        if (rawType !== 'COLLECTION' && !rawType.includes('COLLECTION') && !rawType.includes('DEPOSIT')) continue;
+
+        const ref = tx.reference || tx.id;
+        const amount = Number(tx.amount || 0) / 100; // Maplerad amounts are in kobo
+        if (amount <= 0 || !ref) continue;
+
+        // Skip if already processed in persistent store
+        if (await this.isAlreadyProcessed(ref)) continue;
+
+        // Check if already in wallet_transactions
+        const { data: existingTx } = await supabase
+          .from('wallet_transactions')
+          .select('id')
+          .eq('flw_ref', ref)
+          .maybeSingle();
+
+        if (existingTx) {
+          // Already credited earlier, record in reconciled_transactions to prevent re-processing
+          await this.markProcessed(ref, 'reconciled', amount, tx.customer?.email || 'unknown');
+          continue;
+        }
+
+        // Match user by:
+        // 1. tx.customer?.email
+        let targetUser: any = null;
+        const customerEmail = (tx.customer?.email || '').trim().toLowerCase();
+
+        if (customerEmail) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('id, email, full_name, wallet_balance')
+            .eq('email', customerEmail)
+            .maybeSingle();
+          if (profile) targetUser = profile;
+        }
+
+        // 2. Search by account_id in system_configs (Maplerad tier1 virtual account metadata)
+        if (!targetUser && tx.account_id) {
+          const { data: cfgRows } = await supabase
+            .from('system_configs')
+            .select('id, data')
+            .like('id', 'maplerad_tier1_%')
+            .limit(50);
+          const cfgMatch = (cfgRows || []).find((r: any) =>
+            r.data?.accountId === tx.account_id ||
+            r.data?.account_id === tx.account_id ||
+            r.data?.customerId === tx.customer?.id
+          );
+          if (cfgMatch) {
+            const matchEmail = cfgMatch.id.replace('maplerad_tier1_', '');
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('id, email, full_name, wallet_balance')
+              .eq('email', matchEmail)
+              .maybeSingle();
+            if (profile) targetUser = profile;
+          }
+        }
+
+        if (!targetUser) {
+          console.warn(`[AutoReconciliation] ⚠️ Maplerad: cannot identify recipient for ref: ${ref}, email: ${customerEmail}, amount: ₦${amount}`);
+          await this.markProcessed(ref, 'unknown', amount, customerEmail || 'unknown');
+          continue;
+        }
+
+        const senderName = tx.source?.account_name || tx.source?.bank_name || 'Bank Transfer';
+        const senderBank = tx.source?.bank_name || 'Bank Transfer';
+        const narration = tx.summary || `Inbound Bank Transfer (Maplerad/9PSB) from ${senderName}`;
+
+        // Execute atomic, idempotent credit through AtomicLedgerService
+        const creditResult = await AtomicLedgerService.creditWalletAtomic({
+          userId: targetUser.id,
+          email: targetUser.email,
+          amount: amount,
+          flwRef: ref,
+          txRef: ref,
+          narration: narration
+        });
+
+        if (!creditResult.success || creditResult.alreadyProcessed) {
+          if (creditResult.alreadyProcessed) {
+            console.log(`[AutoReconciliation] Maplerad ref ${ref} was already processed. Zero duplicate credit.`);
+          }
+          continue;
+        }
+
+        const newBal = creditResult.newBalance ?? (Number(targetUser.wallet_balance || 0) + amount);
+        console.log(`✅ [AutoReconciliation] Maplerad Credited ₦${amount} to ${targetUser.email} (ref: ${ref}). New balance: ₦${newBal}`);
+
+        // Mark as processed in reconciled_transactions
+        await this.markProcessed(ref, targetUser.id, amount, targetUser.email);
+
+        // Dispatch Email, Push Notification & In-App Notification
+        NotificationDispatcher.dispatch({
+          userId: targetUser.id,
+          email: targetUser.email,
+          userName: targetUser.full_name || 'Valued User',
+          category: 'wallet',
+          title: `Credit Alert: ₦${amount.toLocaleString()} Received`,
+          message: `Your Rentilly wallet has been credited with ₦${amount.toLocaleString()} via Bank Transfer from ${senderName} (${senderBank}). New Balance: ₦${newBal.toLocaleString()}.`,
+          metadata: {
+            amount: amount,
+            reference: ref,
+            bankName: senderBank,
+            sender: senderName,
+            date: tx.created_at || new Date().toISOString()
+          }
+        }).catch(e => console.warn('[AutoReconciliation] Maplerad Notification error:', e.message));
+      }
+    } catch (e: any) {
+      console.warn('[AutoReconciliation] Maplerad sync exception:', e?.message || e);
     }
   }
 }

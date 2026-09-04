@@ -1162,7 +1162,7 @@ export async function mapleradWebhook(req: Request, res: Response) {
         }
 
         if (targetUser) {
-          await AtomicLedgerService.creditWalletAtomic({
+          const creditRes = await AtomicLedgerService.creditWalletAtomic({
             userId: targetUser.id,
             email: targetUser.email,
             amount: amountPaid,
@@ -1171,6 +1171,36 @@ export async function mapleradWebhook(req: Request, res: Response) {
             narration: `Inbound Bank Transfer (9PSB/Maplerad • ${incomingAccNo || 'Virtual Account'}) from ${sender}`
           });
           console.log(`[Maplerad Webhook] ✅ Credited ₦${amountPaid.toLocaleString()} to ${targetUser.email}`);
+
+          if (creditRes.success && !creditRes.alreadyProcessed) {
+            const newBal = creditRes.newBalance ?? (Number(targetUser.wallet_balance || 0) + amountPaid);
+
+            // Record in persistent reconciled_transactions store
+            await supabase.from('reconciled_transactions').upsert({
+              flw_ref: ref,
+              user_id: targetUser.id,
+              email: targetUser.email,
+              amount: amountPaid,
+              processed_at: new Date().toISOString()
+            }, { onConflict: 'flw_ref' }).catch(() => {});
+
+            // Dispatch real-time multi-channel notifications (Email via Resend, Push via OneSignal, In-App via Supabase)
+            NotificationDispatcher.dispatch({
+              userId: targetUser.id,
+              email: targetUser.email,
+              userName: targetUser.full_name || 'Valued User',
+              category: 'wallet',
+              title: `Credit Alert: ₦${amountPaid.toLocaleString()} Received`,
+              message: `Your Rentilly wallet has been credited with ₦${amountPaid.toLocaleString()} via Bank Transfer from ${sender}. New Balance: ₦${newBal.toLocaleString()}.`,
+              metadata: {
+                amount: amountPaid,
+                reference: ref,
+                bankName: 'Maplerad / 9PSB',
+                sender: sender,
+                date: new Date().toISOString()
+              }
+            }).catch(e => console.warn('[Maplerad Webhook] Notification dispatch error:', e.message));
+          }
         } else {
           console.error(`[Maplerad Webhook] ❌ UNMATCHED collection — acc: ${incomingAccNo}, email: ${customerEmail}, mapleradId: ${mapleradCustomerId}, amount: ₦${amountPaid}, ref: ${ref}. Manual reconciliation required.`);
         }
@@ -1200,7 +1230,7 @@ export async function mapleradWebhook(req: Request, res: Response) {
         const targetUser = matchedUsers?.[0];
 
         if (targetUser) {
-          await AtomicLedgerService.creditWalletAtomic({
+          const creditRes = await AtomicLedgerService.creditWalletAtomic({
             userId: targetUser.id,
             email: targetUser.email,
             amount: amountNgn,
@@ -1209,6 +1239,24 @@ export async function mapleradWebhook(req: Request, res: Response) {
             narration: `Crypto Inflow: +$${amountUsdt} USDT (TRON TRC20 • ₦${amountNgn.toLocaleString()})`
           });
           console.log(`[Maplerad Webhook] ✅ Credited ${amountUsdt} USDT (₦${amountNgn}) to ${targetUser.email}`);
+
+          if (creditRes.success && !creditRes.alreadyProcessed) {
+            NotificationDispatcher.dispatch({
+              userId: targetUser.id,
+              email: targetUser.email,
+              userName: targetUser.full_name || 'Valued User',
+              category: 'wallet',
+              title: `USDT Deposit Credited: +$${amountUsdt} USDT`,
+              message: `Your wallet has been credited with ₦${amountNgn.toLocaleString()} ($${amountUsdt} USDT) via TRON TRC20.`,
+              metadata: {
+                amount: amountNgn,
+                amountUsdt: amountUsdt,
+                reference: ref,
+                network: 'TRON (TRC20)',
+                date: new Date().toISOString()
+              }
+            }).catch(e => console.warn('[Maplerad Webhook] Crypto notification dispatch error:', e.message));
+          }
         }
       }
     }
@@ -1590,6 +1638,56 @@ async function syncMapleradTransactionsForUser(cleanEmail: string) {
           narration,
           created_at: tx.created_at || new Date().toISOString()
         }, { onConflict: 'flw_ref' }).catch(() => {});
+
+        // If it's a successful inbound credit that has not been reconciled yet, credit atomic wallet balance!
+        if (isCredit && rawStatus === 'SUCCESS') {
+          const { data: rec } = await supabase
+            .from('reconciled_transactions')
+            .select('flw_ref')
+            .eq('flw_ref', ref)
+            .maybeSingle();
+
+          if (!rec) {
+            const creditRes = await AtomicLedgerService.creditWalletAtomic({
+              userId: user?.id || 'b0000000-0000-0000-0000-000000000001',
+              email: cleanEmail,
+              amount,
+              flwRef: ref,
+              txRef: ref,
+              narration
+            });
+
+            if (creditRes.success && !creditRes.alreadyProcessed) {
+              const senderName = tx.source?.account_name || tx.source?.bank_name || 'Bank Transfer';
+              const senderBank = tx.source?.bank_name || 'Bank Transfer';
+              const newBal = creditRes.newBalance ?? amount;
+
+              await supabase.from('reconciled_transactions').upsert({
+                flw_ref: ref,
+                user_id: user?.id || 'b0000000-0000-0000-0000-000000000001',
+                email: cleanEmail,
+                amount,
+                processed_at: new Date().toISOString()
+              }, { onConflict: 'flw_ref' }).catch(() => {});
+
+              NotificationDispatcher.dispatch({
+                userId: user?.id || 'b0000000-0000-0000-0000-000000000001',
+                email: cleanEmail,
+                userName: user?.fullName || 'Valued User',
+                category: 'wallet',
+                title: `Credit Alert: ₦${amount.toLocaleString()} Received`,
+                message: `Your Rentilly wallet has been credited with ₦${amount.toLocaleString()} via Bank Transfer from ${senderName} (${senderBank}). New Balance: ₦${newBal.toLocaleString()}.`,
+                metadata: {
+                  amount,
+                  reference: ref,
+                  bankName: senderBank,
+                  sender: senderName,
+                  date: tx.created_at || new Date().toISOString()
+                }
+              }).catch(e => console.warn('[syncMapleradTransactionsForUser] Notification error:', e.message));
+            }
+          }
+        }
       }
     }
   } catch (e: any) {
@@ -1647,8 +1745,22 @@ export async function getWalletBalance(req: Request, res: Response) {
       }
     }
 
-    // 2. Auto-sync from Flutterwave
+    // 2. Auto-sync from Flutterwave & Maplerad
     await syncFlutterwaveTransactionsForUser(cleanEmail);
+    await syncMapleradTransactionsForUser(cleanEmail);
+
+    // Refresh live profile directly from Supabase Cloud after provider sync
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.from('profiles').select('*').eq('email', cleanEmail).limit(1);
+        if (!error && data && data.length > 0) {
+          dbUser = data[0];
+          liveDbBalance = Number(dbUser.wallet_balance ?? 0);
+        }
+      } catch (e: any) {
+        console.warn('[getWalletBalance] Supabase profile re-read warning:', e?.message);
+      }
+    }
 
     const memUser = await UserStore.findByEmail(cleanEmail);
     const userTxs = await TransactionStore.getTransactionsByEmail(cleanEmail);
