@@ -86,6 +86,7 @@ export class TransactionStore {
     if (!supabase) return _txCache || [];
 
     try {
+      // 1. Sync property escrow transactions
       const { data, error } = await supabase.from('transactions').select('*');
       if (!error && data && Array.isArray(data)) {
         const users = UserStore.getAllUsers();
@@ -119,6 +120,60 @@ export class TransactionStore {
         }
 
         _txCache = current;
+      }
+
+      // 2. Sync all wallet transactions (bank collections, withdrawals, cards, utilities, airtime)
+      const { data: walletData, error: walletErr } = await supabase
+        .from('wallet_transactions')
+        .select('*');
+
+      if (!walletErr && walletData && Array.isArray(walletData)) {
+        const current = _txCache || [];
+
+        for (const row of walletData) {
+          const rawType = (row.type || '').toString().toLowerCase();
+          const isCredit = rawType === 'credit';
+          const amt = Number(row.amount || 0);
+          const rawStatus = (row.status || 'SUCCESSFUL').toString().toUpperCase();
+          const status = (rawStatus === 'COMPLETED' || rawStatus === 'SUCCESS') ? 'SUCCESSFUL' : (rawStatus === 'FAILED' ? 'FAILED' : 'PENDING');
+          const ref = row.flw_ref || row.tx_ref || row.id;
+          const narration = (row.narration || '').toString();
+
+          let category: WalletTransaction['category'] = isCredit ? 'deposit' : 'withdrawal';
+          if (narration.toLowerCase().includes('card')) {
+            category = 'wallet_funding';
+          } else if (narration.toLowerCase().includes('bill') || narration.toLowerCase().includes('electricity') || narration.toLowerCase().includes('airtime')) {
+            category = 'utility';
+          } else if (narration.toLowerCase().includes('escrow') || narration.toLowerCase().includes('rent')) {
+            category = 'rent';
+          }
+
+          const mapped: WalletTransaction = {
+            id: row.id,
+            userId: row.user_id,
+            email: (row.email || '').toLowerCase().trim(),
+            title: narration || (isCredit ? 'Inbound Wallet Deposit' : 'Outbound Wallet Debit'),
+            type: rawType || (isCredit ? 'credit' : 'debit'),
+            category,
+            amount: amt,
+            isCredit,
+            reference: ref,
+            status,
+            date: row.created_at || new Date().toISOString()
+          };
+
+          const idx = current.findIndex(t => t.id === mapped.id || (mapped.reference && t.reference === mapped.reference));
+          if (idx >= 0) {
+            current[idx] = { ...current[idx], ...mapped };
+          } else {
+            current.unshift(mapped);
+          }
+        }
+
+        _txCache = current;
+      }
+
+      if (_txCache) {
         this.saveTransactions(_txCache);
       }
     } catch (e: any) {

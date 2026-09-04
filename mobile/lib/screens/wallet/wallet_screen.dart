@@ -1495,10 +1495,10 @@ class _WalletScreenState extends State<WalletScreen> {
                   itemBuilder: (context, i) {
                     final tx = _transactions[i];
 
-                    final isCredit = tx['isCredit'] == true;
-                    final amt = (tx['amount'] as num?)?.toDouble() ?? 0.0;
-                    final title = tx['title'] ?? tx['type'] ?? 'Transaction';
-                    final subtitle = tx['type'] ?? (isCredit ? 'Electronic Bank Transfer • Dedicated Escrow' : 'Direct Bank Payout');
+                    final isCredit = tx['isCredit'] == true || (tx['type'] ?? '').toString().toLowerCase() == 'credit';
+                    final amt = ((tx['amount'] as num?)?.toDouble() ?? 0.0).abs();
+                    final title = tx['title'] ?? tx['narration'] ?? tx['type'] ?? 'Transaction';
+                    final subtitle = tx['subtitle'] ?? (tx['sender'] != null && tx['sender'].toString().isNotEmpty ? 'From: ${tx['sender']}' : (tx['beneficiary'] != null && tx['beneficiary'].toString().isNotEmpty ? 'To: ${tx['beneficiary']}' : (isCredit ? 'Electronic Bank Transfer • Dedicated Escrow' : 'Direct Bank Payout')));
 
                     return InkWell(
                       onTap: () => _showTransactionReceiptSheet(tx),

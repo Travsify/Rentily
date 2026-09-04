@@ -175,17 +175,25 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
       if (liveTxns.isNotEmpty) {
         final List<Map<String, dynamic>> parsedLive = [];
         for (var t in liveTxns) {
-          final isCredit = t['isCredit'] == true || t['type'] == 'credit' || (t['amount'] as num?)?.toDouble() != null && (t['amount'] as num) > 0;
-          final amt = (t['amount'] as num?)?.toDouble() ?? 0.0;
+          final isCredit = t['isCredit'] == true || (t['type'] ?? '').toString().toLowerCase() == 'credit';
+          final amt = ((t['amount'] as num?)?.toDouble() ?? 0.0).abs();
           final signedAmount = isCredit ? amt : -amt;
           final statusRaw = (t['status'] ?? 'SUCCESSFUL').toString().toUpperCase();
-          final status = (statusRaw == 'SUCCESSFUL' || statusRaw == 'SUCCESS') ? 'Completed' :
+          final status = (statusRaw == 'SUCCESSFUL' || statusRaw == 'SUCCESS' || statusRaw == 'COMPLETED') ? 'Completed' :
                          (statusRaw == 'PENDING' ? 'Processing' : (statusRaw == 'FAILED' ? 'Failed' : statusRaw));
+
+          final subtitle = (t['subtitle'] != null && t['subtitle'].toString().isNotEmpty)
+              ? t['subtitle'].toString()
+              : (t['sender'] != null && t['sender'].toString().isNotEmpty
+                  ? 'From: ${t['sender']}'
+                  : (t['beneficiary'] != null && t['beneficiary'].toString().isNotEmpty
+                      ? 'To: ${t['beneficiary']}'
+                      : (acc.isNotEmpty ? 'Direct Settlement ($acc)' : 'Direct Settlement')));
 
           parsedLive.add({
             'id': t['id'] ?? 'TXN-${DateTime.now().millisecondsSinceEpoch}',
             'title': t['title'] ?? (isCredit ? 'Wallet Inbound Deposit' : 'Outbound Payment'),
-            'subtitle': t['sender'] != null && t['sender'].toString().isNotEmpty ? 'From: ${t['sender']}' : (acc.isNotEmpty ? 'Direct Settlement ($acc)' : 'Direct Settlement'),
+            'subtitle': subtitle,
             'amount': signedAmount,
             'type': isCredit ? 'inflow' : 'outflow',
             'status': status,

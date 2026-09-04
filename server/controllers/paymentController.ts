@@ -1500,7 +1500,104 @@ async function syncFlutterwaveTransactionsForUser(cleanEmail: string) {
   }
 }
 
-// 6. Get User Transaction Ledger (with real-time Flutterwave sync)
+// 2b. Sync Maplerad Inbound Collections & Transactions
+async function syncMapleradTransactionsForUser(cleanEmail: string) {
+  try {
+    let customerId: string | null = null;
+    if (supabase) {
+      const { data: cfg } = await supabase
+        .from('system_configs')
+        .select('data')
+        .eq('id', `maplerad_tier1_${cleanEmail}`)
+        .maybeSingle();
+      if (cfg?.data?.customerId) {
+        customerId = cfg.data.customerId;
+      }
+    }
+
+    const key = process.env.MAPLERAD_SECRET_KEY || 'mpr_sk_35d197e6-3f6b-437c-995b-a0dff522b3dc';
+    const baseUrl = 'https://api.maplerad.com/v1';
+
+    if (!customerId) {
+      try {
+        const cRes = await fetch(`${baseUrl}/customers?page=1&page_size=50`, {
+          headers: { 'Authorization': `Bearer ${key}`, 'Accept': 'application/json' }
+        });
+        if (cRes.ok) {
+          const cData = await cRes.json();
+          const match = (cData.data || []).find((c: any) => (c.email || '').toLowerCase().trim() === cleanEmail);
+          if (match?.id) customerId = match.id;
+        }
+      } catch (_) {}
+    }
+
+    if (!customerId) return;
+
+    const txRes = await fetch(`${baseUrl}/transactions?customer_id=${customerId}&page=1&page_size=50`, {
+      headers: { 'Authorization': `Bearer ${key}`, 'Accept': 'application/json' }
+    });
+
+    if (!txRes.ok) return;
+    const txData = await txRes.json();
+    if (!txData.status || !Array.isArray(txData.data)) return;
+
+    const existing = TransactionStore.getAllTransactions();
+    const user = await UserStore.findByEmail(cleanEmail);
+
+    for (const tx of txData.data) {
+      const rawStatus = (tx.status || '').toUpperCase();
+      if (rawStatus !== 'SUCCESS' && rawStatus !== 'PENDING') continue;
+
+      const isCredit = (tx.entry || '').toUpperCase() === 'CREDIT';
+      const amount = Number(tx.amount || 0) / 100; // kobo to NGN
+      if (amount <= 0) continue;
+
+      const ref = tx.reference || tx.id;
+      const exists = existing.some(e => e.reference === ref || e.id === `MAPLE_TX_${tx.id}` || (ref && e.reference && e.reference.includes(ref)));
+      if (exists) continue;
+
+      const narration = tx.summary || tx.reason || (isCredit ? 'Virtual Account Deposit' : 'Bank Transfer Payout');
+      const status = rawStatus === 'SUCCESS' ? 'SUCCESSFUL' : 'PENDING';
+
+      let category: WalletTransaction['category'] = isCredit ? 'deposit' : 'withdrawal';
+      if ((tx.type || '').toUpperCase() === 'CARD' || narration.toLowerCase().includes('card')) {
+        category = 'wallet_funding';
+      }
+
+      await TransactionStore.addTransaction({
+        id: `MAPLE_TX_${tx.id}`,
+        userId: user?.id || `usr_${cleanEmail}`,
+        email: cleanEmail,
+        title: narration,
+        type: tx.type || (isCredit ? 'credit' : 'debit'),
+        category,
+        amount,
+        isCredit,
+        reference: ref,
+        status,
+        date: tx.created_at || new Date().toISOString()
+      });
+
+      if (supabase && ref) {
+        await supabase.from('wallet_transactions').upsert({
+          user_id: user?.id || 'b0000000-0000-0000-0000-000000000001',
+          email: cleanEmail,
+          amount,
+          type: isCredit ? 'credit' : 'debit',
+          status: rawStatus === 'SUCCESS' ? 'completed' : 'pending',
+          flw_ref: ref,
+          tx_ref: ref,
+          narration,
+          created_at: tx.created_at || new Date().toISOString()
+        }, { onConflict: 'flw_ref' }).catch(() => {});
+      }
+    }
+  } catch (e: any) {
+    console.warn('[syncMapleradTransactionsForUser] Notice:', e?.message || e);
+  }
+}
+
+// 6. Get User Transaction Ledger (with real-time Flutterwave & Maplerad sync)
 export async function getUserTransactions(req: Request, res: Response) {
   try {
     const { email } = req.query;
@@ -1512,6 +1609,9 @@ export async function getUserTransactions(req: Request, res: Response) {
 
     // Auto-sync from Flutterwave
     await syncFlutterwaveTransactionsForUser(cleanEmail);
+
+    // Auto-sync from Maplerad
+    await syncMapleradTransactionsForUser(cleanEmail);
 
     const transactions = await TransactionStore.getTransactionsByEmail(cleanEmail);
     res.json({

@@ -1763,9 +1763,9 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                   children: _commissionTxns.map((tx) {
                     final isMap = tx is Map;
                     final txMap = isMap ? Map<String, dynamic>.from(tx) : <String, dynamic>{};
-                    final title = isMap ? (tx['title'] ?? tx['description'] ?? 'Commission Payout') : 'Commission Payout';
-                    final amount = isMap ? ((tx['amount'] as num?)?.toDouble() ?? 0.0) : 0.0;
-                    final isCredit = amount >= 0;
+                    final title = isMap ? (tx['title'] ?? tx['narration'] ?? tx['description'] ?? 'Commission Payout') : 'Commission Payout';
+                    final amount = isMap ? ((tx['amount'] as num?)?.toDouble() ?? 0.0).abs() : 0.0;
+                    final isCredit = isMap && (tx['isCredit'] == true || (tx['type'] ?? '').toString().toLowerCase() == 'credit');
                     final date = isMap ? (tx['date'] ?? tx['createdAt'] ?? '') : '';
                     final ref = isMap ? (tx['reference'] ?? tx['id'] ?? '') : '';
 
