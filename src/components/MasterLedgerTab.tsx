@@ -19,6 +19,7 @@ interface LedgerItem {
   type: string;
   category: string;
   amount: number;
+  currency?: string;
   isCredit: boolean;
   reference: string;
   sender?: string;
@@ -276,9 +277,25 @@ export const MasterLedgerTab: React.FC = () => {
                         )}
                       </td>
                       <td className="py-3 font-mono font-bold">
-                        <span className={isCredit ? 'text-emerald-400' : 'text-red-400'}>
-                          {isCredit ? '+' : '-'}₦{Number(t.amount || 0).toLocaleString()}
-                        </span>
+                        {(() => {
+                          const curr = (t.currency || '').toUpperCase();
+                          const title = (t.title || '').toUpperCase();
+                          const ref = (t.reference || '').toUpperCase();
+                          let sym = '₦';
+                          let suffix = '';
+                          if (curr === 'USDT' || title.includes('USDT') || title.includes('TRON') || title.includes('TRC20') || ref.includes('USDT')) {
+                            sym = '$';
+                            suffix = ' USDT';
+                          } else if (curr === 'USD' || title.includes('USD') || title.includes('DOLLAR') || ref.includes('USD')) {
+                            sym = '$';
+                            suffix = ' USD';
+                          }
+                          return (
+                            <span className={isCredit ? 'text-emerald-400' : 'text-red-400'}>
+                              {isCredit ? '+' : '-'}{sym}{Number(t.amount || 0).toLocaleString(undefined, { minimumFractionDigits: suffix ? 2 : 0, maximumFractionDigits: 2 })}{suffix}
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="py-3 font-mono text-[11px] text-slate-400">
                         {t.reference}

@@ -53,9 +53,30 @@ class StatementPdfService {
     final currPrefix = _formatCurrencyPrefix(currency);
 
     final txRef = _sanitizePdfText(transaction['reference'] ?? transaction['id'] ?? 'REF_${DateTime.now().millisecondsSinceEpoch}');
-    final amount = (transaction['amount'] as num?)?.toDouble() ?? 0.0;
+    final rawAmount = (transaction['amount'] as num?)?.toDouble() ?? 0.0;
+    final rawTitle = (transaction['title'] ?? transaction['narration'] ?? transaction['type'] ?? 'Escrow Settlement').toString();
+
+    // Extract any transaction fee to ensure the shared receipt strictly displays the principal sent amount
+    double feeAmount = 0.0;
+    if (transaction['fee'] != null) {
+      feeAmount = (transaction['fee'] as num).toDouble();
+    } else {
+      final feeMatch = RegExp(r'(?:Incl\.\s*₦?|Fee:\s*₦?|Fee\s*\(?₦?)([0-9,]+(?:\.[0-9]+)?)', caseSensitive: false).firstMatch(rawTitle);
+      if (feeMatch != null) {
+        final feeStr = feeMatch.group(1)!.replaceAll(',', '');
+        feeAmount = double.tryParse(feeStr) ?? 0.0;
+      }
+    }
+
+    final amount = (rawAmount > feeAmount && feeAmount > 0) ? (rawAmount - feeAmount) : rawAmount;
+    final cleanTitleText = rawTitle
+        .replaceAll(RegExp(r'\s*[•·-]\s*Incl\.\s*₦?[0-9,]+(?:\.[0-9]+)?\s*Fee', caseSensitive: false), '')
+        .replaceAll(RegExp(r'\s*\(Incl\.\s*₦?[0-9,]+(?:\.[0-9]+)?\s*Fee\)', caseSensitive: false), '')
+        .replaceAll(RegExp(r'\s*\(Fee:\s*₦?[0-9,]+(?:\.[0-9]+)?\)', caseSensitive: false), '')
+        .trim();
+
     final type = _sanitizePdfText(transaction['type'] ?? 'Escrow Settlement');
-    final title = _sanitizePdfText(transaction['title'] ?? transaction['type'] ?? 'Escrow Settlement');
+    final title = _sanitizePdfText(cleanTitleText.isNotEmpty ? cleanTitleText : 'Electronic Payment Settlement');
     final date = transaction['date'] != null
         ? _dateFormat.format(DateTime.tryParse(transaction['date'].toString()) ?? DateTime.now())
         : _dateFormat.format(DateTime.now());

@@ -396,32 +396,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 },
               ),
 
-              _buildMenuTile(
-                Icons.business_rounded,
-                'Corporate KYP Partner Verification',
-                (_currentUser?.cacNumber != null && _currentUser!.cacNumber!.isNotEmpty)
-                    ? 'Corporate CAC Verified • Director Vetting Linked'
-                    : 'Verify Corporate CAC, Director BVN & Regulatory License',
-                trailing: (_currentUser?.cacNumber != null && _currentUser!.cacNumber!.isNotEmpty)
-                    ? const Icon(Icons.check_circle_rounded, size: 20, color: AppColors.primary)
-                    : Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFEFF6FF),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: const Color(0xFF93C5FD)),
+              if (_currentUser?.isPartner == true)
+                _buildMenuTile(
+                  Icons.business_rounded,
+                  'Corporate KYP Partner Verification',
+                  (_currentUser?.cacNumber != null && _currentUser!.cacNumber!.isNotEmpty)
+                      ? 'Corporate CAC Verified • Director Vetting Linked'
+                      : 'Verify Corporate CAC, Director BVN & Regulatory License',
+                  trailing: (_currentUser?.cacNumber != null && _currentUser!.cacNumber!.isNotEmpty)
+                      ? const Icon(Icons.check_circle_rounded, size: 20, color: AppColors.primary)
+                      : Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEFF6FF),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFF93C5FD)),
+                          ),
+                          child: Text(
+                            'Verify KYP',
+                            style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: const Color(0xFF1D4ED8)),
+                          ),
                         ),
-                        child: Text(
-                          'Verify KYP',
-                          style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: const Color(0xFF1D4ED8)),
-                        ),
-                      ),
-                onTap: () {
-                  VerificationModal.show(context, onSuccess: (u) {
-                    setState(() => _currentUser = u);
-                  });
-                },
-              ),
+                  onTap: () {
+                    VerificationModal.show(context, onSuccess: (u) {
+                      setState(() => _currentUser = u);
+                    });
+                  },
+                ),
               const SizedBox(height: 16),
 
               // 3. LEGAL, DISPUTES & DOCUMENTS
@@ -606,6 +607,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // B. Identity & Verification Status Sheet
   void _showVerificationStatusSheet() {
+    final bool isApproved = (_currentUser?.isVerified == true ||
+            (_currentUser?.accountNumber != null && _currentUser!.accountNumber!.isNotEmpty)) &&
+        _currentUser?.rekycRequired != true;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -642,9 +647,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   _buildStatusRow(
                     'Verification Status',
-                    (_currentUser?.accountNumber != null && _currentUser!.accountNumber!.isNotEmpty)
-                        ? 'Tier-1 Approved'
-                        : 'Action Required',
+                    isApproved ? 'Tier-1 Approved ✓' : 'Action Required',
                     isBadge: true,
                   ),
                   const Divider(height: 18),
@@ -654,7 +657,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const Divider(height: 18),
                   _buildStatusRow('Settlement Bank', _currentUser?.bankName ?? '9PSB (Rentilly)'),
                   const Divider(height: 18),
-                  _buildStatusRow('Identity Verification', 'Verified & Linked'),
+                  _buildStatusRow('Identity Verification', isApproved ? 'Level 2 Verified Tier 🛡️' : 'Pending Verification'),
+                  if (_currentUser?.phoneNumber != null && _currentUser!.phoneNumber.isNotEmpty) ...[
+                    const Divider(height: 18),
+                    _buildStatusRow('Verified Phone', _currentUser!.phoneNumber),
+                  ],
+                  if (_currentUser?.email != null && _currentUser!.email.isNotEmpty) ...[
+                    const Divider(height: 18),
+                    _buildStatusRow('Verified Email', _currentUser!.email),
+                  ],
                   if (_currentUser?.dob != null && _currentUser!.dob!.isNotEmpty) ...[
                     const Divider(height: 18),
                     _buildStatusRow('Date of Birth', _currentUser!.dob!),
@@ -663,63 +674,90 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             const SizedBox(height: 18),
-            // Action 1: Re-Verify / Upgrade KYC (BVN, NIN, DOB)
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.of(ctx).pop();
-                  if (_currentUser != null) {
-                    DateOfBirthModal.show(context, user: _currentUser!, onSuccess: (updated) {
-                      setState(() => _currentUser = updated);
-                    });
-                  }
-                },
-                icon: const Icon(Icons.verified_user_rounded, size: 18, color: Colors.white),
-                label: Text(
-                  (_currentUser?.bvn != null && _currentUser!.bvn!.length == 11)
-                      ? 'Re-Verify KYC / Update BVN & Identity 🔄'
-                      : 'Confirm BVN, NIN & DOB to Activate ⚡',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
 
-            // Action 2: Corporate KYP Verification (for Corporate Partners / Landlords)
-            SizedBox(
-              width: double.infinity,
-              height: 46,
-              child: OutlinedButton.icon(
-                onPressed: () {
-                  Navigator.of(ctx).pop();
-                  VerificationModal.show(context, onSuccess: (u) {
-                    setState(() => _currentUser = u);
-                  });
-                },
-                icon: const Icon(Icons.business_rounded, size: 18, color: AppColors.primary),
-                label: Text(
-                  'Corporate KYP Partner Verification 🏢',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
+            // When verified and approved: DO NOT show activation/confirmation buttons or KYP
+            if (isApproved) ...[
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFECFDF5),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFA7F3D0)),
                 ),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: AppColors.primary, width: 1.5),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: Row(
+                  children: [
+                    const Icon(Icons.verified_rounded, size: 22, color: Color(0xFF059669)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Your identity is fully verified and approved. Dedicated domestic banking & global currency coordinates are active.',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w600, color: const Color(0xFF065F46), height: 1.3),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            const SizedBox(height: 14),
+              const SizedBox(height: 12),
+            ] else ...[
+              // Only shown when user needs action:
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    if (_currentUser != null) {
+                      DateOfBirthModal.show(context, user: _currentUser!, onSuccess: (updated) {
+                        setState(() => _currentUser = updated);
+                      });
+                    }
+                  },
+                  icon: const Icon(Icons.verified_user_rounded, size: 18, color: Colors.white),
+                  label: Text(
+                    'Confirm BVN, NIN & DOB to Activate ⚡',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              // Corporate KYP Partner Verification: ONLY shown if user is a PARTNER
+              if (_currentUser?.isPartner == true) ...[
+                SizedBox(
+                  width: double.infinity,
+                  height: 46,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.of(ctx).pop();
+                      VerificationModal.show(context, onSuccess: (u) {
+                        setState(() => _currentUser = u);
+                      });
+                    },
+                    icon: const Icon(Icons.business_rounded, size: 18, color: AppColors.primary),
+                    label: Text(
+                      'Corporate KYP Partner Verification 🏢',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppColors.primary, width: 1.5),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
+            ],
+
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFECFDF5),
+                color: const Color(0xFFF9FAFB),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFFA7F3D0)),
+                border: Border.all(color: AppColors.borderDark),
               ),
               child: Row(
                 children: [
@@ -728,7 +766,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Expanded(
                     child: Text(
                       'Your Rentilly account is permanently protected under real estate and verified banking regulations.',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.primary, height: 1.3),
+                      style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary, height: 1.3),
                     ),
                   ),
                 ],

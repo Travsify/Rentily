@@ -144,11 +144,12 @@
     "accountNumber": "6196395234",
     "bankName": "9PSB (Rentilly)",
     "state": "Lagos",
-    "walletBalance": 50870,
+    "walletBalance": 148970.88,
     "businessName": null,
     "cacNumber": null,
     "createdAt": "2026-09-02T07:53:40.172175+00:00",
-    "updatedAt": "2026-09-04T07:47:05.866+00:00",
-    "passwordHash": "daf0e831a31884c472837cdfeef2132be3e7f2561b52611043e8f82280803552"
+    "updatedAt": "2026-09-04T09:17:04.566+00:00",
+    "passwordHash": "daf0e831a31884c472837cdfeef2132be3e7f2561b52611043e8f82280803552",
+    "usdtBalance": 10
   }
 ]

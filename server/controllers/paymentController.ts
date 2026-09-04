@@ -75,6 +75,31 @@ const CBN_TO_MAPLERAD_BANK_CODES: Record<string, string> = {
   '302': '143',  // TAJ Bank
 };
 
+// Maplerad Native Institution Code to CBN/Paystack/Flutterwave NUBAN Bank Code Mapping
+const MAPLERAD_TO_CBN_BANK_CODES: Record<string, string> = {
+  '120': '058',   // GTBank
+  '114': '044',   // Access Bank
+  '107': '057',   // Zenith Bank
+  '105': '011',   // First Bank
+  '125': '033',   // UBA
+  '137': '50211', // Kuda
+  '710': '999992', // OPay Digital Services
+  '311': '999991', // PalmPay
+  '868': '50515', // Moniepoint
+  '130': '101',   // ProvidusBank
+  '122': '221',   // Stanbic IBTC
+  '124': '232',   // Sterling Bank
+  '126': '032',   // Union Bank
+  '116': '050',   // Ecobank
+  '118': '214',   // FCMB
+  '121': '076',   // Polaris Bank
+  '127': '035',   // Wema Bank
+  '119': '070',   // Fidelity Bank
+  '1897': '566',  // VFD
+  '132': '301',   // Jaiz Bank
+  '143': '302',   // TAJ Bank
+};
+
 // 1. Fetch Nigerian Banks List (Maplerad / Paystack Unified)
 export async function getPaystackBanks(_req: Request, res: Response) {
   try {
@@ -168,14 +193,16 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
       });
     }
 
-    // Step A: Attempt Maplerad Local Payment (Primary Rail)
+    // Step A: Attempt Maplerad Local Payment (Primary Rail for all NGN payouts)
     let transferSuccess = false;
     let transferProvider: 'MAPLERAD' | 'PAYSTACK' | 'FLUTTERWAVE' = 'MAPLERAD';
     let txRef = `WD_MAPLE_${Date.now()}`;
     let transferData: any = null;
+    let failureReason = '';
 
     const rawBankCode = bankCode.toString().trim();
     const mapleradBankCode = CBN_TO_MAPLERAD_BANK_CODES[rawBankCode] || rawBankCode;
+    const cbnBankCode = MAPLERAD_TO_CBN_BANK_CODES[rawBankCode] || rawBankCode;
 
     try {
       console.log(`[Withdrawal] Attempting Maplerad payout for ₦${numAmount} to ${accountNumber} (Maplerad code: ${mapleradBankCode})...`);
@@ -193,21 +220,23 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
         txRef = mapleradRes.reference || txRef;
         console.log(`[Withdrawal] ✅ Maplerad payout successful: ${txRef}`);
       } else {
-        console.warn('[Withdrawal] Maplerad payout returned non-success:', mapleradRes.message, 'Engaging Paystack fallback...');
+        failureReason = mapleradRes.message || 'Maplerad transfer rejected';
+        console.warn('[Withdrawal] Maplerad payout returned non-success:', failureReason, 'Checking secondary rails...');
       }
     } catch (e: any) {
-      console.warn('[Withdrawal] Maplerad payout exception:', e.message, 'Engaging Paystack fallback...');
+      failureReason = e.message;
+      console.warn('[Withdrawal] Maplerad payout exception:', e.message, 'Checking secondary rails...');
     }
 
-    // Step B: Fallback to Paystack if Maplerad was not successful
+    // Step B: Fallback to Paystack if Maplerad was not successful (e.g. temporary Maplerad maintenance or insufficient treasury liquidity)
     if (!transferSuccess) {
       try {
         transferProvider = 'PAYSTACK';
-        console.log(`[Withdrawal] Attempting Paystack payout fallback for ₦${numAmount} to ${accountNumber} (CBN code: ${rawBankCode})...`);
+        console.log(`[Withdrawal] Attempting Paystack payout fallback for ₦${numAmount} to ${accountNumber} (CBN code: ${cbnBankCode})...`);
         const recipientRes = await PaystackService.createTransferRecipient({
           name: accountName || memUser?.fullName || 'Account Holder',
           accountNumber: accountNumber.toString(),
-          bankCode: rawBankCode,
+          bankCode: cbnBankCode,
           description: cleanReason
         });
 
@@ -238,9 +267,9 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
     if (!transferSuccess) {
       try {
         transferProvider = 'FLUTTERWAVE';
-        console.log(`[Withdrawal] Attempting Flutterwave payout fallback for ₦${numAmount} to ${accountNumber} (Bank: ${rawBankCode})...`);
+        console.log(`[Withdrawal] Attempting Flutterwave payout fallback for ₦${numAmount} to ${accountNumber} (Bank: ${cbnBankCode})...`);
         const flwRes = await FlutterwaveService.transferToBank({
-          accountBank: rawBankCode,
+          accountBank: cbnBankCode,
           accountNumber: accountNumber.toString(),
           amount: numAmount,
           narration: cleanReason,
@@ -260,14 +289,12 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
       }
     }
 
-    // Step D: Even if sandbox banks are in maintenance, allow authorized simulation to prevent user fund blocking
+    // Step D: Guard against phantom debits - If NO live banking rail succeeded, abort and DO NOT debit user!
     if (!transferSuccess) {
-      // In live production sandbox or test modes, record pending clearance
-      transferSuccess = true;
-      transferProvider = 'MAPLERAD';
-      txRef = `WD_INST_${Date.now()}`;
-      transferData = { reference: txRef, status: 'QUEUED', message: 'Payout queued for instant NIBSS clearing' };
-      console.log(`[Withdrawal] ℹ️ Payout recorded under clearance queue: ${txRef}`);
+      return res.status(502).json({
+        status: false,
+        error: `Payout of ₦${numAmount.toLocaleString()} to ${accountName || 'recipient'} could not be completed at this time: ${failureReason || 'Settlement rail declined transaction'}. Your wallet balance has NOT been debited.`
+      });
     }
 
     if (transferSuccess) {
@@ -475,7 +502,6 @@ export async function withdrawCrypto(req: Request, res: Response) {
         feeUsdt,
         netUsdtToSend,
         feePercent,
-        amountNgn: totalDebitNgn,
         address,
         reference: txRef
       }
@@ -488,7 +514,8 @@ export async function withdrawCrypto(req: Request, res: Response) {
       feeUsdt,
       feePercent,
       netUsdtToSend,
-      newBalance: newBal,
+      newUsdtBalance: newBalUsdt,
+      newBalance: memUser?.walletBalance ?? 0,
       reference: txRef
     });
   } catch (err: any) {
@@ -2827,7 +2854,7 @@ export async function revealCardDetails(req: Request, res: Response) {
 export async function getCardTransactions(req: Request, res: Response) {
   try {
     const { cardId } = req.params;
-    const txs = CardIssuingService.getCardTransactions(cardId || 'default');
+    const txs = await CardIssuingService.getCardTransactions(cardId || 'default');
     res.json({
       status: true,
       data: txs

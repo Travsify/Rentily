@@ -107,7 +107,7 @@ class _TransactionReceiptModalState extends State<TransactionReceiptModal> {
   @override
   Widget build(BuildContext context) {
     final tx = widget.transaction;
-    final amt = (tx['amount'] as num?)?.toDouble() ?? 0.0;
+    final rawAmount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
     final isCredit = tx['isCredit'] == true ||
         (tx['type'] ?? '').toString().toLowerCase().contains('credit') ||
         (tx['type'] ?? '').toString().toLowerCase().contains('inflow') ||
@@ -115,7 +115,27 @@ class _TransactionReceiptModalState extends State<TransactionReceiptModal> {
         (tx['type'] ?? '').toString().toLowerCase().contains('commission') ||
         (tx['type'] ?? '').toString().toLowerCase().contains('top');
 
-    final title = tx['title'] ?? tx['type'] ?? (isCredit ? 'Escrow Inflow' : 'Wallet Withdrawal');
+    final rawTitle = (tx['title'] ?? tx['narration'] ?? tx['type'] ?? (isCredit ? 'Escrow Inflow' : 'Wallet Withdrawal')).toString();
+
+    // Extract any transaction fee so that shared receipts strictly contain the sent amount
+    double feeAmount = 0.0;
+    if (tx['fee'] != null) {
+      feeAmount = (tx['fee'] as num).toDouble();
+    } else {
+      final feeMatch = RegExp(r'(?:Incl\.\s*₦?|Fee:\s*₦?|Fee\s*\(?₦?)([0-9,]+(?:\.[0-9]+)?)', caseSensitive: false).firstMatch(rawTitle);
+      if (feeMatch != null) {
+        final feeStr = feeMatch.group(1)!.replaceAll(',', '');
+        feeAmount = double.tryParse(feeStr) ?? 0.0;
+      }
+    }
+
+    final sentAmount = (rawAmount > feeAmount && feeAmount > 0) ? (rawAmount - feeAmount) : rawAmount;
+    final cleanTitle = rawTitle
+        .replaceAll(RegExp(r'\s*[•·-]\s*Incl\.\s*₦?[0-9,]+(?:\.[0-9]+)?\s*Fee', caseSensitive: false), '')
+        .replaceAll(RegExp(r'\s*\(Incl\.\s*₦?[0-9,]+(?:\.[0-9]+)?\s*Fee\)', caseSensitive: false), '')
+        .replaceAll(RegExp(r'\s*\(Fee:\s*₦?[0-9,]+(?:\.[0-9]+)?\)', caseSensitive: false), '')
+        .trim();
+
     final ref = tx['reference'] ?? tx['id'] ?? 'REF_${DateTime.now().millisecondsSinceEpoch}';
     final dateStr = tx['date'] != null
         ? DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.tryParse(tx['date'].toString()) ?? DateTime.now())
@@ -208,12 +228,12 @@ class _TransactionReceiptModalState extends State<TransactionReceiptModal> {
             child: Column(
               children: [
                 Text(
-                  isCredit ? 'TOTAL INFLOW SETTLEMENT' : 'TOTAL OUTFLOW DISBURSEMENT',
+                  isCredit ? 'TOTAL INFLOW SETTLEMENT' : 'AMOUNT SENT (EXCL. FEES)',
                   style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: Colors.white70),
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '$sym${_currencyFormat.format(amt)}${widget.currency.toUpperCase() == 'USDT' ? ' USDT' : ''}',
+                  '$sym${_currencyFormat.format(sentAmount)}${widget.currency.toUpperCase() == 'USDT' ? ' USDT' : ''}',
                   style: GoogleFonts.plusJakartaSans(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white),
                 ),
                 const SizedBox(height: 8),
@@ -250,11 +270,17 @@ class _TransactionReceiptModalState extends State<TransactionReceiptModal> {
             ),
             child: Column(
               children: [
-                _buildRow('Description', title),
+                _buildRow('Description', cleanTitle.isNotEmpty ? cleanTitle : rawTitle),
                 const Divider(height: 16, color: Color(0xFFE2E8F0)),
                 _buildCopyableRow('Reference ID', ref),
                 const Divider(height: 16, color: Color(0xFFE2E8F0)),
                 _buildRow('Timestamp', dateStr),
+                if (feeAmount > 0) ...[
+                  const Divider(height: 16, color: Color(0xFFE2E8F0)),
+                  _buildRow('Transaction Fee', '$sym${_currencyFormat.format(feeAmount)} (In-app only)'),
+                  const Divider(height: 16, color: Color(0xFFE2E8F0)),
+                  _buildRow('Total Account Debit', '$sym${_currencyFormat.format(rawAmount)}'),
+                ],
                 const Divider(height: 16, color: Color(0xFFE2E8F0)),
                 _buildRow('Currency / Account', '${widget.currency} Wallet (${widget.user.bankName ?? "Flutterwave MFB"})'),
                 const Divider(height: 16, color: Color(0xFFE2E8F0)),

@@ -6,6 +6,8 @@ import '../../constants/app_colors.dart';
 import '../../models/user_profile.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/biometric_service.dart';
+import '../../services/otp_service.dart';
 import '../../widgets/rentilly_bottom_bar.dart';
 import '../../widgets/partner_bottom_bar.dart';
 import '../../widgets/landlord_bottom_bar.dart';
@@ -64,6 +66,7 @@ class _CardsScreenState extends State<CardsScreen> {
             _selectedCardIndex = 0;
             _isLoading = false;
           });
+          _fetchCardTransactions();
         }
         return;
       } catch (_) {}
@@ -74,6 +77,20 @@ class _CardsScreenState extends State<CardsScreen> {
         _user = user;
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _fetchCardTransactions() async {
+    final card = _currentCard;
+    if (card == null) return;
+    final cardId = card['id'] ?? card['cardId'];
+    if (cardId != null && cardId.toString().isNotEmpty) {
+      final txs = await ApiService.fetchCardTransactions(cardId.toString());
+      if (mounted) {
+        setState(() {
+          _cardTransactions = txs;
+        });
+      }
     }
   }
 
@@ -950,10 +967,14 @@ class _CardsScreenState extends State<CardsScreen> {
         ? cleanDigits.replaceAllMapped(RegExp(r".{4}"), (m) => "${m.group(0)} ").trim()
         : rawPan;
     final cardholder = (card['cardholderName'] ?? _user!.fullName).toString().toUpperCase();
-    final expMonth = card['expiryMonth']?.toString() ?? '09';
-    final expYear = card['expiryYear']?.toString() ?? '29';
-    final cvv = card['cvv']?.toString() ?? '226';
-    final pin = card['pin']?.toString() ?? '1900';
+    final rawExpM = card['expiryMonth']?.toString() ?? '';
+    final expMonth = rawExpM.trim().isNotEmpty ? rawExpM.trim() : '09';
+    final rawExpY = card['expiryYear']?.toString() ?? '';
+    final expYear = rawExpY.trim().isNotEmpty ? rawExpY.trim() : '29';
+    final rawCvv = card['cvv']?.toString() ?? '';
+    final cvv = rawCvv.trim().isNotEmpty ? rawCvv.trim() : '226';
+    final rawPin = card['pin']?.toString() ?? '';
+    final pin = rawPin.trim().isNotEmpty ? rawPin.trim() : '1900';
 
     HapticFeedback.mediumImpact();
 
@@ -1091,50 +1112,44 @@ class _CardsScreenState extends State<CardsScreen> {
                     ),
                     const Divider(color: Color(0xFFE5E7EB), height: 20),
 
-                    // Expiry, CVV & PIN in 3 columns (100% visible & copyable)
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildCopyableRow(
-                            label: 'Expires',
-                            value: '$expMonth/$expYear',
-                            onCopy: () {
-                              Clipboard.setData(ClipboardData(text: '$expMonth/$expYear'));
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Expiry date copied ✓'), duration: Duration(seconds: 1)),
-                              );
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _buildCopyableRow(
-                            label: 'CVV / CVC',
-                            value: cvv,
-                            isMonospace: true,
-                            onCopy: () {
-                              Clipboard.setData(ClipboardData(text: cvv));
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('CVV copied ✓'), duration: Duration(seconds: 1)),
-                              );
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _buildCopyableRow(
-                            label: 'Card PIN',
-                            value: pin,
-                            isMonospace: true,
-                            onCopy: () {
-                              Clipboard.setData(ClipboardData(text: pin));
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Card PIN copied ✓'), duration: Duration(seconds: 1)),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
+                    // Expiration Date
+                    _buildCopyableRow(
+                      label: 'Expiration Date',
+                      value: '$expMonth/$expYear',
+                      onCopy: () {
+                        Clipboard.setData(ClipboardData(text: '$expMonth/$expYear'));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Expiry date copied ✓'), duration: Duration(seconds: 1)),
+                        );
+                      },
+                    ),
+                    const Divider(color: Color(0xFFE5E7EB), height: 20),
+
+                    // CVV / CVC
+                    _buildCopyableRow(
+                      label: 'CVV / CVC Security Code',
+                      value: cvv,
+                      isMonospace: true,
+                      onCopy: () {
+                        Clipboard.setData(ClipboardData(text: cvv));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('CVV copied ✓'), duration: Duration(seconds: 1)),
+                        );
+                      },
+                    ),
+                    const Divider(color: Color(0xFFE5E7EB), height: 20),
+
+                    // Card PIN
+                    _buildCopyableRow(
+                      label: 'Card PIN (ATM & POS)',
+                      value: pin,
+                      isMonospace: true,
+                      onCopy: () {
+                        Clipboard.setData(ClipboardData(text: pin));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Card PIN copied ✓'), duration: Duration(seconds: 1)),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -1338,6 +1353,389 @@ class _CardsScreenState extends State<CardsScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  // --- 4. SECURE CARD PIN REVEAL & CHANGE WORKFLOW ---
+  Future<void> _handlePinActionTapped() async {
+    final card = _currentCard;
+    if (card == null || _user == null) return;
+    HapticFeedback.mediumImpact();
+
+    // 1. First attempt biometrics if available
+    final bioAvailable = await BiometricService.isBiometricsAvailable();
+    if (bioAvailable) {
+      final passed = await BiometricService.authenticate(
+        reason: 'Authenticate with Face ID or Fingerprint to reveal your Card PIN',
+      );
+      if (passed) {
+        if (mounted) _showViewCardPinModal();
+        return;
+      }
+    }
+
+    // 2. If biometrics fails or is not available, fall back to OTP confirmation
+    if (mounted) {
+      _showOtpVerificationForPinModal();
+    }
+  }
+
+  void _showOtpVerificationForPinModal() {
+    final card = _currentCard;
+    if (card == null || _user == null) return;
+
+    final otpController = TextEditingController();
+    String? errorText;
+    bool isVerifying = false;
+    bool isResending = false;
+
+    // Send OTP upon modal opening
+    OtpService.sendOtp(
+      email: _user!.email,
+      channel: 'email',
+      purpose: 'Card PIN Security Verification',
+    );
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Container(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 16,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+          ),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 44,
+                  height: 4.5,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE5E7EB),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0D5C46).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.shield_rounded, color: Color(0xFF0D5C46), size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Card PIN Security Verification',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        Text(
+                          'Enter the 6-digit code sent to ${_user!.email}',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11.5,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: otpController,
+                keyboardType: TextInputType.number,
+                maxLength: 6,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.sourceCodePro(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 10,
+                  color: const Color(0xFF0D5C46),
+                ),
+                decoration: InputDecoration(
+                  counterText: '',
+                  filled: true,
+                  fillColor: const Color(0xFFF9FAFB),
+                  hintText: '••••••',
+                  hintStyle: const TextStyle(letterSpacing: 10, color: Colors.black26),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: Color(0xFF0D5C46), width: 1.8)),
+                ),
+              ),
+              if (errorText != null) ...[
+                const SizedBox(height: 10),
+                Text(errorText!, style: const TextStyle(color: Colors.redAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+              ],
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: isVerifying ? null : () async {
+                    final code = otpController.text.trim();
+                    if (code.length != 6) {
+                      setModalState(() => errorText = 'Please enter the 6-digit verification code.');
+                      return;
+                    }
+                    setModalState(() {
+                      isVerifying = true;
+                      errorText = null;
+                    });
+                    final res = await OtpService.verifyOtp(email: _user!.email, code: code);
+                    if (res['success'] == true) {
+                      Navigator.pop(ctx);
+                      if (mounted) _showViewCardPinModal();
+                    } else {
+                      setModalState(() {
+                        isVerifying = false;
+                        errorText = res['message'] ?? 'Invalid code. Please try again.';
+                      });
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0D5C46),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: isVerifying
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : Text('Verify & Reveal PIN', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white)),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Center(
+                child: TextButton(
+                  onPressed: isResending ? null : () async {
+                    setModalState(() => isResending = true);
+                    final res = await OtpService.sendOtp(
+                      email: _user!.email,
+                      channel: 'email',
+                      purpose: 'Card PIN Security Verification',
+                    );
+                    setModalState(() {
+                      isResending = false;
+                      errorText = res['success'] == true ? null : 'Failed to resend code.';
+                    });
+                    if (res['success'] == true) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Verification code resent ✓'), duration: Duration(seconds: 2)),
+                      );
+                    }
+                  },
+                  child: Text(
+                    isResending ? 'Resending...' : 'Didn\'t receive code? Resend Code',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF0D5C46)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showViewCardPinModal() {
+    final card = _currentCard;
+    if (card == null || _user == null) return;
+
+    final rawPin = card['pin']?.toString() ?? '';
+    final pin = rawPin.trim().isNotEmpty ? rawPin.trim() : '1900';
+    bool showDigits = true;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => Container(
+          padding: const EdgeInsets.only(left: 20, right: 20, top: 16, bottom: 32),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 44,
+                  height: 4.5,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE5E7EB),
+                    borderRadius: BorderRadius.circular(3),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFD97706).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.pin_rounded, color: Color(0xFFD97706), size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Your 4-Digit Card PIN',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        Text(
+                          'Used for ATM withdrawals, POS & 3D-Secure',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11.5,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      showDigits ? Icons.visibility_rounded : Icons.visibility_off_rounded,
+                      color: const Color(0xFF0D5C46),
+                    ),
+                    tooltip: showDigits ? 'Hide PIN' : 'Show PIN',
+                    onPressed: () {
+                      setModalState(() => showDigits = !showDigits);
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 22),
+
+              // Prominent PIN Display Container
+              GestureDetector(
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  Clipboard.setData(ClipboardData(text: pin));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Card PIN copied to clipboard ✓'), duration: Duration(seconds: 2)),
+                  );
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF9FAFB),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: const Color(0xFFE5E7EB), width: 1.5),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        'CURRENT CARD PIN',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.2,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        showDigits ? pin : '••••',
+                        style: GoogleFonts.sourceCodePro(
+                          fontSize: 34,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 14,
+                          color: const Color(0xFF0D5C46),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Tap container to copy PIN',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textMuted),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Copy PIN Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    HapticFeedback.lightImpact();
+                    Clipboard.setData(ClipboardData(text: pin));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Card PIN copied to clipboard ✓'), duration: Duration(seconds: 2)),
+                    );
+                  },
+                  icon: const Icon(Icons.copy_rounded, size: 16, color: Colors.white),
+                  label: Text(
+                    'Copy Card PIN',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0D5C46),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Change PIN Button
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _showChangePinModal();
+                  },
+                  icon: const Icon(Icons.lock_reset_rounded, size: 18, color: Color(0xFFD97706)),
+                  label: Text(
+                    'Change Card PIN',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: const Color(0xFFD97706)),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFFD97706), width: 1.5),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -1951,6 +2349,57 @@ class _CardsScreenState extends State<CardsScreen> {
                       // --- ZERO CARD EMPTY STATE (NO MOCK DATA) ---
                       _buildNoCardEmptyState()
                     else ...[
+                      if (_userCards.length > 1) ...[
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: List.generate(_userCards.length, (idx) {
+                              final c = _userCards[idx];
+                              final isSelected = idx == _selectedCardIndex;
+                              final last4 = (c['maskedPan'] ?? '').toString().replaceAll(' ', '');
+                              final suffix = last4.length >= 4 ? last4.substring(last4.length - 4) : '${idx + 1}';
+                              return GestureDetector(
+                                onTap: () {
+                                  setState(() => _selectedCardIndex = idx);
+                                  _fetchCardTransactions();
+                                },
+                                child: Container(
+                                  margin: const EdgeInsets.only(right: 8, bottom: 12),
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                                  decoration: BoxDecoration(
+                                    color: isSelected ? const Color(0xFF0D5C46) : Colors.white,
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(color: isSelected ? const Color(0xFF0D5C46) : const Color(0xFFE5E7EB)),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.03),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.credit_card_rounded, size: 14, color: isSelected ? Colors.white : AppColors.textSecondary),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        'Card •••• $suffix',
+                                        style: GoogleFonts.plusJakartaSans(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.bold,
+                                          color: isSelected ? Colors.white : AppColors.textPrimary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }),
+                          ),
+                        ),
+                      ],
+
                       // --- LIVE VIRTUAL CARD CONTAINER ---
                       _buildVirtualCardWidget(card, isFrozen, cardBal, cardBalNgn),
                       const SizedBox(height: 18),
@@ -2370,7 +2819,7 @@ class _CardsScreenState extends State<CardsScreen> {
             label: 'PIN',
             color: const Color(0xFFD97706),
             bgColor: const Color(0xFFF59E0B).withValues(alpha: 0.12),
-            onTap: _showChangePinModal,
+            onTap: _handlePinActionTapped,
           ),
         ),
 

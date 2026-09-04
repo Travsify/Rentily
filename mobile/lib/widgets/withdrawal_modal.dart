@@ -331,6 +331,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
   void _executeWithdrawal() async {
     final currentUser = await AuthService.getCurrentUser() ?? widget.user;
     final currentBal = currentUser.walletBalance;
+    final availUsdt = currentUser.usdtBalance;
 
     final double entered = _enteredAmount;
     if (entered <= 0) {
@@ -338,11 +339,20 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
       return;
     }
 
-    final double totalNgnRequired = _computedNgnAmount;
-    if (totalNgnRequired > currentBal) {
-      setState(() => _errorMessage = 'Amount exceeds available balance (₦${NumberFormat('#,###.00').format(currentBal)}).');
-      return;
+    if (_withdrawalMode == 'USDT') {
+      if (entered > availUsdt) {
+        setState(() => _errorMessage = 'Amount exceeds available USDT balance (\$${availUsdt.toStringAsFixed(2)} USDT).');
+        return;
+      }
+    } else {
+      final double totalNgnRequired = _computedNgnAmount;
+      if (totalNgnRequired > currentBal) {
+        setState(() => _errorMessage = 'Amount exceeds available balance (₦${NumberFormat('#,###.00').format(currentBal)}).');
+        return;
+      }
     }
+
+    final double totalNgnRequired = _computedNgnAmount;
 
     // Branch A: Direct Crypto Payout (USDT on-chain)
     if (_withdrawalMode == 'USDT' && _usdtDestinationType == 'CRYPTO') {
@@ -392,7 +402,12 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
         if (res.statusCode == 200 && data['status'] == true) {
           final serverNewBal = (data['newBalance'] != null)
               ? (data['newBalance'] as num).toDouble()
-              : (currentBal - totalNgnRequired).clamp(0.0, double.infinity);
+              : currentBal;
+          final updatedUsdtBal = (data['newUsdtBalance'] != null)
+              ? (data['newUsdtBalance'] as num).toDouble()
+              : (availUsdt - entered).clamp(0.0, double.infinity);
+          final updatedUser = currentUser.copyWith(usdtBalance: updatedUsdtBal);
+          await AuthService.updateUser(updatedUser);
           widget.onWithdrawalSuccess(serverNewBal);
 
           NotificationService.addNotification(
@@ -729,7 +744,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
                 ),
                 Text(
                   _withdrawalMode == 'USDT'
-                      ? 'Avail: \$${(widget.user.walletBalance / _fxUsdtToNgn).toStringAsFixed(2)} USDT'
+                      ? 'Avail: \$${widget.user.usdtBalance.toStringAsFixed(2)} USDT'
                       : 'Avail: ₦${NumberFormat('#,###.00').format(widget.user.walletBalance)}',
                   style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary),
                 ),

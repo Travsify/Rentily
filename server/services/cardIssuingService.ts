@@ -1051,9 +1051,46 @@ export class CardIssuingService {
   }
 
   /**
-   * Retrieves card transactions
+   * Retrieves card transactions (Live Maplerad issuing sync + runtime cache)
    */
-  static getCardTransactions(cardId: string): CardTransaction[] {
-    return _runtimeTxCache.get(cardId) || [];
+  static async getCardTransactions(cardId: string): Promise<CardTransaction[]> {
+    const list: CardTransaction[] = [...(_runtimeTxCache.get(cardId) || [])];
+
+    if (process.env.MAPLERAD_SECRET_KEY && cardId && cardId !== 'default') {
+      try {
+        const res = await fetch(`https://api.maplerad.com/v1/issuing/${cardId}/transactions`, {
+          headers: {
+            'Authorization': `Bearer ${process.env.MAPLERAD_SECRET_KEY}`,
+            'Accept': 'application/json'
+          }
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.status && Array.isArray(json.data)) {
+            for (const tx of json.data) {
+              const txId = tx.id?.toString() || `MPR_CTX_${Date.now()}`;
+              if (list.some(t => t.id === txId)) continue;
+              const isCredit = (tx.entry || '').toUpperCase() === 'CREDIT';
+              list.push({
+                id: txId,
+                cardId,
+                merchantName: tx.merchant?.name || tx.description || 'Virtual Card Authorisation',
+                merchantCategory: tx.card_acceptor_mcc || 'Card Service',
+                amount: Number(tx.amount || 0) / 100,
+                currency: (tx.currency || 'USD') as 'USD' | 'NGN',
+                type: isCredit ? 'CREDIT' : 'DEBIT',
+                status: (tx.status || '').toUpperCase() === 'SUCCESS' ? 'SUCCESSFUL' : 'PENDING',
+                date: tx.created_at || new Date().toISOString()
+              });
+            }
+          }
+        }
+      } catch (err: any) {
+        console.warn('[getCardTransactions] Maplerad card tx fetch warning:', err?.message || err);
+      }
+    }
+
+    list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return list;
   }
 }

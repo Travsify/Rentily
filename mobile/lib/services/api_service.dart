@@ -430,6 +430,21 @@ class ApiService {
     return [];
   }
 
+  /// Fetches card transactions for a specific virtual card
+  static Future<List<Map<String, dynamic>>> fetchCardTransactions(String cardId) async {
+    if (cardId.isEmpty) return [];
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/cards/transactions/$cardId')).timeout(const Duration(seconds: 8));
+      if (res.statusCode == 200) {
+        final d = json.decode(res.body);
+        if (d['status'] == true && d['data'] is List) {
+          return List<Map<String, dynamic>>.from(d['data']);
+        }
+      }
+    } catch (_) {}
+    return [];
+  }
+
   /// Issue a new virtual card directly via backend with mandatory $1 initial funding & dual currency support
   static Future<Map<String, dynamic>> issueVirtualCard({
     required String email,
