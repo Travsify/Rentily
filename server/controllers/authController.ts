@@ -29,17 +29,39 @@ export async function register(req: Request, res: Response) {
 
     // Check if user already exists
     const existing = await UserStore.findByEmail(cleanEmail);
-    if (existing && existing.passwordHash) {
+
+    // Detect if stored name is a bad auto-generated value (email prefix or empty)
+    const isNameBad = (n: string | undefined) => {
+      if (!n || n.trim() === '') return true;
+      // email prefix pattern: no spaces, looks like "patrickachua3" or "john.doe123"
+      if (!n.includes(' ') && /^[a-z0-9._-]+$/i.test(n.trim()) && n.toLowerCase() === cleanEmail.split('@')[0].toLowerCase()) return true;
+      return false;
+    };
+
+    if (existing && existing.passwordHash && !isNameBad(existing.fullName)) {
       return res.status(409).json({ error: 'An account with this email already exists. Please log in.' });
     }
 
     let userToReturn: any = null;
-    if (existing && !existing.passwordHash) {
+    if (existing) {
+      // Account exists but name is bad/empty OR no password yet — update name and credentials
       const pHash = hashPassword(password);
       existing.passwordHash = pHash;
-      if (fullName) existing.fullName = fullName;
+      if (fullName && fullName.trim()) existing.fullName = fullName.trim();
       if (cleanPhone) existing.phoneNumber = cleanPhone;
+      if (role) existing.role = role;
+      if (state) existing.state = state;
+      if (businessName) existing.businessName = businessName;
+      if (cacNumber) existing.cacNumber = cacNumber;
+      if (officeAddress) existing.officeAddress = officeAddress;
+      if (partnerStatus) existing.partnerStatus = partnerStatus;
       UserStore.upsertUser(existing);
+      // Also push name update to Supabase profiles table
+      if (supabase && fullName && fullName.trim()) {
+        try {
+          await supabase.from('profiles').update({ full_name: fullName.trim() }).eq('email', cleanEmail);
+        } catch (_) {}
+      }
       userToReturn = existing;
     } else {
       userToReturn = await UserStore.createUser({
@@ -149,10 +171,12 @@ export async function login(req: Request, res: Response) {
       if (isAdminLogin) {
         return res.status(401).json({ error: 'Account not found. Please check your credentials.' });
       }
-      // Auto-create account with entered credentials on sign-in
+      // Auto-create account with entered credentials on sign-in.
+      // Use empty string for fullName — user must set it via registration or profile update.
+      // NEVER use the email prefix as a name (it causes BVN/KYP mismatch).
       const pHash = hashPassword(password);
       user = await UserStore.createUser({
-        fullName: cleanEmail.split('@')[0],
+        fullName: '',
         email: cleanEmail,
         password,
         role: 'renter',
@@ -710,4 +734,63 @@ export async function loginWithOtp(req: Request, res: Response) {
   }
 }
 
+// ── Update Profile ────────────────────────────────────────────────────────────
+// Allows users to correct their name, phone, and state at any time.
+// Critical for users whose name was auto-set from email prefix.
+export async function updateProfile(req: Request, res: Response) {
+  try {
+    const { email, fullName, phoneNumber, state, avatarUrl } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required to identify the account.' });
+    }
 
+    const cleanEmail = email.toLowerCase().trim();
+    const user = await UserStore.findByEmail(cleanEmail);
+    if (!user) {
+      return res.status(404).json({ error: 'Account not found.' });
+    }
+
+    // Apply updates
+    if (fullName && fullName.trim()) user.fullName = fullName.trim();
+    if (phoneNumber) user.phoneNumber = phoneNumber.replace(/[^0-9+]/g, '');
+    if (state) user.state = state;
+    if (avatarUrl) user.avatarUrl = avatarUrl;
+
+    UserStore.upsertUser(user);
+
+    // Sync to Supabase profiles table
+    if (supabase) {
+      try {
+        const update: any = {};
+        if (fullName && fullName.trim()) update.full_name = fullName.trim();
+        if (phoneNumber) update.phone_number = phoneNumber.replace(/[^0-9+]/g, '');
+        if (state) update.state = state;
+        if (avatarUrl) update.avatar_url = avatarUrl;
+        if (Object.keys(update).length > 0) {
+          await supabase.from('profiles').update(update).eq('email', cleanEmail);
+        }
+      } catch (e: any) {
+        console.warn('[updateProfile] Supabase sync warning:', e.message);
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: 'Profile updated successfully.',
+      user: {
+        id: user.id,
+        fullName: user.fullName,
+        email: user.email,
+        phoneNumber: user.phoneNumber,
+        role: user.role,
+        state: user.state,
+        isVerified: user.isVerified,
+        bvnVerified: user.bvnVerified,
+        walletBalance: user.walletBalance || 0,
+      }
+    });
+  } catch (err: any) {
+    console.error('updateProfile error:', err);
+    return res.status(500).json({ error: err.message || 'Profile update failed.' });
+  }
+}
