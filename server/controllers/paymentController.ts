@@ -1097,21 +1097,69 @@ export async function mapleradWebhook(req: Request, res: Response) {
     // 2. Inbound Bank Transfer Collections (NGN Virtual Accounts)
     if (event?.includes('collection') || event?.includes('inbound') || event?.includes('deposit')) {
       const incomingAccNo = data?.account_number || data?.virtual_account_number;
-      const customerEmail = data?.customer?.email || data?.email;
-      const amountPaid = Number(data?.amount || 0) / 100; // Maplerad amounts are in lowest denomination (kobo)
+      const mapleradCustomerId = data?.customer_id || data?.customer?.id;
+      const customerEmail = (data?.customer?.email || data?.email || '').toLowerCase().trim();
+      const amountPaid = Number(data?.amount || 0) / 100; // Maplerad amounts in kobo
       const ref = data?.reference || data?.id || `MAPLE_COL_${Date.now()}`;
-      const sender = data?.sender?.name || data?.sender_name || 'Inbound Bank Transfer';
+      const sender = data?.sender?.name || data?.sender_name || 'Bank Transfer';
+
+      console.log(`[Maplerad Webhook] Collection event — acc: ${incomingAccNo}, email: ${customerEmail}, amount: ₦${amountPaid}, ref: ${ref}`);
 
       if (amountPaid > 0 && supabase) {
-        let query = supabase.from('profiles').select('id, email, full_name, wallet_balance');
-        if (incomingAccNo) {
-          query = query.eq('account_number', incomingAccNo);
-        } else if (customerEmail) {
-          query = query.eq('email', customerEmail.toLowerCase().trim());
+        // Deduplication: skip if this reference was already credited
+        const { data: existing } = await supabase
+          .from('wallet_transactions')
+          .select('id')
+          .eq('flw_ref', ref)
+          .eq('type', 'CREDIT')
+          .limit(1);
+        if (existing && existing.length > 0) {
+          console.log(`[Maplerad Webhook] ⚠️ Duplicate webhook for ref ${ref} — skipping to prevent double-credit`);
+          return;
         }
 
-        const { data: matchedUsers } = await query.limit(1);
-        const targetUser = matchedUsers?.[0];
+        // Tier 1: Match by account_number (most reliable)
+        let targetUser: any = null;
+        if (incomingAccNo) {
+          const { data: byAcc } = await supabase
+            .from('profiles')
+            .select('id, email, full_name, wallet_balance')
+            .eq('account_number', incomingAccNo)
+            .limit(1);
+          targetUser = byAcc?.[0];
+          if (targetUser) console.log(`[Maplerad Webhook] Matched user by account_number: ${targetUser.email}`);
+        }
+
+        // Tier 2: Match by email from webhook payload
+        if (!targetUser && customerEmail) {
+          const { data: byEmail } = await supabase
+            .from('profiles')
+            .select('id, email, full_name, wallet_balance')
+            .eq('email', customerEmail)
+            .limit(1);
+          targetUser = byEmail?.[0];
+          if (targetUser) console.log(`[Maplerad Webhook] Matched user by email: ${targetUser.email}`);
+        }
+
+        // Tier 3: Match by Maplerad customer ID stored in system_configs
+        if (!targetUser && mapleradCustomerId) {
+          const { data: configRows } = await supabase
+            .from('system_configs')
+            .select('id, data')
+            .like('id', 'maplerad_tier1_%')
+            .limit(50);
+          const configMatch = (configRows || []).find((r: any) => r.data?.customerId === mapleradCustomerId);
+          if (configMatch) {
+            const matchEmail = configMatch.id.replace('maplerad_tier1_', '');
+            const { data: byConfig } = await supabase
+              .from('profiles')
+              .select('id, email, full_name, wallet_balance')
+              .eq('email', matchEmail)
+              .limit(1);
+            targetUser = byConfig?.[0];
+            if (targetUser) console.log(`[Maplerad Webhook] Matched user by Maplerad customer ID via system_configs: ${targetUser.email}`);
+          }
+        }
 
         if (targetUser) {
           await AtomicLedgerService.creditWalletAtomic({
@@ -1120,12 +1168,15 @@ export async function mapleradWebhook(req: Request, res: Response) {
             amount: amountPaid,
             flwRef: ref,
             txRef: ref,
-            narration: `Inbound Bank Transfer (Maplerad • ${incomingAccNo || 'Virtual Account'}) from ${sender}`
+            narration: `Inbound Bank Transfer (9PSB/Maplerad • ${incomingAccNo || 'Virtual Account'}) from ${sender}`
           });
-          console.log(`[Maplerad Webhook] ✅ Credited ₦${amountPaid} to ${targetUser.email}`);
+          console.log(`[Maplerad Webhook] ✅ Credited ₦${amountPaid.toLocaleString()} to ${targetUser.email}`);
+        } else {
+          console.error(`[Maplerad Webhook] ❌ UNMATCHED collection — acc: ${incomingAccNo}, email: ${customerEmail}, mapleradId: ${mapleradCustomerId}, amount: ₦${amountPaid}, ref: ${ref}. Manual reconciliation required.`);
         }
       }
     }
+
 
     // 3. Stablecoin Crypto Deposits (USDT on TRON)
     if (event?.includes('crypto') || data?.chain === 'tron' || data?.coin === 'usdt') {
