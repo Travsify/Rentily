@@ -19,6 +19,18 @@ import { UserStore } from './services/userStore';
 
 dotenv.config();
 
+// Global Outbound Proxy Dispatcher (for static IP routing through Maplerad / external APIs)
+const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
+if (proxyUrl) {
+  try {
+    const { ProxyAgent, setGlobalDispatcher } = await import('undici');
+    setGlobalDispatcher(new ProxyAgent(proxyUrl));
+    console.log(`[Proxy] 🌐 Global outbound proxy dispatcher enabled: ${proxyUrl.replace(/:[^:@]+@/, ':****@')}`);
+  } catch (err: any) {
+    console.warn('[Proxy] Failed to initialize ProxyAgent:', err.message);
+  }
+}
+
 const app = express();
 const PORT = process.env.PORT || 4000;
 
