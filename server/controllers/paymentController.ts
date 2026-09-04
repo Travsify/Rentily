@@ -1218,11 +1218,6 @@ export async function mapleradWebhook(req: Request, res: Response) {
       const ref = data?.reference || data?.tx_hash || `CRYPTO_TRON_${Date.now()}`;
 
       if (amountUsdt > 0 && supabase) {
-        // Convert USDT to NGN at live FX rate for ledger
-        const rates = MultiCurrencyService.getFxRates();
-        const fxRate = rates.USD_NGN || 1510.0;
-        const amountNgn = Number((amountUsdt * fxRate).toFixed(2));
-
         let query = supabase.from('profiles').select('id, email, full_name, wallet_balance');
         if (customerEmail) {
           query = query.eq('email', customerEmail.toLowerCase().trim());
@@ -1232,27 +1227,76 @@ export async function mapleradWebhook(req: Request, res: Response) {
         const targetUser = matchedUsers?.[0];
 
         if (targetUser) {
-          const creditRes = await AtomicLedgerService.creditWalletAtomic({
-            userId: targetUser.id,
-            email: targetUser.email,
-            amount: amountNgn,
-            flwRef: ref,
-            txRef: ref,
-            narration: `Crypto Inflow: +$${amountUsdt} USDT (TRON TRC20 • ₦${amountNgn.toLocaleString()})`
-          });
-          console.log(`[Maplerad Webhook] ✅ Credited ${amountUsdt} USDT (₦${amountNgn}) to ${targetUser.email}`);
+          // Check if already processed
+          const { data: existingRec } = await supabase
+            .from('reconciled_transactions')
+            .select('flw_ref')
+            .eq('flw_ref', ref)
+            .maybeSingle();
 
-          if (creditRes.success && !creditRes.alreadyProcessed) {
+          if (!existingRec) {
+            // 1. Fetch current USDT balance
+            let currentUsdtBal = 0.0;
+            const { data: usdtCfg } = await supabase
+              .from('system_configs')
+              .select('data')
+              .eq('id', `usdt_balance_${targetUser.email}`)
+              .maybeSingle();
+            if (usdtCfg?.data?.usdtBalance != null) {
+              currentUsdtBal = Number(usdtCfg.data.usdtBalance);
+            }
+
+            const newUsdtBal = Number((currentUsdtBal + amountUsdt).toFixed(2));
+
+            // 2. Persist in system_configs
+            await supabase.from('system_configs').upsert({
+              id: `usdt_balance_${targetUser.email}`,
+              data: { usdtBalance: newUsdtBal, email: targetUser.email, updatedAt: new Date().toISOString() }
+            });
+
+            // 3. Update memory store
+            const memUser = await UserStore.findByEmail(targetUser.email);
+            if (memUser) {
+              memUser.usdtBalance = newUsdtBal;
+              UserStore.upsertUserForced(memUser);
+            }
+
+            // 4. Record in wallet_transactions
+            await supabase.from('wallet_transactions').upsert({
+              user_id: targetUser.id,
+              email: targetUser.email,
+              amount: amountUsdt,
+              type: 'credit',
+              status: 'completed',
+              flw_ref: ref,
+              tx_ref: ref,
+              narration: `USDT Deposit (TRON TRC20): +$${amountUsdt.toFixed(2)} USDT from ${address || 'External Wallet'}`,
+              created_at: new Date().toISOString()
+            }, { onConflict: 'flw_ref' });
+
+            // 5. Mark in reconciled_transactions
+            await supabase.from('reconciled_transactions').upsert({
+              flw_ref: ref,
+              user_id: targetUser.id,
+              email: targetUser.email,
+              amount: amountUsdt,
+              processed_at: new Date().toISOString()
+            }, { onConflict: 'flw_ref' });
+
+            console.log(`[Maplerad Webhook] ✅ Credited +$${amountUsdt} USDT to ${targetUser.email}. New USDT balance: $${newUsdtBal}`);
+
+            // 6. Dispatch multi-channel notification
             NotificationDispatcher.dispatch({
               userId: targetUser.id,
               email: targetUser.email,
               userName: targetUser.full_name || 'Valued User',
               category: 'wallet',
-              title: `USDT Deposit Credited: +$${amountUsdt} USDT`,
-              message: `Your wallet has been credited with ₦${amountNgn.toLocaleString()} ($${amountUsdt} USDT) via TRON TRC20.`,
+              title: `USDT Deposit Credited: +$${amountUsdt.toFixed(2)} USDT 💎`,
+              message: `Your Rentilly USDT Vault has been credited with +$${amountUsdt.toFixed(2)} USDT via TRON (TRC20). New USDT Balance: $${newUsdtBal.toFixed(2)} USDT.`,
               metadata: {
-                amount: amountNgn,
-                amountUsdt: amountUsdt,
+                amount: amountUsdt,
+                amountUsdt,
+                currency: 'USDT',
                 reference: ref,
                 network: 'TRON (TRC20)',
                 date: new Date().toISOString()
@@ -1595,6 +1639,13 @@ async function syncMapleradTransactionsForUser(cleanEmail: string) {
     const user = await UserStore.findByEmail(cleanEmail);
 
     for (const tx of txData.data) {
+      // STRICT GUARD: Only process transactions that strictly belong to THIS user!
+      const txCustomerEmail = (tx.customer?.email || '').toLowerCase().trim();
+      const txCustomerId = tx.customer?.id;
+      const isOurCustomer = (txCustomerEmail && txCustomerEmail === cleanEmail) || 
+                            (customerId && txCustomerId === customerId);
+      if (!isOurCustomer) continue;
+
       const rawStatus = (tx.status || '').toUpperCase();
       if (rawStatus !== 'SUCCESS' && rawStatus !== 'PENDING') continue;
 
@@ -1643,7 +1694,14 @@ async function syncMapleradTransactionsForUser(cleanEmail: string) {
           }, { onConflict: 'flw_ref' });
         } catch (_) {}
 
-        // If it's a successful inbound credit that has not been reconciled yet, credit atomic wallet balance!
+        // If it's a successful inbound credit that has not been reconciled yet, credit atomic balance!
+        const isUsdt = (tx.currency || '').toUpperCase() === 'USDT' || 
+                       (tx.channel || '').toUpperCase() === 'CRYPTO' ||
+                       (tx.type || '').toUpperCase() === 'CRYPTO' ||
+                       (tx.reason || '').toUpperCase().includes('TRON') ||
+                       (tx.summary || '').toUpperCase().includes('USDT') ||
+                       (tx.destination?.coin || '').toUpperCase() === 'USDT';
+
         if (isCredit && rawStatus === 'SUCCESS') {
           const { data: rec } = await supabase
             .from('reconciled_transactions')
@@ -1652,19 +1710,29 @@ async function syncMapleradTransactionsForUser(cleanEmail: string) {
             .maybeSingle();
 
           if (!rec) {
-            const creditRes = await AtomicLedgerService.creditWalletAtomic({
-              userId: user?.id || 'b0000000-0000-0000-0000-000000000001',
-              email: cleanEmail,
-              amount,
-              flwRef: ref,
-              txRef: ref,
-              narration
-            });
+            if (isUsdt) {
+              let currentUsdtBal = 0.0;
+              const { data: usdtCfg } = await supabase
+                .from('system_configs')
+                .select('data')
+                .eq('id', `usdt_balance_${cleanEmail}`)
+                .maybeSingle();
+              if (usdtCfg?.data?.usdtBalance != null) {
+                currentUsdtBal = Number(usdtCfg.data.usdtBalance);
+              }
 
-            if (creditRes.success && !creditRes.alreadyProcessed) {
-              const senderName = tx.source?.account_name || tx.source?.bank_name || 'Bank Transfer';
-              const senderBank = tx.source?.bank_name || 'Bank Transfer';
-              const newBal = creditRes.newBalance ?? amount;
+              const newUsdtBal = Number((currentUsdtBal + amount).toFixed(2));
+
+              await supabase.from('system_configs').upsert({
+                id: `usdt_balance_${cleanEmail}`,
+                data: { usdtBalance: newUsdtBal, email: cleanEmail, updatedAt: new Date().toISOString() }
+              });
+
+              const memUser = await UserStore.findByEmail(cleanEmail);
+              if (memUser) {
+                memUser.usdtBalance = newUsdtBal;
+                UserStore.upsertUserForced(memUser);
+              }
 
               try {
                 await supabase.from('reconciled_transactions').upsert({
@@ -1681,16 +1749,58 @@ async function syncMapleradTransactionsForUser(cleanEmail: string) {
                 email: cleanEmail,
                 userName: user?.fullName || 'Valued User',
                 category: 'wallet',
-                title: `Credit Alert: ₦${amount.toLocaleString()} Received`,
-                message: `Your Rentilly wallet has been credited with ₦${amount.toLocaleString()} via Bank Transfer from ${senderName} (${senderBank}). New Balance: ₦${newBal.toLocaleString()}.`,
+                title: `USDT Deposit Credited: +$${amount.toFixed(2)} USDT 💎`,
+                message: `Your Rentilly USDT Vault has been credited with +$${amount.toFixed(2)} USDT via TRON (TRC20). New USDT Balance: $${newUsdtBal.toFixed(2)} USDT.`,
                 metadata: {
                   amount,
+                  amountUsdt: amount,
+                  currency: 'USDT',
                   reference: ref,
-                  bankName: senderBank,
-                  sender: senderName,
+                  network: 'TRON (TRC20)',
                   date: tx.created_at || new Date().toISOString()
                 }
               }).catch(e => console.warn('[syncMapleradTransactionsForUser] Notification error:', e.message));
+            } else {
+              const creditRes = await AtomicLedgerService.creditWalletAtomic({
+                userId: user?.id || 'b0000000-0000-0000-0000-000000000001',
+                email: cleanEmail,
+                amount,
+                flwRef: ref,
+                txRef: ref,
+                narration
+              });
+
+              if (creditRes.success && !creditRes.alreadyProcessed) {
+                const senderName = tx.source?.account_name || tx.source?.bank_name || 'Bank Transfer';
+                const senderBank = tx.source?.bank_name || 'Bank Transfer';
+                const newBal = creditRes.newBalance ?? amount;
+
+                try {
+                  await supabase.from('reconciled_transactions').upsert({
+                    flw_ref: ref,
+                    user_id: user?.id || 'b0000000-0000-0000-0000-000000000001',
+                    email: cleanEmail,
+                    amount,
+                    processed_at: new Date().toISOString()
+                  }, { onConflict: 'flw_ref' });
+                } catch (_) {}
+
+                NotificationDispatcher.dispatch({
+                  userId: user?.id || 'b0000000-0000-0000-0000-000000000001',
+                  email: cleanEmail,
+                  userName: user?.fullName || 'Valued User',
+                  category: 'wallet',
+                  title: `Credit Alert: ₦${amount.toLocaleString()} Received`,
+                  message: `Your Rentilly wallet has been credited with ₦${amount.toLocaleString()} via Bank Transfer from ${senderName} (${senderBank}). New Balance: ₦${newBal.toLocaleString()}.`,
+                  metadata: {
+                    amount,
+                    reference: ref,
+                    bankName: senderBank,
+                    sender: senderName,
+                    date: tx.created_at || new Date().toISOString()
+                  }
+                }).catch(e => console.warn('[syncMapleradTransactionsForUser] Notification error:', e.message));
+              }
             }
           }
         }

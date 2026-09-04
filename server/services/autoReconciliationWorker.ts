@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import { supabase } from '../supabaseClient';
 import { NotificationDispatcher } from './notificationDispatcher';
 import { AtomicLedgerService } from './atomicLedgerService';
+import { UserStore } from './userStore';
 
 dotenv.config();
 
@@ -280,8 +281,15 @@ export class AutoReconciliationWorker {
         if (rawType !== 'COLLECTION' && !rawType.includes('COLLECTION') && !rawType.includes('DEPOSIT')) continue;
 
         const ref = tx.reference || tx.id;
-        const amount = Number(tx.amount || 0) / 100; // Maplerad amounts are in kobo
+        const amount = Number(tx.amount || 0) / 100; // Maplerad amounts are in kobo / cents
         if (amount <= 0 || !ref) continue;
+
+        const isUsdt = (tx.currency || '').toUpperCase() === 'USDT' || 
+                       (tx.channel || '').toUpperCase() === 'CRYPTO' ||
+                       (tx.type || '').toUpperCase() === 'CRYPTO' ||
+                       (tx.reason || '').toUpperCase().includes('TRON') ||
+                       (tx.summary || '').toUpperCase().includes('USDT') ||
+                       (tx.destination?.coin || '').toUpperCase() === 'USDT';
 
         // Skip if already processed in persistent store
         if (await this.isAlreadyProcessed(ref)) continue;
@@ -313,7 +321,29 @@ export class AutoReconciliationWorker {
           if (profile) targetUser = profile;
         }
 
-        // 2. Search by account_id in system_configs (Maplerad tier1 virtual account metadata)
+        // 2. Search by TRON crypto address in system_configs if USDT deposit
+        if (!targetUser && isUsdt) {
+          const destAddr = tx.destination?.address || tx.account_number;
+          if (destAddr) {
+            const { data: cryptoRows } = await supabase
+              .from('system_configs')
+              .select('id, data')
+              .like('id', 'crypto_tron_%')
+              .limit(50);
+            const cryptoMatch = (cryptoRows || []).find((r: any) => r.data?.address === destAddr);
+            if (cryptoMatch) {
+              const matchEmail = cryptoMatch.id.replace('crypto_tron_', '');
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('id, email, full_name, wallet_balance')
+                .eq('email', matchEmail)
+                .maybeSingle();
+              if (profile) targetUser = profile;
+            }
+          }
+        }
+
+        // 3. Search by account_id in system_configs (Maplerad tier1 virtual account metadata)
         if (!targetUser && tx.account_id) {
           const { data: cfgRows } = await supabase
             .from('system_configs')
@@ -337,10 +367,78 @@ export class AutoReconciliationWorker {
         }
 
         if (!targetUser) {
-          console.warn(`[AutoReconciliation] ⚠️ Maplerad: cannot identify recipient for ref: ${ref}, email: ${customerEmail}, amount: ₦${amount}`);
+          console.warn(`[AutoReconciliation] ⚠️ Maplerad: cannot identify recipient for ref: ${ref}, email: ${customerEmail}, amount: ${amount} ${tx.currency || 'NGN'}`);
           await this.markProcessed(ref, 'unknown', amount, customerEmail || 'unknown');
           continue;
         }
+
+        // === USDT CRYPTO DEPOSIT FLOW ===
+        if (isUsdt) {
+          let currentUsdtBal = 0.0;
+          const { data: usdtCfg } = await supabase
+            .from('system_configs')
+            .select('data')
+            .eq('id', `usdt_balance_${targetUser.email}`)
+            .maybeSingle();
+          if (usdtCfg?.data?.usdtBalance != null) {
+            currentUsdtBal = Number(usdtCfg.data.usdtBalance);
+          }
+
+          const newUsdtBal = Number((currentUsdtBal + amount).toFixed(2));
+
+          // Persist in system_configs
+          await supabase.from('system_configs').upsert({
+            id: `usdt_balance_${targetUser.email}`,
+            data: { usdtBalance: newUsdtBal, email: targetUser.email, updatedAt: new Date().toISOString() }
+          });
+
+          // Keep UserStore memory cache aligned
+          const memUser = await UserStore.findByEmail(targetUser.email);
+          if (memUser) {
+            memUser.usdtBalance = newUsdtBal;
+            UserStore.upsertUserForced(memUser);
+          }
+
+          const senderAddress = tx.source?.address || tx.source?.account_number || 'External Wallet';
+          const narration = `USDT Deposit (TRON TRC20): +$${amount.toFixed(2)} USDT from ${senderAddress}`;
+
+          await supabase.from('wallet_transactions').upsert({
+            user_id: targetUser.id,
+            email: targetUser.email,
+            amount: amount,
+            type: 'credit',
+            status: 'completed',
+            flw_ref: ref,
+            tx_ref: ref,
+            narration: narration,
+            created_at: tx.created_at || new Date().toISOString()
+          }, { onConflict: 'flw_ref' });
+
+          await this.markProcessed(ref, targetUser.id, amount, targetUser.email);
+          console.log(`✅ [AutoReconciliation] Maplerad USDT Credited +$${amount} USDT to ${targetUser.email} (ref: ${ref}). New USDT balance: $${newUsdtBal}`);
+
+          NotificationDispatcher.dispatch({
+            userId: targetUser.id,
+            email: targetUser.email,
+            userName: targetUser.full_name || 'Valued User',
+            category: 'wallet',
+            title: `USDT Deposit Credited: +$${amount.toFixed(2)} USDT 💎`,
+            message: `Your Rentilly USDT Vault has been credited with +$${amount.toFixed(2)} USDT via TRON (TRC20). New USDT Balance: $${newUsdtBal.toFixed(2)} USDT.`,
+            metadata: {
+              amount: amount,
+              amountUsdt: amount,
+              currency: 'USDT',
+              reference: ref,
+              network: 'TRON (TRC20)',
+              sender: senderAddress,
+              date: tx.created_at || new Date().toISOString()
+            }
+          }).catch(e => console.warn('[AutoReconciliation] USDT Notification error:', e.message));
+
+          continue;
+        }
+
+        // === NGN BANK TRANSFER FLOW ===
 
         const senderName = tx.source?.account_name || tx.source?.bank_name || 'Bank Transfer';
         const senderBank = tx.source?.bank_name || 'Bank Transfer';
