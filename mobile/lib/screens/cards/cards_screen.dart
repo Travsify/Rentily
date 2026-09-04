@@ -83,7 +83,7 @@ class _CardsScreenState extends State<CardsScreen> {
   Future<void> _fetchCardTransactions() async {
     final card = _currentCard;
     if (card == null) return;
-    final cardId = card['id'] ?? card['cardId'];
+    final cardId = card['cardId'] ?? card['id'];
     if (cardId != null && cardId.toString().isNotEmpty) {
       final txs = await ApiService.fetchCardTransactions(cardId.toString());
       if (mounted) {
@@ -112,7 +112,7 @@ class _CardsScreenState extends State<CardsScreen> {
       card['isFrozen'] = targetFrozen;
     });
 
-    final cardId = card['id'] ?? card['cardId'];
+    final cardId = card['cardId'] ?? card['id'];
     final success = await ApiService.toggleFreezeVirtualCard(_user!.email, cardId, targetFrozen: targetFrozen);
 
     if (!success && mounted) {
@@ -184,7 +184,7 @@ class _CardsScreenState extends State<CardsScreen> {
 
     if (confirmed == true && mounted) {
       setState(() => _isLoading = true);
-      final cardId = card['id'] ?? card['cardId'];
+      final cardId = card['cardId'] ?? card['id'];
       final success = await ApiService.deleteVirtualCard(_user!.email, cardId);
 
       if (mounted) {
@@ -470,7 +470,7 @@ class _CardsScreenState extends State<CardsScreen> {
                             Navigator.pop(ctx);
                             setState(() => _isLoading = true);
 
-                            final cardId = card['id'] ?? card['cardId'];
+                            final cardId = card['cardId'] ?? card['id'];
                             final res = await ApiService.fundVirtualCard(
                               email: _user!.email,
                               cardId: cardId,
@@ -877,7 +877,7 @@ class _CardsScreenState extends State<CardsScreen> {
                         ? null
                         : () async {
                             setModalState(() => isProcessing = true);
-                            final cardId = card['id'] ?? card['cardId'];
+                            final cardId = card['cardId'] ?? card['id'];
                             final res = await ApiService.withdrawFromVirtualCard(
                               email: _user!.email,
                               cardId: cardId,
@@ -1919,7 +1919,7 @@ class _CardsScreenState extends State<CardsScreen> {
                     Navigator.pop(ctx);
                     setState(() => _isLoading = true);
 
-                    final cardId = card['id'] ?? card['cardId'];
+                    final cardId = card['cardId'] ?? card['id'];
                     final success = await ApiService.setCardPin(_user!.email, cardId, p1);
 
                     if (mounted) {

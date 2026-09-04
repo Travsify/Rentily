@@ -1054,14 +1054,32 @@ export class CardIssuingService {
    * Retrieves card transactions (Live Maplerad issuing sync + runtime cache)
    */
   static async getCardTransactions(cardId: string): Promise<CardTransaction[]> {
-    const list: CardTransaction[] = [...(_runtimeTxCache.get(cardId) || [])];
-
-    if (process.env.MAPLERAD_SECRET_KEY && cardId && cardId !== 'default') {
+    let targetCardId = cardId;
+    if (supabase && cardId && cardId !== 'default') {
       try {
-        const res = await fetch(`https://api.maplerad.com/v1/issuing/${cardId}/transactions`, {
+        const { data: vCard } = await supabase
+          .from('virtual_cards')
+          .select('card_id')
+          .or(`id.eq.${cardId},card_id.eq.${cardId}`)
+          .maybeSingle();
+        if (vCard?.card_id) {
+          targetCardId = vCard.card_id;
+        }
+      } catch (_) {}
+    }
+
+    const list: CardTransaction[] = [
+      ...(_runtimeTxCache.get(cardId) || []),
+      ...(targetCardId !== cardId ? (_runtimeTxCache.get(targetCardId) || []) : [])
+    ];
+
+    if (process.env.MAPLERAD_SECRET_KEY && targetCardId && targetCardId !== 'default') {
+      try {
+        const res = await fetch(`https://api.maplerad.com/v1/issuing/${targetCardId}/transactions`, {
           headers: {
             'Authorization': `Bearer ${process.env.MAPLERAD_SECRET_KEY}`,
-            'Accept': 'application/json'
+            'Accept': 'application/json',
+            'User-Agent': 'Rentilly/2.0'
           }
         });
         if (res.ok) {
