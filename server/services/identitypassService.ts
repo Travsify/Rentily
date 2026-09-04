@@ -13,9 +13,17 @@ const resolveAppId = () =>
   process.env.IDENTITYPASS_APP_ID ||
   '';
 
-const resolveBaseUrl = () =>
-  process.env.PREMBLY_BASE_URL ||
-  'https://api.prembly.com';
+const resolveBaseUrl = () => {
+  // PREMBLY_BASE_URL on Render may be the full path
+  // e.g. "https://api.prembly.com/identitypass/verification"
+  // We only want the origin: "https://api.prembly.com"
+  try {
+    const raw = process.env.PREMBLY_BASE_URL || 'https://api.prembly.com';
+    return new URL(raw).origin; // strips any path
+  } catch {
+    return 'https://api.prembly.com';
+  }
+};
 
 const IDENTITYPASS_LEGACY_URL = 'https://api.myidentitypass.com/v2/biometrics/merchant/data/verification';
 
