@@ -2,22 +2,34 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const IDENTITYPASS_API_KEY = process.env.IDENTITYPASS_API_KEY || '';
-const IDENTITYPASS_APP_ID = process.env.IDENTITYPASS_APP_ID || '';
-const PREMBLY_BASE_URL = 'https://api.prembly.com';
+// Support both PREMBLY_* (Render) and IDENTITYPASS_* (legacy) env var names
+const resolveApiKey = () =>
+  process.env.PREMBLY_API_KEY ||
+  process.env.IDENTITYPASS_API_KEY ||
+  '';
+
+const resolveAppId = () =>
+  process.env.PREMBLY_APP_ID ||
+  process.env.IDENTITYPASS_APP_ID ||
+  '';
+
+const resolveBaseUrl = () =>
+  process.env.PREMBLY_BASE_URL ||
+  'https://api.prembly.com';
+
 const IDENTITYPASS_LEGACY_URL = 'https://api.myidentitypass.com/v2/biometrics/merchant/data/verification';
 
 export class IdentitypassService {
   private static getHeaders() {
     return {
       'Content-Type': 'application/json',
-      'x-api-key': process.env.IDENTITYPASS_API_KEY || IDENTITYPASS_API_KEY,
-      'app-id': process.env.IDENTITYPASS_APP_ID || IDENTITYPASS_APP_ID
+      'x-api-key': resolveApiKey(),
+      'app-id': resolveAppId()
     };
   }
 
   static isConfigured(): boolean {
-    const key = process.env.IDENTITYPASS_API_KEY || IDENTITYPASS_API_KEY;
+    const key = resolveApiKey();
     return Boolean(key && key.length > 5);
   }
 
@@ -54,7 +66,7 @@ export class IdentitypassService {
     }
 
     try {
-      const response = await fetch(`${PREMBLY_BASE_URL}/identitypass/verification/nin`, {
+      const response = await fetch(`${resolveBaseUrl()}/identitypass/verification/nin`, {
         method: 'POST',
         headers: this.getHeaders(),
         body: JSON.stringify({ number: ninNumber.trim(), number_nin: ninNumber.trim() })
@@ -123,7 +135,7 @@ export class IdentitypassService {
     }
 
     try {
-      const response = await fetch(`${PREMBLY_BASE_URL}/identitypass/verification/bvn`, {
+      const response = await fetch(`${resolveBaseUrl()}/identitypass/verification/bvn`, {
         method: 'POST',
         headers: this.getHeaders(),
         body: JSON.stringify({ number: bvnNumber.trim() })
@@ -188,7 +200,7 @@ export class IdentitypassService {
     }
 
     try {
-      const response = await fetch(`${PREMBLY_BASE_URL}/identitypass/verification/cac`, {
+      const response = await fetch(`${resolveBaseUrl()}/identitypass/verification/cac`, {
         method: 'POST',
         headers: this.getHeaders(),
         body: JSON.stringify({ rc_number: rcNumber.trim(), company_name: companyName })
