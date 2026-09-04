@@ -1500,6 +1500,13 @@ class _WalletScreenState extends State<WalletScreen> {
                     final title = tx['title'] ?? tx['narration'] ?? tx['type'] ?? 'Transaction';
                     final subtitle = tx['subtitle'] ?? (tx['sender'] != null && tx['sender'].toString().isNotEmpty ? 'From: ${tx['sender']}' : (tx['beneficiary'] != null && tx['beneficiary'].toString().isNotEmpty ? 'To: ${tx['beneficiary']}' : (isCredit ? 'Electronic Bank Transfer • Dedicated Escrow' : 'Direct Bank Payout')));
 
+                    final txCurr = (tx['currency'] ?? '').toString().toUpperCase();
+                    final titleUpper = title.toString().toUpperCase();
+                    final isUsdtTx = txCurr == 'USDT' || titleUpper.contains('USDT') || titleUpper.contains('TRC20') || titleUpper.contains('TRON');
+                    final isUsdTx = txCurr == 'USD' || titleUpper.contains('DOLLAR CARD') || titleUpper.contains('USD CARD') || titleUpper.contains('VIRTUAL USD');
+                    final currSymbol = isUsdtTx ? '\$' : (isUsdTx ? '\$' : '₦');
+                    final currSuffix = isUsdtTx ? ' USDT' : (isUsdTx ? ' USD' : '');
+
                     return InkWell(
                       onTap: () => _showTransactionReceiptSheet(tx),
                       borderRadius: BorderRadius.circular(16),
@@ -1551,7 +1558,7 @@ class _WalletScreenState extends State<WalletScreen> {
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
                                 Text(
-                                  '${isCredit ? "+ " : "- "}₦${_currencyFormat.format(amt)}',
+                                  '${isCredit ? "+ " : "- "}$currSymbol${_currencyFormat.format(amt)}$currSuffix',
                                   style: GoogleFonts.plusJakartaSans(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w900,
@@ -1867,11 +1874,20 @@ class _WalletScreenState extends State<WalletScreen> {
 
   void _showTransactionReceiptSheet(Map<String, dynamic> tx) {
     if (_user == null) return;
+    final txCurr = (tx['currency'] ?? '').toString().toUpperCase();
+    final titleUpper = (tx['title'] ?? tx['narration'] ?? '').toString().toUpperCase();
+    String detectedCurrency = _selectedCurrency;
+    if (txCurr == 'USDT' || titleUpper.contains('USDT') || titleUpper.contains('TRC20') || titleUpper.contains('TRON')) {
+      detectedCurrency = 'USDT';
+    } else if (txCurr == 'USD' || titleUpper.contains('DOLLAR CARD') || titleUpper.contains('USD CARD') || titleUpper.contains('VIRTUAL USD')) {
+      detectedCurrency = 'USD';
+    }
+
     TransactionReceiptModal.show(
       context,
       transaction: tx,
       user: _user!,
-      currency: _selectedCurrency,
+      currency: detectedCurrency,
     );
   }
 }

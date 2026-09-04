@@ -27,6 +27,8 @@ class StatementPdfService {
 
   static String _formatCurrencyPrefix(String curr) {
     switch (curr.toUpperCase()) {
+      case 'USDT':
+        return 'USDT ';
       case 'USD':
       case 'CARD_USD':
         return 'USD ';

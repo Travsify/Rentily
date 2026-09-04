@@ -11,6 +11,7 @@ export interface WalletTransaction {
   type: string;
   category: 'deposit' | 'withdrawal' | 'utility' | 'rent' | 'escrow' | 'wallet_funding';
   amount: number;
+  currency?: 'NGN' | 'USDT' | 'USD' | string;
   isCredit: boolean;
   reference: string;
   sender?: string;
@@ -148,6 +149,14 @@ export class TransactionStore {
             category = 'rent';
           }
 
+          const narrationUpper = narration.toUpperCase();
+          let txCurrency: 'NGN' | 'USDT' | 'USD' = 'NGN';
+          if (narrationUpper.includes('USDT') || narrationUpper.includes('TRC20') || narrationUpper.includes('TRON')) {
+            txCurrency = 'USDT';
+          } else if (narrationUpper.includes('USD') || narrationUpper.includes('DOLLAR')) {
+            txCurrency = 'USD';
+          }
+
           const mapped: WalletTransaction = {
             id: row.id,
             userId: row.user_id,
@@ -156,6 +165,7 @@ export class TransactionStore {
             type: rawType || (isCredit ? 'credit' : 'debit'),
             category,
             amount: amt,
+            currency: row.currency || txCurrency,
             isCredit,
             reference: ref,
             status,
@@ -193,12 +203,30 @@ export class TransactionStore {
     }
   }
 
+  static isTreasuryTransaction(t: Partial<WalletTransaction>): boolean {
+    const title = (t.title || '').toUpperCase();
+    const ref = (t.reference || '').toUpperCase();
+    const email = (t.email || '').toLowerCase().trim();
+    if (email === 'treasury@rentilly.com' || email === 'admin@myrentilly.com') return true;
+    if (ref.startsWith('BVNAPI-')) return true;
+    if (title.includes('BVN VERIFICATION')) return true;
+    if (title.includes('PAYSTACK-TITAN') || title.includes('PAYSTACK - 0000336089')) return true;
+    if (title.includes('EXCHANGE FROM') || title.includes('SWAP')) return true;
+    if (title.includes('TREASURY TO SPEND') || title.includes('SPEND WALLET')) return true;
+    if (title === 'CARD ISSUANCE' && (t.amount || 0) <= 3) return true;
+    if (title.includes('GLOBALLINE LOGISTICS')) return true;
+    return false;
+  }
+
   static async getTransactionsByEmail(email: string): Promise<WalletTransaction[]> {
     const cleanEmail = (email || '').toLowerCase().trim();
+    if (!cleanEmail) return [];
     // Ensure fresh sync from Supabase
     await this.syncFromSupabase();
     const all = this.getAllTransactions();
-    const filtered = all.filter(t => t.email.toLowerCase() === cleanEmail);
+    const filtered = all.filter(t => 
+      t.email.toLowerCase() === cleanEmail && !TransactionStore.isTreasuryTransaction(t)
+    );
     return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }
 
@@ -293,6 +321,13 @@ export class TransactionStore {
     const userTxs = all.filter(t => t.email.toLowerCase() === cleanEmail && t.status === 'SUCCESSFUL');
     let bal = 0;
     for (const tx of userTxs) {
+      // Exclude USDT and USD from Naira wallet balance calculation
+      const curr = (tx.currency || '').toUpperCase();
+      const title = (tx.title || '').toUpperCase();
+      if (curr === 'USDT' || curr === 'USD' || title.includes('USDT') || title.includes('TRC20')) {
+        continue;
+      }
+
       if (tx.isCredit) {
         bal += tx.amount;
       } else {

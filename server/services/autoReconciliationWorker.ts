@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import { NotificationDispatcher } from './notificationDispatcher';
 import { AtomicLedgerService } from './atomicLedgerService';
 import { UserStore } from './userStore';
+import { TransactionStore } from './transactionStore';
 
 dotenv.config();
 
@@ -413,6 +414,25 @@ export class AutoReconciliationWorker {
             narration: narration,
             created_at: tx.created_at || new Date().toISOString()
           }, { onConflict: 'flw_ref' });
+
+          await TransactionStore.addTransaction({
+            id: `TX_USDT_${ref}`,
+            userId: targetUser.id,
+            email: targetUser.email,
+            title: narration,
+            type: 'credit',
+            category: 'deposit',
+            amount: amount,
+            currency: 'USDT',
+            isCredit: true,
+            reference: ref,
+            sender: senderAddress,
+            beneficiary: targetUser.email,
+            recipientAccount: targetUser.email,
+            recipientBank: 'Blockchain (TRON TRC20)',
+            status: 'SUCCESSFUL',
+            date: tx.created_at || new Date().toISOString(),
+          });
 
           await this.markProcessed(ref, targetUser.id, amount, targetUser.email);
           console.log(`✅ [AutoReconciliation] Maplerad USDT Credited +$${amount} USDT to ${targetUser.email} (ref: ${ref}). New USDT balance: $${newUsdtBal}`);

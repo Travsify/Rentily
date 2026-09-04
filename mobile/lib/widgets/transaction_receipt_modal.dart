@@ -45,6 +45,7 @@ class _TransactionReceiptModalState extends State<TransactionReceiptModal> {
 
   String _getCurrencySymbol(String curr) {
     switch (curr.toUpperCase()) {
+      case 'USDT':
       case 'USD':
       case 'CARD_USD':
         return '\$';
@@ -212,7 +213,7 @@ class _TransactionReceiptModalState extends State<TransactionReceiptModal> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '$sym${_currencyFormat.format(amt)}',
+                  '$sym${_currencyFormat.format(amt)}${widget.currency.toUpperCase() == 'USDT' ? ' USDT' : ''}',
                   style: GoogleFonts.plusJakartaSans(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white),
                 ),
                 const SizedBox(height: 8),

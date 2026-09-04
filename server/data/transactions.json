@@ -3,14 +3,15 @@
     "id": "907856b7-60de-4265-9c3e-a1a6c90df56d",
     "userId": "b0000000-0000-0000-0000-000000000001",
     "email": "patrickachua3@gmail.com",
-    "title": "USDT Deposit (TRON TRC20): +.00 USDT from TU4vEruvZwLLkSfV9bNw12EJTPvNr7Pvaa",
+    "title": "USDT Deposit (TRON TRC20): +10.00 USDT from TU4vEruvZwLLkSfV9bNw12EJTPvNr7Pvaa",
     "type": "credit",
     "category": "deposit",
     "amount": 10,
     "isCredit": true,
     "reference": "e2135ebce677afb538ed65902fa8dfdccd6650a6b4daf14a174285d2f42c3d54",
     "status": "SUCCESSFUL",
-    "date": "2026-09-04T07:41:33.902+00:00"
+    "date": "2026-09-04T07:41:33.902+00:00",
+    "currency": "USDT"
   },
   {
     "id": "04f40622-d566-48ba-b5d1-3efa7776eda8",
@@ -23,7 +24,8 @@
     "isCredit": true,
     "reference": "100004260904065541170252065547",
     "status": "SUCCESSFUL",
-    "date": "2026-09-04T07:17:30.03+00:00"
+    "date": "2026-09-04T07:17:30.03+00:00",
+    "currency": "NGN"
   },
   {
     "id": "9d0407a2-b826-4a05-9136-43370c337b1c",
@@ -36,7 +38,8 @@
     "isCredit": false,
     "reference": "RENTILLY_CARD_ISSUE_1788503593097",
     "status": "SUCCESSFUL",
-    "date": "2026-09-04T06:33:13.21+00:00"
+    "date": "2026-09-04T06:33:13.21+00:00",
+    "currency": "USD"
   },
   {
     "id": "4bd4186b-92b0-4016-a468-f0eca7f64e72",
@@ -49,7 +52,8 @@
     "isCredit": true,
     "reference": "100004260904061500170248493782",
     "status": "SUCCESSFUL",
-    "date": "2026-09-04T06:15:24+00:00"
+    "date": "2026-09-04T06:15:24+00:00",
+    "currency": "NGN"
   },
   {
     "id": "691646fb-baea-4163-be18-bf63518cace1",
@@ -62,7 +66,8 @@
     "isCredit": false,
     "reference": "REV_1788399515794_560098",
     "status": "SUCCESSFUL",
-    "date": "2026-09-03T01:38:35.794+00:00"
+    "date": "2026-09-03T01:38:35.794+00:00",
+    "currency": "NGN"
   },
   {
     "id": "d3c8b0e9-068a-476f-9655-1f47290b3c76",
@@ -76,7 +81,8 @@
     "reference": "MPRBILL-d7i7rlm246os72skfn50",
     "status": "SUCCESSFUL",
     "escrowStatus": "held_in_escrow",
-    "date": "2026-04-19T07:01:42.30865+00:00"
+    "date": "2026-04-19T07:01:42.30865+00:00",
+    "currency": "NGN"
   },
   {
     "id": "378af989-568e-4caa-852d-7c877561c006",
@@ -118,7 +124,8 @@
     "reference": "100004260830094717169747986123",
     "status": "SUCCESSFUL",
     "escrowStatus": "released_to_owner",
-    "date": "2026-08-30T09:47:48.579863+00:00"
+    "date": "2026-08-30T09:47:48.579863+00:00",
+    "currency": "NGN"
   },
   {
     "id": "725281f4-5507-4983-aa49-aeb8e6c998e8",
@@ -146,7 +153,8 @@
     "reference": "100004260419032431157605999911",
     "status": "SUCCESSFUL",
     "escrowStatus": "released_to_owner",
-    "date": "2026-04-19T21:56:22.267729+00:00"
+    "date": "2026-04-19T21:56:22.267729+00:00",
+    "currency": "NGN"
   },
   {
     "id": "c4b92bbf-f86d-4445-8b3f-95c87dac7da2",
@@ -230,7 +238,8 @@
     "reference": "e2eee61a-7457-4e6b-8964-82a710bc8f96",
     "status": "SUCCESSFUL",
     "escrowStatus": "held_in_escrow",
-    "date": "2026-04-23T17:44:50.774237+00:00"
+    "date": "2026-04-23T17:44:50.774237+00:00",
+    "currency": "NGN"
   },
   {
     "id": "c705f78c-7135-4d3b-bf29-e22c9437f5fe",
@@ -244,7 +253,8 @@
     "reference": "732527e3-58df-4b4f-bc57-08a4401fa237",
     "status": "SUCCESSFUL",
     "escrowStatus": "held_in_escrow",
-    "date": "2026-05-29T18:40:49.270151+00:00"
+    "date": "2026-05-29T18:40:49.270151+00:00",
+    "currency": "NGN"
   },
   {
     "id": "599b8868-0817-429a-bfa3-5abafbcfd1d5",
@@ -328,7 +338,8 @@
     "reference": "c549c1cb-2f87-4055-9965-4238efac08b7",
     "status": "SUCCESSFUL",
     "escrowStatus": "held_in_escrow",
-    "date": "2026-06-25T14:46:41.91786+00:00"
+    "date": "2026-06-25T14:46:41.91786+00:00",
+    "currency": "NGN"
   },
   {
     "id": "1daabc63-be09-4b68-9161-f763e1201f1f",
@@ -342,7 +353,8 @@
     "reference": "2a33ad2b-6a25-43aa-96d6-fcf39cd75bb0",
     "status": "SUCCESSFUL",
     "escrowStatus": "held_in_escrow",
-    "date": "2026-07-02T08:07:48.766572+00:00"
+    "date": "2026-07-02T08:07:48.766572+00:00",
+    "currency": "NGN"
   },
   {
     "id": "cc096c73-6d63-41a3-9f11-898b808b1420",
@@ -384,7 +396,8 @@
     "reference": "dedac850-4928-4a4d-b978-f24765d185f2",
     "status": "SUCCESSFUL",
     "escrowStatus": "held_in_escrow",
-    "date": "2026-04-20T15:17:05.08378+00:00"
+    "date": "2026-04-20T15:17:05.08378+00:00",
+    "currency": "NGN"
   },
   {
     "id": "ab2558d7-f5aa-4234-bcb6-f0e6e466d08d",
@@ -440,7 +453,8 @@
     "reference": "100004260419033713157605927675",
     "status": "SUCCESSFUL",
     "escrowStatus": "released_to_owner",
-    "date": "2026-04-20T03:32:11.457809+00:00"
+    "date": "2026-04-20T03:32:11.457809+00:00",
+    "currency": "NGN"
   },
   {
     "id": "8fb4aa13-c188-4c62-b223-eec0d4ba35c3",
@@ -454,7 +468,8 @@
     "reference": "100004260529183638161207995737",
     "status": "SUCCESSFUL",
     "escrowStatus": "released_to_owner",
-    "date": "2026-05-29T18:37:01.852987+00:00"
+    "date": "2026-05-29T18:37:01.852987+00:00",
+    "currency": "NGN"
   },
   {
     "id": "b351d87c-6e66-4b49-868f-d66ed8c4cb95",
@@ -538,7 +553,8 @@
     "reference": "75d7ae3a4aa4029adec549176532db5e7a07e2f12484b864be3cd89b44ac8299",
     "status": "SUCCESSFUL",
     "escrowStatus": "released_to_owner",
-    "date": "2026-09-03T10:55:56.414839+00:00"
+    "date": "2026-09-03T10:55:56.414839+00:00",
+    "currency": "USDT"
   },
   {
     "id": "d0240bbd-0851-4594-9fda-19c628f6da24",
@@ -678,7 +694,8 @@
     "reference": "c9443fc7-eaec-47b2-b036-d7c5b3e896e1",
     "status": "SUCCESSFUL",
     "escrowStatus": "held_in_escrow",
-    "date": "2026-09-04T07:29:14.588518+00:00"
+    "date": "2026-09-04T07:29:14.588518+00:00",
+    "currency": "NGN"
   },
   {
     "id": "60a74946-7425-433e-95f9-bcf66afeac17",
@@ -720,7 +737,8 @@
     "reference": "WD_MAPLE_1788503998310",
     "status": "SUCCESSFUL",
     "escrowStatus": "held_in_escrow",
-    "date": "2026-09-04T06:39:59.174+00:00"
+    "date": "2026-09-04T06:39:59.174+00:00",
+    "currency": "NGN"
   },
   {
     "id": "5362c891-a0af-4fa3-9e17-f54a82092d71",
@@ -734,7 +752,8 @@
     "reference": "RNT_AIR_1788471418118",
     "status": "SUCCESSFUL",
     "escrowStatus": "held_in_escrow",
-    "date": "2026-09-03T21:37:03.225+00:00"
+    "date": "2026-09-03T21:37:03.225+00:00",
+    "currency": "NGN"
   },
   {
     "id": "bf5642c9-d735-424d-9067-8f0ab32bbd22",
@@ -748,7 +767,8 @@
     "reference": "RENTILLY_CARD_ISSUE_1788433537071",
     "status": "SUCCESSFUL",
     "escrowStatus": "held_in_escrow",
-    "date": "2026-09-03T11:05:37.158+00:00"
+    "date": "2026-09-03T11:05:37.158+00:00",
+    "currency": "USD"
   },
   {
     "id": "92ea6ef6-8555-4e45-925a-21a2c24da631",
@@ -762,7 +782,8 @@
     "reference": "100004260903110141170171521274",
     "status": "SUCCESSFUL",
     "escrowStatus": "released_to_owner",
-    "date": "2026-09-03T11:02:01.138+00:00"
+    "date": "2026-09-03T11:02:01.138+00:00",
+    "currency": "NGN"
   },
   {
     "id": "5963a29c-898e-4e90-807a-f8c2b76cca69",
@@ -776,7 +797,8 @@
     "reference": "RNT_AIR_1788399519740",
     "status": "SUCCESSFUL",
     "escrowStatus": "held_in_escrow",
-    "date": "2026-09-03T01:38:44.509+00:00"
+    "date": "2026-09-03T01:38:44.509+00:00",
+    "currency": "NGN"
   },
   {
     "id": "12a90c34-5e70-4ab2-9f58-a09327155e48",
@@ -790,7 +812,8 @@
     "reference": "100004260903011905170141560098",
     "status": "SUCCESSFUL",
     "escrowStatus": "released_to_owner",
-    "date": "2026-09-03T01:19:06+00:00"
+    "date": "2026-09-03T01:19:06+00:00",
+    "currency": "NGN"
   },
   {
     "id": "0ce36c06-58ea-40eb-bd32-350a683c5a5a",
@@ -804,7 +827,8 @@
     "reference": "FEE_RENTILLY_WD_1788397425106",
     "status": "SUCCESSFUL",
     "escrowStatus": "held_in_escrow",
-    "date": "2026-09-03T01:03:45.647+00:00"
+    "date": "2026-09-03T01:03:45.647+00:00",
+    "currency": "NGN"
   },
   {
     "id": "0f0861c2-dfb5-47e7-bc94-1095bdb71a37",
@@ -832,7 +856,8 @@
     "reference": "FEE_RENTILLY_WD_1788397062534",
     "status": "SUCCESSFUL",
     "escrowStatus": "held_in_escrow",
-    "date": "2026-09-03T00:57:43.029+00:00"
+    "date": "2026-09-03T00:57:43.029+00:00",
+    "currency": "NGN"
   },
   {
     "id": "a12fd548-469d-41f3-8a05-5bc17de1b67d",
@@ -846,7 +871,8 @@
     "reference": "RENTILLY_WD_1788397062534",
     "status": "SUCCESSFUL",
     "escrowStatus": "held_in_escrow",
-    "date": "2026-09-03T00:57:42.901+00:00"
+    "date": "2026-09-03T00:57:42.901+00:00",
+    "currency": "NGN"
   },
   {
     "id": "970b1cc7-b721-4efa-b91a-482d313e6038",
@@ -860,7 +886,8 @@
     "reference": "FEE_RENTILLY_WD_1788396680667",
     "status": "SUCCESSFUL",
     "escrowStatus": "held_in_escrow",
-    "date": "2026-09-03T00:51:21.614+00:00"
+    "date": "2026-09-03T00:51:21.614+00:00",
+    "currency": "NGN"
   },
   {
     "id": "473679bd-b28e-4e0f-90ee-eee6420405c6",
@@ -874,7 +901,8 @@
     "reference": "RENTILLY_WD_1788396680667",
     "status": "SUCCESSFUL",
     "escrowStatus": "held_in_escrow",
-    "date": "2026-09-03T00:51:21.481+00:00"
+    "date": "2026-09-03T00:51:21.481+00:00",
+    "currency": "NGN"
   },
   {
     "id": "d24719ba-4fc8-44d4-a38a-828e17088730",
@@ -888,7 +916,8 @@
     "reference": "100004260902142253170089915568",
     "status": "SUCCESSFUL",
     "escrowStatus": "released_to_owner",
-    "date": "2026-09-02T14:22:55+00:00"
+    "date": "2026-09-02T14:22:55+00:00",
+    "currency": "NGN"
   },
   {
     "id": "e18ff695-c5ca-4a1c-b7f7-6ffdcfd8e229",
@@ -902,7 +931,8 @@
     "reference": "100004260901232426170038034521",
     "status": "SUCCESSFUL",
     "escrowStatus": "released_to_owner",
-    "date": "2026-09-01T23:24:29+00:00"
+    "date": "2026-09-01T23:24:29+00:00",
+    "currency": "NGN"
   },
   {
     "id": "546448cd-b53c-423c-9d97-05b4fd91942f",
@@ -916,6 +946,7 @@
     "reference": "100004260902135555170088528786",
     "status": "SUCCESSFUL",
     "escrowStatus": "released_to_owner",
-    "date": "2026-09-02T13:55:57+00:00"
+    "date": "2026-09-02T13:55:57+00:00",
+    "currency": "NGN"
   }
 ]

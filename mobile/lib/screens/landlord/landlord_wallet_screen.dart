@@ -760,7 +760,16 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
               ...filteredTransactions.map((tx) {
                 final amount = tx['amount'] as double;
                 final isPositive = amount > 0;
-                final formatted = isPositive ? '+₦${_currencyFormat.format(amount)}' : '-₦${_currencyFormat.format(amount.abs())}';
+                final txCurr = (tx['currency'] ?? '').toString().toUpperCase();
+                final titleUpper = (tx['title'] ?? tx['narration'] ?? '').toString().toUpperCase();
+                final isUsdtTx = txCurr == 'USDT' || titleUpper.contains('USDT') || titleUpper.contains('TRC20') || titleUpper.contains('TRON');
+                final isUsdTx = txCurr == 'USD' || titleUpper.contains('DOLLAR CARD') || titleUpper.contains('USD CARD') || titleUpper.contains('VIRTUAL USD');
+                final currSymbol = isUsdtTx ? '\$' : (isUsdTx ? '\$' : '₦');
+                final currSuffix = isUsdtTx ? ' USDT' : (isUsdTx ? ' USD' : '');
+
+                final formatted = isPositive
+                    ? '+$currSymbol${_currencyFormat.format(amount)}$currSuffix'
+                    : '-$currSymbol${_currencyFormat.format(amount.abs())}$currSuffix';
 
                 return InkWell(
                   onTap: () => _showTransactionReceiptModal(context, tx),

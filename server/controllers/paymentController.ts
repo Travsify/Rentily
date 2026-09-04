@@ -383,18 +383,21 @@ export async function withdrawCrypto(req: Request, res: Response) {
       });
     }
 
-    // Live FX benchmark
-    const rates = MultiCurrencyService.getFxRates();
-    const fxRate = rates.USD_NGN || 1510.0;
-    const equivalentNgn = numUsdt * fxRate;
-    const totalDebitNgn = equivalentNgn;
-
-    const currentBal = TransactionStore.computeNetBalance(cleanEmail);
+    let currentBalUsdt = 0;
+    if (supabase) {
+      const { data: usdtCfg } = await supabase.from('system_configs').select('data').eq('id', `usdt_balance_${cleanEmail}`).maybeSingle();
+      if (usdtCfg?.data?.usdtBalance != null) {
+        currentBalUsdt = Number(usdtCfg.data.usdtBalance);
+      }
+    }
     const memUser = await UserStore.findByEmail(cleanEmail);
+    if (!currentBalUsdt && memUser?.usdtBalance != null) {
+      currentBalUsdt = Number(memUser.usdtBalance);
+    }
 
-    if (currentBal < totalDebitNgn) {
+    if (currentBalUsdt < numUsdt) {
       return res.status(400).json({
-        error: `Insufficient wallet balance. Withdrawing ${numUsdt} USDT requires ₦${totalDebitNgn.toLocaleString()} NGN equivalent. Available: ₦${currentBal.toLocaleString()}.`
+        error: `Insufficient USDT balance. Withdrawing ${numUsdt} USDT requires ${numUsdt} USDT in your vault, but your available balance is ${currentBalUsdt.toFixed(2)} USDT.`
       });
     }
 
@@ -409,9 +412,9 @@ export async function withdrawCrypto(req: Request, res: Response) {
       chain: chain || 'tron'
     });
 
-    const newBal = Math.max(0, currentBal - totalDebitNgn);
+    const newBalUsdt = Math.max(0, Number((currentBalUsdt - numUsdt).toFixed(2)));
 
-    // Record in TransactionStore
+    // Record in TransactionStore with currency USDT
     await TransactionStore.addTransaction({
       id: `TX_WD_CRYPTO_${Date.now()}`,
       userId: targetUserId,
@@ -419,7 +422,8 @@ export async function withdrawCrypto(req: Request, res: Response) {
       title: `Crypto Withdrawal: ${numUsdt} USDT (${feePercent}% Fee: $${feeUsdt.toFixed(2)})`,
       type: 'Direct Crypto Withdrawal',
       category: 'withdrawal',
-      amount: totalDebitNgn,
+      amount: numUsdt,
+      currency: 'USDT',
       isCredit: false,
       reference: txRef,
       sender: `${memUser?.businessName || memUser?.fullName || 'Rentilly User'} (USDT Vault)`,
@@ -431,29 +435,26 @@ export async function withdrawCrypto(req: Request, res: Response) {
     });
 
     if (memUser) {
-      UserStore.upsertUserForced({
-        ...memUser,
-        walletBalance: newBal,
-        updatedAt: new Date().toISOString()
-      });
+      memUser.usdtBalance = newBalUsdt;
+      UserStore.upsertUserForced(memUser);
     }
 
     if (supabase) {
       try {
-        await supabase
-          .from('profiles')
-          .update({ wallet_balance: newBal, updated_at: new Date().toISOString() })
-          .eq('id', targetUserId);
+        await supabase.from('system_configs').upsert({
+          id: `usdt_balance_${cleanEmail}`,
+          data: { usdtBalance: newBalUsdt, email: cleanEmail, updatedAt: new Date().toISOString() }
+        });
 
         await supabase.from('wallet_transactions').insert({
           user_id: targetUserId,
           email: cleanEmail,
-          amount: totalDebitNgn,
+          amount: numUsdt,
           type: 'debit',
-          status: 'completed',
+          status: cryptoRes.success ? 'completed' : 'pending',
           flw_ref: txRef,
           tx_ref: txRef,
-          narration: `Crypto Transfer: ${numUsdt} USDT to ${address} • ₦${totalDebitNgn.toLocaleString()}`,
+          narration: `Crypto Withdrawal: ${numUsdt} USDT to ${address}`,
           created_at: new Date().toISOString()
         });
       } catch (e: any) {
@@ -1645,6 +1646,7 @@ async function syncMapleradTransactionsForUser(cleanEmail: string) {
       const isOurCustomer = (txCustomerEmail && txCustomerEmail === cleanEmail) || 
                             (customerId && txCustomerId === customerId);
       if (!isOurCustomer) continue;
+      if (TransactionStore.isTreasuryTransaction({ title: tx.summary || tx.reason, reference: tx.reference || tx.id, amount })) continue;
 
       const rawStatus = (tx.status || '').toUpperCase();
       if (rawStatus !== 'SUCCESS' && rawStatus !== 'PENDING') continue;
@@ -1743,6 +1745,25 @@ async function syncMapleradTransactionsForUser(cleanEmail: string) {
                   processed_at: new Date().toISOString()
                 }, { onConflict: 'flw_ref' });
               } catch (_) {}
+
+              await TransactionStore.addTransaction({
+                id: `TX_USDT_${ref}`,
+                userId: user?.id || 'b0000000-0000-0000-0000-000000000001',
+                email: cleanEmail,
+                title: `USDT Deposit (TRON TRC20): +$${amount.toFixed(2)} USDT from ${tx.source?.address || tx.source?.account_number || 'External Wallet'}`,
+                type: 'credit',
+                category: 'deposit',
+                amount: amount,
+                currency: 'USDT',
+                isCredit: true,
+                reference: ref,
+                sender: tx.source?.address || tx.source?.account_number || 'External TRON Wallet',
+                beneficiary: cleanEmail,
+                recipientAccount: cleanEmail,
+                recipientBank: 'Blockchain (TRON TRC20)',
+                status: 'SUCCESSFUL',
+                date: tx.created_at || new Date().toISOString(),
+              });
 
               NotificationDispatcher.dispatch({
                 userId: user?.id || 'b0000000-0000-0000-0000-000000000001',

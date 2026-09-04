@@ -1824,23 +1824,34 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  '${isCredit ? '+' : '-'}₦${_currencyFormat.format(amount.abs())}',
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w800,
-                                    color: isCredit ? const Color(0xFF16A34A) : Colors.red,
-                                  ),
-                                ),
-                                if (date.isNotEmpty)
-                                  Text(
-                                    date.length > 10 ? date.substring(0, 10) : date,
-                                    style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textMuted),
-                                  ),
-                              ],
+                            Builder(
+                              builder: (context) {
+                                final txCurr = (tx['currency'] ?? '').toString().toUpperCase();
+                                final titleUpper = title.toString().toUpperCase();
+                                final isUsdtTx = txCurr == 'USDT' || titleUpper.contains('USDT') || titleUpper.contains('TRC20') || titleUpper.contains('TRON');
+                                final isUsdTx = txCurr == 'USD' || titleUpper.contains('DOLLAR CARD') || titleUpper.contains('USD CARD') || titleUpper.contains('VIRTUAL USD');
+                                final currSymbol = isUsdtTx ? '\$' : (isUsdTx ? '\$' : '₦');
+                                final currSuffix = isUsdtTx ? ' USDT' : (isUsdTx ? ' USD' : '');
+
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      '${isCredit ? '+' : '-'}$currSymbol${_currencyFormat.format(amount.abs())}$currSuffix',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w800,
+                                        color: isCredit ? const Color(0xFF16A34A) : Colors.red,
+                                      ),
+                                    ),
+                                    if (date.isNotEmpty)
+                                      Text(
+                                        date.length > 10 ? date.substring(0, 10) : date,
+                                        style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textMuted),
+                                      ),
+                                  ],
+                                );
+                              },
                             ),
                           ],
                         ),
