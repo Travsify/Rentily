@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, Database, Server, Plus, AlertCircle, RefreshCw, LogOut, UserCheck } from 'lucide-react';
+import { Database, Server, Plus, AlertCircle, RefreshCw, LogOut, UserCheck } from 'lucide-react';
 import type { AdminTab, UserProfile } from '../types';
 
 interface NavbarProps {
@@ -26,8 +26,8 @@ export const Navbar: React.FC<NavbarProps> = ({
     <header className="sticky top-0 z-40 bg-[#090d16] backdrop-blur border-b border-slate-800 px-5 py-3 flex items-center justify-between shadow-sm">
       {/* Brand & Market Identity */}
       <div className="flex items-center gap-2.5">
-        <div className="w-8 h-8 rounded-xl bg-emerald-600 flex items-center justify-center shadow-md shadow-emerald-950/50 border border-emerald-400/30">
-          <ShieldCheck className="w-4.5 h-4.5 text-white" />
+        <div className="w-9 h-9 rounded-xl overflow-hidden shadow-md shadow-emerald-950/50 border border-emerald-400/20 shrink-0">
+          <img src="/logo.png" alt="Rentilly" className="w-full h-full object-cover" />
         </div>
         <div>
           <div className="flex items-center gap-1.5">
@@ -36,7 +36,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               Admin Ops
             </span>
           </div>
-          <p className="text-[10px] text-slate-400 leading-none mt-0.5">Zero-Agent Real Estate & Escrow Hub</p>
+          <p className="text-[10px] text-slate-400 leading-none mt-0.5">Zero-Agent Real Estate &amp; Escrow Hub</p>
         </div>
       </div>
 

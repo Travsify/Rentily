@@ -274,7 +274,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="pt-3 border-t border-slate-800/80">
         <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <img src="/logo.png" alt="Rentilly" className="w-6 h-6 rounded-lg object-cover" />
             <span className="font-semibold text-slate-300 text-[11px]">Rentilly Protocol</span>
           </div>
           <span className="text-[10px] text-emerald-400 font-mono font-bold bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-800/60">
