@@ -473,6 +473,7 @@ export class CardIssuingService {
     let currentBalance = 0;
     let cardLast4 = 'card';
     let cardEmail = '';
+    let targetCardId = cardId;
 
     // Query card from Supabase
     if (supabase) {
@@ -486,11 +487,13 @@ export class CardIssuingService {
         currentBalance = Number(data.balance || 0);
         cardLast4 = (data.masked_pan || '').slice(-4);
         cardEmail = data.email || '';
+        if (data.card_id) {
+          targetCardId = data.card_id;
+        }
       }
     }
 
     // Invoke Maplerad Live Funding API if valid Maplerad issuing card
-    const targetCardId = data?.card_id || cardId;
     if (process.env.MAPLERAD_SECRET_KEY && targetCardId) {
       try {
         console.log(`[CardIssuingService] Calling Maplerad fund API for card ${targetCardId} with $${amount}...`);

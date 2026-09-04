@@ -1176,13 +1176,15 @@ export async function mapleradWebhook(req: Request, res: Response) {
             const newBal = creditRes.newBalance ?? (Number(targetUser.wallet_balance || 0) + amountPaid);
 
             // Record in persistent reconciled_transactions store
-            await supabase.from('reconciled_transactions').upsert({
-              flw_ref: ref,
-              user_id: targetUser.id,
-              email: targetUser.email,
-              amount: amountPaid,
-              processed_at: new Date().toISOString()
-            }, { onConflict: 'flw_ref' }).catch(() => {});
+            try {
+              await supabase.from('reconciled_transactions').upsert({
+                flw_ref: ref,
+                user_id: targetUser.id,
+                email: targetUser.email,
+                amount: amountPaid,
+                processed_at: new Date().toISOString()
+              }, { onConflict: 'flw_ref' });
+            } catch (_) {}
 
             // Dispatch real-time multi-channel notifications (Email via Resend, Push via OneSignal, In-App via Supabase)
             NotificationDispatcher.dispatch({
@@ -1627,17 +1629,19 @@ async function syncMapleradTransactionsForUser(cleanEmail: string) {
       });
 
       if (supabase && ref) {
-        await supabase.from('wallet_transactions').upsert({
-          user_id: user?.id || 'b0000000-0000-0000-0000-000000000001',
-          email: cleanEmail,
-          amount,
-          type: isCredit ? 'credit' : 'debit',
-          status: rawStatus === 'SUCCESS' ? 'completed' : 'pending',
-          flw_ref: ref,
-          tx_ref: ref,
-          narration,
-          created_at: tx.created_at || new Date().toISOString()
-        }, { onConflict: 'flw_ref' }).catch(() => {});
+        try {
+          await supabase.from('wallet_transactions').upsert({
+            user_id: user?.id || 'b0000000-0000-0000-0000-000000000001',
+            email: cleanEmail,
+            amount,
+            type: isCredit ? 'credit' : 'debit',
+            status: rawStatus === 'SUCCESS' ? 'completed' : 'pending',
+            flw_ref: ref,
+            tx_ref: ref,
+            narration,
+            created_at: tx.created_at || new Date().toISOString()
+          }, { onConflict: 'flw_ref' });
+        } catch (_) {}
 
         // If it's a successful inbound credit that has not been reconciled yet, credit atomic wallet balance!
         if (isCredit && rawStatus === 'SUCCESS') {
@@ -1662,13 +1666,15 @@ async function syncMapleradTransactionsForUser(cleanEmail: string) {
               const senderBank = tx.source?.bank_name || 'Bank Transfer';
               const newBal = creditRes.newBalance ?? amount;
 
-              await supabase.from('reconciled_transactions').upsert({
-                flw_ref: ref,
-                user_id: user?.id || 'b0000000-0000-0000-0000-000000000001',
-                email: cleanEmail,
-                amount,
-                processed_at: new Date().toISOString()
-              }, { onConflict: 'flw_ref' }).catch(() => {});
+              try {
+                await supabase.from('reconciled_transactions').upsert({
+                  flw_ref: ref,
+                  user_id: user?.id || 'b0000000-0000-0000-0000-000000000001',
+                  email: cleanEmail,
+                  amount,
+                  processed_at: new Date().toISOString()
+                }, { onConflict: 'flw_ref' });
+              } catch (_) {}
 
               NotificationDispatcher.dispatch({
                 userId: user?.id || 'b0000000-0000-0000-0000-000000000001',
