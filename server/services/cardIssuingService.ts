@@ -421,7 +421,7 @@ export class CardIssuingService {
               id: c.id,
               cardId: cardKey,
               cardholderName: c.cardholder_name,
-              email: c.email || 'user@rentilly.com',
+              email: c.email || 'user@myrentilly.com',
               currency: (c.currency || 'USD') as 'USD' | 'NGN',
               brand: (c.brand || 'VISA') as 'VISA' | 'MASTERCARD',
               cardType: 'VIRTUAL_DEBIT',

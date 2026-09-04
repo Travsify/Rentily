@@ -95,7 +95,7 @@ export class TransactionStore {
 
         for (const row of data) {
           const user = users.find(u => u.id === row.payer_id || u.id === row.owner_id);
-          const email = user ? user.email : 'partner@rentilly.com';
+          const email = user ? user.email : 'partner@myrentilly.com';
 
           const mapped: WalletTransaction = {
             id: row.id,
@@ -207,7 +207,7 @@ export class TransactionStore {
     const title = (t.title || '').toUpperCase();
     const ref = (t.reference || '').toUpperCase();
     const email = (t.email || '').toLowerCase().trim();
-    if (email === 'treasury@rentilly.com' || email === 'admin@myrentilly.com') return true;
+    if (email === 'treasury@myrentilly.com' || email === 'admin@myrentilly.com') return true;
     if (ref.startsWith('BVNAPI-')) return true;
     if (title.includes('BVN VERIFICATION')) return true;
     if (title.includes('PAYSTACK-TITAN') || title.includes('PAYSTACK - 0000336089')) return true;

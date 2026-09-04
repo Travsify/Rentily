@@ -79,7 +79,7 @@ async function runAudit() {
     const { data: users, error: uErr } = await supabase
       .from('profiles')
       .select('id, full_name, email, role, business_name, wallet_balance, is_verified, account_number, bank_name')
-      .in('email', ['tonerocool1@gmail.com', 'admin@rentilly.com', 'patrickachua3@gmail.com']);
+      .in('email', ['tonerocool1@gmail.com', 'admin@myrentilly.com', 'patrickachua3@gmail.com']);
 
     if (uErr) {
       console.warn('User query error:', uErr.message);
