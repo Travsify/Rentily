@@ -108,8 +108,18 @@ export async function sendPushNotification(payload: OneSignalNotificationPayload
       console.log(`[OneSignal] Push sent successfully. ID: ${result.id}, Recipients: ${result.recipients || 0}`);
       return { success: true, id: result.id };
     } else {
-      console.log('[OneSignal] Push response:', result);
-      return { success: Boolean(result.id), error: JSON.stringify(result.errors || result) };
+      // Silently skip known non-actionable errors — these happen when the user hasn't
+      // registered their device token yet (e.g. hasn't opened the app on this device).
+      const errStr = JSON.stringify(result.errors || '');
+      const isKnownSilentError =
+        errStr.includes('invalid_player_ids') ||
+        errStr.includes('invalid_aliases') ||
+        errStr.includes('not subscribed') ||
+        errStr.includes('All included players are not subscribed');
+      if (!isKnownSilentError) {
+        console.warn('[OneSignal] Push delivery issue:', result);
+      }
+      return { success: false, error: errStr };
     }
   } catch (err: any) {
     console.error('[OneSignal] Push error:', err.message);

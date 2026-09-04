@@ -597,6 +597,29 @@ export async function requestReKyc(req: Request, res: Response) {
   }
 }
 
+// Helper: Convert raw API error strings into clean user-facing messages
+function sanitizeVerificationError(raw?: string): string {
+  if (!raw) return '';
+  const lower = raw.toLowerCase();
+  if (lower.includes('access denied') || lower.includes('unauthorized') || lower.includes('forbidden')) {
+    return 'Identity verification is temporarily unavailable. Please try again in a few minutes or contact support.';
+  }
+  if (lower.includes('bvn') && (lower.includes('mismatch') || lower.includes('dob') || lower.includes('date'))) {
+    return 'Your BVN does not match the Date of Birth provided. Please double-check and try again.';
+  }
+  if (lower.includes('nin') && lower.includes('mismatch')) {
+    return 'Your NIN does not match the details on file. Please verify your NIN and try again.';
+  }
+  if (lower.includes('already exist') || lower.includes('already registered')) {
+    return 'This BVN/NIN is already linked to a Rentilly account.';
+  }
+  if (lower.includes('network') || lower.includes('timeout') || lower.includes('econnreset')) {
+    return 'Verification service temporarily unreachable. Please try again shortly.';
+  }
+  // Strip internal technical tokens for user safety
+  return raw.replace(/\b(access denied|server error|internal error|exception|stack trace)\b/gi, '').trim() || 'Verification could not be completed. Please try again.';
+}
+
 // 8. User Action: Complete Quick KYC Upgrade (submit DOB & upgrade to Tier 1)
 export async function completeMapleradKyc(req: Request, res: Response) {
   try {
