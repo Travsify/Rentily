@@ -214,6 +214,7 @@ export type AdminTab =
   | 'fraud_blacklist'
   | 'support_tickets'
   | 'live_support'
+  | 'support_agents'
   | 'integrations'
   | 'feature_flags'
   | 'supabase_config'

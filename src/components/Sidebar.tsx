@@ -32,6 +32,8 @@ interface SidebarProps {
   activeInspectionsCount: number;
   escrowTotalAmount: number;
   enableVirtualCards?: boolean;
+  isAgent?: boolean;
+  onLogout?: () => void;
 }
 
 interface NavSection {
@@ -51,12 +53,71 @@ export const Sidebar: React.FC<SidebarProps> = ({
   pendingKypCount,
   activeInspectionsCount,
   escrowTotalAmount,
-  enableVirtualCards = false
+  enableVirtualCards = false,
+  isAgent = false,
+  onLogout,
 }) => {
+
+  // ── Agent-restricted minimal sidebar ────────────────────────────────────────
+  if (isAgent) {
+    return (
+      <aside className="w-64 bg-[#090d16] border-r border-slate-800 flex flex-col justify-between p-4 sticky top-[61px] h-[calc(100vh-61px)] overflow-y-auto font-sans select-none">
+        <div className="space-y-5">
+          <div className="p-3.5 rounded-2xl bg-gradient-to-br from-emerald-950/60 to-slate-900 border border-emerald-800/40 space-y-1">
+            <div className="flex items-center gap-1.5 text-emerald-400 font-bold text-xs">
+              <MessageSquare className="w-4 h-4" />
+              <span>Support Agent</span>
+            </div>
+            <p className="text-[11px] text-slate-300 leading-relaxed">
+              Your personal chat inbox. Reply to assigned conversations in real-time.
+            </p>
+          </div>
+
+          <nav>
+            <div className="space-y-1">
+              <p className="px-3 text-[9px] font-extrabold uppercase tracking-wider text-slate-500">SUPPORT AGENT</p>
+              <div className="space-y-0.5">
+                <button
+                  onClick={() => setCurrentTab('live_support')}
+                  className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all bg-emerald-600 text-white shadow-md shadow-emerald-950/50"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <MessageSquare className="w-3.5 h-3.5 shrink-0 text-white" />
+                    <span>My Chat Inbox</span>
+                  </div>
+                  <span className="text-[9px] px-1.5 rounded-full border bg-white/20 text-white border-white/30 font-bold">Live</span>
+                </button>
+              </div>
+            </div>
+          </nav>
+        </div>
+
+        <div className="pt-3 border-t border-slate-800/80 space-y-2">
+          <button
+            onClick={onLogout}
+            className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-xs font-semibold transition"
+          >
+            <ShieldCheck className="w-3.5 h-3.5" />
+            Sign Out
+          </button>
+          <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+            <div className="flex items-center gap-2">
+              <img src="/logo.png" alt="Rentilly" className="w-6 h-6 rounded-lg object-cover" />
+              <span className="font-semibold text-slate-300 text-[11px]">Rentilly Protocol</span>
+            </div>
+            <span className="text-[10px] text-emerald-400 font-mono font-bold bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-800/60">Agent</span>
+          </div>
+        </div>
+      </aside>
+    );
+  }
+
+
   const sections: NavSection[] = [
     {
       title: 'OPERATIONS & PROPERTIES',
       items: [
+
         {
           id: 'overview',
           label: 'Executive Overview',
@@ -126,6 +187,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
           badgeColor: 'bg-green-500/20 text-green-400 border-green-500/30'
         },
         {
+          id: 'support_agents',
+          label: 'Support Team Mgmt',
+          icon: Users,
+          badge: 'Agents',
+          badgeColor: 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+        },
+        {
+
           id: 'fraud_blacklist',
           label: 'Fraud & Scam Shield',
           icon: UserX,

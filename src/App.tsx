@@ -13,6 +13,7 @@ import { LegalAgreementsTab } from './components/LegalAgreementsTab';
 import { FraudBlacklistTab } from './components/FraudBlacklistTab';
 import { SupportDeskTab } from './components/SupportDeskTab';
 import { LiveSupportChatTab } from './components/LiveSupportChatTab';
+import { SupportAgentsTab } from './components/SupportAgentsTab';
 
 import { MasterLedgerTab } from './components/MasterLedgerTab';
 import { FeeSettingsTab } from './components/FeeSettingsTab';
@@ -121,14 +122,23 @@ export default function App() {
     }
   };
 
+  const isAgent = !!(currentUser as any)?.isAgent;
+
   // Auth Handlers
   const handleLoginSuccess = (user: UserProfile) => {
     setCurrentUser(user);
-    loadData();
+    if ((user as any)?.isAgent) {
+      setCurrentTab('live_support');
+    } else {
+      loadData();
+    }
   };
 
   const handleLogout = () => {
     RentillyApiService.logout();
+    // Also clear agent session if present
+    localStorage.removeItem('rentilly_agent_token');
+    localStorage.removeItem('rentilly_agent_session');
     setCurrentUser(null);
   };
 
@@ -189,13 +199,14 @@ export default function App() {
       {/* Top Navigation */}
       <Navbar
         currentTab={currentTab}
-        setCurrentTab={setCurrentTab}
+        setCurrentTab={isAgent ? () => {} : setCurrentTab}
         pendingKypCount={pendingKypCount}
         serverStatus={serverStatus}
         currentUser={currentUser}
         onOpenAddProperty={() => setIsAddPropertyModalOpen(true)}
         onRefreshData={loadData}
         onLogout={handleLogout}
+        isAgent={isAgent}
       />
 
       {/* Main Layout */}
@@ -203,11 +214,13 @@ export default function App() {
         {/* Sidebar */}
         <Sidebar
           currentTab={currentTab}
-          setCurrentTab={setCurrentTab}
+          setCurrentTab={isAgent ? () => {} : setCurrentTab}
           pendingKypCount={pendingKypCount}
           activeInspectionsCount={activeInspectionsCount}
           escrowTotalAmount={escrowTotalAmount}
           enableVirtualCards={featureFlags.enableVirtualCards}
+          isAgent={isAgent}
+          onLogout={handleLogout}
         />
 
         {/* Dynamic Content Viewport */}
@@ -316,6 +329,10 @@ export default function App() {
             <div className="h-[calc(100vh-110px)] flex flex-col">
               <LiveSupportChatTab />
             </div>
+          )}
+
+          {currentTab === 'support_agents' && (
+            <SupportAgentsTab />
           )}
 
 
