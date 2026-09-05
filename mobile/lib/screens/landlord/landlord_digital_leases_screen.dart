@@ -40,7 +40,7 @@ class _LandlordDigitalLeasesScreenState extends State<LandlordDigitalLeasesScree
           'endDate': item['tenancyExpirationDate'] ?? 'N/A',
           'cautionEscrow': (item['cautionDeposit'] as num?)?.toDouble() ?? 0.0,
           'rentillyFee': 0.0,
-          'governingLaw': item['governingLaw'] ?? 'Laws of Lagos State',
+          'governingLaw': item['governingLaw'] ?? (item['propertyState'] != null ? 'Laws of ${item['propertyState']} State' : 'Laws of the Federal Republic of Nigeria'),
           'isDisputed': false,
         });
       }

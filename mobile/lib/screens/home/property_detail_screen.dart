@@ -7,6 +7,8 @@ import '../../models/property.dart';
 import '../../models/user_profile.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/direct_message_service.dart';
+import '../messages/direct_chat_detail_screen.dart';
 
 class PropertyDetailScreen extends StatefulWidget {
   final Property property;
@@ -31,6 +33,59 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
   void _loadUser() async {
     final u = await AuthService.getCurrentUser();
     if (mounted) setState(() => _currentUser = u);
+  }
+
+  Future<void> _startChat() async {
+    final user = await AuthService.getCurrentUser();
+    if (user == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please log in to message the owner.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    final prop = widget.property;
+    if (!mounted) return;
+
+    // Show loading
+    final messenger = ScaffoldMessenger.of(context);
+
+    try {
+      final convo = await DirectMessageService.createOrGetConversation(
+        tenantId: user.id,
+        tenantEmail: user.email,
+        tenantName: user.fullName.isNotEmpty
+            ? user.fullName
+            : user.email.split('@')[0],
+        ownerId: prop.ownerId,
+        ownerName: prop.ownerName,
+        ownerRole:
+            prop.listedByRole == 'verified_partner' ? 'partner' : 'landlord',
+        propertyId: prop.id,
+        propertyTitle: prop.title,
+        propertyAddress: prop.address,
+      );
+      if (mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => DirectChatDetailScreen(
+              conversation: convo,
+              currentUser: user,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Could not start chat. Please try again.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _showInspectionModal() {
@@ -735,6 +790,21 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
+              OutlinedButton(
+                onPressed: _startChat,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  side: const BorderSide(color: AppColors.primary, width: 1.5),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: Text(
+                  prop.listedByRole == 'verified_partner' ? 'Message Partner' : 'Message Landlord',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+              ),
+              const SizedBox(width: 8),
               ElevatedButton(
                 onPressed: _showInspectionModal,
                 style: ElevatedButton.styleFrom(

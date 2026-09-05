@@ -41,7 +41,7 @@ class _TenancyAgreementsScreenState extends State<TenancyAgreementsScreen> {
               'caution': item['cautionDeposit']?.toString() ?? '0.00',
               'duration': '12 Months',
               'startDate': item['tenancyCommencementDate'] ?? 'Pending',
-              'address': item['propertyTitle'] ?? 'Lagos, Nigeria',
+              'address': item['propertyAddress'] ?? item['propertyTitle'] ?? 'Property Location, Nigeria',
               'status': item['status'] == 'fully_executed' ? 'ACTIVE LEASE' : 'PENDING SIGNATURES',
             });
           }
@@ -108,7 +108,7 @@ class _TenancyAgreementsScreenState extends State<TenancyAgreementsScreen> {
                   children: [
                     Text(agreement['title'] ?? 'Tenancy Agreement', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                     const SizedBox(height: 4),
-                    Text(agreement['address'] ?? 'Lagos, Nigeria', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+                    Text(agreement['address'] ?? 'Property Location, Nigeria', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
                     const Divider(height: 20),
                     _buildContractRow('Contract Ref', agreement['ref'] ?? 'RENT-2026-01'),
                     _buildContractRow('Landlord / Lessor', agreement['landlord'] ?? 'Verified Landlord'),
@@ -217,7 +217,7 @@ class _TenancyAgreementsScreenState extends State<TenancyAgreementsScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'You have not rented an apartment or completed a lease on Rentilly yet. When you execute a lease with direct landlords, your legally binding Lagos & State Tenancy agreements with escrow certificates will appear here for PDF download.',
+              'You have not rented an apartment or completed a lease on Rentilly yet. When you execute a lease with direct landlords, your legally binding Nigerian State Tenancy agreements with escrow certificates will appear here for PDF download.',
               textAlign: TextAlign.center,
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 11.5,
@@ -313,7 +313,7 @@ class _TenancyAgreementsScreenState extends State<TenancyAgreementsScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                agreement['address'] ?? 'Lagos, Nigeria',
+                agreement['address'] ?? 'Property Location, Nigeria',
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 11,
                   color: AppColors.textSecondary,

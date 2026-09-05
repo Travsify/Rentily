@@ -24,6 +24,9 @@ export async function getLegalAgreements(req: Request, res: Response) {
             id: row.id,
             propertyId: row.property_id,
             propertyTitle: row.properties?.title || 'Property Agreement',
+            // ✅ Real address & state from joined properties table
+            propertyAddress: row.properties?.address || row.properties?.location || '',
+            propertyState: row.properties?.state || '',
             transactionId: row.transaction_id,
             landlordId: row.landlord_id,
             landlordName: row.landlord_name || 'Landlord',
@@ -31,7 +34,14 @@ export async function getLegalAgreements(req: Request, res: Response) {
             tenantName: row.tenant_name || 'Tenant',
             agreementType: row.agreement_type,
             agreementTitle: row.agreement_title,
-            governingLaw: row.governing_law,
+            // ✅ Governing law from DB, or derived from property state — never Lagos hardcode
+            governingLaw: row.governing_law || (
+              row.properties?.state === 'FCT'
+                ? 'Laws of the Federal Capital Territory'
+                : row.properties?.state
+                  ? `Laws of ${row.properties.state} State`
+                  : 'Laws of the Federal Republic of Nigeria'
+            ),
             tenancyCommencementDate: row.tenancy_commencement_date,
             tenancyExpirationDate: row.tenancy_expiration_date,
             annualRent: Number(row.annual_rent || 0),
@@ -106,6 +116,9 @@ export async function generateAgreement(req: Request, res: Response) {
       id: agreementId,
       propertyId: propertyId || 'general_property',
       propertyTitle: prop?.title || 'Rentilly Property',
+      // ✅ Include real address and state — mobile uses these to avoid any Lagos hardcode
+      propertyAddress: prop?.address || prop?.location || '',
+      propertyState: prop?.state || '',
       transactionId: `txn_${Date.now()}`,
       landlordId: prop?.owner_id || prop?.ownerId || 'usr_landlord',
       landlordName: prop?.owner_name || prop?.ownerName || 'Property Landlord',
@@ -113,7 +126,12 @@ export async function generateAgreement(req: Request, res: Response) {
       tenantName: tenantName || 'Direct Tenant',
       agreementType: prop?.purpose === 'sale' ? 'contract_of_sale' : 'tenancy_agreement',
       agreementTitle,
-      governingLaw: prop?.state === 'FCT' ? 'Laws of the Federal Capital Territory' : `Laws of ${prop?.state || 'Lagos'} State`,
+      // ✅ Governing law derived from actual property state — no Lagos hardcode
+      governingLaw: prop?.state === 'FCT'
+        ? 'Laws of the Federal Capital Territory'
+        : prop?.state
+          ? `Laws of ${prop.state} State`
+          : 'Laws of the Federal Republic of Nigeria',
       tenancyCommencementDate: commencementDateObj.toISOString().split('T')[0],
       tenancyExpirationDate: expirationDate.toISOString().split('T')[0],
       annualRent: Number(prop?.base_price || prop?.basePrice || 0),
