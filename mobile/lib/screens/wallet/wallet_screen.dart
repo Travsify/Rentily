@@ -80,17 +80,13 @@ class _WalletScreenState extends State<WalletScreen> {
       });
     }
 
-    try {
-      await ApiService.fetchFeatureFlags();
-    } catch (_) {}
-
     if (u != null) {
-      // 0. Instantly populate cached vaults from local disk so Wema account shows with 0ms delay
+      // 0. Instantly populate cached vaults, card, and transactions from local disk (0ms delay)
       try {
         final prefs = await SharedPreferences.getInstance();
-        final cached = prefs.getString('rentilly_vault_accounts_${u.email}');
-        if (cached != null) {
-          final decoded = json.decode(cached) as Map<String, dynamic>;
+        final cachedVaults = prefs.getString('rentilly_vault_accounts_${u.email}');
+        if (cachedVaults != null) {
+          final decoded = json.decode(cachedVaults) as Map<String, dynamic>;
           if (mounted && _vaultAccounts == null) {
             setState(() {
               _vaultAccounts = decoded;
@@ -100,101 +96,150 @@ class _WalletScreenState extends State<WalletScreen> {
             });
           }
         }
-      } catch (_) {}
 
-      try {
-        final url = Uri.parse('${AppConstants.apiBaseUrl}/wallet/balance?userId=${u.id}&email=${u.email}');
-        final res = await http.get(url).timeout(const Duration(seconds: 8));
-        if (res.statusCode == 200) {
-          final data = json.decode(res.body);
-          if (data['status'] == true && data['walletBalance'] != null) {
-            final double serverBal = (data['walletBalance'] as num).toDouble();
-            final userData = data['user'] as Map<String, dynamic>? ?? {};
-            final double serverUsdtBal = (data['usdtBalance'] as num?)?.toDouble() ?? (userData['usdtBalance'] as num?)?.toDouble() ?? 0.0;
-            if (data['usdtTronAddress'] != null || userData['usdtTronAddress'] != null) {
-              _usdtTronAddress = (data['usdtTronAddress'] ?? userData['usdtTronAddress']).toString();
-            }
-            final updated = u.copyWith(
-              walletBalance: serverBal,
-              usdtBalance: serverUsdtBal,
-              fullName: userData['fullName']?.toString() ?? u.fullName,
-              accountNumber: (userData['accountNumber']?.toString() != null && userData['accountNumber'].toString().isNotEmpty)
-                  ? userData['accountNumber'].toString()
-                  : u.accountNumber,
-              bankName: userData['bankName']?.toString() ?? u.bankName,
-              commercialAccountNumber: userData['commercialAccountNumber']?.toString() ?? data['commercialAccountNumber']?.toString() ?? u.commercialAccountNumber,
-              commercialBankName: userData['commercialBankName']?.toString() ?? data['commercialBankName']?.toString() ?? u.commercialBankName,
-              isVerified: userData['isVerified'] ?? u.isVerified,
-            );
-            await AuthService.updateUser(updated);
-            if (mounted) setState(() => _user = updated);
+        final cachedCards = prefs.getString('rentilly_cached_cards_${u.email}');
+        if (cachedCards != null && _cardData == null) {
+          final List<dynamic> decodedCards = json.decode(cachedCards);
+          if (decodedCards.isNotEmpty && mounted) {
+            setState(() {
+              _cardData = Map<String, dynamic>.from(decodedCards.first as Map);
+            });
+          }
+        }
+
+        final cachedTx = prefs.getString('rentilly_cached_tx_${u.email}');
+        if (cachedTx != null && _transactions.isEmpty) {
+          final List<dynamic> decodedTx = json.decode(cachedTx);
+          if (decodedTx.isNotEmpty && mounted) {
+            setState(() {
+              _transactions = decodedTx.map((t) => Map<String, dynamic>.from(t as Map)).toList();
+            });
           }
         }
       } catch (_) {}
 
-      // Fetch full transactions ledger (Credits & Debits)
-      try {
-        final txUrl = Uri.parse('${AppConstants.apiBaseUrl}/payments/transactions?email=${u.email}');
-        final txRes = await http.get(txUrl).timeout(const Duration(seconds: 8));
-        if (txRes.statusCode == 200) {
-          final txJson = json.decode(txRes.body);
-          if (txJson['status'] == true && txJson['data'] is List) {
+      // Parallelize all independent cloud requests for instant response (0 wait)
+      await Future.wait([
+        // 1. Live Wallet Balance & Commercial Account Details
+        () async {
+          try {
+            final url = Uri.parse('${AppConstants.apiBaseUrl}/wallet/balance?userId=${u.id}&email=${u.email}');
+            final res = await http.get(url).timeout(const Duration(seconds: 8));
+            if (res.statusCode == 200) {
+              final data = json.decode(res.body);
+              if (data['status'] == true && data['walletBalance'] != null) {
+                final double serverBal = (data['walletBalance'] as num).toDouble();
+                final userData = data['user'] as Map<String, dynamic>? ?? {};
+                final double serverUsdtBal = (data['usdtBalance'] as num?)?.toDouble() ?? (userData['usdtBalance'] as num?)?.toDouble() ?? 0.0;
+                if (data['usdtTronAddress'] != null || userData['usdtTronAddress'] != null) {
+                  _usdtTronAddress = (data['usdtTronAddress'] ?? userData['usdtTronAddress']).toString();
+                }
+                final updated = u.copyWith(
+                  walletBalance: serverBal,
+                  usdtBalance: serverUsdtBal,
+                  fullName: userData['fullName']?.toString() ?? u.fullName,
+                  accountNumber: (userData['accountNumber']?.toString() != null && userData['accountNumber'].toString().isNotEmpty)
+                      ? userData['accountNumber'].toString()
+                      : u.accountNumber,
+                  bankName: userData['bankName']?.toString() ?? u.bankName,
+                  commercialAccountNumber: userData['commercialAccountNumber']?.toString() ?? data['commercialAccountNumber']?.toString() ?? u.commercialAccountNumber,
+                  commercialBankName: userData['commercialBankName']?.toString() ?? data['commercialBankName']?.toString() ?? u.commercialBankName,
+                  isVerified: userData['isVerified'] ?? u.isVerified,
+                );
+                await AuthService.updateUser(updated);
+                if (mounted) setState(() => _user = updated);
+              }
+            }
+          } catch (_) {}
+        }(),
+
+        // 2. Fetch full transactions ledger (Credits & Debits)
+        () async {
+          try {
+            final txUrl = Uri.parse('${AppConstants.apiBaseUrl}/payments/transactions?email=${u.email}');
+            final txRes = await http.get(txUrl).timeout(const Duration(seconds: 8));
+            if (txRes.statusCode == 200) {
+              final txJson = json.decode(txRes.body);
+              if (txJson['status'] == true && txJson['data'] is List) {
+                final txList = List<Map<String, dynamic>>.from(txJson['data']);
+                if (mounted) {
+                  setState(() {
+                    _transactions = txList;
+                  });
+                }
+                try {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setString('rentilly_cached_tx_${u.email}', json.encode(txList));
+                } catch (_) {}
+              }
+            }
+          } catch (_) {}
+        }(),
+
+        // 3. FX Rates & Pricing
+        () async {
+          try {
+            final rates = await ApiService.fetchFxRates();
+            final pricing = await ApiService.fetchCardPricing();
             if (mounted) {
               setState(() {
-                _transactions = List<Map<String, dynamic>>.from(txJson['data']);
+                _fxUsdToNgn = rates['USD_NGN'] ?? 1510.0;
+                _fxUsdToGbp = (rates['GBP_NGN'] != null && rates['USD_NGN'] != null)
+                    ? (rates['USD_NGN']! / rates['GBP_NGN']!)
+                    : 0.76;
+                _fxUsdToEur = (rates['EUR_NGN'] != null && rates['USD_NGN'] != null)
+                    ? (rates['USD_NGN']! / rates['EUR_NGN']!)
+                    : 0.91;
+                _cardIssuanceFeeUsd = (pricing['issuanceFeeUsd'] as num?)?.toDouble() ?? 3.00;
               });
             }
-          }
-        }
-      } catch (_) {}
-      try {
-        final rates = await ApiService.fetchFxRates();
-        final pricing = await ApiService.fetchCardPricing();
-        if (mounted) {
-          setState(() {
-            _fxUsdToNgn = rates['USD_NGN'] ?? 1510.0;
-            _fxUsdToGbp = (rates['GBP_NGN'] != null && rates['USD_NGN'] != null)
-                ? (rates['USD_NGN']! / rates['GBP_NGN']!)
-                : 0.76;
-            _fxUsdToEur = (rates['EUR_NGN'] != null && rates['USD_NGN'] != null)
-                ? (rates['USD_NGN']! / rates['EUR_NGN']!)
-                : 0.91;
-            _cardIssuanceFeeUsd = (pricing['issuanceFeeUsd'] as num?)?.toDouble() ?? 3.00;
-          });
-        }
-      } catch (_) {}
-
-      // Fetch remote feature flags
-      try {
-        await ApiService.fetchFeatureFlags();
-      } catch (_) {}
-
-      // Fetch live Virtual Dollar Card from Supabase
-      try {
-        final cards = await ApiService.fetchUserCards(u.email);
-        if (mounted) {
-          setState(() {
-            _cardData = cards.isNotEmpty ? cards.first : null;
-          });
-        }
-      } catch (_) {}
-
-      // Fetch all User Funding Vaults (Daily 9PSB, Commercial Wema Bank Escrow, USDT TRC20)
-      try {
-        final vaults = await ApiService.fetchVaultAccounts(u.email);
-        if (mounted && vaults['success'] == true) {
-          setState(() {
-            _vaultAccounts = vaults;
-            if (vaults['usdtVault']?['address'] != null) {
-              _usdtTronAddress = vaults['usdtVault']['address'].toString();
-            }
-          });
-          try {
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.setString('rentilly_vault_accounts_${u.email}', json.encode(vaults));
           } catch (_) {}
-        }
-      } catch (_) {}
+        }(),
+
+        // 4. Remote feature flags
+        () async {
+          try {
+            await ApiService.fetchFeatureFlags();
+          } catch (_) {}
+        }(),
+
+        // 5. Live Virtual Dollar Card
+        () async {
+          try {
+            final cards = await ApiService.fetchUserCards(u.email);
+            if (cards.isNotEmpty) {
+              try {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setString('rentilly_cached_cards_${u.email}', json.encode(cards));
+              } catch (_) {}
+            }
+            if (mounted) {
+              setState(() {
+                _cardData = cards.isNotEmpty ? cards.first : null;
+              });
+            }
+          } catch (_) {}
+        }(),
+
+        // 6. User Funding Vaults (Daily 9PSB, Commercial Wema Bank Escrow, USDT TRC20)
+        () async {
+          try {
+            final vaults = await ApiService.fetchVaultAccounts(u.email);
+            if (mounted && vaults['success'] == true) {
+              setState(() {
+                _vaultAccounts = vaults;
+                if (vaults['usdtVault']?['address'] != null) {
+                  _usdtTronAddress = vaults['usdtVault']['address'].toString();
+                }
+              });
+              try {
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setString('rentilly_vault_accounts_${u.email}', json.encode(vaults));
+              } catch (_) {}
+            }
+          } catch (_) {}
+        }(),
+      ]);
     }
   }
 

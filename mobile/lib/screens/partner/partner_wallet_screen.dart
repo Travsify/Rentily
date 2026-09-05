@@ -3,24 +3,21 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../constants/app_colors.dart';
-import '../../constants/app_constants.dart';
 import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
 import '../../services/api_service.dart';
 import '../../widgets/verification_modal.dart';
 import '../../widgets/add_money_modal.dart';
 import '../../widgets/withdrawal_modal.dart';
-import '../../widgets/quick_utilities_modal.dart';
 import '../../widgets/currency_selector_widget.dart';
 import '../../widgets/virtual_card_widget.dart';
 import '../../widgets/transaction_receipt_modal.dart';
 import '../../widgets/statement_export_modal.dart';
 import '../../widgets/currency_swap_modal.dart';
 import '../cards/cards_screen.dart';
-import '../bills/bills_screen.dart';
 
 class PartnerWalletScreen extends StatefulWidget {
   const PartnerWalletScreen({super.key});
@@ -143,29 +140,56 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
   void _loadUser() async {
     final user = await AuthService.getCurrentUser();
     if (user != null) {
+      // 0. Instantly load cached card from disk (0ms)
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final cached = prefs.getString('rentilly_cached_cards_${user.email}');
+        if (cached != null) {
+          final List<dynamic> decoded = json.decode(cached);
+          if (decoded.isNotEmpty && mounted && _cardData == null) {
+            setState(() {
+              _cardData = Map<String, dynamic>.from(decoded.first as Map);
+            });
+          }
+        }
+      } catch (_) {}
+
       if (mounted) {
         setState(() {
           _user = user;
         });
       }
 
-      final commissions = await ApiService.fetchPartnerCommissions(user.id, user.email);
-      final live = await ApiService.fetchLiveBalance(user.email);
-      final liveTxns = await ApiService.fetchLiveTransactions(user.email);
+      // Parallelize cloud requests
+      final results = await Future.wait([
+        ApiService.fetchPartnerCommissions(user.id, user.email),
+        ApiService.fetchLiveBalance(user.email),
+        ApiService.fetchLiveTransactions(user.email),
+        ApiService.fetchUserCards(user.email),
+      ]);
 
-      // Fetch remote feature flags
+      final commissions = results[0] as Map<String, dynamic>?;
+      final live = results[1] as Map<String, dynamic>?;
+      final liveTxns = (results[2] as List<Map<String, dynamic>>?) ?? [];
+      final cards = results[3] as List<Map<String, dynamic>>?;
+
+      if (cards != null && cards.isNotEmpty) {
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('rentilly_cached_cards_${user.email}', json.encode(cards));
+        } catch (_) {}
+      }
+
+      if (mounted) {
+        setState(() {
+          if (cards != null) {
+            _cardData = cards.isNotEmpty ? cards.first : null;
+          }
+        });
+      }
+
       try {
         await ApiService.fetchFeatureFlags();
-      } catch (_) {}
-
-      // Fetch live Virtual Dollar Card from Supabase
-      try {
-        final cards = await ApiService.fetchUserCards(user.email);
-        if (mounted) {
-          setState(() {
-            _cardData = cards.isNotEmpty ? cards.first : null;
-          });
-        }
       } catch (_) {}
 
       UserProfile effectiveUser = user;
@@ -203,8 +227,8 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
       if (mounted) {
         setState(() {
           _user = effectiveUser;
-          _escrowCommission = (commissions['escrowBalance'] as num?)?.toDouble() ?? 0.0;
-          _commissionTxns = liveTxns.isNotEmpty ? liveTxns : (commissions['transactions'] ?? []);
+          _escrowCommission = (commissions?['escrowBalance'] as num?)?.toDouble() ?? 0.0;
+          _commissionTxns = liveTxns.isNotEmpty ? liveTxns : List<Map<String, dynamic>>.from((commissions?['transactions'] as List<dynamic>?) ?? []);
           _isLoading = false;
         });
       }

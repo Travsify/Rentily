@@ -220,7 +220,8 @@ export class CardIssuingService {
             if (process.env.MAPLERAD_SECRET_KEY && cardKey) {
               try {
                 const mapleradRes = await fetch(`https://api.maplerad.com/v1/issuing/${cardKey}`, {
-                  headers: { 'Authorization': `Bearer ${process.env.MAPLERAD_SECRET_KEY}` }
+                  headers: { 'Authorization': `Bearer ${process.env.MAPLERAD_SECRET_KEY}` },
+                  signal: AbortSignal.timeout(2500),
                 });
                 const mapleradData = await mapleradRes.json().catch(() => ({}));
                 if (mapleradData?.status && mapleradData?.data) {

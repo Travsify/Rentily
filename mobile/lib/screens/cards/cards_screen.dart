@@ -1,7 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../constants/app_colors.dart';
 import '../../models/user_profile.dart';
 import '../../services/api_service.dart';
@@ -41,19 +43,67 @@ class _CardsScreenState extends State<CardsScreen> {
   @override
   void initState() {
     super.initState();
+    _loadCachedCards();
     _loadData();
   }
 
+  Future<void> _loadCachedCards() async {
+    try {
+      final user = await AuthService.getCurrentUser();
+      if (user != null && user.email.isNotEmpty) {
+        final prefs = await SharedPreferences.getInstance();
+        final cached = prefs.getString('rentilly_cached_cards_${user.email}');
+        if (cached != null) {
+          final List<dynamic> decoded = json.decode(cached);
+          final list = decoded.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+          if (mounted && list.isNotEmpty && _userCards.isEmpty) {
+            setState(() {
+              _user = user;
+              _userCards = list;
+              _isLoading = false;
+            });
+            _fetchCardTransactions();
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _persistCardsToDisk() async {
+    if (_user == null || _user!.email.isEmpty) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('rentilly_cached_cards_${_user!.email}', json.encode(_userCards));
+    } catch (_) {}
+  }
+
   Future<void> _loadData() async {
-    setState(() => _isLoading = true);
+    // Only display spinner if we have zero cached cards to show
+    if (_userCards.isEmpty) {
+      setState(() => _isLoading = true);
+    }
     final user = await AuthService.getCurrentUser();
 
     if (user != null && user.email.isNotEmpty) {
       try {
-        final rates = await ApiService.fetchFxRates();
-        final pricing = await ApiService.fetchCardPricing();
-        final spread = await ApiService.fetchSpreadRates();
-        final cards = await ApiService.fetchUserCards(user.email);
+        // Parallelize all 4 independent network requests for ultra-fast response
+        final results = await Future.wait([
+          ApiService.fetchUserCards(user.email),
+          ApiService.fetchFxRates(),
+          ApiService.fetchCardPricing(),
+          ApiService.fetchSpreadRates(),
+        ]);
+
+        final cards = results[0] as List<Map<String, dynamic>>;
+        final rates = results[1] as Map<String, double>;
+        final pricing = results[2] as Map<String, dynamic>;
+        final spread = results[3] as Map<String, dynamic>;
+
+        // Cache fresh cards to disk immediately
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('rentilly_cached_cards_${user.email}', json.encode(cards));
+        } catch (_) {}
 
         if (mounted) {
           setState(() {
@@ -63,7 +113,7 @@ class _CardsScreenState extends State<CardsScreen> {
             _cardIssuanceFeeUsd = (pricing['issuanceFeeUsd'] as num?)?.toDouble() ?? 3.00;
             _liquidationFeePercent = (pricing['liquidationFeePercent'] as num?)?.toDouble() ?? 1.0;
             _userCards = cards;
-            _selectedCardIndex = 0;
+            _selectedCardIndex = (_selectedCardIndex < cards.length) ? _selectedCardIndex : 0;
             _isLoading = false;
           });
           _fetchCardTransactions();
@@ -111,6 +161,7 @@ class _CardsScreenState extends State<CardsScreen> {
     setState(() {
       card['isFrozen'] = targetFrozen;
     });
+    _persistCardsToDisk();
 
     final cardId = card['cardId'] ?? card['id'];
     final success = await ApiService.toggleFreezeVirtualCard(_user!.email, cardId, targetFrozen: targetFrozen);
@@ -119,6 +170,7 @@ class _CardsScreenState extends State<CardsScreen> {
       setState(() {
         card['isFrozen'] = currentFrozen; // revert
       });
+      _persistCardsToDisk();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Failed to update card status. Please try again.')),
       );
