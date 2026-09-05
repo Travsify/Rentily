@@ -2,10 +2,11 @@ class AppConstants {
   static const String appName = 'Rentilly';
   static const String appTagline = 'Zero Agents • Direct Owners • Legal Escrow';
 
-  // Live Hostinger VPS Production API (Blazing Fast, Dedicated NVMe)
-  static const String apiBaseUrl = 'https://api.myrentilly.com/api';
+  // Live High-Availability Production Backend (with VPS fallback reference)
+  static const String apiBaseUrl = 'https://rentilly-admin-api.onrender.com/api';
+  static const String vpsBaseUrl = 'https://api.myrentilly.com/api';
 
-  // Supabase Direct Fallback
+  // Supabase Direct Primary / Fallback
   static const String supabaseUrl = 'https://zuxvxuqxomsxgiljykzj.supabase.co';
   static const String supabaseAnonKey = 'sb_publishable_LiVL01tqjp7jQQZwxFTayQ_TrhSswA_';
 

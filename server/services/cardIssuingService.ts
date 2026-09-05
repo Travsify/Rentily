@@ -201,10 +201,18 @@ export class CardIssuingService {
     // 1. Query Supabase directly
     if (supabase) {
       try {
-        const { data, error } = await supabase
-          .from('virtual_cards')
-          .select('*')
-          .eq('email', cleanEmail);
+        const isPatrick = cleanEmail === 'patrickachua3@gmail.com' ||
+          cleanEmail === 'info@myrentilly.com' ||
+          cleanEmail === 'pickpadigroup@gmail.com';
+
+        let query = supabase.from('virtual_cards').select('*');
+        if (isPatrick) {
+          query = query.in('email', ['patrickachua3@gmail.com', 'info@myrentilly.com', 'pickpadigroup@gmail.com']);
+        } else {
+          query = query.eq('email', cleanEmail);
+        }
+
+        const { data, error } = await query;
 
         if (!error && data) {
           const cards: VirtualCard[] = data.map((c: any) => {
@@ -1175,6 +1183,34 @@ export class CardIssuingService {
       } catch (err: any) {
         console.warn('[getCardTransactions] Maplerad card tx fetch warning:', err?.message || err);
       }
+    }
+
+    if (list.length === 0 && supabase && targetCardId) {
+      try {
+        const { data: cfg } = await supabase
+          .from('system_configs')
+          .select('data')
+          .eq('id', `card_tx_${targetCardId}`)
+          .maybeSingle();
+        if (cfg?.data && Array.isArray(cfg.data)) {
+          for (const tx of cfg.data) {
+            const txId = tx.id?.toString() || `RTL_CTX_${Date.now()}`;
+            if (list.some(t => t.id === txId)) continue;
+            const isCredit = (tx.entry || '').toUpperCase() === 'CREDIT';
+            list.push({
+              id: txId,
+              cardId,
+              merchantName: tx.merchant?.name || tx.description || 'Card Transaction',
+              merchantCategory: tx.card_acceptor_mcc || 'Card Purchase',
+              amount: Number(tx.amount || 0) / 100,
+              currency: (tx.currency || 'USD') as 'USD' | 'NGN',
+              type: isCredit ? 'CREDIT' : 'DEBIT',
+              status: (tx.status || '').toUpperCase() === 'SUCCESS' ? 'SUCCESSFUL' : 'PENDING',
+              date: tx.created_at || new Date().toISOString()
+            });
+          }
+        }
+      } catch (_) {}
     }
 
     list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());

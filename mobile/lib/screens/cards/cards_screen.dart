@@ -135,8 +135,8 @@ class _CardsScreenState extends State<CardsScreen> {
             _spreadBuyRate = (spread['buyRate'] as num?)?.toDouble() ?? 1370.0;
             _cardIssuanceFeeUsd = (pricing['issuanceFeeUsd'] as num?)?.toDouble() ?? 3.00;
             _liquidationFeePercent = (pricing['liquidationFeePercent'] as num?)?.toDouble() ?? 1.0;
-            if (cards.isNotEmpty || _userCards.isEmpty) {
-              _userCards = cards.isNotEmpty ? cards : _userCards;
+            if (cards.isNotEmpty) {
+              _userCards = cards;
             }
             _selectedCardIndex = (_selectedCardIndex < _userCards.length) ? _selectedCardIndex : 0;
             _isLoading = false;
