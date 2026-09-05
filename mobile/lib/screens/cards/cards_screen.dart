@@ -2632,7 +2632,7 @@ class _CardsScreenState extends State<CardsScreen> {
                 const SizedBox(height: 3),
                 Text(
                   isAutoFrozen
-                      ? 'Rentilly automatically froze this card after a payment was declined for insufficient funds. This protects your balance from recurring \$0.50 decline penalties. Top up your card with sufficient funds before tapping Unfreeze below.'
+                      ? 'Rentilly automatically froze this card after a payment was declined for insufficient funds. Top up your card with sufficient funds before tapping Unfreeze below.'
                       : 'This card is currently locked. No charges will be accepted until you tap Unfreeze below.',
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 11,
@@ -3441,7 +3441,7 @@ class _CardsScreenState extends State<CardsScreen> {
                             const SizedBox(width: 6),
                             Expanded(
                               child: Text(
-                                '⚠️ Declined Authorization Fee — \$0.50 is automatically charged whenever a card payment attempt fails due to insufficient card balance. Top up your card before making payments to avoid this charge.',
+                                '⚠️ Declined Transaction — This payment attempt was declined due to insufficient card balance. Top up your card before retrying.',
                                 style: GoogleFonts.plusJakartaSans(
                                   fontSize: 10,
                                   color: const Color(0xFF92400E),

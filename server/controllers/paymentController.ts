@@ -1154,7 +1154,7 @@ export async function mapleradWebhook(req: Request, res: Response) {
           user_email: frozenEmail,
           type: 'card_auto_frozen',
           title: '🔒 Your Card Was Auto-Frozen',
-          message: `Hi ${shortName}, your Rentilly virtual card was automatically frozen after a declined payment due to insufficient balance. Top up your card and unfreeze it to continue using it. This protects you from repeated $0.50 decline fees.`,
+          message: `Hi ${shortName}, your Rentilly virtual card was automatically frozen after a declined payment due to insufficient balance. Top up your card and unfreeze it to continue using it.`,
           read: false,
           created_at: new Date().toISOString()
         });

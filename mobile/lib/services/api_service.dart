@@ -471,8 +471,7 @@ class ApiService {
             String friendlyType = rawType;
             if (rawMerchantName.toLowerCase() == 'maplerad' || rawDesc.toLowerCase().contains('decline fee')) {
               if (rawDesc.toLowerCase().contains('decline fee') || rawDesc.toLowerCase().contains('no sufficient funds')) {
-                // $0.50 penalty Maplerad charges per failed/declined authorization
-                friendlyName = 'Declined Card Auth Fee';
+                friendlyName = 'Card Payment (Declined)';
                 friendlyType = 'DEBIT';
               } else if (rawDesc.toLowerCase().contains('card funding') || rawType == 'FUNDING') {
                 friendlyName = 'Rentilly Card Top-Up';
