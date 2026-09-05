@@ -2582,11 +2582,30 @@ export async function getWalletBalance(req: Request, res: Response) {
       usdtBalance = Number(memUser.usdtBalance);
     }
 
+    // Resolve Commercial Wema Bank Escrow Account
+    let commercialAccountNumber: string | null = null;
+    let commercialBankName: string | null = null;
+    if (supabase) {
+      try {
+        const { data: wemaCfg } = await supabase
+          .from('system_configs')
+          .select('data')
+          .eq('id', `commercial_wema_${cleanEmail}`)
+          .maybeSingle();
+        if (wemaCfg?.data?.accountNumber) {
+          commercialAccountNumber = wemaCfg.data.accountNumber;
+          commercialBankName = wemaCfg.data.bankName || 'Wema Bank Plc';
+        }
+      } catch (_) {}
+    }
+
     res.json({
       status: true,
       walletBalance: balance,
       usdtBalance,
       usdtTronAddress,
+      commercialAccountNumber,
+      commercialBankName,
       user: {
         id: dbUser?.id || memUser?.id || userId || (cleanEmail === 'tonerocool1@gmail.com' ? 'c0000000-0000-0000-0000-000000000001' : 'b0000000-0000-0000-0000-000000000001'),
         fullName: dbUser?.full_name || memUser?.fullName || (cleanEmail === 'tonerocool1@gmail.com' ? 'Ehomes Global Inclusive Limited' : 'Rentilly User'),
@@ -2594,6 +2613,8 @@ export async function getWalletBalance(req: Request, res: Response) {
         email: cleanEmail,
         accountNumber,
         bankName,
+        commercialAccountNumber,
+        commercialBankName,
         usdtTronAddress,
         isVerified: dbUser?.is_verified ?? memUser?.isVerified ?? true,
         role: dbUser?.role || memUser?.role || 'owner',

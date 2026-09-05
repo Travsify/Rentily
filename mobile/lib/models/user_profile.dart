@@ -12,6 +12,8 @@ class UserProfile {
   final double usdtBalance;
   final String? accountNumber;
   final String? bankName;
+  final String? commercialAccountNumber;
+  final String? commercialBankName;
   final String? state;
 
   // Partner / Corporate Vetting Fields
@@ -43,6 +45,8 @@ class UserProfile {
     this.usdtBalance = 0.00,
     this.accountNumber,
     this.bankName,
+    this.commercialAccountNumber,
+    this.commercialBankName,
     this.state = 'Lagos',
     this.businessName,
     this.cacNumber,
@@ -126,6 +130,8 @@ class UserProfile {
       usdtBalance: (json['usdtBalance'] as num?)?.toDouble() ?? (json['usdt_balance'] as num?)?.toDouble() ?? 0.00,
       accountNumber: json['accountNumber']?.toString(),
       bankName: json['bankName']?.toString(),
+      commercialAccountNumber: json['commercialAccountNumber']?.toString() ?? json['commercial_account_number']?.toString(),
+      commercialBankName: json['commercialBankName']?.toString() ?? json['commercial_bank_name']?.toString(),
       state: json['state']?.toString() ?? 'Lagos',
       businessName: businessName,
       cacNumber: json['cacNumber']?.toString() ?? json['cac_number']?.toString(),
@@ -158,6 +164,8 @@ class UserProfile {
       'usdtBalance': usdtBalance,
       'accountNumber': accountNumber,
       'bankName': bankName,
+      'commercialAccountNumber': commercialAccountNumber,
+      'commercialBankName': commercialBankName,
       'state': state,
       'businessName': businessName,
       'cacNumber': cacNumber,
@@ -188,6 +196,8 @@ class UserProfile {
     double? usdtBalance,
     String? accountNumber,
     String? bankName,
+    String? commercialAccountNumber,
+    String? commercialBankName,
     String? state,
     String? businessName,
     String? cacNumber,
@@ -216,6 +226,8 @@ class UserProfile {
       usdtBalance: usdtBalance ?? this.usdtBalance,
       accountNumber: accountNumber ?? this.accountNumber,
       bankName: bankName ?? this.bankName,
+      commercialAccountNumber: commercialAccountNumber ?? this.commercialAccountNumber,
+      commercialBankName: commercialBankName ?? this.commercialBankName,
       state: state ?? this.state,
       businessName: businessName ?? this.businessName,
       cacNumber: cacNumber ?? this.cacNumber,

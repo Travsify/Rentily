@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../constants/app_colors.dart';
 import '../../constants/app_constants.dart';
 import '../../models/user_profile.dart';
@@ -84,6 +85,23 @@ class _WalletScreenState extends State<WalletScreen> {
     } catch (_) {}
 
     if (u != null) {
+      // 0. Instantly populate cached vaults from local disk so Wema account shows with 0ms delay
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final cached = prefs.getString('rentilly_vault_accounts_${u.email}');
+        if (cached != null) {
+          final decoded = json.decode(cached) as Map<String, dynamic>;
+          if (mounted && _vaultAccounts == null) {
+            setState(() {
+              _vaultAccounts = decoded;
+              if (decoded['usdtVault']?['address'] != null) {
+                _usdtTronAddress = decoded['usdtVault']['address'].toString();
+              }
+            });
+          }
+        }
+      } catch (_) {}
+
       try {
         final url = Uri.parse('${AppConstants.apiBaseUrl}/wallet/balance?userId=${u.id}&email=${u.email}');
         final res = await http.get(url).timeout(const Duration(seconds: 8));
@@ -104,6 +122,8 @@ class _WalletScreenState extends State<WalletScreen> {
                   ? userData['accountNumber'].toString()
                   : u.accountNumber,
               bankName: userData['bankName']?.toString() ?? u.bankName,
+              commercialAccountNumber: userData['commercialAccountNumber']?.toString() ?? data['commercialAccountNumber']?.toString() ?? u.commercialAccountNumber,
+              commercialBankName: userData['commercialBankName']?.toString() ?? data['commercialBankName']?.toString() ?? u.commercialBankName,
               isVerified: userData['isVerified'] ?? u.isVerified,
             );
             await AuthService.updateUser(updated);
@@ -169,6 +189,10 @@ class _WalletScreenState extends State<WalletScreen> {
               _usdtTronAddress = vaults['usdtVault']['address'].toString();
             }
           });
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString('rentilly_vault_accounts_${u.email}', json.encode(vaults));
+          } catch (_) {}
         }
       } catch (_) {}
     }
@@ -183,8 +207,18 @@ class _WalletScreenState extends State<WalletScreen> {
       final res = await ApiService.provisionCommercialAccount(_user!.email);
       if (res['success'] == true && res['account'] != null) {
         final vaults = await ApiService.fetchVaultAccounts(_user!.email);
+        final updatedUser = _user!.copyWith(
+          commercialAccountNumber: res['account']['accountNumber']?.toString(),
+          commercialBankName: res['account']['bankName']?.toString() ?? 'Wema Bank',
+        );
+        await AuthService.updateUser(updatedUser);
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('rentilly_vault_accounts_${_user!.email}', json.encode(vaults));
+        } catch (_) {}
         if (mounted) {
           setState(() {
+            _user = updatedUser;
             _vaultAccounts = vaults;
             _isProvisioningCommercial = false;
           });
@@ -1156,8 +1190,8 @@ class _WalletScreenState extends State<WalletScreen> {
                       Builder(
                         builder: (context) {
                           final highVal = _vaultAccounts?['highValueVault'];
-                          final String? wemaAcc = highVal?['accountNumber'];
-                          final String wemaBank = highVal?['bankName'] ?? 'Wema Bank Plc';
+                          final String? wemaAcc = highVal?['accountNumber'] ?? _user?.commercialAccountNumber;
+                          final String wemaBank = highVal?['bankName'] ?? _user?.commercialBankName ?? 'Wema Bank Plc';
 
                           if (wemaAcc != null && wemaAcc.isNotEmpty) {
                             return Container(
@@ -1258,6 +1292,33 @@ class _WalletScreenState extends State<WalletScreen> {
                                   Text(
                                     '🏛️ Commercial Bank Rail (₦100M+ Corporate RTGS, Rent & Escrow)',
                                     style: GoogleFonts.plusJakartaSans(fontSize: 8.5, color: const Color(0xFFFDE68A)),
+                                  ),
+                                ],
+                              ),
+                            );
+                          } else if (_vaultAccounts == null) {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1E293B).withValues(alpha: 0.85),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: const Color(0xFFFBBF24).withValues(alpha: 0.3)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFBBF24)),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    'Loading Commercial Vault...',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFFFBBF24),
+                                    ),
                                   ),
                                 ],
                               ),
