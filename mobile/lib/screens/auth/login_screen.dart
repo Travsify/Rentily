@@ -739,7 +739,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           keyboardType: TextInputType.emailAddress,
           style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary),
           decoration: InputDecoration(
-            hintText: 'e.g. patrickachua3@gmail.com',
+            hintText: 'e.g. yourname@example.com',
             hintStyle: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textMuted),
             prefixIcon: const Icon(Icons.email_outlined, size: 18, color: AppColors.textSecondary),
             filled: true,
