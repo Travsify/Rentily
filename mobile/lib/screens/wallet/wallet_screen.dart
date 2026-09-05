@@ -1503,7 +1503,9 @@ class _WalletScreenState extends State<WalletScreen> {
                     final txCurr = (tx['currency'] ?? '').toString().toUpperCase();
                     final titleUpper = title.toString().toUpperCase();
                     final isUsdtTx = txCurr == 'USDT' || titleUpper.contains('USDT') || titleUpper.contains('TRC20') || titleUpper.contains('TRON');
-                    final isUsdTx = txCurr == 'USD' || titleUpper.contains('DOLLAR CARD') || titleUpper.contains('USD CARD') || titleUpper.contains('VIRTUAL USD');
+                    // ✅ Only show $ if the transaction currency is explicitly USD (not NGN).
+                    // Card top-ups from Naira wallet have txCurr='NGN' even if the narration mentions 'virtual USD card'.
+                    final isUsdTx = txCurr == 'USD'; // No longer guessed from title — rely on explicit currency field
                     final currSymbol = isUsdtTx ? '\$' : (isUsdTx ? '\$' : '₦');
                     final currSuffix = isUsdtTx ? ' USDT' : (isUsdTx ? ' USD' : '');
 
@@ -1879,7 +1881,9 @@ class _WalletScreenState extends State<WalletScreen> {
     String detectedCurrency = _selectedCurrency;
     if (txCurr == 'USDT' || titleUpper.contains('USDT') || titleUpper.contains('TRC20') || titleUpper.contains('TRON')) {
       detectedCurrency = 'USDT';
-    } else if (txCurr == 'USD' || titleUpper.contains('DOLLAR CARD') || titleUpper.contains('USD CARD') || titleUpper.contains('VIRTUAL USD')) {
+    } else if (txCurr == 'USD') {
+      // ✅ Only treat as USD if currency field is explicitly USD.
+      // Card top-ups from Naira wallet are NGN transactions — don't use title keywords.
       detectedCurrency = 'USD';
     }
 

@@ -2577,11 +2577,13 @@ export async function issueVirtualCard(req: Request, res: Response) {
           user_id: resolvedUserId,
           email: cleanEmail,
           amount: totalDebitNgn,
+          currency: 'NGN',
           type: 'debit',
           status: 'completed',
           flw_ref: txRef,
           tx_ref: txRef,
-          narration: `Virtual USD Card Issuance & Initial Funding ($${totalDebitUsd.toFixed(2)} USD)`,
+          // ✅ Shows actual Naira debit — USD reference in parentheses
+          narration: `Virtual USD Card Issuance & Initial Funding: ₦${totalDebitNgn.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} → $${totalDebitUsd.toFixed(2)} USD (incl. $${issuanceFeeUsd.toFixed(2)} issuance fee)`,
           created_at: new Date().toISOString()
         });
       }
@@ -2709,24 +2711,32 @@ export async function fundVirtualCard(req: Request, res: Response) {
           user_id: resolvedUserId,
           email: cleanEmail,
           amount: debitAmountNgn,
+          currency: 'NGN',
           type: 'debit',
           status: 'completed',
           flw_ref: txRef,
           tx_ref: txRef,
-          narration: `Virtual Dollar Card Top-Up ($${amountUsd.toFixed(2)} USD)`,
+          // ✅ Narration shows NAIRA amount debited (not USD). USD amount shown in parentheses for reference only.
+          narration: `Virtual Dollar Card Top-Up: ₦${debitAmountNgn.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} → $${amountUsd.toFixed(2)} USD (Rate: ₦${fxRate.toLocaleString()}/USD)`,
           created_at: new Date().toISOString()
         });
       }
     }
 
-    // 3. Dispatch Email & Push Notification
+    // 3. Dispatch Email & Push Notification — show Naira debit for NGN source, USD for USDT
+    const notifTitle = source === 'USDT'
+      ? `Virtual Dollar Card Top-Up ($${amountUsd.toFixed(2)} USD)`
+      : `Virtual Dollar Card Top-Up (₦${debitAmountNgn.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`;
+    const notifMessage = source === 'USDT'
+      ? `Successfully funded $${amountUsd.toFixed(2)} USD onto your virtual card using your USDT balance. New card balance: $${result.newBalance.toFixed(2)} USD.`
+      : `Successfully funded $${amountUsd.toFixed(2)} USD onto your virtual card. ₦${debitAmountNgn.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} was debited from your Naira wallet. New card balance: $${result.newBalance.toFixed(2)} USD.`;
     NotificationDispatcher.dispatch({
       email: cleanEmail,
       userName: name,
       category: 'wallet',
-      title: `Virtual Dollar Card Top-Up ($${amountUsd.toFixed(2)} USD)`,
-      message: `Successfully funded $${amountUsd.toFixed(2)} USD onto your virtual card. Debited from your ${source} balance. New card balance: $${result.newBalance.toFixed(2)} USD.`,
-      metadata: { cardId, amountUsd, paymentSource: source, newBalance: result.newBalance }
+      title: notifTitle,
+      message: notifMessage,
+      metadata: { cardId, amountUsd, amountNgn: source === 'NGN' ? debitAmountNgn : null, paymentSource: source, newBalance: result.newBalance }
     });
 
     res.json({
