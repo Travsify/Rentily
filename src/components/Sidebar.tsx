@@ -11,6 +11,7 @@ import {
   Smartphone, 
   UserX,
   Headphones,
+  MessageSquare,
   ShieldCheck,
   Wallet,
   Zap,
@@ -116,6 +117,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           label: 'Support & Disputes',
           icon: Headphones,
           badge: 'Arbitration'
+        },
+        {
+          id: 'live_support',
+          label: 'Live Chat Inbox',
+          icon: MessageSquare,
+          badge: 'Real-time',
+          badgeColor: 'bg-green-500/20 text-green-400 border-green-500/30'
         },
         {
           id: 'fraud_blacklist',

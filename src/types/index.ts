@@ -213,6 +213,7 @@ export type AdminTab =
   | 'global_cards'
   | 'fraud_blacklist'
   | 'support_tickets'
+  | 'live_support'
   | 'integrations'
   | 'feature_flags'
   | 'supabase_config'

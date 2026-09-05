@@ -191,9 +191,18 @@ apiRouter.post('/escrow/:id/release-payout', escrowController.releaseEscrowPayou
 apiRouter.get('/legal/agreements', legalController.getLegalAgreements);
 apiRouter.post('/legal/generate-agreement', legalController.generateAgreement);
 
-// 12. Partner & User Support / Dispute Tickets
+// 12. Partner & User Support / Dispute Tickets (legacy one-way tickets)
 apiRouter.post('/support/tickets', supportController.submitTicket);
 apiRouter.get('/support/tickets', supportController.listTickets);
+
+// 12b. In-App Live Support Chat (Supabase realtime, two-way)
+import * as supportChatController from '../controllers/supportChatController';
+apiRouter.post('/support/conversations', supportChatController.createOrGetConversation);
+apiRouter.get('/support/conversations', supportChatController.listConversations);
+apiRouter.get('/support/conversations/user/:email', supportChatController.getUserConversations);
+apiRouter.get('/support/conversations/:id/messages', supportChatController.getMessages);
+apiRouter.post('/support/conversations/:id/messages', supportChatController.sendMessage);
+apiRouter.patch('/support/conversations/:id', supportChatController.updateConversation);
 
 // 13. Platform Fee & Tariff Configuration
 apiRouter.get('/config/fees', feeController.getFees);

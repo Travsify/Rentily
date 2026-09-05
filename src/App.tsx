@@ -12,6 +12,8 @@ import { EscrowTab } from './components/EscrowTab';
 import { LegalAgreementsTab } from './components/LegalAgreementsTab';
 import { FraudBlacklistTab } from './components/FraudBlacklistTab';
 import { SupportDeskTab } from './components/SupportDeskTab';
+import { LiveSupportChatTab } from './components/LiveSupportChatTab';
+
 import { MasterLedgerTab } from './components/MasterLedgerTab';
 import { FeeSettingsTab } from './components/FeeSettingsTab';
 import { BillsDeskTab } from './components/BillsDeskTab';
@@ -309,6 +311,13 @@ export default function App() {
           {currentTab === 'support_tickets' && (
             <SupportDeskTab />
           )}
+
+          {currentTab === 'live_support' && (
+            <div className="h-[calc(100vh-110px)] flex flex-col">
+              <LiveSupportChatTab />
+            </div>
+          )}
+
 
           {currentTab === 'integrations' && (
             <IntegrationsTab />
