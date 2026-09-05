@@ -89,7 +89,7 @@ export async function sendMessage(req: Request, res: Response) {
       updatePayload.unread_by_user = ((conv?.unread_by_user || 0) as number) + 1;
       updatePayload.status = 'pending';
       if (conv?.user_email) {
-        NotificationDispatcher.dispatch({ userId: conv.user_id, email: conv.user_email, userName: conv.user_name || 'User', title: 'New Reply from Rentilly Support', category: 'system', message: ${cleanSenderName}: , metadata: { conversationId, type: 'support_reply' } }).catch(() => {});
+        NotificationDispatcher.dispatch({ userId: conv.user_id, email: conv.user_email, userName: conv.user_name || 'User', title: 'New Reply from Rentilly Support', category: 'system', message: `${cleanSenderName}: ${message.trim().slice(0, 80)}${message.trim().length > 80 ? '...' : ''}`, metadata: { conversationId, type: 'support_reply' } }).catch(() => {});
       }
     }
 
