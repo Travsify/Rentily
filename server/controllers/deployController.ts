@@ -130,6 +130,25 @@ export async function testMaplerad(req: Request, res: Response) {
 
   const apiKey = process.env.MAPLERAD_SECRET_KEY || 'mpr_sk_35d197e6-3f6b-437c-995b-a0dff522b3dc';
   
+  let nodeFetchResult: any = null;
+  try {
+    const r = await fetch('https://api.maplerad.com/v1/wallets', {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Rentilly/2.0',
+      },
+    });
+    nodeFetchResult = {
+      httpStatus: r.status,
+      body: await r.json().catch(() => ({})),
+    };
+  } catch (e: any) {
+    nodeFetchResult = { error: e.message };
+  }
+
   const cmd = `
     echo "=== IPV4 ==="
     curl -s -4 https://api.ipify.org || true
@@ -137,18 +156,8 @@ export async function testMaplerad(req: Request, res: Response) {
     echo "=== IPV6 ==="
     curl -s -6 https://api64.ipify.org || true
     echo ""
-    echo "=== IP ADDR INTERFACES ==="
-    ip -br addr || true
-    echo ""
-    echo "=== CURL MAPLERAD IPV4 WITH BROWSER HEADERS ==="
+    echo "=== CURL MAPLERAD IPV4 ==="
     curl -s -i -4 -H "Authorization: Bearer ${apiKey}" \\
-      -H "Accept: application/json" \\
-      -H "Content-Type: application/json" \\
-      -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Rentilly/2.0" \\
-      https://api.maplerad.com/v1/wallets || true
-    echo ""
-    echo "=== CURL MAPLERAD IPV6 (IF AVAILABLE) ==="
-    curl -s -i -6 -H "Authorization: Bearer ${apiKey}" \\
       -H "Accept: application/json" \\
       -H "Content-Type: application/json" \\
       -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Rentilly/2.0" \\
@@ -158,7 +167,8 @@ export async function testMaplerad(req: Request, res: Response) {
   exec(cmd, { shell: '/bin/bash' }, (error, stdout, stderr) => {
     res.json({
       status: true,
-      diagnosticOutput: stdout || stderr,
+      nodeFetchResult,
+      curlOutput: stdout || stderr,
     });
   });
 }

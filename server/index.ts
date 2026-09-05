@@ -17,7 +17,17 @@ import { initBroadcastsFromSupabase } from './controllers/broadcastController';
 import { initFeatureFlagsFromSupabase } from './controllers/featureFlagController';
 import { UserStore } from './services/userStore';
 
+import dns from 'dns';
 dotenv.config();
+
+// Force IPv4 resolution first globally across all outbound network connections
+// This ensures external APIs (Maplerad, Paystack) see the whitelisted IPv4 (69.62.127.50)
+// rather than the VPS IPv6 (2a02:4780:c:7bdf::1).
+try {
+  dns.setDefaultResultOrder('ipv4first');
+} catch (e: any) {
+  console.warn('[Network] Could not set dns default result order:', e.message);
+}
 
 // Global Outbound Proxy Dispatcher (for static IP routing through Maplerad / external APIs)
 const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
@@ -28,6 +38,23 @@ if (proxyUrl) {
     console.log(`[Proxy] 🌐 Global outbound proxy dispatcher enabled: ${proxyUrl.replace(/:[^:@]+@/, ':****@')}`);
   } catch (err: any) {
     console.warn('[Proxy] Failed to initialize ProxyAgent:', err.message);
+  }
+} else {
+  try {
+    const { Agent, setGlobalDispatcher } = await import('undici');
+    setGlobalDispatcher(
+      new Agent({
+        connect: {
+          autoSelectFamily: false,
+          lookup: (hostname, _options, callback) => {
+            dns.lookup(hostname, { family: 4 }, callback);
+          },
+        },
+      })
+    );
+    console.log('[Network] 🌐 Global IPv4 outbound dispatcher active (forcing 69.62.127.50 for all external APIs)');
+  } catch (err: any) {
+    console.warn('[Network] Failed to set undici Agent IPv4 dispatcher:', err.message);
   }
 }
 
