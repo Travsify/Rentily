@@ -1,0 +1,33 @@
+﻿name: Auto Deploy to Hostinger Production VPS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Trigger VPS Git Pull & PM2 Reload
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Auto-Deploy Signal to VPS
+        run: |
+          echo "🚀 Triggering automatic deployment on Hostinger VPS (https://api.myrentilly.com/api/deploy)..."
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST https://api.myrentilly.com/api/deploy \
+            -H "x-deploy-token: rentilly_auto_deploy_secure_key_2026" \
+            -H "Content-Type: application/json")
+          
+          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+          
+          echo "Server Response:"
+          echo "$BODY"
+          echo "HTTP Status: $HTTP_STATUS"
+          
+          if [ "$HTTP_STATUS" -eq 200 ] || [ "$HTTP_STATUS" -eq 429 ]; then
+            echo "✅ Auto-deploy signal received and processed successfully!"
+          else
+            echo "⚠️ Auto-deploy webhook returned status $HTTP_STATUS"
+            # Do not fail build if server is temporarily restarting
+            exit 0
+          fi

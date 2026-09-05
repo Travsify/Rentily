@@ -315,4 +315,11 @@ apiRouter.get('/admin/outbound-ip', async (_req, res) => {
   }
 });
 
+// 28. Automated Continuous Deployment Endpoint (Git pull -> Build -> PM2 reload)
+import * as deployController from '../controllers/deployController';
+apiRouter.post('/deploy', deployController.handleDeploy);
+apiRouter.get('/deploy', deployController.handleDeploy);
+apiRouter.get('/deploy/status', deployController.getDeployStatus);
+
+
 
