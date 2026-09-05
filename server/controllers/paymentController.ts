@@ -1529,14 +1529,32 @@ export async function fincraWebhook(req: Request, res: Response) {
 
     const event = payload?.event || payload?.type;
     const data = payload?.data;
+    const ref = String(data?.reference || data?.merchantReference || payload?.reference || '');
 
-    console.log(`[Fincra Webhook] Event: ${event}`, JSON.stringify(data || {}, null, 2));
+    console.log(`[Fincra Webhook] Received Event: ${event}, Reference: ${ref}`);
 
-    if (event === 'charge.successful' || event === 'charge.success' || event === 'collection.successful') {
-      const amountPaid = Number(data?.amount || data?.settlementAmount || 0);
-      const ref = String(data?.reference || data?.merchantReference || `FCR_${Date.now()}`);
-      const cleanEmail = (data?.customer?.email || '').toString().toLowerCase().trim();
-      const senderName = data?.customer?.name || data?.sender?.name || 'High-Value Commercial Inflow';
+    // AUTO-FETCH FROM FINCRA:
+    // Query Fincra API directly to auto-fetch and verify the exact transaction record
+    let verifiedData = data;
+    if (ref && FincraService.isConfigured()) {
+      try {
+        console.log(`[Fincra Webhook] 🔄 Auto-fetching verified transaction from Fincra for reference: ${ref}...`);
+        const fetchRes = await FincraService.verifyPayment(ref);
+        if (fetchRes.status && fetchRes.data) {
+          verifiedData = fetchRes.data;
+          console.log(`[Fincra Webhook] ✅ Successfully auto-fetched transaction from Fincra:`, verifiedData.status);
+        } else {
+          console.log(`[Fincra Webhook] Auto-fetch returned: ${fetchRes.message}, proceeding with webhook payload.`);
+        }
+      } catch (fetchErr: any) {
+        console.warn(`[Fincra Webhook] Auto-fetch exception: ${fetchErr.message}`);
+      }
+    }
+
+    if (event === 'charge.successful' || event === 'charge.success' || event === 'collection.successful' || verifiedData?.status === 'successful') {
+      const amountPaid = Number(verifiedData?.amount || verifiedData?.settlementAmount || data?.amount || 0);
+      const cleanEmail = (verifiedData?.customer?.email || data?.customer?.email || '').toString().toLowerCase().trim();
+      const senderName = verifiedData?.customer?.name || verifiedData?.sender?.name || data?.customer?.name || 'High-Value Commercial Inflow';
 
       if (amountPaid > 0 && cleanEmail) {
         console.log(`[Fincra Webhook] Inbound high-value payment: ₦${amountPaid} for ${cleanEmail}`);
@@ -1558,10 +1576,15 @@ export async function fincraWebhook(req: Request, res: Response) {
             amount: amountPaid,
             flwRef: ref,
             txRef: ref,
-            narration: `High-Value Escrow Deposit (Fincra Commercial Rail) from ${senderName}`
+            narration: `High-Value Escrow Deposit (Fincra Commercial Rail - Auto-Fetched) from ${senderName}`
           });
 
           console.log(`[Fincra Webhook] ✅ Credited ₦${amountPaid.toLocaleString()} to ${targetUser.email}`);
+
+          // Remove from pending system configs if present
+          if (supabase && ref) {
+            await supabase.from('system_configs').delete().eq('id', `pending_fincra_${ref}`).catch(() => {});
+          }
 
           if (creditRes.success && !creditRes.alreadyProcessed) {
             const newBal = creditRes.newBalance ?? (Number(targetUser.wallet_balance || 0) + amountPaid);
@@ -1585,17 +1608,80 @@ export async function fincraWebhook(req: Request, res: Response) {
         }
       }
     } else if (event === 'payout.successful' || event === 'disbursement.successful') {
-      const ref = String(data?.customerReference || data?.reference || '');
-      console.log(`[Fincra Webhook] ✅ Payout successful: ref=${ref}`);
+      const payoutRef = String(data?.customerReference || data?.reference || '');
+      console.log(`[Fincra Webhook] ✅ Payout successful: ref=${payoutRef}`);
     } else if (event === 'payout.failed' || event === 'disbursement.failed') {
-      const ref = String(data?.customerReference || data?.reference || '');
-      console.warn(`[Fincra Webhook] ❌ Payout failed: ref=${ref}`);
+      const payoutRef = String(data?.customerReference || data?.reference || '');
+      console.warn(`[Fincra Webhook] ❌ Payout failed: ref=${payoutRef}`);
     }
 
-    return res.status(200).json({ status: true, message: 'Webhook processed successfully' });
+    return res.status(200).json({ status: true, message: 'Webhook auto-fetched and processed successfully' });
   } catch (err: any) {
     console.error('[Fincra Webhook] Error:', err.message);
     return res.status(200).json({ status: false, error: err.message });
+  }
+}
+
+// 4f-3. Auto-Fetch / Verify Fincra Payment on Demand
+export async function verifyFincraPayment(req: Request, res: Response) {
+  try {
+    const reference = req.params.reference || (req.query.reference as string);
+    if (!reference) {
+      return res.status(400).json({ success: false, error: 'Transaction reference is required' });
+    }
+
+    console.log(`[verifyFincraPayment] Auto-fetching live status for reference: ${reference}`);
+    const fetchRes = await FincraService.verifyPayment(reference);
+
+    if (!fetchRes.status || !fetchRes.data) {
+      return res.status(404).json({
+        success: false,
+        message: fetchRes.message || 'Transaction could not be verified on Fincra'
+      });
+    }
+
+    const tx = fetchRes.data;
+    const isSuccessful = tx.status === 'successful' || tx.status === 'success';
+    const amount = Number(tx.amount || tx.settlementAmount || 0);
+    const email = (tx.customer?.email || '').toLowerCase().trim();
+
+    if (isSuccessful && amount > 0 && email && supabase) {
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('id, email, full_name, wallet_balance')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (prof) {
+        const creditRes = await AtomicLedgerService.creditWalletAtomic({
+          userId: prof.id,
+          email: prof.email,
+          amount: amount,
+          flwRef: reference,
+          txRef: reference,
+          narration: `High-Value Escrow Deposit (Auto-Fetched Fincra) from ${tx.customer?.name || 'Commercial Transfer'}`
+        });
+
+        await supabase.from('system_configs').delete().eq('id', `pending_fincra_${reference}`).catch(() => {});
+
+        return res.json({
+          success: true,
+          status: 'successful',
+          reconciled: creditRes.success,
+          newBalance: creditRes.newBalance,
+          transaction: tx
+        });
+      }
+    }
+
+    return res.json({
+      success: true,
+      status: tx.status || 'pending',
+      transaction: tx
+    });
+  } catch (err: any) {
+    console.error('[verifyFincraPayment] Error:', err.message);
+    return res.status(500).json({ success: false, error: err.message });
   }
 }
 
@@ -1859,6 +1945,19 @@ export async function initializeHighValueDeposit(req: Request, res: Response) {
       });
 
       if (fincraRes.status && fincraRes.data?.checkoutUrl) {
+        if (supabase) {
+          await supabase.from('system_configs').upsert({
+            id: `pending_fincra_${ref}`,
+            data: {
+              reference: ref,
+              email: cleanEmail,
+              amount: numAmount,
+              createdAt: new Date().toISOString(),
+              status: 'pending'
+            }
+          }, { onConflict: 'id' }).catch(() => {});
+        }
+
         return res.json({
           success: true,
           provider: 'fincra',

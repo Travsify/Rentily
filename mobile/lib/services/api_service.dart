@@ -1026,6 +1026,18 @@ class ApiService {
       return {'success': false, 'error': e.toString()};
     }
   }
+
+  // 22. Auto-fetch and verify Fincra High-Value Deposit status
+  static Future<Map<String, dynamic>> verifyFincraDeposit(String reference) async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/payments/fincra/verify/$reference'),
+      ).timeout(const Duration(seconds: 15));
+      return json.decode(res.body);
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
 }
 
 

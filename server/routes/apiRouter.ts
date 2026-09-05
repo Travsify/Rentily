@@ -157,6 +157,8 @@ apiRouter.post('/webhooks/fincra', paymentController.fincraWebhook);
 apiRouter.get('/payments/vault-accounts', paymentController.getVaultAccounts);
 apiRouter.post('/payments/provision-commercial-account', paymentController.provisionCommercialAccount);
 apiRouter.post('/payments/fincra/initialize-escrow-deposit', paymentController.initializeHighValueDeposit);
+apiRouter.get('/payments/fincra/verify/:reference', paymentController.verifyFincraPayment);
+apiRouter.get('/payments/fincra/verify', paymentController.verifyFincraPayment);
 apiRouter.post('/payments/korapay/initialize-escrow-deposit', paymentController.initializeHighValueDeposit);
 apiRouter.get('/system/outbound-ip', async (req, res) => {
   try {

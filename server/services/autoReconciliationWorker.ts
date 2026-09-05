@@ -4,6 +4,7 @@ import { NotificationDispatcher } from './notificationDispatcher';
 import { AtomicLedgerService } from './atomicLedgerService';
 import { UserStore } from './userStore';
 import { TransactionStore } from './transactionStore';
+import { FincraService } from './fincraService';
 
 dotenv.config();
 
@@ -48,6 +49,7 @@ export class AutoReconciliationWorker {
     await Promise.allSettled([
       this.syncFlutterwaveTransactions(),
       this.syncMapleradTransactions(),
+      this.syncFincraTransactions(),
     ]);
   }
 
@@ -506,6 +508,83 @@ export class AutoReconciliationWorker {
       }
     } catch (e: any) {
       console.warn('[AutoReconciliation] Maplerad sync exception:', e?.message || e);
+    }
+  }
+
+  /**
+   * Autonomous Fincra High-Value Escrow Auto-Fetch Worker
+   * Auto-fetches pending checkouts directly from Fincra's verification API
+   * and auto-credits users even if the webhook was delayed or dropped.
+   */
+  private static async syncFincraTransactions() {
+    if (!FincraService.isConfigured() || !supabase) return;
+
+    try {
+      const { data: pendingConfigs } = await supabase
+        .from('system_configs')
+        .select('id, data')
+        .like('id', 'pending_fincra_%')
+        .limit(20);
+
+      if (!pendingConfigs || pendingConfigs.length === 0) return;
+
+      for (const item of pendingConfigs) {
+        const deposit = item.data;
+        const ref = deposit?.reference || item.id.replace('pending_fincra_', '');
+        const email = deposit?.email;
+
+        if (!ref || !email) continue;
+
+        const fetchRes = await FincraService.verifyPayment(ref);
+        if (fetchRes.status && fetchRes.data) {
+          const tx = fetchRes.data;
+          const isSuccess = tx.status === 'successful' || tx.status === 'success';
+          const amount = Number(tx.amount || tx.settlementAmount || deposit.amount || 0);
+
+          if (isSuccess && amount > 0) {
+            const { data: prof } = await supabase
+              .from('profiles')
+              .select('id, email, full_name, wallet_balance')
+              .eq('email', email)
+              .maybeSingle();
+
+            if (prof) {
+              const creditRes = await AtomicLedgerService.creditWalletAtomic({
+                userId: prof.id,
+                email: prof.email,
+                amount: amount,
+                flwRef: ref,
+                txRef: ref,
+                narration: `High-Value Escrow Deposit (Auto-Fetched from Fincra)`
+              });
+
+              if (creditRes.success) {
+                console.log(`⚡ [AutoReconciliation] Successfully auto-fetched & credited Fincra deposit: ₦${amount.toLocaleString()} for ${email}`);
+                await supabase.from('system_configs').delete().eq('id', item.id);
+
+                NotificationDispatcher.dispatch({
+                  userId: prof.id,
+                  email: prof.email,
+                  userName: prof.full_name || 'Valued User',
+                  category: 'wallet',
+                  title: `High-Value Escrow Credited: ₦${amount.toLocaleString()}`,
+                  message: `Your deposit of ₦${amount.toLocaleString()} has been verified & credited via Fincra Commercial Rail. New Balance: ₦${(creditRes.newBalance ?? 0).toLocaleString()}.`,
+                  metadata: {
+                    amount: amount,
+                    reference: ref,
+                    provider: 'fincra',
+                    date: new Date().toISOString()
+                  }
+                }).catch(() => {});
+              }
+            }
+          } else if (tx.status === 'failed' || tx.status === 'cancelled') {
+            await supabase.from('system_configs').delete().eq('id', item.id);
+          }
+        }
+      }
+    } catch (err: any) {
+      console.warn('⚡ [AutoReconciliation] Fincra sync exception:', err.message);
     }
   }
 }
