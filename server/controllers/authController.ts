@@ -794,3 +794,121 @@ export async function updateProfile(req: Request, res: Response) {
     return res.status(500).json({ error: err.message || 'Profile update failed.' });
   }
 }
+
+// ── KYC Tier Status ────────────────────────────────────────────────────────────
+export async function getTierStatus(req: Request, res: Response) {
+  const email = ((req.query.email as string) || '').toLowerCase().trim();
+  if (!email) return res.status(400).json({ error: 'email required' });
+
+  let tier = 0;
+  let customerId = '';
+
+  if (supabase) {
+    const { data } = await supabase
+      .from('system_configs')
+      .select('data')
+      .eq('id', `maplerad_tier1_${email}`)
+      .single();
+    if (data?.data?.tier != null) {
+      tier = Number(data.data.tier);
+      customerId = data.data.customerId || '';
+    }
+  }
+
+  const canUpgradeToTier2 = tier >= 1 && tier < 2;
+  const canUpgradeToTier3 = tier >= 2 && tier < 3;
+
+  const limitsMap: Record<number, { daily: string; single: string; monthly: string }> = {
+    0: { daily: '₦20,000', single: '₦20,000', monthly: '₦100,000' },
+    1: { daily: '₦50,000', single: '₦30,000', monthly: '₦300,000' },
+    2: { daily: '₦200,000', single: '₦100,000', monthly: '₦500,000' },
+    3: { daily: '₦5,000,000', single: '₦1,000,000', monthly: 'Unlimited' },
+  };
+  const limits = limitsMap[tier] ?? limitsMap[0];
+
+  const tierLabel =
+    tier === 0 ? 'Unverified'
+    : tier === 1 ? 'Tier 1 Verified'
+    : tier === 2 ? 'Tier 2 Verified'
+    : 'Tier 3 Fully Verified';
+
+  return res.json({ tier, customerId, tierLabel, limits, canUpgradeToTier2, canUpgradeToTier3 });
+}
+
+// ── Tier 2 Upgrade ─────────────────────────────────────────────────────────────
+export async function upgradeTier2(req: Request, res: Response) {
+  try {
+    const { email, address, lga, state } = req.body;
+    if (!email || !address || !lga || !state) {
+      return res.status(400).json({ error: 'email, address, lga, and state are required' });
+    }
+    const cleanEmail = email.toLowerCase().trim();
+
+    if (!supabase) {
+      return res.status(500).json({ error: 'Database not configured.' });
+    }
+
+    // Get Maplerad customer ID from system_configs
+    const { data: cfg } = await supabase
+      .from('system_configs')
+      .select('data')
+      .eq('id', `maplerad_tier1_${cleanEmail}`)
+      .single();
+
+    const customerId = cfg?.data?.customerId;
+    if (!customerId) {
+      return res.status(400).json({ error: 'Complete Tier 1 verification first before upgrading to Tier 2.' });
+    }
+    const currentTier = Number(cfg?.data?.tier || 0);
+    if (currentTier < 1) {
+      return res.status(400).json({ error: 'You must be at Tier 1 before upgrading to Tier 2.' });
+    }
+    if (currentTier >= 2) {
+      return res.status(400).json({ error: 'You are already at Tier 2 or higher.' });
+    }
+
+    // Call Maplerad Tier 2 upgrade endpoint
+    const mapleRes = await fetch('https://api.maplerad.com/v1/customers/upgrade/tier2', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.MAPLERAD_SECRET_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ customer_id: customerId, address, lga, state, country: 'NG' }),
+    });
+    const mapleData: any = await mapleRes.json().catch(() => ({}));
+
+    if (!mapleData?.status) {
+      const errMsg = mapleData?.message || 'Tier 2 upgrade failed. Please try again.';
+      return res.status(400).json({ error: errMsg });
+    }
+
+    const newTier = mapleData?.data?.tier ?? 2;
+
+    // Persist updated tier into system_configs
+    await supabase.from('system_configs').upsert(
+      {
+        id: `maplerad_tier1_${cleanEmail}`,
+        data: {
+          ...cfg?.data,
+          tier: newTier,
+          address,
+          lga,
+          state,
+          updatedAt: new Date().toISOString(),
+        },
+      },
+      { onConflict: 'id' }
+    );
+
+    return res.json({
+      success: true,
+      tier: newTier,
+      tierLabel: 'Tier 2 Verified',
+      message: `Successfully upgraded to Tier 2! Daily limit is now ₦200,000.`,
+    });
+  } catch (err: any) {
+    console.error('upgradeTier2 error:', err);
+    return res.status(500).json({ error: err.message });
+  }
+}

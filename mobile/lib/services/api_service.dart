@@ -879,6 +879,36 @@ class ApiService {
       return {'success': false, 'message': 'Network error: $e'};
     }
   }
+
+  // 17. Fetch real Maplerad KYC tier status for the current user
+  static Future<Map<String, dynamic>> fetchTierStatus(String email) async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/auth/tier-status?email=${Uri.encodeComponent(email)}'),
+      ).timeout(const Duration(seconds: 10));
+      if (res.statusCode == 200) return json.decode(res.body);
+    } catch (_) {}
+    return {'tier': 0, 'tierLabel': 'Unverified', 'canUpgradeToTier2': false, 'canUpgradeToTier3': false};
+  }
+
+  // 18. Upgrade user to Maplerad Tier 2 via address details
+  static Future<Map<String, dynamic>> upgradeTier2({
+    required String email,
+    required String address,
+    required String lga,
+    required String state,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/auth/upgrade-tier2'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'email': email, 'address': address, 'lga': lga, 'state': state}),
+      ).timeout(const Duration(seconds: 20));
+      return json.decode(res.body);
+    } catch (e) {
+      return {'error': e.toString()};
+    }
+  }
 }
 
 

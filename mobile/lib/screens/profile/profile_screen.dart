@@ -18,6 +18,7 @@ import '../auth/login_screen.dart';
 import '../auth/register_screen.dart';
 import '../main_navigation_screen.dart';
 import '../agreements/tenancy_agreements_screen.dart';
+import '../../services/api_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -31,6 +32,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoading = true;
   bool _biometricsEnabled = true;
   bool _hasPaymentPin = false;
+  int _mapleradTier = 0;
+  bool _canUpgradeToTier2 = false;
+  Map<String, dynamic> _tierLimits = {};
+  bool _loadingTier = false;
 
   @override
   void initState() {
@@ -64,6 +69,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _hasPaymentPin = hasPin;
         _isLoading = false;
       });
+      _loadTierStatus();
+    }
+  }
+
+  Future<void> _loadTierStatus() async {
+    if (_currentUser == null) return;
+    setState(() => _loadingTier = true);
+    final data = await ApiService.fetchTierStatus(_currentUser!.email);
+    if (mounted) {
+      setState(() {
+        _mapleradTier = (data['tier'] as num?)?.toInt() ?? 0;
+        _canUpgradeToTier2 = data['canUpgradeToTier2'] == true;
+        _tierLimits = (data['limits'] as Map<String, dynamic>?) ?? {};
+        _loadingTier = false;
+      });
     }
   }
 
@@ -95,6 +115,183 @@ class _ProfileScreenState extends State<ProfileScreen> {
         (route) => false,
       );
     }
+  }
+
+  // ── KYC Tier Info & Upgrade Modals ───────────────────────────────────────────
+
+  void _showTierInfoSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Your Account Tier', style: GoogleFonts.plusJakartaSans(fontSize: 17, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text(
+              _mapleradTier >= 3
+                  ? 'Tier 3 • Fully Verified 🛡️'
+                  : _mapleradTier == 2
+                      ? 'Tier 2 Verified ✓'
+                      : 'Tier 1 Verified',
+              style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.primary, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 16),
+            _buildTierLimitRow('Daily Limit', _tierLimits['daily'] ?? 'N/A'),
+            _buildTierLimitRow('Single Transaction', _tierLimits['single'] ?? 'N/A'),
+            _buildTierLimitRow('Monthly Cumulative', _tierLimits['monthly'] ?? 'N/A'),
+            const SizedBox(height: 20),
+            if (_mapleradTier < 3)
+              Text(
+                '💡 Upgrade your tier to unlock higher transaction limits.',
+                style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
+              ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTierLimitRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary)),
+          Text(value, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+        ],
+      ),
+    );
+  }
+
+  void _showTierUpgradeModal() {
+    final addressController = TextEditingController();
+    final lgaController = TextEditingController();
+    final stateController = TextEditingController(text: _currentUser?.state ?? '');
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) {
+          bool isUpgrading = false;
+          return Padding(
+            padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Upgrade to Tier 2', style: GoogleFonts.plusJakartaSans(fontSize: 17, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text('Unlock ₦200,000 daily limit by providing your residential address.', style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary)),
+                  const SizedBox(height: 20),
+                  _buildUpgradeField('Residential Address', 'E.g. 12 Lekki Phase 1 Road', addressController),
+                  const SizedBox(height: 12),
+                  _buildUpgradeField('LGA', 'E.g. Eti-Osa', lgaController),
+                  const SizedBox(height: 12),
+                  _buildUpgradeField('State', 'E.g. Lagos', stateController),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: StatefulBuilder(
+                      builder: (ctx2, setBtn) => ElevatedButton(
+                        onPressed: isUpgrading
+                            ? null
+                            : () async {
+                                if (addressController.text.trim().isEmpty ||
+                                    lgaController.text.trim().isEmpty ||
+                                    stateController.text.trim().isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Please fill in all fields')),
+                                  );
+                                  return;
+                                }
+                                setBtn(() => isUpgrading = true);
+                                final navigator = Navigator.of(ctx);
+                                final result = await ApiService.upgradeTier2(
+                                  email: _currentUser!.email,
+                                  address: addressController.text.trim(),
+                                  lga: lgaController.text.trim(),
+                                  state: stateController.text.trim(),
+                                );
+                                setBtn(() => isUpgrading = false);
+                                navigator.pop();
+                                if (result['success'] == true) {
+                                  await _loadTierStatus();
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                      content: Text(result['message'] ?? 'Upgraded to Tier 2!'),
+                                      backgroundColor: AppColors.primary,
+                                    ));
+                                  }
+                                } else {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                      content: Text(result['error'] ?? 'Upgrade failed'),
+                                      backgroundColor: Colors.red,
+                                    ));
+                                  }
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        child: isUpgrading
+                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                            : Text('Upgrade to Tier 2', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, color: Colors.white)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildUpgradeField(String label, String hint, TextEditingController controller) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+        const SizedBox(height: 6),
+        TextField(
+          controller: controller,
+          style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textMuted),
+            filled: true,
+            fillColor: const Color(0xFFF9FAFB),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -233,23 +430,76 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ),
                           const SizedBox(height: 6),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
-                            decoration: BoxDecoration(
-                              color: AppColors.primaryLight.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(color: AppColors.primaryLight.withValues(alpha: 0.4)),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.verified, size: 11, color: AppColors.primaryLight),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'Tier-3 Verified Escrow Account',
-                                  style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.primary),
+                          GestureDetector(
+                            onTap: _canUpgradeToTier2
+                                ? _showTierUpgradeModal
+                                : (_mapleradTier > 0 ? _showTierInfoSheet : null),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                              decoration: BoxDecoration(
+                                color: _mapleradTier >= 3
+                                    ? const Color(0xFF0D5C46).withValues(alpha: 0.12)
+                                    : _mapleradTier == 2
+                                        ? const Color(0xFF0369A1).withValues(alpha: 0.12)
+                                        : _mapleradTier == 1
+                                            ? const Color(0xFFD97706).withValues(alpha: 0.12)
+                                            : const Color(0xFF6B7280).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: _mapleradTier >= 3
+                                      ? const Color(0xFF0D5C46).withValues(alpha: 0.4)
+                                      : _mapleradTier == 2
+                                          ? const Color(0xFF0369A1).withValues(alpha: 0.4)
+                                          : _mapleradTier == 1
+                                              ? const Color(0xFFD97706).withValues(alpha: 0.4)
+                                              : const Color(0xFF6B7280).withValues(alpha: 0.3),
                                 ),
-                              ],
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    _mapleradTier >= 2
+                                        ? Icons.verified
+                                        : _mapleradTier == 1
+                                            ? Icons.shield_outlined
+                                            : Icons.lock_outline_rounded,
+                                    size: 11,
+                                    color: _mapleradTier >= 3
+                                        ? const Color(0xFF0D5C46)
+                                        : _mapleradTier == 2
+                                            ? const Color(0xFF0369A1)
+                                            : _mapleradTier == 1
+                                                ? const Color(0xFFD97706)
+                                                : const Color(0xFF6B7280),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    _mapleradTier >= 3
+                                        ? 'Tier 3 • Fully Verified 🛡️'
+                                        : _mapleradTier == 2
+                                            ? 'Tier 2 Verified ✓'
+                                            : _mapleradTier == 1
+                                                ? 'Tier 1 • Tap to Upgrade'
+                                                : 'Unverified • Tap to Verify',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                      color: _mapleradTier >= 3
+                                          ? const Color(0xFF0D5C46)
+                                          : _mapleradTier == 2
+                                              ? const Color(0xFF0369A1)
+                                              : _mapleradTier == 1
+                                                  ? const Color(0xFFD97706)
+                                                  : const Color(0xFF6B7280),
+                                    ),
+                                  ),
+                                  if (_canUpgradeToTier2) ...[
+                                    const SizedBox(width: 4),
+                                    const Icon(Icons.arrow_forward_ios_rounded, size: 7, color: Color(0xFFD97706)),
+                                  ],
+                                ],
+                              ),
                             ),
                           ),
                         ],

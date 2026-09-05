@@ -116,6 +116,8 @@ apiRouter.patch('/auth/update-profile', authController.updateProfile); // update
 apiRouter.post('/users/create', authController.adminCreateUser);
 apiRouter.post('/users/:id/reset-password', authController.adminResetPassword);
 apiRouter.patch('/users/:id/role', authController.adminUpdateUserRole);
+apiRouter.get('/auth/tier-status', authController.getTierStatus);
+apiRouter.post('/auth/upgrade-tier2', authController.upgradeTier2);
 
 // 3. Analytics & GMV
 apiRouter.get('/analytics/metrics', analyticsController.getMetrics);

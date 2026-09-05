@@ -26,6 +26,7 @@ class UserProfile {
   final String? dob;
   final String? bvn;
   final String? kycFailureReason;
+  final int mapleradTier;
 
   UserProfile({
     required this.id,
@@ -53,6 +54,7 @@ class UserProfile {
     this.rekycRequired = false,
     this.dob,
     this.kycFailureReason,
+    this.mapleradTier = 0,
   });
 
   // Role detection getters
@@ -136,6 +138,7 @@ class UserProfile {
       dob: json['dob']?.toString(),
       bvn: json['bvn']?.toString() ?? json['bvn_number']?.toString(),
       kycFailureReason: json['kycFailureReason']?.toString() ?? json['kyc_failure_reason']?.toString() ?? json['reason']?.toString(),
+      mapleradTier: (json['mapleradTier'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -166,6 +169,7 @@ class UserProfile {
       'rekycRequired': rekycRequired,
       'dob': dob,
       'kycFailureReason': kycFailureReason,
+      'mapleradTier': mapleradTier,
     };
   }
 
@@ -195,6 +199,7 @@ class UserProfile {
     bool? rekycRequired,
     String? dob,
     String? kycFailureReason,
+    int? mapleradTier,
   }) {
     return UserProfile(
       id: id ?? this.id,
@@ -222,6 +227,7 @@ class UserProfile {
       rekycRequired: rekycRequired ?? this.rekycRequired,
       dob: dob ?? this.dob,
       kycFailureReason: kycFailureReason ?? this.kycFailureReason,
+      mapleradTier: mapleradTier ?? this.mapleradTier,
     );
   }
 }
