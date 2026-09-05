@@ -159,4 +159,98 @@ export class PaystackService {
       return [];
     }
   }
+
+  // 6. Create Dedicated Commercial Bank Virtual Account (Wema Bank) for High-Value Escrows
+  static async createDedicatedAccount(params: {
+    email: string;
+    firstName: string;
+    lastName: string;
+    phone?: string;
+    preferredBank?: string;
+  }): Promise<{
+    status: boolean;
+    data?: {
+      accountNumber: string;
+      accountName: string;
+      bankName: string;
+      bankId?: number;
+      customerCode: string;
+    };
+    message?: string;
+  }> {
+    try {
+      const cleanEmail = params.email.trim().toLowerCase();
+      // Step A: Ensure customer exists on Paystack
+      const custRes = await fetch(`${PAYSTACK_BASE_URL}/customer`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({
+          email: cleanEmail,
+          first_name: params.firstName || 'Rentilly',
+          last_name: params.lastName || 'User',
+          phone: params.phone || '+2348000000000'
+        })
+      });
+
+      const custJson: any = await custRes.json();
+      const customerCode = custJson?.data?.customer_code;
+      if (!customerCode) {
+        return {
+          status: false,
+          message: custJson?.message || 'Failed to create or retrieve Paystack customer profile'
+        };
+      }
+
+      // Step B: Request Dedicated NUBAN Account (Wema Bank Commercial Rail)
+      const dvaRes = await fetch(`${PAYSTACK_BASE_URL}/dedicated_account`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({
+          customer: customerCode,
+          preferred_bank: params.preferredBank || 'wema-bank'
+        })
+      });
+
+      const dvaJson: any = await dvaRes.json();
+      if (dvaRes.ok && dvaJson.status && dvaJson.data) {
+        return {
+          status: true,
+          data: {
+            accountNumber: dvaJson.data.account_number,
+            accountName: dvaJson.data.account_name,
+            bankName: dvaJson.data.bank?.name || 'Wema Bank',
+            bankId: dvaJson.data.bank?.id,
+            customerCode
+          }
+        };
+      }
+
+      // If already assigned, fetch existing dedicated account
+      const fetchDvaRes = await fetch(`${PAYSTACK_BASE_URL}/dedicated_account?customer=${customerCode}`, {
+        headers: this.getHeaders()
+      });
+      const fetchJson: any = await fetchDvaRes.json();
+      if (fetchDvaRes.ok && fetchJson.status && fetchJson.data && fetchJson.data.length > 0) {
+        const existing = fetchJson.data[0];
+        return {
+          status: true,
+          data: {
+            accountNumber: existing.account_number,
+            accountName: existing.account_name,
+            bankName: existing.bank?.name || 'Wema Bank',
+            bankId: existing.bank?.id,
+            customerCode
+          }
+        };
+      }
+
+      return {
+        status: false,
+        message: dvaJson?.message || 'Failed to assign dedicated commercial bank account'
+      };
+    } catch (err: any) {
+      console.error('[PaystackService] createDedicatedAccount error:', err.message);
+      return { status: false, message: err.message };
+    }
+  }
 }

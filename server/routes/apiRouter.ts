@@ -150,6 +150,11 @@ apiRouter.post('/payments/pay-bill', paymentController.payBill);
 apiRouter.get('/payments/transactions', paymentController.getUserTransactions);
 apiRouter.post('/webhooks/flutterwave', paymentController.flutterwaveWebhook);
 apiRouter.post('/webhooks/maplerad', paymentController.mapleradWebhook);
+apiRouter.post('/webhooks/paystack', paymentController.paystackWebhook);
+apiRouter.post('/webhooks/korapay', paymentController.korapayWebhook);
+apiRouter.get('/payments/vault-accounts', paymentController.getVaultAccounts);
+apiRouter.post('/payments/provision-commercial-account', paymentController.provisionCommercialAccount);
+apiRouter.post('/payments/korapay/initialize-escrow-deposit', paymentController.initializeHighValueDeposit);
 apiRouter.get('/system/outbound-ip', async (req, res) => {
   try {
     const r = await fetch('https://api.ipify.org');

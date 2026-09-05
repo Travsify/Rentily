@@ -14,9 +14,15 @@ export interface KorapayVirtualAccount {
 }
 
 export class KorapayService {
-  private static readonly BASE_URL = process.env.KORAPAY_BASE_URL || 'https://api.korapay.com/merchant/api/v1';
-  private static readonly SECRET_KEY = process.env.KORAPAY_SECRET_KEY || 'sk_test_E7DHGNWAeM12Rj7Pc6CJdX6a9TgpSbeWTWZsAQQZ';
-  private static readonly PUBLIC_KEY = process.env.KORAPAY_PUBLIC_KEY || 'pk_test_VPuiugq5MZafQUpmG2Ffk7LLbG6QFBzYu5HEMA3y';
+  private static get BASE_URL(): string {
+    return process.env.KORAPAY_BASE_URL || 'https://api.korapay.com/merchant/api/v1';
+  }
+  private static get SECRET_KEY(): string {
+    return process.env.KORAPAY_SECRET_KEY || '';
+  }
+  private static get PUBLIC_KEY(): string {
+    return process.env.KORAPAY_PUBLIC_KEY || '';
+  }
 
   private static getHeaders() {
     return {
@@ -130,6 +136,59 @@ export class KorapayService {
       return {
         status: false,
         message: err.message || 'Error connecting to Korapay Virtual Account API'
+      };
+    }
+  }
+
+  /**
+   * Initialize a High-Value Checkout or Inflow on Korapay
+   */
+  static async initializeCheckout(params: {
+    reference: string;
+    amount: number;
+    currency?: string;
+    customerEmail: string;
+    customerName: string;
+    redirectUrl?: string;
+    description?: string;
+  }): Promise<{ status: boolean; data?: { checkoutUrl: string; reference: string }; message?: string }> {
+    try {
+      const res = await fetch(`${this.BASE_URL}/charges/initialize`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({
+          reference: params.reference,
+          amount: params.amount,
+          currency: params.currency || 'NGN',
+          customer: {
+            name: params.customerName,
+            email: params.customerEmail
+          },
+          information: params.description || 'Rentilly High-Value Escrow Funding',
+          redirect_url: params.redirectUrl || 'https://myrentilly.com/wallet',
+          channels: ['bank_transfer', 'card']
+        })
+      });
+
+      const resJson: any = await res.json();
+      if (res.ok && resJson.status && resJson.data) {
+        return {
+          status: true,
+          data: {
+            checkoutUrl: resJson.data.checkout_url,
+            reference: resJson.data.reference
+          }
+        };
+      }
+
+      return {
+        status: false,
+        message: resJson.message || 'Failed to initialize Korapay checkout'
+      };
+    } catch (err: any) {
+      return {
+        status: false,
+        message: err.message || 'Error connecting to Korapay Checkout API'
       };
     }
   }

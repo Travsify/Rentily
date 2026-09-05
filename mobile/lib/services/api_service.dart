@@ -891,22 +891,50 @@ class ApiService {
     return {'tier': 0, 'tierLabel': 'Unverified', 'canUpgradeToTier2': false, 'canUpgradeToTier3': false};
   }
 
-  // 18. Upgrade user to Maplerad Tier 2 via address details
-  static Future<Map<String, dynamic>> upgradeTier2({
-    required String email,
-    required String address,
-    required String lga,
-    required String state,
-  }) async {
+  // 19. Fetch all User Funding Vaults (Daily 9PSB, Commercial Wema Bank Escrow, USDT TRC20)
+  static Future<Map<String, dynamic>> fetchVaultAccounts(String email) async {
+    try {
+      final res = await http.get(
+        Uri.parse('$baseUrl/payments/vault-accounts?email=${Uri.encodeComponent(email)}'),
+      ).timeout(const Duration(seconds: 15));
+      if (res.statusCode == 200) return json.decode(res.body);
+    } catch (_) {}
+    return {'success': false};
+  }
+
+  // 20. Provision Dedicated Commercial Bank Account (Wema Bank)
+  static Future<Map<String, dynamic>> provisionCommercialAccount(String email) async {
     try {
       final res = await http.post(
-        Uri.parse('$baseUrl/auth/upgrade-tier2'),
+        Uri.parse('$baseUrl/payments/provision-commercial-account'),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode({'email': email, 'address': address, 'lga': lga, 'state': state}),
+        body: json.encode({'email': email}),
       ).timeout(const Duration(seconds: 20));
       return json.decode(res.body);
     } catch (e) {
-      return {'error': e.toString()};
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  // 21. Initialize High-Value Rent/Escrow Payment via Korapay Checkout
+  static Future<Map<String, dynamic>> initializeHighValueDeposit({
+    required String email,
+    required double amount,
+    String? propertyTitle,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/payments/korapay/initialize-escrow-deposit'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'email': email,
+          'amount': amount,
+          'propertyTitle': propertyTitle,
+        }),
+      ).timeout(const Duration(seconds: 20));
+      return json.decode(res.body);
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
     }
   }
 }

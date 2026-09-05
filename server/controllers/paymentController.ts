@@ -12,6 +12,7 @@ import { CardIssuingService } from '../services/cardIssuingService';
 import { getFeatureFlags } from './featureFlagController';
 import { AtomicLedgerService } from '../services/atomicLedgerService';
 import { MapleradBankingService } from '../services/mapleradBankingService';
+import { KorapayService } from '../services/korapayService';
 
 export async function createVirtualAccount(req: Request, res: Response) {
   try {
@@ -1336,6 +1337,447 @@ export async function mapleradWebhook(req: Request, res: Response) {
     }
   } catch (err: any) {
     console.error('[Maplerad Webhook] Exception:', err.message);
+  }
+}
+
+// 4e. Paystack Webhook Listener (Inflows to Commercial Dedicated Accounts & Charges)
+export async function paystackWebhook(req: Request, res: Response) {
+  try {
+    const event = req.body?.event;
+    const data = req.body?.data;
+
+    console.log(`[Paystack Webhook] Event: ${event}`, JSON.stringify(data || {}, null, 2));
+
+    if (event === 'charge.success') {
+      const amountPaid = Math.round(Number(data?.amount || 0)) / 100; // Paystack sends Kobo
+      const ref = String(data?.reference || `PAY_${Date.now()}`);
+      const cleanEmail = (data?.customer?.email || '').toString().toLowerCase().trim();
+      const senderName = data?.authorization?.sender_name || data?.customer?.first_name 
+        ? `${data?.customer?.first_name || ''} ${data?.customer?.last_name || ''}`.trim() 
+        : 'Inbound Bank Transfer';
+      const dedicatedAcc = data?.dedicated_account?.account_number;
+      const bankName = data?.dedicated_account?.bank?.name || 'Wema Bank Commercial Rail';
+
+      if (amountPaid <= 0) {
+        return res.status(200).json({ status: true, message: 'Zero amount ignored' });
+      }
+
+      console.log(`[Paystack Webhook] Inbound transfer: ₦${amountPaid} to ${dedicatedAcc || 'dedicated account'} for ${cleanEmail}`);
+
+      let targetUser: any = null;
+
+      if (supabase && cleanEmail) {
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('id, email, full_name, wallet_balance')
+          .eq('email', cleanEmail)
+          .maybeSingle();
+        targetUser = prof;
+      }
+
+      if (!targetUser && dedicatedAcc && supabase) {
+        // Try matching by dedicated account in system_configs
+        const { data: configs } = await supabase
+          .from('system_configs')
+          .select('id, data')
+          .like('id', 'commercial_wema_%');
+
+        if (configs && configs.length > 0) {
+          const matched = configs.find(c => c.data?.accountNumber === dedicatedAcc);
+          if (matched) {
+            const matchEmail = matched.id.replace('commercial_wema_', '');
+            const { data: prof } = await supabase
+              .from('profiles')
+              .select('id, email, full_name, wallet_balance')
+              .eq('email', matchEmail)
+              .maybeSingle();
+            targetUser = prof;
+          }
+        }
+      }
+
+      if (targetUser) {
+        const creditRes = await AtomicLedgerService.creditWalletAtomic({
+          userId: targetUser.id,
+          email: targetUser.email,
+          amount: amountPaid,
+          flwRef: ref,
+          txRef: ref,
+          narration: `Commercial Escrow Inflow (Wema Bank • ${dedicatedAcc || 'Dedicated Account'}) from ${senderName}`
+        });
+
+        console.log(`[Paystack Webhook] ✅ Credited ₦${amountPaid.toLocaleString()} to ${targetUser.email}`);
+
+        if (creditRes.success && !creditRes.alreadyProcessed) {
+          const newBal = creditRes.newBalance ?? (Number(targetUser.wallet_balance || 0) + amountPaid);
+
+          // Dispatch notifications
+          NotificationDispatcher.dispatch({
+            userId: targetUser.id,
+            email: targetUser.email,
+            userName: targetUser.full_name || 'Valued User',
+            category: 'wallet',
+            title: `High-Value Escrow Alert: ₦${amountPaid.toLocaleString()} Received`,
+            message: `Your Rentilly High-Value Escrow Vault received ₦${amountPaid.toLocaleString()} via ${bankName}. New Balance: ₦${newBal.toLocaleString()}.`,
+            metadata: {
+              amount: amountPaid,
+              reference: ref,
+              bankName: bankName,
+              sender: senderName,
+              date: new Date().toISOString()
+            }
+          }).catch(e => console.warn('[Paystack Webhook] Notification dispatch error:', e.message));
+        }
+      } else {
+        console.warn(`[Paystack Webhook] Could not match target user for ${cleanEmail} / ${dedicatedAcc}`);
+      }
+    }
+
+    return res.status(200).json({ status: true });
+  } catch (err: any) {
+    console.error('[Paystack Webhook] Error:', err.message);
+    return res.status(200).json({ status: false, error: err.message });
+  }
+}
+
+// 4f. Korapay Webhook Listener (Inflows to Korapay Accounts & Dynamic Checkouts)
+export async function korapayWebhook(req: Request, res: Response) {
+  try {
+    const event = req.body?.event;
+    const data = req.body?.data;
+
+    console.log(`[Korapay Webhook] Event: ${event}`, JSON.stringify(data || {}, null, 2));
+
+    if (event === 'charge.success') {
+      const amountPaid = Number(data?.amount || 0);
+      const ref = String(data?.reference || `KPY_${Date.now()}`);
+      const cleanEmail = (data?.customer?.email || '').toString().toLowerCase().trim();
+      const senderName = data?.payer_bank_account?.account_name || data?.customer?.name || 'Inbound Bank Transfer';
+
+      if (amountPaid <= 0) {
+        return res.status(200).json({ status: true });
+      }
+
+      console.log(`[Korapay Webhook] Inbound transfer: ₦${amountPaid} for ${cleanEmail}`);
+
+      let targetUser: any = null;
+      if (supabase && cleanEmail) {
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('id, email, full_name, wallet_balance')
+          .eq('email', cleanEmail)
+          .maybeSingle();
+        targetUser = prof;
+      }
+
+      if (targetUser) {
+        const creditRes = await AtomicLedgerService.creditWalletAtomic({
+          userId: targetUser.id,
+          email: targetUser.email,
+          amount: amountPaid,
+          flwRef: ref,
+          txRef: ref,
+          narration: `High-Value Escrow Deposit (Korapay Commercial Rail) from ${senderName}`
+        });
+
+        console.log(`[Korapay Webhook] ✅ Credited ₦${amountPaid.toLocaleString()} to ${targetUser.email}`);
+
+        if (creditRes.success && !creditRes.alreadyProcessed) {
+          const newBal = creditRes.newBalance ?? (Number(targetUser.wallet_balance || 0) + amountPaid);
+
+          NotificationDispatcher.dispatch({
+            userId: targetUser.id,
+            email: targetUser.email,
+            userName: targetUser.full_name || 'Valued User',
+            category: 'wallet',
+            title: `High-Value Escrow Alert: ₦${amountPaid.toLocaleString()} Received`,
+            message: `Your Rentilly High-Value Escrow Vault received ₦${amountPaid.toLocaleString()} via Korapay Commercial Rail. New Balance: ₦${newBal.toLocaleString()}.`,
+            metadata: {
+              amount: amountPaid,
+              reference: ref,
+              bankName: 'Korapay Commercial Rail',
+              sender: senderName,
+              date: new Date().toISOString()
+            }
+          }).catch(e => console.warn('[Korapay Webhook] Notification dispatch error:', e.message));
+        }
+      }
+    }
+
+    return res.status(200).json({ status: true });
+  } catch (err: any) {
+    console.error('[Korapay Webhook] Error:', err.message);
+    return res.status(200).json({ status: false, error: err.message });
+  }
+}
+
+// 4g. Provision Dedicated Commercial Bank Account (Wema Bank) for High-Value Escrows
+export async function provisionCommercialAccount(req: Request, res: Response) {
+  try {
+    const { email, firstName, lastName, phone } = req.body;
+    const cleanEmail = (email || '').toString().toLowerCase().trim();
+    if (!cleanEmail) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    // 1. Check if already provisioned in system_configs
+    if (supabase) {
+      const { data: existingConfig } = await supabase
+        .from('system_configs')
+        .select('data')
+        .eq('id', `commercial_wema_${cleanEmail}`)
+        .maybeSingle();
+
+      if (existingConfig?.data?.accountNumber) {
+        return res.json({
+          success: true,
+          isNew: false,
+          account: existingConfig.data
+        });
+      }
+    }
+
+    // 2. Fetch user profile for name & phone if not provided
+    let userFullName = `${firstName || ''} ${lastName || ''}`.trim();
+    let userPhone = phone;
+
+    if (supabase && (!userFullName || !userPhone)) {
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('full_name, phone_number')
+        .eq('email', cleanEmail)
+        .maybeSingle();
+      if (prof) {
+        if (!userFullName) userFullName = prof.full_name || cleanEmail.split('@')[0];
+        if (!userPhone) userPhone = prof.phone_number;
+      }
+    }
+
+    const nameParts = (userFullName || 'Rentilly User').split(' ');
+    const fName = nameParts[0] || 'Rentilly';
+    const lName = nameParts.slice(1).join(' ') || 'User';
+
+    console.log(`[provisionCommercialAccount] Requesting Wema Bank Commercial Account for ${cleanEmail}...`);
+
+    const dvaRes = await PaystackService.createDedicatedAccount({
+      email: cleanEmail,
+      firstName: fName,
+      lastName: lName,
+      phone: userPhone || '+2348000000000',
+      preferredBank: 'wema-bank'
+    });
+
+    if (dvaRes.status && dvaRes.data) {
+      const accountData = {
+        accountNumber: dvaRes.data.accountNumber,
+        accountName: dvaRes.data.accountName,
+        bankName: dvaRes.data.bankName || 'Wema Bank Plc',
+        bankId: dvaRes.data.bankId,
+        provider: 'paystack_wema',
+        tier: 'Commercial High-Value',
+        singleLimit: '₦100,000,000+',
+        dailyLimit: 'Unlimited / Corporate RTGS',
+        description: 'Dedicated Commercial Bank Account for Rent, Escrow & High-Value Inflows'
+      };
+
+      if (supabase) {
+        await supabase.from('system_configs').upsert({
+          id: `commercial_wema_${cleanEmail}`,
+          data: accountData,
+          updated_at: new Date().toISOString()
+        });
+      }
+
+      return res.json({
+        success: true,
+        isNew: true,
+        account: accountData
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      error: dvaRes.message || 'Failed to provision dedicated commercial bank account'
+    });
+  } catch (err: any) {
+    console.error('[provisionCommercialAccount] Error:', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+}
+
+// 4h. Retrieve all user funding vaults (Daily 9PSB, High-Value Wema Commercial, USDT TRC20)
+export async function getVaultAccounts(req: Request, res: Response) {
+  try {
+    const email = (req.query.email as string || '').toLowerCase().trim();
+    if (!email) {
+      return res.status(400).json({ error: 'Email parameter is required' });
+    }
+
+    let dailyVault: any = null;
+    let highValueVault: any = null;
+    let usdtVault: any = null;
+
+    if (supabase) {
+      // 1. Fetch Maplerad / 9PSB Daily Vault
+      const { data: mapleConfig } = await supabase
+        .from('system_configs')
+        .select('data')
+        .eq('id', `maplerad_tier1_${email}`)
+        .maybeSingle();
+
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('account_number, bank_name, full_name')
+        .eq('email', email)
+        .maybeSingle();
+
+      const dailyAcc = mapleConfig?.data?.accountNumber || prof?.account_number;
+      const dailyBank = mapleConfig?.data?.bankName || prof?.bank_name || '9PSB (Rentilly)';
+      const dailyTier = mapleConfig?.data?.tier ?? (prof?.account_number ? 1 : 0);
+
+      dailyVault = {
+        vaultType: 'daily_cards',
+        title: 'Daily & Cards Vault',
+        tag: 'Everyday & Card Top-Ups',
+        accountNumber: dailyAcc || null,
+        bankName: dailyBank,
+        tier: `Tier ${dailyTier}`,
+        dailyLimit: dailyTier >= 3 ? '₦5,000,000' : dailyTier === 2 ? '₦200,000' : '₦50,000',
+        singleLimit: dailyTier >= 3 ? '₦1,000,000' : dailyTier === 2 ? '₦100,000' : '₦30,000',
+        recommendedFor: 'Virtual Dollar Cards, Utility Bills, Airtime & Daily Spending'
+      };
+
+      if (mapleConfig?.data?.usdtTronAddress) {
+        usdtVault = {
+          vaultType: 'usdt_trc20',
+          title: 'USDT TRC20 Crypto Vault',
+          network: 'TRON (TRC20)',
+          address: mapleConfig.data.usdtTronAddress
+        };
+      }
+
+      // 2. Fetch Commercial High-Value Vault (Wema Bank via Paystack/Korapay)
+      const { data: wemaConfig } = await supabase
+        .from('system_configs')
+        .select('data')
+        .eq('id', `commercial_wema_${email}`)
+        .maybeSingle();
+
+      if (wemaConfig?.data?.accountNumber) {
+        highValueVault = {
+          vaultType: 'high_value_escrow',
+          title: 'High-Value Escrow & Rent Vault',
+          tag: 'Commercial Bank • No PSB Limits',
+          accountNumber: wemaConfig.data.accountNumber,
+          accountName: wemaConfig.data.accountName || prof?.full_name || 'Rentilly Escrow Client',
+          bankName: wemaConfig.data.bankName || 'Wema Bank Plc',
+          tier: 'Commercial Tier (Enterprise)',
+          singleLimit: '₦100,000,000+',
+          dailyLimit: 'Unlimited / Corporate RTGS',
+          recommendedFor: 'Annual Rent, Escrow Locks, Luxury Leases & ₦5M - ₦100M+ Inflows'
+        };
+      } else {
+        // Auto-provision Wema Commercial Account on first read
+        try {
+          const nameParts = (prof?.full_name || email.split('@')[0]).split(' ');
+          const dvaRes = await PaystackService.createDedicatedAccount({
+            email,
+            firstName: nameParts[0] || 'Rentilly',
+            lastName: nameParts.slice(1).join(' ') || 'User',
+            preferredBank: 'wema-bank'
+          });
+
+          if (dvaRes.status && dvaRes.data) {
+            const wemaData = {
+              accountNumber: dvaRes.data.accountNumber,
+              accountName: dvaRes.data.accountName,
+              bankName: dvaRes.data.bankName || 'Wema Bank Plc',
+              bankId: dvaRes.data.bankId,
+              provider: 'paystack_wema',
+              tier: 'Commercial High-Value',
+              singleLimit: '₦100,000,000+',
+              dailyLimit: 'Unlimited / Corporate RTGS'
+            };
+
+            await supabase.from('system_configs').upsert({
+              id: `commercial_wema_${email}`,
+              data: wemaData,
+              updated_at: new Date().toISOString()
+            });
+
+            highValueVault = {
+              vaultType: 'high_value_escrow',
+              title: 'High-Value Escrow & Rent Vault',
+              tag: 'Commercial Bank • No PSB Limits',
+              accountNumber: wemaData.accountNumber,
+              accountName: wemaData.accountName || prof?.full_name,
+              bankName: wemaData.bankName,
+              tier: 'Commercial Tier (Enterprise)',
+              singleLimit: '₦100,000,000+',
+              dailyLimit: 'Unlimited / Corporate RTGS',
+              recommendedFor: 'Annual Rent, Escrow Locks, Luxury Leases & ₦5M - ₦100M+ Inflows'
+            };
+          }
+        } catch (dvaErr: any) {
+          console.warn('[getVaultAccounts] Auto-provision Wema warning:', dvaErr.message);
+        }
+      }
+    }
+
+    return res.json({
+      success: true,
+      dailyVault,
+      highValueVault,
+      usdtVault
+    });
+  } catch (err: any) {
+    console.error('[getVaultAccounts] Error:', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+}
+
+// 4i. Initialize High-Value Rent/Escrow Payment via Korapay Checkout
+export async function initializeHighValueDeposit(req: Request, res: Response) {
+  try {
+    const { email, amount, propertyTitle } = req.body;
+    const cleanEmail = (email || '').toLowerCase().trim();
+    const numAmount = Number(amount || 0);
+
+    if (!cleanEmail || numAmount <= 0) {
+      return res.status(400).json({ error: 'Valid email and deposit amount required.' });
+    }
+
+    let customerName = cleanEmail.split('@')[0];
+    if (supabase) {
+      const { data: prof } = await supabase.from('profiles').select('full_name').eq('email', cleanEmail).maybeSingle();
+      if (prof?.full_name) customerName = prof.full_name;
+    }
+
+    const ref = `RNT_HV_${Date.now()}`;
+    const checkoutRes = await KorapayService.initializeCheckout({
+      reference: ref,
+      amount: numAmount,
+      currency: 'NGN',
+      customerEmail: cleanEmail,
+      customerName,
+      description: propertyTitle ? `Escrow Deposit for ${propertyTitle}` : 'Rentilly High-Value Escrow Deposit'
+    });
+
+    if (checkoutRes.status && checkoutRes.data) {
+      return res.json({
+        success: true,
+        reference: ref,
+        checkoutUrl: checkoutRes.data.checkoutUrl
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      error: checkoutRes.message || 'Could not initialize Korapay high-value checkout'
+    });
+  } catch (err: any) {
+    console.error('[initializeHighValueDeposit] Error:', err.message);
+    return res.status(500).json({ error: err.message });
   }
 }
 
