@@ -281,7 +281,7 @@ export class CardIssuingService {
               billingAddress: this.DEFAULT_BILLING_ADDRESS,
               createdAt: c.created_at || new Date().toISOString(),
             };
-          }));
+          });
 
           _runtimeCardCache.set(cleanEmail, cards);
           return cards;
