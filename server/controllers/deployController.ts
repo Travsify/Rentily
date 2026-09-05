@@ -129,47 +129,37 @@ export async function testMaplerad(req: Request, res: Response) {
   }
 
   const apiKey = process.env.MAPLERAD_SECRET_KEY || 'mpr_sk_35d197e6-3f6b-437c-995b-a0dff522b3dc';
-  try {
-    const ipRes = await fetch('https://api.ipify.org');
-    const outboundIp = await ipRes.text();
+  
+  const cmd = `
+    echo "=== IPV4 ==="
+    curl -s -4 https://api.ipify.org || true
+    echo ""
+    echo "=== IPV6 ==="
+    curl -s -6 https://api64.ipify.org || true
+    echo ""
+    echo "=== IP ADDR INTERFACES ==="
+    ip -br addr || true
+    echo ""
+    echo "=== CURL MAPLERAD IPV4 WITH BROWSER HEADERS ==="
+    curl -s -i -4 -H "Authorization: Bearer ${apiKey}" \\
+      -H "Accept: application/json" \\
+      -H "Content-Type: application/json" \\
+      -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Rentilly/2.0" \\
+      https://api.maplerad.com/v1/wallets || true
+    echo ""
+    echo "=== CURL MAPLERAD IPV6 (IF AVAILABLE) ==="
+    curl -s -i -6 -H "Authorization: Bearer ${apiKey}" \\
+      -H "Accept: application/json" \\
+      -H "Content-Type: application/json" \\
+      -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Rentilly/2.0" \\
+      https://api.maplerad.com/v1/wallets || true
+  `;
 
-    // Test 1: GET Wallets
-    const walletsRes = await fetch('https://api.maplerad.com/v1/wallets', {
-      headers: { Authorization: `Bearer ${apiKey}` },
-    });
-    const walletsStatus = walletsRes.status;
-    const walletsBody = await walletsRes.json().catch(() => ({}));
-
-    // Test 2: POST Transfers
-    const mapleRes = await fetch('https://api.maplerad.com/v1/transfers', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        bank_code: '105',
-        account_number: '3001978024',
-        amount: 10000,
-        currency: 'NGN',
-        reason: 'Diagnostic test',
-        reference: `DIAG_${Date.now()}`,
-      }),
-    });
-
-    const transferStatus = mapleRes.status;
-    const transferBody = await mapleRes.json().catch(async () => await mapleRes.text());
-
+  exec(cmd, { shell: '/bin/bash' }, (error, stdout, stderr) => {
     res.json({
-      outboundIp,
-      keyMask: apiKey ? `${apiKey.slice(0, 8)}...${apiKey.slice(-4)}` : 'MISSING',
-      walletsStatus,
-      walletsResponse: walletsBody,
-      transferStatus,
-      transferResponse: transferBody,
+      status: true,
+      diagnosticOutput: stdout || stderr,
     });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+  });
 }
 
