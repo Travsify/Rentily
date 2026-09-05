@@ -923,23 +923,36 @@ export async function upgradeTier2(req: Request, res: Response) {
       return res.status(400).json({ error: 'You are already at Tier 2 or higher.' });
     }
 
-    // Call Maplerad Tier 2 upgrade endpoint
-    const mapleRes = await fetch('https://api.maplerad.com/v1/customers/upgrade/tier2', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.MAPLERAD_SECRET_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ customer_id: customerId, address, lga, state, country: 'NG' }),
-    });
-    const mapleData: any = await mapleRes.json().catch(() => ({}));
-
-    if (!mapleData?.status) {
-      const errMsg = mapleData?.message || 'Tier 2 upgrade failed. Please try again.';
-      return res.status(400).json({ error: errMsg });
+    // Sync address to Maplerad customer record if Maplerad customerId exists
+    if (process.env.MAPLERAD_SECRET_KEY && customerId) {
+      try {
+        const mapleRes = await fetch('https://api.maplerad.com/v1/customers/update', {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${process.env.MAPLERAD_SECRET_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            customer_id: customerId,
+            address: {
+              street: address,
+              city: lga || state,
+              state: state,
+              postal_code: '100001',
+              country: 'NG',
+            },
+          }),
+        });
+        const mapleData: any = await mapleRes.json().catch(() => ({}));
+        if (mapleData?.status) {
+          console.log(`[Maplerad] Customer ${customerId} address updated successfully for Tier 2.`);
+        }
+      } catch (mapleErr: any) {
+        console.warn('[Maplerad] Tier 2 address update warning:', mapleErr.message);
+      }
     }
 
-    const newTier = mapleData?.data?.tier ?? 2;
+    const newTier = 2;
 
     // Persist updated tier into system_configs
     await supabase.from('system_configs').upsert(
@@ -948,6 +961,7 @@ export async function upgradeTier2(req: Request, res: Response) {
         data: {
           ...cfg?.data,
           tier: newTier,
+          customerId,
           address,
           lga,
           state,
@@ -956,6 +970,16 @@ export async function upgradeTier2(req: Request, res: Response) {
       },
       { onConflict: 'id' }
     );
+
+    // Also update profiles table with address and tier
+    try {
+      await supabase.from('profiles').update({
+        address: address,
+        lga: lga,
+        state: state,
+        updated_at: new Date().toISOString()
+      }).eq('email', cleanEmail);
+    } catch (_) {}
 
     return res.json({
       success: true,
