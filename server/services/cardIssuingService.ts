@@ -674,11 +674,27 @@ export class CardIssuingService {
         });
         const mprData = await mprRes.json().catch(() => ({}));
         console.log('[CardIssuingService] Maplerad card fund status:', mprRes.status, mprData);
+
+        if (!mprRes.ok || mprData.status === false) {
+          const errMsg = mprData?.message || 'Virtual card provider balance insufficient or network declined';
+          console.error('[CardIssuingService] Maplerad card fund rejected:', errMsg);
+          return {
+            success: false,
+            newBalance: currentBalance,
+            message: `Card top-up declined by issuing network: ${errMsg}. Please try again later or contact support.`
+          };
+        }
+
         if (mprData?.data?.balance != null) {
           currentBalance = Number(mprData.data.balance) / 100;
         }
       } catch (err: any) {
         console.warn('[CardIssuingService] Maplerad card fund error:', err.message);
+        return {
+          success: false,
+          newBalance: currentBalance,
+          message: `Network error connecting to card issuing network: ${err.message}`
+        };
       }
     }
 
