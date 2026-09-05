@@ -153,8 +153,10 @@ apiRouter.post('/webhooks/flutterwave', paymentController.flutterwaveWebhook);
 apiRouter.post('/webhooks/maplerad', paymentController.mapleradWebhook);
 apiRouter.post('/webhooks/paystack', paymentController.paystackWebhook);
 apiRouter.post('/webhooks/korapay', paymentController.korapayWebhook);
+apiRouter.post('/webhooks/fincra', paymentController.fincraWebhook);
 apiRouter.get('/payments/vault-accounts', paymentController.getVaultAccounts);
 apiRouter.post('/payments/provision-commercial-account', paymentController.provisionCommercialAccount);
+apiRouter.post('/payments/fincra/initialize-escrow-deposit', paymentController.initializeHighValueDeposit);
 apiRouter.post('/payments/korapay/initialize-escrow-deposit', paymentController.initializeHighValueDeposit);
 apiRouter.get('/system/outbound-ip', async (req, res) => {
   try {

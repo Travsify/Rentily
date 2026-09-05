@@ -13,6 +13,7 @@ import { getFeatureFlags } from './featureFlagController';
 import { AtomicLedgerService } from '../services/atomicLedgerService';
 import { MapleradBankingService } from '../services/mapleradBankingService';
 import { KorapayService } from '../services/korapayService';
+import { FincraService } from '../services/fincraService';
 
 export async function createVirtualAccount(req: Request, res: Response) {
   try {
@@ -1513,6 +1514,91 @@ export async function korapayWebhook(req: Request, res: Response) {
   }
 }
 
+// 4f-2. Fincra Webhook Listener (High-Value Inflows & Payouts)
+export async function fincraWebhook(req: Request, res: Response) {
+  try {
+    const signature = req.headers['signature'] || req.headers['x-fincra-signature'];
+    const payload = req.body;
+
+    // Verify webhook authenticity
+    const isValid = FincraService.verifyWebhookSignature(payload, signature as string);
+    if (!isValid && process.env.NODE_ENV === 'production') {
+      console.warn('[Fincra Webhook] Invalid signature received');
+      return res.status(401).json({ status: false, message: 'Invalid webhook signature' });
+    }
+
+    const event = payload?.event || payload?.type;
+    const data = payload?.data;
+
+    console.log(`[Fincra Webhook] Event: ${event}`, JSON.stringify(data || {}, null, 2));
+
+    if (event === 'charge.successful' || event === 'charge.success' || event === 'collection.successful') {
+      const amountPaid = Number(data?.amount || data?.settlementAmount || 0);
+      const ref = String(data?.reference || data?.merchantReference || `FCR_${Date.now()}`);
+      const cleanEmail = (data?.customer?.email || '').toString().toLowerCase().trim();
+      const senderName = data?.customer?.name || data?.sender?.name || 'High-Value Commercial Inflow';
+
+      if (amountPaid > 0 && cleanEmail) {
+        console.log(`[Fincra Webhook] Inbound high-value payment: ₦${amountPaid} for ${cleanEmail}`);
+
+        let targetUser: any = null;
+        if (supabase) {
+          const { data: prof } = await supabase
+            .from('profiles')
+            .select('id, email, full_name, wallet_balance')
+            .eq('email', cleanEmail)
+            .maybeSingle();
+          targetUser = prof;
+        }
+
+        if (targetUser) {
+          const creditRes = await AtomicLedgerService.creditWalletAtomic({
+            userId: targetUser.id,
+            email: targetUser.email,
+            amount: amountPaid,
+            flwRef: ref,
+            txRef: ref,
+            narration: `High-Value Escrow Deposit (Fincra Commercial Rail) from ${senderName}`
+          });
+
+          console.log(`[Fincra Webhook] ✅ Credited ₦${amountPaid.toLocaleString()} to ${targetUser.email}`);
+
+          if (creditRes.success && !creditRes.alreadyProcessed) {
+            const newBal = creditRes.newBalance ?? (Number(targetUser.wallet_balance || 0) + amountPaid);
+
+            NotificationDispatcher.dispatch({
+              userId: targetUser.id,
+              email: targetUser.email,
+              userName: targetUser.full_name || 'Valued User',
+              category: 'wallet',
+              title: `High-Value Escrow Alert: ₦${amountPaid.toLocaleString()} Received`,
+              message: `Your Rentilly High-Value Escrow Vault received ₦${amountPaid.toLocaleString()} via Fincra Commercial Rail. New Balance: ₦${newBal.toLocaleString()}.`,
+              metadata: {
+                amount: amountPaid,
+                reference: ref,
+                bankName: 'Fincra Commercial Rail',
+                sender: senderName,
+                date: new Date().toISOString()
+              }
+            }).catch(e => console.warn('[Fincra Webhook] Notification dispatch error:', e.message));
+          }
+        }
+      }
+    } else if (event === 'payout.successful' || event === 'disbursement.successful') {
+      const ref = String(data?.customerReference || data?.reference || '');
+      console.log(`[Fincra Webhook] ✅ Payout successful: ref=${ref}`);
+    } else if (event === 'payout.failed' || event === 'disbursement.failed') {
+      const ref = String(data?.customerReference || data?.reference || '');
+      console.warn(`[Fincra Webhook] ❌ Payout failed: ref=${ref}`);
+    }
+
+    return res.status(200).json({ status: true, message: 'Webhook processed successfully' });
+  } catch (err: any) {
+    console.error('[Fincra Webhook] Error:', err.message);
+    return res.status(200).json({ status: false, error: err.message });
+  }
+}
+
 // 4g. Provision Dedicated Commercial Bank Account (Wema Bank) for High-Value Escrows
 export async function provisionCommercialAccount(req: Request, res: Response) {
   try {
@@ -1738,10 +1824,10 @@ export async function getVaultAccounts(req: Request, res: Response) {
   }
 }
 
-// 4i. Initialize High-Value Rent/Escrow Payment via Korapay Checkout
+// 4i. Initialize High-Value Rent/Escrow Payment via Fincra Commercial Rail (with fallback to Korapay)
 export async function initializeHighValueDeposit(req: Request, res: Response) {
   try {
-    const { email, amount, propertyTitle } = req.body;
+    const { email, amount, propertyTitle, phone } = req.body;
     const cleanEmail = (email || '').toLowerCase().trim();
     const numAmount = Number(amount || 0);
 
@@ -1750,24 +1836,53 @@ export async function initializeHighValueDeposit(req: Request, res: Response) {
     }
 
     let customerName = cleanEmail.split('@')[0];
+    let customerPhone = phone || '08000000000';
     if (supabase) {
-      const { data: prof } = await supabase.from('profiles').select('full_name').eq('email', cleanEmail).maybeSingle();
+      const { data: prof } = await supabase.from('profiles').select('full_name, phone_number').eq('email', cleanEmail).maybeSingle();
       if (prof?.full_name) customerName = prof.full_name;
+      if (prof?.phone_number) customerPhone = prof.phone_number;
     }
 
     const ref = `RNT_HV_${Date.now()}`;
+    const desc = propertyTitle ? `Escrow Deposit for ${propertyTitle}` : 'Rentilly High-Value Escrow Deposit';
+
+    // 1. Try Fincra Commercial Rail first (Institutional limit ₦100M+)
+    if (FincraService.isConfigured()) {
+      const fincraRes = await FincraService.initializeCheckout({
+        reference: ref,
+        amount: numAmount,
+        currency: 'NGN',
+        customerEmail: cleanEmail,
+        customerName,
+        customerPhone,
+        description: desc
+      });
+
+      if (fincraRes.status && fincraRes.data?.checkoutUrl) {
+        return res.json({
+          success: true,
+          provider: 'fincra',
+          reference: ref,
+          checkoutUrl: fincraRes.data.checkoutUrl
+        });
+      }
+      console.warn('[initializeHighValueDeposit] Fincra checkout returned error, falling back to secondary rail:', fincraRes.message);
+    }
+
+    // 2. Secondary fallback to Korapay
     const checkoutRes = await KorapayService.initializeCheckout({
       reference: ref,
       amount: numAmount,
       currency: 'NGN',
       customerEmail: cleanEmail,
       customerName,
-      description: propertyTitle ? `Escrow Deposit for ${propertyTitle}` : 'Rentilly High-Value Escrow Deposit'
+      description: desc
     });
 
     if (checkoutRes.status && checkoutRes.data) {
       return res.json({
         success: true,
+        provider: 'korapay',
         reference: ref,
         checkoutUrl: checkoutRes.data.checkoutUrl
       });
@@ -1775,7 +1890,7 @@ export async function initializeHighValueDeposit(req: Request, res: Response) {
 
     return res.status(500).json({
       success: false,
-      error: checkoutRes.message || 'Could not initialize Korapay high-value checkout'
+      error: checkoutRes.message || 'Could not initialize high-value escrow checkout'
     });
   } catch (err: any) {
     console.error('[initializeHighValueDeposit] Error:', err.message);

@@ -249,47 +249,51 @@ export const IntegrationsTab: React.FC = () => {
           </div>
         </div>
 
-        {/* Card 3: Korapay Multi-Currency Virtual Accounts & Inflows */}
+        {/* Card 3: Fincra High-Value Commercial Rail & Transfers */}
         <div className="p-5 rounded-2xl bg-slate-900 border border-slate-800 space-y-4 flex flex-col justify-between shadow-sm lg:col-span-2">
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                <div className="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
                   <Wallet className="w-4 h-4" />
                 </div>
                 <div>
-                  <h2 className="text-xs font-bold text-white">Korapay Multi-Currency Global Engine</h2>
-                  <p className="text-[10px] text-slate-400">Dedicated Virtual Accounts in USD, NGN, GBP, EUR & Cross-Border Collections</p>
+                  <h2 className="text-xs font-bold text-white">Fincra High-Value Commercial Transfers & Escrow Rail</h2>
+                  <p className="text-[10px] text-slate-400">Institutional Escrow Inflows, Payouts & Transfers up to ₦100M+ per transaction</p>
                 </div>
               </div>
 
               <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 font-semibold">
-                Live Test Keys Active
+                Production Keys Configured
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-[11px]">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-[11px]">
               <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1">
                 <div className="text-slate-400 text-[10px] font-semibold">PUBLIC KEY</div>
-                <div className="font-mono text-white text-[10px] truncate">pk_test_VPuiugq5MZafQUpmG2Ffk7LLbG6QFBzYu5HEMA3y</div>
+                <div className="font-mono text-white text-[10px] truncate" title="pk_NjkzYzU1MzM5NTdjOTAwMDEyMDExN2E2OjoyMDgyODA=">pk_NjkzYzU1Mz...</div>
               </div>
               <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1">
-                <div className="text-slate-400 text-[10px] font-semibold">SECRET KEY</div>
-                <div className="font-mono text-emerald-400 text-[10px] truncate">sk_test_E7DHGNWAeM12Rj7Pc6CJdX6a9TgpSbeWTWZsAQQZ</div>
+                <div className="text-slate-400 text-[10px] font-semibold">BUSINESS ID</div>
+                <div className="font-mono text-indigo-400 text-[10px] truncate">693c5533957c9000120117a6</div>
+              </div>
+              <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1">
+                <div className="text-slate-400 text-[10px] font-semibold">WEBHOOK KEY</div>
+                <div className="font-mono text-amber-400 text-[10px] truncate">2543fbb97359...</div>
               </div>
               <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 space-y-1">
                 <div className="text-slate-400 text-[10px] font-semibold">ENGINE STATUS</div>
                 <div className="text-emerald-400 font-bold flex items-center gap-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                  Verified & Ready for Production Switch
+                  Ready (IP Whitelist active)
                 </div>
               </div>
             </div>
           </div>
 
           <div className="pt-3 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
-            <span>Docs: <a href="https://korapay.com/docs" target="_blank" rel="noreferrer" className="text-emerald-400 hover:underline inline-flex items-center gap-1">Korapay Developer Documentation <ExternalLink className="w-2.5 h-2.5" /></a></span>
-            <span className="text-emerald-400 font-medium">Supabase & App Synced ✅</span>
+            <span>Docs: <a href="https://docs.fincra.com" target="_blank" rel="noreferrer" className="text-indigo-400 hover:underline inline-flex items-center gap-1">Fincra Developer Documentation <ExternalLink className="w-2.5 h-2.5" /></a></span>
+            <span className="text-emerald-400 font-medium">Render & VPS API Synced ✅</span>
           </div>
         </div>
       </div>

@@ -1003,20 +1003,22 @@ class ApiService {
     }
   }
 
-  // 21. Initialize High-Value Rent/Escrow Payment via Korapay Checkout
+  // 21. Initialize High-Value Rent/Escrow Payment via Fincra Commercial Rail
   static Future<Map<String, dynamic>> initializeHighValueDeposit({
     required String email,
     required double amount,
     String? propertyTitle,
+    String? phone,
   }) async {
     try {
       final res = await http.post(
-        Uri.parse('$baseUrl/payments/korapay/initialize-escrow-deposit'),
+        Uri.parse('$baseUrl/payments/fincra/initialize-escrow-deposit'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'email': email,
           'amount': amount,
           'propertyTitle': propertyTitle,
+          'phone': phone,
         }),
       ).timeout(const Duration(seconds: 20));
       return json.decode(res.body);
