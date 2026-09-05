@@ -808,10 +808,46 @@ export async function getTierStatus(req: Request, res: Response) {
       .from('system_configs')
       .select('data')
       .eq('id', `maplerad_tier1_${email}`)
-      .single();
+      .maybeSingle();
     if (data?.data?.tier != null) {
       tier = Number(data.data.tier);
       customerId = data.data.customerId || '';
+    }
+
+    // Check profiles table: if verified via BVN / identitypass, user is at least Tier 1!
+    const { data: prof } = await supabase
+      .from('profiles')
+      .select('is_verified, bvn_verified, nin_number, state')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (prof && (prof.is_verified || prof.bvn_verified || prof.nin_number)) {
+      if (tier < 1) tier = 1;
+    }
+
+    // If customerId not yet in maplerad_tier1_, check crypto_tron_${email}
+    if (!customerId) {
+      const { data: cryptoCfg } = await supabase
+        .from('system_configs')
+        .select('data')
+        .eq('id', `crypto_tron_${email}`)
+        .maybeSingle();
+      if (cryptoCfg?.data?.customerId) {
+        customerId = cryptoCfg.data.customerId;
+      }
+    }
+
+    // Persist verified tier in system_configs for faster future lookup
+    if (tier >= 1) {
+      await supabase.from('system_configs').upsert({
+        id: `maplerad_tier1_${email}`,
+        data: {
+          tier,
+          customerId,
+          updatedAt: new Date().toISOString(),
+          autoRecognized: true
+        }
+      }, { onConflict: 'id' });
     }
   }
 
@@ -848,20 +884,40 @@ export async function upgradeTier2(req: Request, res: Response) {
       return res.status(500).json({ error: 'Database not configured.' });
     }
 
-    // Get Maplerad customer ID from system_configs
+    // Get Maplerad customer ID from system_configs or crypto_tron_
+    let customerId: string | null = null;
+    let currentTier = 0;
+
     const { data: cfg } = await supabase
       .from('system_configs')
       .select('data')
       .eq('id', `maplerad_tier1_${cleanEmail}`)
-      .single();
+      .maybeSingle();
 
-    const customerId = cfg?.data?.customerId;
+    if (cfg?.data?.customerId) customerId = cfg.data.customerId;
+    if (cfg?.data?.tier != null) currentTier = Number(cfg.data.tier);
+
     if (!customerId) {
-      return res.status(400).json({ error: 'Complete Tier 1 verification first before upgrading to Tier 2.' });
+      const { data: cryptoCfg } = await supabase
+        .from('system_configs')
+        .select('data')
+        .eq('id', `crypto_tron_${cleanEmail}`)
+        .maybeSingle();
+      if (cryptoCfg?.data?.customerId) customerId = cryptoCfg.data.customerId;
     }
-    const currentTier = Number(cfg?.data?.tier || 0);
+
+    const { data: prof } = await supabase
+      .from('profiles')
+      .select('id, full_name, phone_number, is_verified, bvn_verified')
+      .eq('email', cleanEmail)
+      .maybeSingle();
+
+    if (prof && (prof.is_verified || prof.bvn_verified)) {
+      if (currentTier < 1) currentTier = 1;
+    }
+
     if (currentTier < 1) {
-      return res.status(400).json({ error: 'You must be at Tier 1 before upgrading to Tier 2.' });
+      return res.status(400).json({ error: 'Complete Tier 1 verification first before upgrading to Tier 2.' });
     }
     if (currentTier >= 2) {
       return res.status(400).json({ error: 'You are already at Tier 2 or higher.' });

@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../constants/app_constants.dart';
@@ -182,24 +182,28 @@ class SupportChatService {
     final lower = userMessage.toLowerCase();
     String? specificReply;
 
-    if (_containsAny(lower, ['bvn', 'kyp', 'kyc', 'verification'])) {
+    // Check specific topics with smart priority
+    if (_containsAny(lower, ['debit', 'debited', 'withdraw', 'payout', 'deducted', 'deduct', 'minus', 'reversal', 'reversed'])) {
       specificReply =
-          'Hi! For BVN/KYP verification issues, please ensure the name on your Rentilly account matches your BVN exactly. Go to Profile \u2192 Edit Name to correct it. Still having issues? Our team will follow up shortly.';
-    } else if (_containsAny(lower, ['card', 'virtual card', 'debit'])) {
+          'Hi ${user.firstName}! 💳 For bank account debits & withdrawals: All payouts to Nigerian banks are routed directly through automated settlement rails (Maplerad & Paystack). If your account was debited or you are waiting on a bank payout, our ledger automatically verifies every NIBSS settlement reference. If a transaction was debited multiple times or delayed, a live agent is reviewing your account to reconcile and reverse any discrepancies.';
+    } else if (_containsAny(lower, ['card', 'virtual card', 'mastercard', 'visa card', 'dollar card', 'cvv', 'card funding', 'card top-up', 'card blocked', 'card frozen'])) {
       specificReply =
-          'For card issues, please go to your Vaults tab \u2192 Cards. If your card is blocked, contact us and we\'ll resolve within 2 hours.';
-    } else if (_containsAny(lower, ['payment', 'transfer', 'wallet', 'fund'])) {
+          'Hi ${user.firstName}! 💳 For Virtual Dollar Cards: You can manage your card, check 3D Secure OTPs, view spend balances, or freeze/unfreeze cards directly in your Vaults tab → Cards. For international merchant declines, please ensure your card balance has a sufficient authorization buffer.';
+    } else if (_containsAny(lower, ['deposit', 'fund', 'wema', '9psb', 'virtual account', 'transfer delayed', 'did not reflect', 'not reflected', 'inflow', 'high-value', 'high value'])) {
       specificReply =
-          'For payment issues, your transaction may take up to 10 minutes to reflect. If it doesn\'t, please share your transaction reference and we\'ll investigate.';
-    } else if (_containsAny(lower, ['rent', 'escrow', 'landlord', 'property'])) {
+          'Hi ${user.firstName}! 🏦 For bank deposits into your Dedicated Virtual Accounts (9PSB Daily Vault or Commercial Wema Bank Escrow Vault): Transfers typically reflect within 2 to 10 minutes via NIBSS. Our backend actively auto-syncs with banking APIs. If you have the session ID or transaction reference, kindly drop it here for instant verification.';
+    } else if (_containsAny(lower, ['bvn', 'kyp', 'kyc', 'nin', 'tier', 'verification', 'unverified', 'upgrade'])) {
       specificReply =
-          'For escrow/rent matters, all funds are secured in your Rentilly escrow vault. Payments are released only on your approval. Need help with a specific transaction? Share the property name.';
+          'Hi ${user.firstName}! 🛡️ For Verification & Tier Upgrades: Rentilly uses CBN-compliant KYC tiers. Tier 1 requires BVN/NIN. You can upgrade to Tier 2 (₦200,000 daily limit) right from your Profile settings by submitting your residential address. For Tier 3 (₦5,000,000+ daily limit), our compliance team is standing by to assist.';
+    } else if (_containsAny(lower, ['rent', 'escrow', 'landlord', 'property', 'lease', 'tenancy', 'inspection', 'agreement', 'partner'])) {
+      specificReply =
+          'Hi ${user.firstName}! 🔒 For Escrow & Leases: All rental funds remain 100% safeguarded inside your Rentilly Escrow Vault until you physically inspect and approve the property. Payouts are never released to a landlord without your direct authorization.';
     }
 
-    await Future<void>.delayed(const Duration(milliseconds: 800));
+    await Future<void>.delayed(const Duration(milliseconds: 600));
 
     final botMessage = specificReply ??
-        'Hi ${user.firstName}! \ud83d\udc4b Thanks for reaching out to Rentilly Support. One of our agents will respond within a few hours. For urgent matters, you can also reach us at support@myrentilly.com';
+        'Hi ${user.firstName}! 👋 Thanks for contacting Rentilly Support. Your inquiry has been routed to our active support team. One of our support agents will respond to you shortly. For urgent escalations, reach us at support@myrentilly.com';
 
     await http.post(
       Uri.parse('$_supabaseUrl/rest/v1/support_messages'),

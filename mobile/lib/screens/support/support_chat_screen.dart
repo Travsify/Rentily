@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../constants/app_colors.dart';
@@ -23,27 +23,28 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
   bool _isSending = false;
   bool _isTyping = false;
   bool _showSubjectPicker = false;
+  List<Map<String, dynamic>> _allConversations = [];
 
   final TextEditingController _msgController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   Function? _cancelSubscription;
 
   static const List<String> _subjects = [
+    'Bank Transfers & Deposits',
+    'Withdrawals & Bank Payouts',
+    'Virtual Dollar Cards',
+    'BVN / KYC & Tier Upgrades',
+    'Escrow & Rent Protection',
     'General Enquiry',
-    'Payment Issue',
-    'BVN / KYP Verification',
-    'Card Issue',
-    'Property / Escrow Matter',
-    'Technical Problem',
   ];
 
   static const List<IconData> _subjectIcons = [
-    Icons.help_outline_rounded,
-    Icons.payment_rounded,
-    Icons.verified_user_outlined,
+    Icons.account_balance_rounded,
+    Icons.payments_rounded,
     Icons.credit_card_rounded,
-    Icons.home_work_outlined,
-    Icons.bug_report_outlined,
+    Icons.verified_user_outlined,
+    Icons.shield_outlined,
+    Icons.help_outline_rounded,
   ];
 
   @override
@@ -69,6 +70,10 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
 
     final conversations =
         await SupportChatService.getConversations(_user!.email);
+
+    if (mounted) {
+      setState(() => _allConversations = conversations);
+    }
 
     if (conversations.isEmpty) {
       setState(() {
@@ -255,7 +260,13 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
       leading: IconButton(
         icon: const Icon(Icons.arrow_back_rounded,
             size: 22, color: AppColors.textPrimary),
-        onPressed: () => Navigator.of(context).pop(),
+        onPressed: () {
+          if (!_showSubjectPicker && _allConversations.isNotEmpty) {
+            setState(() => _showSubjectPicker = true);
+          } else {
+            Navigator.of(context).pop();
+          }
+        },
       ),
       titleSpacing: 0,
       title: Row(
@@ -327,6 +338,23 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
           ),
         ],
       ),
+      actions: [
+        if (!_showSubjectPicker)
+          TextButton.icon(
+            onPressed: () {
+              setState(() => _showSubjectPicker = true);
+            },
+            icon: const Icon(Icons.swap_horiz_rounded, size: 16, color: AppColors.primary),
+            label: Text(
+              'Topics',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: AppColors.primary,
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -390,7 +418,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
           const SizedBox(height: 6),
           Center(
             child: Text(
-              'Select the topic that best describes your issue.',
+              'Select a topic or return to an ongoing conversation.',
               textAlign: TextAlign.center,
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 12,
@@ -413,6 +441,76 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
               );
             },
           ),
+          if (_allConversations.isNotEmpty) ...[
+            const SizedBox(height: 28),
+            Text(
+              'RECENT CONVERSATIONS',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 1.0,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 10),
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _allConversations.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (context, i) {
+                final c = _allConversations[i];
+                final isCurrent = _conversation?['id'] == c['id'];
+                return InkWell(
+                  onTap: () => _openConversation(c),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isCurrent ? AppColors.primary.withValues(alpha: 0.05) : Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isCurrent ? AppColors.primary : AppColors.borderDark,
+                        width: isCurrent ? 1.5 : 1.0,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.chat_bubble_outline_rounded, size: 16, color: AppColors.primary),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                c['subject'] ?? 'Support Chat',
+                                style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                              ),
+                              if (c['last_message'] != null && c['last_message'].toString().isNotEmpty)
+                                Text(
+                                  c['last_message'].toString(),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
+                                ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: AppColors.textMuted),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
           const SizedBox(height: 24),
           Center(
             child: Text(

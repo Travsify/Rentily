@@ -20,6 +20,7 @@ import '../main_navigation_screen.dart';
 import '../agreements/tenancy_agreements_screen.dart';
 import '../support/support_chat_screen.dart';
 import '../../services/api_service.dart';
+import '../../constants/nigerian_states_cities.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -80,8 +81,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final data = await ApiService.fetchTierStatus(_currentUser!.email);
     if (mounted) {
       setState(() {
-        _mapleradTier = (data['tier'] as num?)?.toInt() ?? 0;
-        _canUpgradeToTier2 = data['canUpgradeToTier2'] == true;
+        final serverTier = (data['tier'] as num?)?.toInt() ?? 0;
+        final isVerifiedUser = _currentUser?.isVerified == true || _currentUser?.bvnVerified == true;
+        _mapleradTier = serverTier > 0 ? serverTier : (isVerifiedUser ? 1 : 0);
+        _canUpgradeToTier2 = _mapleradTier >= 1 && _mapleradTier < 2;
         _tierLimits = (data['limits'] as Map<String, dynamic>?) ?? {};
         _loadingTier = false;
       });
@@ -430,6 +433,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ],
                             ),
                           ),
+                          const SizedBox(height: 2),
+                          // 4. State of Residence (EDITABLE)
+                          GestureDetector(
+                            onTap: _showEditStateDialog,
+                            child: Row(
+                              children: [
+                                const Icon(Icons.location_on_outlined, size: 12, color: AppColors.textSecondary),
+                                const SizedBox(width: 3),
+                                Text(
+                                  _currentUser?.state?.isNotEmpty == true ? '${_currentUser!.state!} State' : 'Select State',
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(Icons.edit_outlined, size: 11, color: AppColors.primary),
+                              ],
+                            ),
+                          ),
                           const SizedBox(height: 6),
                           GestureDetector(
                             onTap: _canUpgradeToTier2
@@ -442,7 +462,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     ? const Color(0xFF0D5C46).withValues(alpha: 0.12)
                                     : _mapleradTier == 2
                                         ? const Color(0xFF0369A1).withValues(alpha: 0.12)
-                                        : _mapleradTier == 1
+                                        : (_mapleradTier == 1 || _currentUser?.isVerified == true)
                                             ? const Color(0xFFD97706).withValues(alpha: 0.12)
                                             : const Color(0xFF6B7280).withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(6),
@@ -451,7 +471,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       ? const Color(0xFF0D5C46).withValues(alpha: 0.4)
                                       : _mapleradTier == 2
                                           ? const Color(0xFF0369A1).withValues(alpha: 0.4)
-                                          : _mapleradTier == 1
+                                          : (_mapleradTier == 1 || _currentUser?.isVerified == true)
                                               ? const Color(0xFFD97706).withValues(alpha: 0.4)
                                               : const Color(0xFF6B7280).withValues(alpha: 0.3),
                                 ),
@@ -462,7 +482,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   Icon(
                                     _mapleradTier >= 2
                                         ? Icons.verified
-                                        : _mapleradTier == 1
+                                        : (_mapleradTier == 1 || _currentUser?.isVerified == true)
                                             ? Icons.shield_outlined
                                             : Icons.lock_outline_rounded,
                                     size: 11,
@@ -470,7 +490,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         ? const Color(0xFF0D5C46)
                                         : _mapleradTier == 2
                                             ? const Color(0xFF0369A1)
-                                            : _mapleradTier == 1
+                                            : (_mapleradTier == 1 || _currentUser?.isVerified == true)
                                                 ? const Color(0xFFD97706)
                                                 : const Color(0xFF6B7280),
                                   ),
@@ -480,8 +500,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         ? 'Tier 3 • Fully Verified 🛡️'
                                         : _mapleradTier == 2
                                             ? 'Tier 2 Verified ✓'
-                                            : _mapleradTier == 1
-                                                ? 'Tier 1 • Tap to Upgrade'
+                                            : (_mapleradTier == 1 || _currentUser?.isVerified == true)
+                                                ? 'Tier 1 Verified • Tap to Upgrade ➔'
                                                 : 'Unverified • Tap to Verify',
                                     style: GoogleFonts.plusJakartaSans(
                                       fontSize: 9,
@@ -490,7 +510,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                           ? const Color(0xFF0D5C46)
                                           : _mapleradTier == 2
                                               ? const Color(0xFF0369A1)
-                                              : _mapleradTier == 1
+                                              : (_mapleradTier == 1 || _currentUser?.isVerified == true)
                                                   ? const Color(0xFFD97706)
                                                   : const Color(0xFF6B7280),
                                     ),
@@ -1544,6 +1564,91 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Text(content, style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary, height: 1.4)),
         ],
       ),
+    );
+  }
+
+  void _showEditStateDialog() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return Container(
+          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(color: AppColors.borderDark, borderRadius: BorderRadius.circular(2)),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Select State of Residence',
+                style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Your state determines available local escrow vaults, properties, and compliance records.',
+                style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: NigerianStatesLgas.states.length,
+                  itemBuilder: (context, index) {
+                    final st = NigerianStatesLgas.states[index];
+                    final isSelected = _currentUser?.state?.toLowerCase().trim() == st.toLowerCase().trim();
+                    return ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(
+                        Icons.location_on_rounded,
+                        size: 16,
+                        color: isSelected ? AppColors.primary : AppColors.textMuted,
+                      ),
+                      title: Text(
+                        st,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 13,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                          color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                        ),
+                      ),
+                      trailing: isSelected ? const Icon(Icons.check, size: 16, color: AppColors.primary) : null,
+                      onTap: () async {
+                        Navigator.of(ctx).pop();
+                        if (_currentUser != null) {
+                          final updated = _currentUser!.copyWith(state: st);
+                          await AuthService.updateUser(updated);
+                          setState(() => _currentUser = updated);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('State of residence updated to $st', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
+                                backgroundColor: AppColors.primary,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

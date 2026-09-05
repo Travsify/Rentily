@@ -175,8 +175,10 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
       cleanReason = `Payout: $${usdtAmount} USDT converted to ₦${numAmount.toLocaleString()} (Rate: 1 USDT = ₦${fxRate || 1510})`;
     }
 
-    // Auto-sync real inbound transactions from Flutterwave Cloud API
+    // Auto-sync real inbound transactions across Flutterwave, Maplerad, and Paystack
     await syncFlutterwaveTransactionsForUser(cleanEmail);
+    await syncMapleradTransactionsForUser(cleanEmail);
+    await syncPaystackInboundTransactionsForUser(cleanEmail);
 
     // Apply Platform Fee Settings (₦50 bank withdrawal fee)
     const platformFees = getStoredFees();
@@ -2302,7 +2304,138 @@ async function syncMapleradTransactionsForUser(cleanEmail: string) {
   }
 }
 
-// 6. Get User Transaction Ledger (with real-time Flutterwave & Maplerad sync)
+// 2c. Sync Paystack Inbound Collections (Commercial Wema Bank DVA & Bank Transfers)
+async function syncPaystackInboundTransactionsForUser(cleanEmail: string) {
+  try {
+    const key = process.env.PAYSTACK_SECRET_KEY || '';
+    const baseUrl = process.env.PAYSTACK_BASE_URL || 'https://api.paystack.co';
+
+    let dedicatedAcc: string | null = null;
+    if (supabase) {
+      const { data: cfg } = await supabase
+        .from('system_configs')
+        .select('data')
+        .eq('id', `commercial_wema_${cleanEmail}`)
+        .maybeSingle();
+      if (cfg?.data?.accountNumber) {
+        dedicatedAcc = cfg.data.accountNumber;
+      }
+    }
+
+    const res = await fetch(`${baseUrl}/transaction?perPage=50`, {
+      headers: { 'Authorization': `Bearer ${key}`, 'Accept': 'application/json' }
+    });
+
+    if (!res.ok) return;
+    const resData: any = await res.json().catch(() => ({}));
+    if (!resData?.status || !Array.isArray(resData?.data)) return;
+
+    const existing = TransactionStore.getAllTransactions();
+    const user = await UserStore.findByEmail(cleanEmail);
+
+    for (const tx of resData.data) {
+      if (tx.status !== 'success') continue;
+      const txEmail = (tx.customer?.email || '').toLowerCase().trim();
+      const txAcc = tx.dedicated_account?.account_number;
+
+      const isMatch = (txEmail && txEmail === cleanEmail) ||
+                      (dedicatedAcc && txAcc && txAcc === dedicatedAcc);
+      if (!isMatch) continue;
+
+      const amount = Number(tx.amount || 0) / 100; // kobo to NGN
+      if (amount <= 0) continue;
+
+      const ref = String(tx.reference || tx.id);
+      const exists = existing.some(e => e.reference === ref || e.id === `PST_IN_${tx.id}`);
+
+      const narration = `Commercial Escrow Inflow (Wema Bank • ${txAcc || dedicatedAcc || '9816975551'}) from ${tx.authorization?.sender_name || (tx.customer?.first_name ? `${tx.customer?.first_name || ''} ${tx.customer?.last_name || ''}`.trim() : 'Inbound Bank Transfer')}`;
+
+      if (!exists) {
+        await TransactionStore.addTransaction({
+          id: `PST_IN_${tx.id}`,
+          userId: user?.id || `usr_${cleanEmail}`,
+          email: cleanEmail,
+          title: narration,
+          type: 'Electronic Bank Inbound Deposit',
+          category: 'deposit',
+          amount,
+          isCredit: true,
+          reference: ref,
+          sender: tx.authorization?.sender_name || 'Inbound Bank Transfer',
+          beneficiary: user?.businessName || user?.fullName || cleanEmail,
+          recipientAccount: txAcc || dedicatedAcc || '',
+          recipientBank: 'Wema Bank Commercial Rail',
+          status: 'SUCCESSFUL',
+          date: tx.paid_at || tx.createdAt || new Date().toISOString()
+        });
+      }
+
+      if (supabase && ref) {
+        try {
+          await supabase.from('wallet_transactions').upsert({
+            user_id: user?.id || 'b0000000-0000-0000-0000-000000000001',
+            email: cleanEmail,
+            amount,
+            type: 'credit',
+            status: 'completed',
+            flw_ref: ref,
+            tx_ref: ref,
+            narration,
+            created_at: tx.paid_at || tx.createdAt || new Date().toISOString()
+          }, { onConflict: 'flw_ref' });
+        } catch (_) {}
+
+        const { data: rec } = await supabase
+          .from('reconciled_transactions')
+          .select('flw_ref')
+          .eq('flw_ref', ref)
+          .maybeSingle();
+
+        if (!rec) {
+          const creditRes = await AtomicLedgerService.creditWalletAtomic({
+            userId: user?.id || 'b0000000-0000-0000-0000-000000000001',
+            email: cleanEmail,
+            amount,
+            flwRef: ref,
+            txRef: ref,
+            narration
+          });
+
+          if (creditRes.success && !creditRes.alreadyProcessed) {
+            try {
+              await supabase.from('reconciled_transactions').upsert({
+                flw_ref: ref,
+                user_id: user?.id || 'b0000000-0000-0000-0000-000000000001',
+                email: cleanEmail,
+                amount,
+                processed_at: new Date().toISOString()
+              }, { onConflict: 'flw_ref' });
+            } catch (_) {}
+
+            NotificationDispatcher.dispatch({
+              userId: user?.id || 'b0000000-0000-0000-0000-000000000001',
+              email: cleanEmail,
+              userName: user?.fullName || 'Valued User',
+              category: 'wallet',
+              title: `High-Value Escrow Alert: ₦${amount.toLocaleString()} Received`,
+              message: `Your Rentilly wallet has been credited with ₦${amount.toLocaleString()} via Commercial Wema Bank Escrow Rail. New Balance: ₦${(creditRes.newBalance ?? amount).toLocaleString()}.`,
+              metadata: {
+                amount,
+                reference: ref,
+                bankName: 'Wema Bank Commercial Rail',
+                date: tx.paid_at || tx.createdAt || new Date().toISOString()
+              }
+            }).catch(e => console.warn('[syncPaystackInboundTransactionsForUser] Notification error:', e.message));
+          }
+        }
+      }
+    }
+  } catch (e: any) {
+    console.warn('[syncPaystackInboundTransactionsForUser] Notice:', e?.message || e);
+  }
+}
+
+// 6. Get User Transaction Ledger (with real-time Flutterwave, Maplerad & Paystack sync)
 export async function getUserTransactions(req: Request, res: Response) {
   try {
     const { email } = req.query;
@@ -2312,11 +2445,10 @@ export async function getUserTransactions(req: Request, res: Response) {
       return res.status(400).json({ error: 'Email is required' });
     }
 
-    // Auto-sync from Flutterwave
+    // Auto-sync from all providers
     await syncFlutterwaveTransactionsForUser(cleanEmail);
-
-    // Auto-sync from Maplerad
     await syncMapleradTransactionsForUser(cleanEmail);
+    await syncPaystackInboundTransactionsForUser(cleanEmail);
 
     const transactions = await TransactionStore.getTransactionsByEmail(cleanEmail);
     res.json({
@@ -2352,9 +2484,10 @@ export async function getWalletBalance(req: Request, res: Response) {
       }
     }
 
-    // 2. Auto-sync from Flutterwave & Maplerad
+    // 2. Auto-sync from Flutterwave, Maplerad & Paystack
     await syncFlutterwaveTransactionsForUser(cleanEmail);
     await syncMapleradTransactionsForUser(cleanEmail);
+    await syncPaystackInboundTransactionsForUser(cleanEmail);
 
     // Refresh live profile directly from Supabase Cloud after provider sync
     if (supabase) {
