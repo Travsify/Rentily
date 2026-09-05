@@ -18,6 +18,7 @@ import '../auth/login_screen.dart';
 import '../auth/register_screen.dart';
 import '../main_navigation_screen.dart';
 import '../agreements/tenancy_agreements_screen.dart';
+import '../support/support_chat_screen.dart';
 import '../../services/api_service.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -705,6 +706,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 'Privacy Policy & Data Security',
                 'Strict Data Protection & 256-Bit Encryption',
                 onTap: _openPrivacyPolicy,
+              ),
+              const SizedBox(height: 20),
+
+              // 4. SUPPORT & HELP
+              Text(
+                'SUPPORT & HELP',
+                style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 10),
+
+              _buildMenuTile(
+                Icons.headset_mic_rounded,
+                'Contact Customer Support',
+                'Chat live with a Rentilly support agent',
+                onTap: () {
+                  Navigator.of(context).push(MaterialPageRoute(
+                    builder: (_) => SupportChatScreen(user: _currentUser),
+                  ));
+                },
               ),
               const SizedBox(height: 20),
 
