@@ -133,6 +133,14 @@ export async function testMaplerad(req: Request, res: Response) {
     const ipRes = await fetch('https://api.ipify.org');
     const outboundIp = await ipRes.text();
 
+    // Test 1: GET Wallets
+    const walletsRes = await fetch('https://api.maplerad.com/v1/wallets', {
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+    const walletsStatus = walletsRes.status;
+    const walletsBody = await walletsRes.json().catch(() => ({}));
+
+    // Test 2: POST Transfers
     const mapleRes = await fetch('https://api.maplerad.com/v1/transfers', {
       method: 'POST',
       headers: {
@@ -149,14 +157,16 @@ export async function testMaplerad(req: Request, res: Response) {
       }),
     });
 
-    const status = mapleRes.status;
-    const body = await mapleRes.json().catch(async () => await mapleRes.text());
+    const transferStatus = mapleRes.status;
+    const transferBody = await mapleRes.json().catch(async () => await mapleRes.text());
 
     res.json({
       outboundIp,
-      httpStatus: status,
-      mapleradResponse: body,
-      envProxy: process.env.HTTPS_PROXY ? 'configured' : 'none',
+      keyMask: apiKey ? `${apiKey.slice(0, 8)}...${apiKey.slice(-4)}` : 'MISSING',
+      walletsStatus,
+      walletsResponse: walletsBody,
+      transferStatus,
+      transferResponse: transferBody,
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
