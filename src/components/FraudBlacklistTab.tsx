@@ -30,7 +30,7 @@ export const FraudBlacklistTab: React.FC = () => {
 
   const loadBlacklist = async () => {
     try {
-      const res = await fetch('https://rentilly-admin-api.onrender.com/api/fraud/blacklist');
+      const res = await fetch('/api/fraud/blacklist');
       if (res.ok) {
         const data = await res.json();
         setBlacklist(data);
@@ -49,7 +49,7 @@ export const FraudBlacklistTab: React.FC = () => {
     if (!newEntry.fullName || !newEntry.flagReason) return;
 
     try {
-      const res = await fetch('https://rentilly-admin-api.onrender.com/api/fraud/blacklist', {
+      const res = await fetch('/api/fraud/blacklist', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newEntry)
@@ -76,7 +76,7 @@ export const FraudBlacklistTab: React.FC = () => {
 
   const handleDeleteEntry = async (id: string) => {
     try {
-      const res = await fetch(`https://rentilly-admin-api.onrender.com/api/fraud/blacklist/${id}`, {
+      const res = await fetch(`/api/fraud/blacklist/${id}`, {
         method: 'DELETE'
       });
       if (res.ok) {

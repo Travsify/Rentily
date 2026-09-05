@@ -2,8 +2,8 @@ class AppConstants {
   static const String appName = 'Rentilly';
   static const String appTagline = 'Zero Agents • Direct Owners • Legal Escrow';
 
-  // Live Render Production API URL
-  static const String apiBaseUrl = 'https://rentilly-admin-api.onrender.com/api';
+  // Live Hostinger VPS Production API (Blazing Fast, Dedicated NVMe)
+  static const String apiBaseUrl = 'https://api.myrentilly.com/api';
 
   // Supabase Direct Fallback
   static const String supabaseUrl = 'https://zuxvxuqxomsxgiljykzj.supabase.co';

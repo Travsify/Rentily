@@ -21,13 +21,13 @@ export const IntegrationsTab: React.FC = () => {
   const [flwResult, setFlwResult] = useState<any>(null);
   const [copiedWebhook, setCopiedWebhook] = useState(false);
 
-  const webhookUrl = 'https://rentilly-admin-api.onrender.com/api/webhooks/flutterwave';
+  const webhookUrl = 'https://api.myrentilly.com/api/webhooks/flutterwave';
 
   const handleTestIdentitypass = async () => {
     setTestingIdPass(true);
     setIdPassResult(null);
     try {
-      const res = await fetch('https://rentilly-admin-api.onrender.com/api/verify/nin', {
+      const res = await fetch('/api/verify/nin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ninNumber: testNin })
@@ -45,7 +45,7 @@ export const IntegrationsTab: React.FC = () => {
     setTestingFlw(true);
     setFlwResult(null);
     try {
-      const res = await fetch('https://rentilly-admin-api.onrender.com/api/payments/create-virtual-account', {
+      const res = await fetch('/api/payments/create-virtual-account', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
