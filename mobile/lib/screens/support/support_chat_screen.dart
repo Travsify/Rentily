@@ -173,7 +173,7 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
 
     setState(() {
       _isSending = true;
-      _isTyping = true;
+      _isTyping = false;
     });
     _msgController.clear();
 
@@ -204,11 +204,9 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
       // Keep optimistic message in UI even on error
     } finally {
       if (mounted) {
-        setState(() => _isSending = false);
-        // _isTyping will be cleared when bot reply arrives via poll
-        // but set a safety timeout
-        Future.delayed(const Duration(seconds: 5), () {
-          if (mounted) setState(() => _isTyping = false);
+        setState(() {
+          _isSending = false;
+          _isTyping = false;
         });
       }
     }
@@ -327,11 +325,11 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
                 ),
               ),
               Text(
-                'Typically responds within a few hours',
+                'Live Human Support • Pure Human Agents',
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 9.5,
-                  color: AppColors.textSecondary,
-                  fontWeight: FontWeight.w500,
+                  color: const Color(0xFF059669),
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],
@@ -701,17 +699,31 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
                 crossAxisAlignment:
                     isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                 children: [
-                  // Sender label for bot/agent
+                  // Sender label for human support agent
                   if (!isMe)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 3),
-                      child: Text(
-                        isBot ? 'Rentilly Bot' : 'Support Agent',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF059669),
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            (msg['sender_name']?.toString().isNotEmpty == true &&
+                                    msg['sender_name'] != 'Rentilly Support Bot')
+                                ? msg['sender_name'].toString()
+                                : 'Support Agent',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 9.5,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF059669),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.verified_user_rounded,
+                            size: 10,
+                            color: Color(0xFF059669),
+                          ),
+                        ],
                       ),
                     ),
                   Text(

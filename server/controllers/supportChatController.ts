@@ -44,16 +44,6 @@ export async function createOrGetConversation(req: Request, res: Response) {
 
     if (error) throw error;
 
-    const firstName = (userName || '').split(' ')[0] || 'there';
-    await supabase.from('support_messages').insert({
-      conversation_id: newConv.id,
-      sender: 'bot',
-      sender_name: 'Rentilly Support',
-      message: `Hi ${firstName}! Welcome to Rentilly Support. You are chatting about: ${cleanSubject}. One of our agents will respond shortly. For urgent matters, email support@myrentilly.com`,
-      message_type: 'text',
-      is_read: false,
-    });
-
     // Auto-assign to the least-busy online agent (fire-and-forget)
     autoAssignConversation(newConv.id, userName || cleanEmail.split('@')[0], cleanSubject).catch(() => {});
 

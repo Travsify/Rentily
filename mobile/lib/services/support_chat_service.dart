@@ -107,7 +107,7 @@ class SupportChatService {
   // ---------------------------------------------------------------------------
   // 2. sendMessage
   // ---------------------------------------------------------------------------
-  /// Sends a user message to Supabase and triggers an auto-reply bot response.
+  /// Sends a user message to Supabase directly to the live human support queue.
   static Future<void> sendMessage(
     String conversationId,
     String message,
@@ -141,11 +141,8 @@ class SupportChatService {
       }),
     );
 
-    // Increment unread_by_agent (read-then-write)
-    _incrementUnreadByAgent(conversationId);
-
-    // Trigger auto-reply bot asynchronously
-    _sendAutoReply(conversationId, message, user);
+    // Increment unread_by_agent (read-then-write) so human agents see new message
+    await _incrementUnreadByAgent(conversationId);
   }
 
   /// Increments unread_by_agent by fetching current value then patching.
@@ -169,70 +166,6 @@ class SupportChatService {
         }
       }
     } catch (_) {}
-  }
-
-  // ---------------------------------------------------------------------------
-  // Auto-reply bot
-  // ---------------------------------------------------------------------------
-  static Future<void> _sendAutoReply(
-    String conversationId,
-    String userMessage,
-    UserProfile user,
-  ) async {
-    final lower = userMessage.toLowerCase();
-    String? specificReply;
-
-    // Check specific topics with smart priority
-    if (_containsAny(lower, ['debit', 'debited', 'withdraw', 'payout', 'deducted', 'deduct', 'minus', 'reversal', 'reversed'])) {
-      specificReply =
-          'Hi ${user.firstName}! 💳 For bank account debits & withdrawals: All payouts to Nigerian banks are routed directly through automated settlement rails (Maplerad & Paystack). If your account was debited or you are waiting on a bank payout, our ledger automatically verifies every NIBSS settlement reference. If a transaction was debited multiple times or delayed, a live agent is reviewing your account to reconcile and reverse any discrepancies.';
-    } else if (_containsAny(lower, ['card', 'virtual card', 'mastercard', 'visa card', 'dollar card', 'cvv', 'card funding', 'card top-up', 'card blocked', 'card frozen'])) {
-      specificReply =
-          'Hi ${user.firstName}! 💳 For Virtual Dollar Cards: You can manage your card, check 3D Secure OTPs, view spend balances, or freeze/unfreeze cards directly in your Vaults tab → Cards. For international merchant declines, please ensure your card balance has a sufficient authorization buffer.';
-    } else if (_containsAny(lower, ['deposit', 'fund', 'wema', '9psb', 'virtual account', 'transfer delayed', 'did not reflect', 'not reflected', 'inflow', 'high-value', 'high value'])) {
-      specificReply =
-          'Hi ${user.firstName}! 🏦 For bank deposits into your Dedicated Virtual Accounts (9PSB Daily Vault or Commercial Wema Bank Escrow Vault): Transfers typically reflect within 2 to 10 minutes via NIBSS. Our backend actively auto-syncs with banking APIs. If you have the session ID or transaction reference, kindly drop it here for instant verification.';
-    } else if (_containsAny(lower, ['bvn', 'kyp', 'kyc', 'nin', 'tier', 'verification', 'unverified', 'upgrade'])) {
-      specificReply =
-          'Hi ${user.firstName}! 🛡️ For Verification & Tier Upgrades: Rentilly uses CBN-compliant KYC tiers. Tier 1 requires BVN/NIN. You can upgrade to Tier 2 (₦200,000 daily limit) right from your Profile settings by submitting your residential address. For Tier 3 (₦5,000,000+ daily limit), our compliance team is standing by to assist.';
-    } else if (_containsAny(lower, ['rent', 'escrow', 'landlord', 'property', 'lease', 'tenancy', 'inspection', 'agreement', 'partner'])) {
-      specificReply =
-          'Hi ${user.firstName}! 🔒 For Escrow & Leases: All rental funds remain 100% safeguarded inside your Rentilly Escrow Vault until you physically inspect and approve the property. Payouts are never released to a landlord without your direct authorization.';
-    }
-
-    await Future<void>.delayed(const Duration(milliseconds: 600));
-
-    final botMessage = specificReply ??
-        'Hi ${user.firstName}! 👋 Thanks for contacting Rentilly Support. Your inquiry has been routed to our active support team. One of our support agents will respond to you shortly. For urgent escalations, reach us at support@myrentilly.com';
-
-    await http.post(
-      Uri.parse('$_supabaseUrl/rest/v1/support_messages'),
-      headers: _supabaseHeaders,
-      body: json.encode({
-        'conversation_id': conversationId,
-        'sender': 'bot',
-        'sender_name': 'Rentilly Support Bot',
-        'message': botMessage,
-        'message_type': 'text',
-        'is_read': false,
-      }),
-    );
-
-    // Update conversation with bot reply as last_message
-    await http.patch(
-      Uri.parse(
-          '$_supabaseUrl/rest/v1/support_conversations?id=eq.$conversationId'),
-      headers: _supabaseHeaders,
-      body: json.encode({
-        'last_message': botMessage,
-        'last_message_at': DateTime.now().toUtc().toIso8601String(),
-        'unread_by_user': 1,
-      }),
-    );
-  }
-
-  static bool _containsAny(String text, List<String> keywords) {
-    return keywords.any((kw) => text.contains(kw));
   }
 
   // ---------------------------------------------------------------------------
