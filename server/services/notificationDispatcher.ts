@@ -196,7 +196,7 @@ export class NotificationDispatcher {
               <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 24px 0 16px 0;">
                 <tr>
                   <td align="center">
-                    <a href="${event.actionUrl && event.actionUrl.startsWith('http') ? event.actionUrl : `https://rentilly-admin-api.onrender.com/verify/re-kyc?email=${encodeURIComponent(event.email)}`}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #10B981 0%, #059669 100%); color: #FFFFFF; text-decoration: none; font-size: 15px; font-weight: 800; padding: 16px 36px; border-radius: 14px; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);">
+                    <a href="${event.actionUrl && event.actionUrl.startsWith('http') ? event.actionUrl : `https://api.myrentilly.com/verify/re-kyc?email=${encodeURIComponent(event.email)}`}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #10B981 0%, #059669 100%); color: #FFFFFF; text-decoration: none; font-size: 15px; font-weight: 800; padding: 16px 36px; border-radius: 14px; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);">
                       ${event.actionLabel || 'Confirm Date of Birth & Upgrade Account ⚡'}
                     </a>
                   </td>

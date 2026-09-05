@@ -207,7 +207,7 @@ export class FlutterwaveService {
           narration: params.narration,
           currency: params.currency || 'NGN',
           reference: params.reference || `RENTILLY_TRF_${Date.now()}`,
-          callback_url: 'https://rentilly-admin-api.onrender.com/api/webhooks/flutterwave'
+          callback_url: 'https://api.myrentilly.com/api/webhooks/flutterwave'
         })
       });
 

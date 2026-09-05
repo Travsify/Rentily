@@ -564,11 +564,11 @@ export async function requestReKyc(req: Request, res: Response) {
           } catch (_) {}
         }
 
-        const reqHost = req.get('host') || 'rentilly-admin-api.onrender.com';
+        const reqHost = req.get('host') || 'api.myrentilly.com';
         const reqProto = req.protocol || 'https';
         const webRekycUrl = reqHost.includes('localhost') 
           ? `http://${reqHost}/verify/re-kyc?email=${encodeURIComponent(cleanEmail)}`
-          : `https://rentilly-admin-api.onrender.com/verify/re-kyc?email=${encodeURIComponent(cleanEmail)}`;
+          : `https://api.myrentilly.com/verify/re-kyc?email=${encodeURIComponent(cleanEmail)}`;
 
         NotificationDispatcher.dispatch({
           userId: u.id,

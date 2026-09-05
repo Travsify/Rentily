@@ -372,7 +372,7 @@ class ApiService {
     final cleanEmail = email.trim().toLowerCase();
     if (cleanEmail.isEmpty) return [];
 
-    // 1. Render / Local Core API (Contains live Maplerad PAN, CVV, PIN, and balance)
+    // 1. Hostinger VPS Core API (Contains live Maplerad PAN, CVV, PIN, and balance)
     try {
       final res = await http.get(Uri.parse('$baseUrl/cards/user-cards?email=$cleanEmail'))
           .timeout(const Duration(seconds: 6));

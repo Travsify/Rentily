@@ -1,4 +1,4 @@
-﻿import type { Request, Response } from 'express';
+import type { Request, Response } from 'express';
 import { createHash, createHmac, randomBytes } from 'crypto';
 import { supabase } from '../supabaseClient';
 import { NotificationDispatcher } from '../services/notificationDispatcher';
@@ -75,7 +75,7 @@ export async function createAgent(req: Request, res: Response) {
       userName: name.trim(),
       title: 'Welcome to Rentilly Support Team',
       category: 'system',
-      message: `Hi ${name.split(' ')[0]}! Your Rentilly Support Agent account has been created.\n\nLogin at: https://rentilly-admin-api.onrender.com\nEmail: ${cleanEmail}\nPassword: ${password}\n\nPlease change your password after first login.`,
+      message: `Hi ${name.split(' ')[0]}! Your Rentilly Support Agent account has been created.\n\nLogin at: https://api.myrentilly.com\nEmail: ${cleanEmail}\nPassword: ${password}\n\nPlease change your password after first login.`,
       metadata: { type: 'agent_welcome', agentId: agent.id },
     }).catch(() => {});
 

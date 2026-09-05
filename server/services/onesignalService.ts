@@ -47,7 +47,7 @@ export interface OneSignalNotificationPayload {
  */
 export async function sendPushNotification(payload: OneSignalNotificationPayload): Promise<{ success: boolean; id?: string; error?: string }> {
   try {
-    const brandLogoUrl = payload.iconUrl || 'https://rentilly-admin-api.onrender.com/logo.png';
+    const brandLogoUrl = payload.iconUrl || 'https://api.myrentilly.com/logo.png';
 
     const body: any = {
       app_id: ONESIGNAL_APP_ID,

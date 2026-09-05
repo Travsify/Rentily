@@ -66,14 +66,14 @@
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
 
-	<!-- ── App Transport Security (allow HTTPS to Render + Supabase) ── -->
+	<!-- ── App Transport Security (allow HTTPS to Hostinger VPS + Supabase) ── -->
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
 		<false/>
 		<key>NSExceptionDomains</key>
 		<dict>
-			<key>rentilly-admin-api.onrender.com</key>
+			<key>api.myrentilly.com</key>
 			<dict>
 				<key>NSExceptionAllowsInsecureHTTPLoads</key>
 				<false/>
