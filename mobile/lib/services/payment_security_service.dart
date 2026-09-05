@@ -8,11 +8,16 @@ class PaymentSecurityService {
   static const String _pinKey = 'user_payment_pin_hash';
   static const String _biometricEnabledKey = 'user_biometric_payment_enabled';
 
-  // 1. Check if user has established a 6-digit payment code
+  // 1. Check if user has established a 6-digit payment PIN
   static Future<bool> hasPaymentPin() async {
     final prefs = await SharedPreferences.getInstance();
     final pin = prefs.getString(_pinKey);
     return pin != null && pin.length == 6;
+  }
+
+  // Convenience method for UI checks
+  static Future<bool> hasPinBeenSetUp() async {
+    return await hasPaymentPin();
   }
 
   // 2. Set or Update 6-digit payment PIN
@@ -22,7 +27,7 @@ class PaymentSecurityService {
     final saved = await prefs.setString(_pinKey, pin);
     if (saved) {
       SecurityTelemetryService.recordActivity(
-        title: 'Security PIN Updated 🔐',
+        title: 'Security PIN Created 🔐',
         message: 'Your 6-digit transaction payment PIN was successfully configured.',
         category: 'security',
         extraMetadata: {'Security Event': 'Payment PIN Established'},
@@ -32,11 +37,17 @@ class PaymentSecurityService {
   }
 
   // 3. Verify entered 6-digit PIN
+  // SECURITY RULES:
+  //   - If no PIN has been set → ALWAYS fails. No backdoor, no default.
+  //   - If entered PIN is not exactly 6 digits → ALWAYS fails.
+  //   - Only the exact saved PIN is accepted.
   static Future<bool> verifyPaymentPin(String enteredPin) async {
+    if (enteredPin.length != 6 || int.tryParse(enteredPin) == null) return false;
     final prefs = await SharedPreferences.getInstance();
     final savedPin = prefs.getString(_pinKey);
-    if (savedPin == null) {
-      return enteredPin == '123456';
+    if (savedPin == null || savedPin.length != 6) {
+      // No PIN set — verification fails. Caller must route to PIN creation.
+      return false;
     }
     return savedPin == enteredPin;
   }
@@ -68,6 +79,8 @@ class PaymentSecurityService {
   }
 
   // 5. Universal Payment Authorization (Biometric or 6-digit PIN)
+  // If user has no PIN set, they are FORCED to create one before any transaction.
+  // There is NO way to bypass this — no default PIN, no backdoor.
   static Future<bool> authorizeTransaction(
     BuildContext context, {
     required String title,
@@ -90,7 +103,7 @@ class PaymentSecurityService {
 
     final hasPin = await hasPaymentPin();
     if (!hasPin) {
-      // Prompt user to create 6-digit payment PIN
+      // Force PIN creation — user cannot authorize without setting a PIN first
       final created = await PaymentPinModal.showCreatePin(context);
       if (!created) return false;
     }

@@ -5,6 +5,7 @@ import '../../constants/app_colors.dart';
 import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
 import '../../services/biometric_service.dart';
+import '../../services/payment_security_service.dart';
 import '../../services/push_notification_service.dart';
 import '../../services/security_telemetry_service.dart';
 import '../../services/otp_service.dart';
@@ -33,6 +34,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   bool _obscurePassword = true;
   bool _isLoading = false;
   bool _isBiometricMode = true;
+  bool _pinSetUp = false; // tracks if user has created their 6-digit security PIN
   UserProfile? _savedUser;
   String? _errorMessage;
   late AnimationController _pulseController;
@@ -67,14 +69,25 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     final rememberedUser = await AuthService.getRememberedUser();
     final wasLockedFromInactivity = prefs.getBool('rentilly_session_locked_inactivity') ?? false;
 
-    final canUseBiometrics = (rememberedUser != null && biometricsEnabled && !widget.forcePasswordMode) ||
-        (rememberedUser != null && (widget.isFromInactivityTimeout || wasLockedFromInactivity) && !widget.forcePasswordMode);
+    // Also verify biometrics are ACTUALLY available on this device,
+    // not just that the flag was set. Without this check, users without
+    // enrolled fingerprints get stuck on the biometric screen.
+    final bioHardwareAvailable = await BiometricService.isBiometricsAvailable();
+
+    final canUseBiometrics = rememberedUser != null &&
+        !widget.forcePasswordMode &&
+        bioHardwareAvailable &&
+        (biometricsEnabled || wasLockedFromInactivity || widget.isFromInactivityTimeout);
+
+    // Load whether user has set up a PIN (for PIN prompt in profile)
+    final pinSetUp = await PaymentSecurityService.hasPaymentPin();
 
     if (canUseBiometrics) {
       if (mounted) {
         setState(() {
           _savedUser = rememberedUser;
           _isBiometricMode = true;
+          _pinSetUp = pinSetUp;
           if (rememberedUser.email.isNotEmpty) {
             _emailController.text = rememberedUser.email;
           }
@@ -92,6 +105,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         setState(() {
           _savedUser = rememberedUser;
           _isBiometricMode = false;
+          _pinSetUp = pinSetUp;
           if (rememberedUser?.email.isNotEmpty == true) {
             _emailController.text = rememberedUser!.email;
           }
@@ -592,6 +606,63 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppColors.textSecondary),
           ),
         ),
+
+        // ── PIN Setup Notice ──────────────────────────────────────────────────
+        // Only shown when user has NOT yet created their security PIN.
+        // They must create one before they can authorize transactions.
+        if (!_pinSetUp) ...[
+          const SizedBox(height: 8),
+          GestureDetector(
+            onTap: () async {
+              final created = await PaymentSecurityService.authorizeTransaction(
+                context,
+                title: 'Set Up Security PIN',
+                amount: 0,
+              );
+              if (created && mounted) {
+                setState(() => _pinSetUp = true);
+              }
+            },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFBEB),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.5)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.pin_outlined, size: 18, color: Color(0xFFD97706)),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Set Up Your Security PIN',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: const Color(0xFF92400E),
+                          ),
+                        ),
+                        Text(
+                          'You need a 6-digit PIN to authorize payments. Tap to create one now.',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 10.5,
+                            color: const Color(0xFFB45309),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right_rounded, size: 18, color: Color(0xFFD97706)),
+                ],
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
