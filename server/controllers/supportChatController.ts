@@ -1,6 +1,7 @@
-﻿import type { Request, Response } from 'express';
+import type { Request, Response } from 'express';
 import { supabase } from '../supabaseClient';
 import { NotificationDispatcher } from '../services/notificationDispatcher';
+import { autoAssignConversation, decrementAgentChats } from './supportAgentController';
 
 // ── Support Live Chat Controller ──────────────────────────────────────────────
 
@@ -48,10 +49,13 @@ export async function createOrGetConversation(req: Request, res: Response) {
       conversation_id: newConv.id,
       sender: 'bot',
       sender_name: 'Rentilly Support',
-      message: Hi ! Welcome to Rentilly Support. You are chatting about: . One of our agents will respond shortly. For urgent matters, email support@myrentilly.com,
+      message: `Hi ${firstName}! Welcome to Rentilly Support. You are chatting about: ${cleanSubject}. One of our agents will respond shortly. For urgent matters, email support@myrentilly.com`,
       message_type: 'text',
       is_read: false,
     });
+
+    // Auto-assign to the least-busy online agent (fire-and-forget)
+    autoAssignConversation(newConv.id, userName || cleanEmail.split('@')[0], cleanSubject).catch(() => {});
 
     return res.json({ success: true, conversation: newConv, isNew: true });
   } catch (err: any) {
@@ -120,9 +124,18 @@ export async function getMessages(req: Request, res: Response) {
 export async function updateConversation(req: Request, res: Response) {
   try {
     if (!supabase) return res.status(503).json({ error: 'Database not available' });
-    const allowed = ['status', 'priority', 'assigned_to', 'unread_by_agent', 'unread_by_user'];
+    const allowed = ['status', 'priority', 'assigned_to', 'assigned_agent_id', 'assigned_agent_email', 'assigned_agent_name', 'unread_by_agent', 'unread_by_user'];
     const update: any = { updated_at: new Date().toISOString() };
     for (const key of allowed) { if (req.body[key] !== undefined) update[key] = req.body[key]; }
+
+    // If closing or resolving: decrement assigned agent's active_chats counter
+    if (update.status === 'resolved' || update.status === 'closed') {
+      const { data: conv } = await supabase.from('support_conversations').select('assigned_agent_email').eq('id', req.params.id).maybeSingle();
+      if (conv?.assigned_agent_email) {
+        decrementAgentChats(conv.assigned_agent_email).catch(() => {});
+      }
+    }
+
     const { data, error } = await supabase.from('support_conversations').update(update).eq('id', req.params.id).select().single();
     if (error) throw error;
     return res.json({ success: true, conversation: data });

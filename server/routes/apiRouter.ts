@@ -204,6 +204,28 @@ apiRouter.get('/support/conversations/:id/messages', supportChatController.getMe
 apiRouter.post('/support/conversations/:id/messages', supportChatController.sendMessage);
 apiRouter.patch('/support/conversations/:id', supportChatController.updateConversation);
 
+// 12c. Support Agent Management (multi-agent team)
+import * as supportAgentController from '../controllers/supportAgentController';
+apiRouter.post('/support/agents', supportAgentController.createAgent);
+apiRouter.get('/support/agents', supportAgentController.listAgents);
+apiRouter.post('/support/agents/login', supportAgentController.loginAgent);
+apiRouter.post('/support/agents/:id/heartbeat', supportAgentController.heartbeat);
+apiRouter.patch('/support/agents/:id', supportAgentController.updateAgent);
+apiRouter.get('/support/conversations/agent/:agentEmail', supportAgentController.getAgentConversations);
+
+// 12d. Direct Tenant-Owner/Partner Messaging (Supabase-backed, two-way)
+import * as directChatController from '../controllers/directChatController';
+apiRouter.post('/direct-chat/conversations', directChatController.createOrGetConversation);
+apiRouter.get('/direct-chat/conversations/tenant/:tenantId', directChatController.getTenantConversations);
+apiRouter.get('/direct-chat/conversations/owner/:ownerId', directChatController.getOwnerConversations);
+apiRouter.get('/direct-chat/conversations/:id/messages', directChatController.getMessages);
+apiRouter.post('/direct-chat/conversations/:id/messages', directChatController.sendMessage);
+apiRouter.patch('/direct-chat/conversations/:id', directChatController.updateConversation);
+apiRouter.post('/direct-chat/scan', directChatController.scanMessage);
+// Override the broken chat oversight endpoint to use real direct_messages data
+apiRouter.get('/chat/oversight', directChatController.getFlaggedMessages);
+
+
 // 13. Platform Fee & Tariff Configuration
 apiRouter.get('/config/fees', feeController.getFees);
 apiRouter.get('/platform/fees', feeController.getFees);
