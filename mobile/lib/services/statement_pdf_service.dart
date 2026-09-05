@@ -77,6 +77,26 @@ class StatementPdfService {
 
     final type = _sanitizePdfText(transaction['type'] ?? 'Escrow Settlement');
     final title = _sanitizePdfText(cleanTitleText.isNotEmpty ? cleanTitleText : 'Electronic Payment Settlement');
+
+    final isCardTx = currency.toUpperCase() == 'USD' ||
+        currency.toUpperCase() == 'CARD_USD' ||
+        transaction['cardId'] != null ||
+        transaction['merchantName'] != null;
+
+    final isCredit = transaction['isCredit'] == true ||
+        (transaction['type'] ?? '').toString().toUpperCase() == 'CREDIT' ||
+        (transaction['entry'] ?? '').toString().toUpperCase() == 'CREDIT';
+
+    final merchantName = _sanitizePdfText(
+      transaction['merchantName']?.toString() ??
+      transaction['merchant']?['name']?.toString() ??
+      title
+    );
+
+    final heroLabel = isCardTx
+        ? (isCredit ? 'CARD INFLOW (CREDIT)' : 'ONLINE CARD PURCHASE (DEBIT)')
+        : 'TOTAL TRANSACTION VALUE';
+    final heroPrefix = isCardTx ? (isCredit ? '+' : '-') : '';
     final date = transaction['date'] != null
         ? _dateFormat.format(DateTime.tryParse(transaction['date'].toString()) ?? DateTime.now())
         : _dateFormat.format(DateTime.now());
@@ -163,31 +183,31 @@ class StatementPdfService {
                   crossAxisAlignment: pw.CrossAxisAlignment.center,
                   children: [
                     pw.Text(
-                      'TOTAL TRANSACTION VALUE',
-                      style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColors.grey600, letterSpacing: 0.8),
+                      heroLabel,
+                      style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: isCardTx && !isCredit ? PdfColors.red900 : PdfColors.grey600, letterSpacing: 0.8),
                     ),
                     pw.SizedBox(height: 6),
                     pw.Text(
-                      '$currPrefix${_currencyFormat.format(amount)}',
+                      '$heroPrefix$currPrefix${_currencyFormat.format(amount)}',
                       style: pw.TextStyle(
                         fontSize: 28,
                         fontWeight: pw.FontWeight.bold,
-                        color: primaryColor,
+                        color: isCardTx ? (isCredit ? primaryColor : PdfColor.fromHex('#DC2626')) : primaryColor,
                       ),
                     ),
                     pw.SizedBox(height: 6),
                     pw.Container(
                       padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                       decoration: pw.BoxDecoration(
-                        color: PdfColors.green100,
+                        color: isCardTx ? (isCredit ? PdfColors.green100 : PdfColors.red100) : PdfColors.green100,
                         borderRadius: pw.BorderRadius.circular(6),
                       ),
                       child: pw.Text(
-                        status,
+                        isCardTx ? (isCredit ? 'CREDIT - SETTLED' : 'DEBIT - SETTLED') : status,
                         style: pw.TextStyle(
                           fontSize: 9,
                           fontWeight: pw.FontWeight.bold,
-                          color: PdfColors.green900,
+                          color: isCardTx ? (isCredit ? PdfColors.green900 : PdfColors.red900) : PdfColors.green900,
                         ),
                       ),
                     ),
@@ -198,22 +218,38 @@ class StatementPdfService {
 
               // Institutional Transaction Ledger
               pw.Text(
-                'TRANSACTION SPECIFICATIONS',
+                isCardTx ? 'CARD TRANSACTION SPECIFICATIONS' : 'TRANSACTION SPECIFICATIONS',
                 style: pw.TextStyle(fontSize: 10.5, fontWeight: pw.FontWeight.bold, color: primaryColor, letterSpacing: 0.5),
               ),
               pw.SizedBox(height: 10),
 
-              _buildPdfDetailRow('Transaction Description', title),
-              _buildPdfDetailRow('Transaction Reference', txRef),
-              _buildPdfDetailRow('Channel / Category', type),
-              _buildPdfDetailRow('Sender / Source', sender),
-              _buildPdfDetailRow('Beneficiary Account Name', beneficiary),
-              _buildPdfDetailRow('Dedicated Account Number', user.accountNumber ?? 'Pending 9PSB'),
-              _buildPdfDetailRow('Settlement Partner Bank', bankName),
-              _buildPdfDetailRow('Settlement Category', 'Rentilly Escrow Protected'),
-              _buildPdfDetailRow('Payer Email', user.email),
-              _buildPdfDetailRow('Timestamp (UTC+1)', date),
-              _buildPdfDetailRow('Corporate Issuer', 'Product of E-Homes Global Inclusive Limited'),
+              if (isCardTx) ...[
+                _buildPdfDetailRow('Transaction Type', isCredit ? 'CREDIT (+) - Card Funding / Top-Up' : 'DEBIT (-) - Online Card Purchase'),
+                _buildPdfDetailRow('Merchant / Platform', merchantName),
+                _buildPdfDetailRow('Transaction Purpose', title),
+                _buildPdfDetailRow('Card Rail / Issuer', 'Rentilly Platinum Virtual USD Card (Visa)'),
+                _buildPdfDetailRow('Cardholder Name', user.fullName),
+                _buildPdfDetailRow('Cardholder Email', user.email),
+                _buildPdfDetailRow('Billing Country & City', 'San Francisco, CA 94104, USA'),
+                _buildPdfDetailRow('Billing Street Address', '1 Sansome St, San Francisco, CA'),
+                _buildPdfDetailRow('Authorization Reference', txRef),
+                _buildPdfDetailRow('Settlement Currency', 'USD (United States Dollar)'),
+                _buildPdfDetailRow('Security Authentication', '3D-Secure 2.0 Dynamic OTP Verified'),
+                _buildPdfDetailRow('Transaction Date (UTC+1)', date),
+                _buildPdfDetailRow('Settlement Status', status == 'SUCCESS' ? 'SETTLED / COMPLETED' : status),
+              ] else ...[
+                _buildPdfDetailRow('Transaction Description', title),
+                _buildPdfDetailRow('Transaction Reference', txRef),
+                _buildPdfDetailRow('Channel / Category', type),
+                _buildPdfDetailRow('Sender / Source', sender),
+                _buildPdfDetailRow('Beneficiary Account Name', beneficiary),
+                _buildPdfDetailRow('Dedicated Account Number', user.accountNumber ?? 'Pending 9PSB'),
+                _buildPdfDetailRow('Settlement Partner Bank', bankName),
+                _buildPdfDetailRow('Settlement Category', 'Rentilly Escrow Protected'),
+                _buildPdfDetailRow('Payer Email', user.email),
+                _buildPdfDetailRow('Timestamp (UTC+1)', date),
+                _buildPdfDetailRow('Corporate Issuer', 'Product of E-Homes Global Inclusive Limited'),
+              ],
 
               pw.Spacer(),
 

@@ -44,13 +44,15 @@ class PushNotificationService {
       // Register the current player ID if already available
       final currentPlayerId = OneSignal.User.pushSubscription.id;
       if (currentPlayerId != null && currentPlayerId.isNotEmpty) {
-        debugPrint('[PushNotification] Existing Player ID: \$currentPlayerId');
+        debugPrint('[PushNotification] Existing Player ID: $currentPlayerId');
         _registerPlayerIdWithBackend(currentPlayerId);
       }
 
       // Handle notification tapped (user taps a push notification)
       OneSignal.Notifications.addClickListener((event) {
-        debugPrint('[PushNotification] Notification clicked: \${event.notification.title}');
+        debugPrint('[PushNotification] Notification clicked: ${event.notification.title}');
+        // Immediately sync user balance and financial state
+        AuthService.refreshCurrentUser();
         _handleNotificationTap(event);
       });
 
@@ -58,12 +60,14 @@ class PushNotificationService {
       OneSignal.Notifications.addForegroundWillDisplayListener((event) {
         // Allow the notification to display in foreground
         event.notification.display();
-        debugPrint('[PushNotification] Foreground notification: \${event.notification.title}');
+        debugPrint('[PushNotification] Foreground notification: ${event.notification.title}');
+        // Immediately sync user balance in real time
+        AuthService.refreshCurrentUser();
       });
 
       debugPrint('[PushNotification] OneSignal initialized successfully');
     } catch (e) {
-      debugPrint('[PushNotification] Init error: \$e');
+      debugPrint('[PushNotification] Init error: $e');
     }
   }
 

@@ -21,6 +21,7 @@ import '../../widgets/date_of_birth_modal.dart';
 import '../../widgets/biometric_prompt_modal.dart';
 import '../../widgets/withdrawal_modal.dart';
 import '../../widgets/daily_quotes_card.dart';
+import '../../widgets/tier_upgrade_banner.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -769,7 +770,18 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
               ),
-              const SizedBox(height: 22),
+              const SizedBox(height: 12),
+
+              // 2b. In-App Notification / Tier 3 Upgrade Banner (Unlocks ₦5M Limit)
+              if (_user != null) ...[
+                TierUpgradeBanner(
+                  user: _user!,
+                  onUpgradeComplete: () {
+                    _loadUser();
+                  },
+                ),
+                const SizedBox(height: 12),
+              ],
 
               // 3. Circular Grid-Based Quick Hub (The 4 Core Action Pods)
               Row(

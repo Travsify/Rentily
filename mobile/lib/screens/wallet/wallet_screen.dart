@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -22,6 +23,8 @@ import '../../widgets/virtual_card_widget.dart';
 import '../../widgets/transaction_receipt_modal.dart';
 import '../../widgets/statement_export_modal.dart';
 import '../../widgets/currency_swap_modal.dart';
+import '../../widgets/tier_upgrade_banner.dart';
+import '../../widgets/tier_upgrade_modal.dart';
 import '../cards/cards_screen.dart';
 
 class WalletScreen extends StatefulWidget {
@@ -47,26 +50,85 @@ class _WalletScreenState extends State<WalletScreen> {
   String _activeAccountTab = 'DAILY'; // 'DAILY' | 'HIGH_VALUE' | 'USDT'
   Map<String, dynamic>? _vaultAccounts;
   bool _isProvisioningCommercial = false;
+  Timer? _liveBalanceSyncTimer;
 
   @override
   void initState() {
     super.initState();
     _loadData();
     AuthService.currentUserNotifier.addListener(_onUserUpdated);
+    // Real-time silent ledger sync every 6 seconds while viewing wallet
+    _liveBalanceSyncTimer = Timer.periodic(const Duration(seconds: 6), (_) {
+      if (mounted) {
+        _syncBalanceAndTransactionsSilently();
+      }
+    });
   }
 
   @override
   void dispose() {
+    _liveBalanceSyncTimer?.cancel();
     AuthService.currentUserNotifier.removeListener(_onUserUpdated);
     super.dispose();
   }
 
   void _onUserUpdated() {
     if (mounted) {
+      final updated = AuthService.currentUserNotifier.value;
+      final oldBal = _user?.walletBalance;
       setState(() {
-        _user = AuthService.currentUserNotifier.value;
+        _user = updated;
       });
+      if (updated != null && (oldBal != updated.walletBalance || _transactions.isEmpty)) {
+        _fetchTransactionsSilently(updated);
+      }
     }
+  }
+
+  Future<void> _syncBalanceAndTransactionsSilently() async {
+    final u = _user ?? await AuthService.getCurrentUser();
+    if (u == null || !mounted) return;
+    try {
+      final url = Uri.parse('${AppConstants.apiBaseUrl}/wallet/balance?userId=${u.id}&email=${u.email}');
+      final res = await http.get(url).timeout(const Duration(seconds: 5));
+      if (res.statusCode == 200 && mounted) {
+        final data = json.decode(res.body);
+        if (data['status'] == true && data['walletBalance'] != null) {
+          final double serverBal = (data['walletBalance'] as num).toDouble();
+          final userData = data['user'] as Map<String, dynamic>? ?? {};
+          final double serverUsdtBal = (data['usdtBalance'] as num?)?.toDouble() ?? (userData['usdtBalance'] as num?)?.toDouble() ?? 0.0;
+          if (serverBal != u.walletBalance || serverUsdtBal != u.usdtBalance) {
+            final updated = u.copyWith(
+              walletBalance: serverBal,
+              usdtBalance: serverUsdtBal,
+            );
+            await AuthService.updateUser(updated);
+            if (mounted) {
+              setState(() => _user = updated);
+              _fetchTransactionsSilently(updated);
+            }
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _fetchTransactionsSilently(UserProfile u) async {
+    try {
+      final txUrl = Uri.parse('${AppConstants.apiBaseUrl}/payments/transactions?email=${u.email}');
+      final txRes = await http.get(txUrl).timeout(const Duration(seconds: 5));
+      if (txRes.statusCode == 200 && mounted) {
+        final txJson = json.decode(txRes.body);
+        if (txJson['status'] == true && txJson['data'] is List) {
+          final txList = List<Map<String, dynamic>>.from(txJson['data']);
+          setState(() {
+            _transactions = txList;
+          });
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('rentilly_cached_tx_${u.email}', json.encode(txList));
+        }
+      }
+    } catch (_) {}
   }
 
   List<Map<String, dynamic>> _transactions = [];
@@ -1635,64 +1697,20 @@ class _WalletScreenState extends State<WalletScreen> {
               ),
               const SizedBox(height: 18),
 
-              // Wallet Actions (Add Money, Swap, Withdraw, Statement, Vault)
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildActionButton(Icons.add_rounded, 'Add Money', () {
-                      if (_user != null) {
-                        AddMoneyModal.show(
-                          context,
-                          user: _user!,
-                          onAccountUpdated: (u) => setState(() => _user = u),
-                        );
-                      }
-                    }),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: _buildActionButton(Icons.currency_exchange_rounded, 'Swap', () {
-                      if (_user != null) {
-                        CurrencySwapModal.show(
-                          context,
-                          user: _user!,
-                          onSwapSuccess: (newNgn, newUsdt) => setState(() => _user = _user!.copyWith(walletBalance: newNgn, usdtBalance: newUsdt)),
-                        );
-                      }
-                    }),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: _buildActionButton(Icons.north_east_rounded, 'Withdraw', () {
-                      if (_user == null || !_user!.isVerified) {
-                        VerificationModal.show(context, onSuccess: (updated) {
-                          setState(() => _user = updated);
-                        });
-                        return;
-                      }
-                      WithdrawalModal.show(
-                        context,
-                        user: _user!,
-                        onWithdrawalSuccess: (newBal) {
-                          setState(() => _user = _user!.copyWith(walletBalance: newBal));
-                        },
-                      );
-                    }),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: _buildActionButton(Icons.description_outlined, 'Statement', _showStatementDialog),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: _buildActionButton(Icons.savings_rounded, 'Vault', () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const VaultsScreen()),
-                      );
-                    }),
-                  ),
-                ],
-              ),
+              // 2. In-App Notification / Upgrade Prompt for High-Volume Limit (Tier 3)
+              if (_user != null) ...[
+                const SizedBox(height: 12),
+                TierUpgradeBanner(
+                  user: _user!,
+                  onUpgradeComplete: () {
+                    _loadData();
+                  },
+                ),
+              ],
+              const SizedBox(height: 14),
+
+              // 3. Living Wallet Actions Hub (Add Money, Swap, Withdraw, Statement, Vault)
+              _buildLivingWalletActionsHub(),
               const SizedBox(height: 22),
 
               // Rentilly Virtual Dollar Card Section (Controlled Dynamically by Admin Remote Feature Flags)
@@ -2012,35 +2030,210 @@ class _WalletScreenState extends State<WalletScreen> {
   );
 }
 
-  Widget _buildActionButton(IconData icon, String label, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 13),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.borderDark),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.02),
-              blurRadius: 8,
+  Widget _buildLivingWalletActionsHub() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(10, 14, 10, 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: const Color(0xFFE2E8F0), width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF10B981),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      'LIVING WALLET ACTIONS',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.8,
+                        color: const Color(0xFF475569),
+                      ),
+                    ),
+                  ],
+                ),
+                Text(
+                  'Instant & Zero Hidden Fee',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF0D5C46),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Icon(icon, size: 20, color: AppColors.primary),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 10.5,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
+          ),
+          const SizedBox(height: 14),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: _buildActionButton(
+                  icon: Icons.add_rounded,
+                  label: 'Add Money',
+                  iconColor: const Color(0xFF059669),
+                  bgColor: const Color(0xFFECFDF5),
+                  borderColor: const Color(0xFFA7F3D0),
+                  onTap: () {
+                    if (_user != null) {
+                      AddMoneyModal.show(
+                        context,
+                        user: _user!,
+                        onAccountUpdated: (u) => setState(() => _user = u),
+                      );
+                    }
+                  },
+                ),
               ),
-            ),
-          ],
+              Expanded(
+                child: _buildActionButton(
+                  icon: Icons.currency_exchange_rounded,
+                  label: 'Swap',
+                  iconColor: const Color(0xFF4F46E5),
+                  bgColor: const Color(0xFFEEF2FF),
+                  borderColor: const Color(0xFFC7D2FE),
+                  onTap: () {
+                    if (_user != null) {
+                      CurrencySwapModal.show(
+                        context,
+                        user: _user!,
+                        onSwapSuccess: (newNgn, newUsdt) => setState(() => _user = _user!.copyWith(walletBalance: newNgn, usdtBalance: newUsdt)),
+                      );
+                    }
+                  },
+                ),
+              ),
+              Expanded(
+                child: _buildActionButton(
+                  icon: Icons.north_east_rounded,
+                  label: 'Withdraw',
+                  iconColor: const Color(0xFFD97706),
+                  bgColor: const Color(0xFFFFFBEB),
+                  borderColor: const Color(0xFFFDE68A),
+                  onTap: () {
+                    if (_user == null || !_user!.isVerified) {
+                      VerificationModal.show(context, onSuccess: (updated) {
+                        setState(() => _user = updated);
+                      });
+                      return;
+                    }
+                    WithdrawalModal.show(
+                      context,
+                      user: _user!,
+                      onWithdrawalSuccess: (newBal) {
+                        setState(() => _user = _user!.copyWith(walletBalance: newBal));
+                      },
+                    );
+                  },
+                ),
+              ),
+              Expanded(
+                child: _buildActionButton(
+                  icon: Icons.receipt_long_rounded,
+                  label: 'Statement',
+                  iconColor: const Color(0xFF0284C7),
+                  bgColor: const Color(0xFFF0F9FF),
+                  borderColor: const Color(0xFFBAE6FD),
+                  onTap: _showStatementDialog,
+                ),
+              ),
+              Expanded(
+                child: _buildActionButton(
+                  icon: Icons.savings_rounded,
+                  label: 'Vault',
+                  iconColor: const Color(0xFF7C3AED),
+                  bgColor: const Color(0xFFF5F3FF),
+                  borderColor: const Color(0xFFDDD6FE),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const VaultsScreen()),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required Color iconColor,
+    required Color bgColor,
+    required Color borderColor,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () {
+          HapticFeedback.lightImpact();
+          onTap();
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: borderColor, width: 1.2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: iconColor.withValues(alpha: 0.12),
+                      blurRadius: 8,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Icon(icon, size: 22, color: iconColor),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF1E293B),
+                  letterSpacing: -0.2,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

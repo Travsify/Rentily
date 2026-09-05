@@ -418,7 +418,7 @@ class AuthService {
           'apikey': supabaseKey,
           'Authorization': 'Bearer $supabaseKey',
         },
-      ).timeout(const Duration(seconds: 5));
+      ).timeout(const Duration(seconds: 4));
 
       if (response.statusCode == 200) {
         final List<dynamic> users = json.decode(response.body);
@@ -428,7 +428,9 @@ class AuthService {
           final isPartner = current.isPartner || rawRole == 'partner' || cleanEmail == 'tonerocool1@gmail.com' || (uData['business_name'] != null && uData['business_name'].toString().isNotEmpty);
           final effectiveRole = isPartner ? 'partner' : (current.isLandlord ? 'owner' : rawRole);
 
-          final updated = current.copyWith(
+          final newBal = (uData['wallet_balance'] is num) ? (uData['wallet_balance'] as num).toDouble() : current.walletBalance;
+
+          var updated = current.copyWith(
             fullName: uData['full_name'] ?? current.fullName,
             phoneNumber: uData['phone_number'] ?? current.phoneNumber,
             role: effectiveRole,
@@ -438,11 +440,37 @@ class AuthService {
             ninNumber: uData['nin_number'] ?? current.ninNumber,
             accountNumber: uData['account_number'] ?? current.accountNumber,
             bankName: uData['bank_name'] ?? current.bankName,
-            walletBalance: (uData['wallet_balance'] is num) ? (uData['wallet_balance'] as num).toDouble() : current.walletBalance,
+            walletBalance: newBal,
             rekycRequired: uData['rekyc_required'] == true,
             dob: uData['dob'] ?? current.dob,
           );
-          await updateUser(updated);
+
+          // Also check server wallet balance for USDT & Commercial ledger
+          try {
+            final wRes = await http.get(
+              Uri.parse('$baseUrl/wallet/balance?userId=${current.id}&email=$cleanEmail'),
+            ).timeout(const Duration(seconds: 4));
+            if (wRes.statusCode == 200) {
+              final wJson = json.decode(wRes.body);
+              if (wJson['status'] == true) {
+                final double? wBal = (wJson['walletBalance'] as num?)?.toDouble();
+                final double? wUsdt = (wJson['usdtBalance'] as num?)?.toDouble();
+                if (wBal != null && wBal > newBal) {
+                  updated = updated.copyWith(walletBalance: wBal);
+                }
+                if (wUsdt != null) {
+                  updated = updated.copyWith(usdtBalance: wUsdt);
+                }
+              }
+            }
+          } catch (_) {}
+
+          final prefs = await SharedPreferences.getInstance();
+          final encoded = json.encode(updated.toJson());
+          await prefs.setString(AppConstants.userKey, encoded);
+          await prefs.setString('rentilly_last_user', encoded);
+          await prefs.setString('rentilly_user_$cleanEmail', encoded);
+          currentUserNotifier.value = updated;
           return updated;
         }
       }
@@ -517,7 +545,6 @@ class AuthService {
           'business_name': user.businessName,
           'cac_number': user.cacNumber,
           'office_address': user.officeAddress,
-          'wallet_balance': user.walletBalance,
           'account_number': user.accountNumber,
           'bank_name': user.bankName,
         };

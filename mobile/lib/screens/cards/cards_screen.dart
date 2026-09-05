@@ -14,6 +14,8 @@ import '../../widgets/rentilly_bottom_bar.dart';
 import '../../widgets/partner_bottom_bar.dart';
 import '../../widgets/landlord_bottom_bar.dart';
 import '../../widgets/statement_export_modal.dart';
+import '../../widgets/transaction_receipt_modal.dart';
+import '../../services/statement_pdf_service.dart';
 
 class CardsScreen extends StatefulWidget {
   const CardsScreen({super.key});
@@ -2492,8 +2494,8 @@ class _CardsScreenState extends State<CardsScreen> {
                       _buildCardActionButtons(isFrozen),
                       const SizedBox(height: 22),
 
-                      // --- INSTITUTIONAL TRUST & FEATURE PILLS ---
-                      _buildSecurityFeatureRow(),
+                      // --- ACCEPTED PLATFORMS & TRUST ECOSYSTEM ---
+                      _buildSupportedPlatformsSection(),
                       const SizedBox(height: 24),
 
                       // --- CARD TRANSACTION LEDGER ---
@@ -2983,45 +2985,135 @@ class _CardsScreenState extends State<CardsScreen> {
     );
   }
 
-  // --- 4. SECURITY & FEATURE BADGES ---
-  Widget _buildSecurityFeatureRow() {
+  // --- 4. ACCEPTED PLATFORMS & GLOBAL TRUST ---
+  Widget _buildSupportedPlatformsSection() {
+    final platforms = [
+      {'name': 'TikTok', 'category': 'Ads & Shop', 'icon': Icons.music_note_rounded, 'color': const Color(0xFF000000)},
+      {'name': 'Meta', 'category': 'FB / Insta Ads', 'icon': Icons.campaign_rounded, 'color': const Color(0xFF1877F2)},
+      {'name': 'Apple', 'category': 'App Store & iCloud', 'icon': Icons.apple, 'color': const Color(0xFF111827)},
+      {'name': 'Google', 'category': 'Play & Cloud', 'icon': Icons.g_mobiledata_rounded, 'color': const Color(0xFFEA4335)},
+      {'name': 'Amazon', 'category': 'AWS & Prime', 'icon': Icons.shopping_cart_rounded, 'color': const Color(0xFFFF9900)},
+      {'name': 'Netflix', 'category': 'Streaming', 'icon': Icons.movie_filter_rounded, 'color': const Color(0xFFE50914)},
+      {'name': 'Spotify', 'category': 'Music Premium', 'icon': Icons.headphones_rounded, 'color': const Color(0xFF1DB954)},
+      {'name': 'OpenAI', 'category': 'ChatGPT Plus', 'icon': Icons.psychology_rounded, 'color': const Color(0xFF10A37F)},
+      {'name': 'PayPal', 'category': 'Checkout & Send', 'icon': Icons.account_balance_wallet_rounded, 'color': const Color(0xFF003087)},
+      {'name': 'Uber & Bolt', 'category': 'Rides & Eats', 'icon': Icons.local_taxi_rounded, 'color': const Color(0xFF0F172A)},
+      {'name': 'Airbnb', 'category': 'Travel & Stays', 'icon': Icons.apartment_rounded, 'color': const Color(0xFFFF5A5F)},
+    ];
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: const Color(0xFFE5E7EB)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildPillItem(Icons.verified_user_rounded, '3D-Secure 2.0', const Color(0xFF0D5C46)),
-          Container(width: 1, height: 18, color: const Color(0xFFE5E7EB)),
-          _buildPillItem(Icons.public_rounded, 'San Francisco, CA', const Color(0xFF10B981)),
-          Container(width: 1, height: 18, color: const Color(0xFFE5E7EB)),
-          _buildPillItem(Icons.bolt_rounded, 'Instant Delivery', const Color(0xFFF59E0B)),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.public_rounded, size: 16, color: Color(0xFF059669)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'ACCEPTED ON MAJOR GLOBAL PLATFORMS',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.5,
+                        color: const Color(0xFF059669),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Pay ads, cloud services, and subscriptions without international declination',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 11,
+                        color: AppColors.textSecondary,
+                        height: 1.2,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: platforms.map((p) {
+              final color = p['color'] as Color;
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(p['icon'] as IconData, size: 13, color: color),
+                    const SizedBox(width: 5),
+                    Text(
+                      p['name'] as String,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF1E293B),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.verified_user_rounded, size: 13, color: Color(0xFF0284C7)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '3D-Secure 2.0 Protected • San Francisco, CA Billing (Zip 94104)',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF334155),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
-    );
-  }
-
-  Widget _buildPillItem(IconData icon, String title, Color color) {
-    return Row(
-      children: [
-        Icon(icon, size: 14, color: color),
-        const SizedBox(width: 6),
-        Text(
-          title,
-          style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF374151)),
-        ),
-      ],
     );
   }
 
@@ -3105,16 +3197,39 @@ class _CardsScreenState extends State<CardsScreen> {
     return Column(
       children: _cardTransactions.map((tx) {
         final amount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
-        final isDebit = tx['type'] == 'DEBIT';
-        final status = tx['status']?.toString() ?? 'SUCCESSFUL';
+        final rawType = (tx['type'] ?? tx['entry'] ?? '').toString().toUpperCase();
+        final isCredit = rawType == 'CREDIT' ||
+            rawType.contains('INFLOW') ||
+            rawType.contains('DEPOSIT') ||
+            rawType.contains('TOP');
+        final isDebit = !isCredit;
+        final status = (tx['status'] ?? 'SUCCESSFUL').toString().toUpperCase();
+        final isSuccessful = status == 'SUCCESSFUL' || status == 'SUCCESS';
+        final merchantName = (tx['merchantName'] ??
+                tx['merchant']?['name'] ??
+                tx['description'] ??
+                (isDebit ? 'Online Card Purchase' : 'Card Balance Funding'))
+            .toString();
+
+        String dateDisplay = 'Recent';
+        final rawDate = tx['date'] ?? tx['createdAt'];
+        if (rawDate != null) {
+          try {
+            dateDisplay = DateFormat('dd MMM yyyy • hh:mm a').format(DateTime.parse(rawDate.toString()));
+          } catch (_) {
+            dateDisplay = rawDate.toString();
+          }
+        }
 
         return Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.all(14),
+          margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xFFE5E7EB)),
+            border: Border.all(
+              color: isDebit ? const Color(0xFFFEE2E2) : const Color(0xFFD1FAE5),
+              width: 1.2,
+            ),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withValues(alpha: 0.02),
@@ -3123,60 +3238,226 @@ class _CardsScreenState extends State<CardsScreen> {
               ),
             ],
           ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: isDebit ? Colors.red.withValues(alpha: 0.1) : const Color(0xFF0D5C46).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  isDebit ? Icons.shopping_bag_outlined : Icons.add_rounded,
-                  color: isDebit ? Colors.redAccent : const Color(0xFF0D5C46),
-                  size: 18,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(16),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(16),
+              onTap: () {
+                if (_user != null) {
+                  TransactionReceiptModal.show(
+                    context,
+                    transaction: tx,
+                    user: _user!,
+                    currency: 'USD',
+                  );
+                }
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(14),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      tx['merchantName']?.toString() ?? 'Online Purchase',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Debit vs Credit Leading Badge Icon
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: isDebit
+                                ? const Color(0xFFDC2626).withValues(alpha: 0.1)
+                                : const Color(0xFF059669).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            isDebit ? Icons.shopping_bag_outlined : Icons.add_card_rounded,
+                            color: isDebit ? const Color(0xFFDC2626) : const Color(0xFF059669),
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        // Merchant & Entry Details
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                merchantName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.textPrimary,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  // Clear Debit vs Credit Pill
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: isDebit ? const Color(0xFFFEF2F2) : const Color(0xFFECFDF5),
+                                      borderRadius: BorderRadius.circular(5),
+                                      border: Border.all(
+                                        color: isDebit ? const Color(0xFFFCA5A5) : const Color(0xFF6EE7B7),
+                                        width: 0.8,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      isDebit ? 'DEBIT' : 'CREDIT',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: 0.5,
+                                        color: isDebit ? const Color(0xFFDC2626) : const Color(0xFF059669),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Flexible(
+                                    child: Text(
+                                      dateDisplay,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 10,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        // Amount & Status
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              '${isDebit ? '-' : '+'}\$${_currencyFormat.format(amount)} USD',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: isDebit ? const Color(0xFFDC2626) : const Color(0xFF059669),
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              status,
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: isSuccessful ? const Color(0xFF059669) : Colors.orange,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      tx['date']?.toString() ?? 'Recent',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
+                    const SizedBox(height: 10),
+                    const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                    const SizedBox(height: 8),
+                    // Action Buttons: View Receipt, Download PDF, Share
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Tap row to view full receipt',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 10,
+                            color: const Color(0xFF94A3B8),
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Direct Download PDF Button
+                            InkWell(
+                              borderRadius: BorderRadius.circular(8),
+                              onTap: () async {
+                                if (_user != null) {
+                                  await StatementPdfService.downloadOrPrintReceipt(
+                                    context,
+                                    transaction: tx,
+                                    user: _user!,
+                                    currency: 'USD',
+                                  );
+                                }
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: const Color(0xFFCBD5E1)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.picture_as_pdf_rounded, size: 12, color: AppColors.primary),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'PDF',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            // Direct Share Receipt Button
+                            InkWell(
+                              borderRadius: BorderRadius.circular(8),
+                              onTap: () async {
+                                if (_user != null) {
+                                  await StatementPdfService.shareReceipt(
+                                    transaction: tx,
+                                    user: _user!,
+                                    currency: 'USD',
+                                  );
+                                }
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: const Color(0xFFCBD5E1)),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.share_outlined, size: 12, color: AppColors.textSecondary),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Share',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '${isDebit ? '-' : '+'}\$${_currencyFormat.format(amount)} USD',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: isDebit ? const Color(0xFFEF4444) : const Color(0xFF10B981),
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    status,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                      color: status == 'SUCCESSFUL' ? const Color(0xFF10B981) : Colors.orange,
-                    ),
-                  ),
-                ],
-              ),
-            ],
+            ),
           ),
         );
       }).toList(),

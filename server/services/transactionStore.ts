@@ -83,73 +83,75 @@ export class TransactionStore {
     return _txCache;
   }
 
+  static isTreasuryTransaction(t: Partial<WalletTransaction>): boolean {
+    const title = (t.title || '').toUpperCase();
+    const ref = (t.reference || '').toUpperCase();
+    const email = (t.email || '').toLowerCase().trim();
+    const amt = Number(t.amount || 0);
+
+    if (email === 'treasury@myrentilly.com' || email === 'admin@myrentilly.com') return true;
+    if (ref.startsWith('BVNAPI-') || title.includes('BVN VERIFICATION') || (amt === 75 && title.includes('BVN'))) return true;
+    if (ref.startsWith('FEE_') || title.startsWith('BANK TRANSFER PROCESSING FEE')) return true;
+    if (ref.includes('TEST') || title.includes('TEST')) return true;
+    if (title.includes('PAYSTACK-TITAN') || title.includes('PAYSTACK - 0000336089')) return true;
+    if (title.includes('EXCHANGE FROM') || title.includes('SWAP')) return true;
+    if (title.includes('TREASURY TO SPEND') || title.includes('SPEND WALLET')) return true;
+    if (title.includes('FUNDING USD SPEND') || title.includes('FUNDING USDT SPEND')) return true;
+    if (title.includes('USD WALLET TRANSFER') || title.includes('USDT WALLET TRANSFER')) return true;
+    if (title === 'CARD ISSUANCE' && amt <= 3) return true;
+    if (title.includes('GLOBALLINE LOGISTICS')) return true;
+    return false;
+  }
+
   static async syncFromSupabase(): Promise<WalletTransaction[]> {
     if (!supabase) return _txCache || [];
 
     try {
-      // 1. Sync property escrow transactions
-      const { data, error } = await supabase.from('transactions').select('*');
-      if (!error && data && Array.isArray(data)) {
-        const users = UserStore.getAllUsers();
-        const current = _txCache || [];
-
-        for (const row of data) {
-          const user = users.find(u => u.id === row.payer_id || u.id === row.owner_id);
-          const email = user ? user.email : 'partner@myrentilly.com';
-
-          const mapped: WalletTransaction = {
-            id: row.id,
-            userId: row.payer_id,
-            email,
-            title: row.owner_payout_reference || (row.escrow_status === 'released_to_owner' ? 'Wallet Deposit / Credit' : 'Payment / Escrow'),
-            type: row.transaction_type || 'rent',
-            category: (row.payment_gateway === 'flutterwave' ? 'deposit' : (row.payment_gateway === 'paystack' ? 'withdrawal' : 'wallet_funding')),
-            amount: Number(row.total_amount || 0),
-            isCredit: row.escrow_status === 'released_to_owner',
-            reference: row.payment_reference,
-            status: 'SUCCESSFUL',
-            escrowStatus: row.escrow_status,
-            date: row.created_at || new Date().toISOString()
-          };
-
-          const idx = current.findIndex(t => t.id === mapped.id || (mapped.reference && t.reference === mapped.reference));
-          if (idx >= 0) {
-            current[idx] = { ...current[idx], ...mapped };
-          } else {
-            current.unshift(mapped);
-          }
-        }
-
-        _txCache = current;
-      }
-
-      // 2. Sync all wallet transactions (bank collections, withdrawals, cards, utilities, airtime)
-      const { data: walletData, error: walletErr } = await supabase
+      // 1. Fetch wallet_transactions (primary ledger for deposits, withdrawals, cards, airtime)
+      const { data: walletData } = await supabase
         .from('wallet_transactions')
-        .select('*');
+        .select('*')
+        .order('created_at', { ascending: false });
 
-      if (!walletErr && walletData && Array.isArray(walletData)) {
-        const current = _txCache || [];
+      // 2. Fetch property & escrow transactions
+      const { data: propertyData } = await supabase
+        .from('transactions')
+        .select('*')
+        .order('created_at', { ascending: false });
 
+      const canonicalMap = new Map<string, WalletTransaction>();
+
+      // Ingest wallet_transactions first (highest fidelity for live user wallets)
+      if (walletData && Array.isArray(walletData)) {
         for (const row of walletData) {
+          const rawNarration = (row.narration || '').toString();
+          const ref = (row.flw_ref || row.tx_ref || row.id || '').toString().trim();
+          const amt = Number(row.amount || 0);
+
+          if (this.isTreasuryTransaction({
+            title: rawNarration,
+            reference: ref,
+            email: row.email,
+            amount: amt
+          })) {
+            continue;
+          }
+
           const rawType = (row.type || '').toString().toLowerCase();
           const isCredit = rawType === 'credit';
-          const amt = Number(row.amount || 0);
           const rawStatus = (row.status || 'SUCCESSFUL').toString().toUpperCase();
           const status = (rawStatus === 'COMPLETED' || rawStatus === 'SUCCESS') ? 'SUCCESSFUL' : (rawStatus === 'FAILED' ? 'FAILED' : 'PENDING');
-          const ref = row.flw_ref || row.tx_ref || row.id;
-          const narration = (row.narration || '').toString();
 
           let category: WalletTransaction['category'] = isCredit ? 'deposit' : 'withdrawal';
-          if (narration.toLowerCase().includes('card')) {
+          if (rawNarration.toLowerCase().includes('card')) {
             category = 'wallet_funding';
-          } else if (narration.toLowerCase().includes('bill') || narration.toLowerCase().includes('electricity') || narration.toLowerCase().includes('airtime')) {
+          } else if (rawNarration.toLowerCase().includes('bill') || rawNarration.toLowerCase().includes('electricity') || rawNarration.toLowerCase().includes('airtime')) {
             category = 'utility';
-          } else if (narration.toLowerCase().includes('escrow') || narration.toLowerCase().includes('rent')) {
+          } else if (rawNarration.toLowerCase().includes('escrow') || rawNarration.toLowerCase().includes('rent')) {
             category = 'rent';
           }
 
-          const narrationUpper = narration.toUpperCase();
+          const narrationUpper = rawNarration.toUpperCase();
           let txCurrency: 'NGN' | 'USDT' | 'USD' = 'NGN';
           if (narrationUpper.includes('USDT') || narrationUpper.includes('TRC20') || narrationUpper.includes('TRON')) {
             txCurrency = 'USDT';
@@ -161,7 +163,7 @@ export class TransactionStore {
             id: row.id,
             userId: row.user_id,
             email: (row.email || '').toLowerCase().trim(),
-            title: narration || (isCredit ? 'Inbound Wallet Deposit' : 'Outbound Wallet Debit'),
+            title: rawNarration || (isCredit ? 'Inbound Bank Deposit' : 'Outbound Bank Transfer'),
             type: rawType || (isCredit ? 'credit' : 'debit'),
             category,
             amount: amt,
@@ -172,20 +174,75 @@ export class TransactionStore {
             date: row.created_at || new Date().toISOString()
           };
 
-          const idx = current.findIndex(t => t.id === mapped.id || (mapped.reference && t.reference === mapped.reference));
-          if (idx >= 0) {
-            current[idx] = { ...current[idx], ...mapped };
-          } else {
-            current.unshift(mapped);
-          }
+          canonicalMap.set(ref, mapped);
+          if (row.tx_ref) canonicalMap.set(row.tx_ref.trim(), mapped);
+          if (row.flw_ref) canonicalMap.set(row.flw_ref.trim(), mapped);
         }
-
-        _txCache = current;
       }
 
-      if (_txCache) {
-        this.saveTransactions(_txCache);
+      // Ingest transactions table (for property escrow or historical items not in wallet_transactions)
+      if (propertyData && Array.isArray(propertyData)) {
+        const users = UserStore.getAllUsers();
+        for (const row of propertyData) {
+          const txRef = (row.payment_reference || row.id || '').toString().trim();
+          const title = (row.owner_payout_reference || row.property_title || '').toString();
+          const amt = Number(row.total_amount || row.amount || 0);
+
+          if (this.isTreasuryTransaction({
+            title,
+            reference: txRef,
+            email: row.payer_name,
+            amount: amt
+          })) {
+            continue;
+          }
+
+          // Skip if already captured from wallet_transactions
+          if (canonicalMap.has(txRef) || (row.payment_reference && canonicalMap.has(row.payment_reference.trim()))) {
+            continue;
+          }
+
+          const user = users.find(u => u.id === row.payer_id || u.id === row.owner_id);
+          const email = (user?.email || row.payer_name || 'user@myrentilly.com').toLowerCase().trim();
+
+          const isWithdrawal = row.transaction_type === 'withdrawal' || 
+            (typeof txRef === 'string' && (txRef.startsWith('WD_') || txRef.startsWith('RENTILLY_WD_')));
+
+          const mapped: WalletTransaction = {
+            id: row.id,
+            userId: row.payer_id || row.user_id,
+            email,
+            title: title || (isWithdrawal ? 'Outbound Bank Transfer' : (row.escrow_status === 'released_to_owner' ? 'Inbound Bank Deposit' : 'Property Escrow Payment')),
+            type: isWithdrawal ? 'withdrawal' : (row.transaction_type || 'rent'),
+            category: isWithdrawal ? 'withdrawal' : (row.payment_gateway === 'flutterwave' ? 'deposit' : 'deposit'),
+            amount: amt,
+            currency: row.currency || 'NGN',
+            isCredit: !isWithdrawal,
+            reference: txRef,
+            status: (row.escrow_status === 'released_to_owner' || row.status === 'SUCCESSFUL' || isWithdrawal) ? 'SUCCESSFUL' : 'PENDING',
+            escrowStatus: row.escrow_status,
+            date: row.created_at || new Date().toISOString()
+          };
+
+          canonicalMap.set(txRef, mapped);
+        }
       }
+
+      // Read current disk cache to keep any genuine user offline records that aren't in Supabase yet
+      const currentCache = _txCache || [];
+      for (const t of currentCache) {
+        if (this.isTreasuryTransaction(t)) continue;
+        const ref = (t.reference || t.id).trim();
+        if (!canonicalMap.has(ref)) {
+          canonicalMap.set(ref, t);
+        }
+      }
+
+      const deduplicated = Array.from(new Set(canonicalMap.values()));
+      deduplicated.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+      _txCache = deduplicated;
+      this.saveTransactions(deduplicated);
     } catch (e: any) {
       console.error('[TransactionStore] Error syncing transactions from Supabase:', e?.message || e);
     }
@@ -201,21 +258,6 @@ export class TransactionStore {
     } catch (err) {
       console.error('Failed to save transactions to disk:', err);
     }
-  }
-
-  static isTreasuryTransaction(t: Partial<WalletTransaction>): boolean {
-    const title = (t.title || '').toUpperCase();
-    const ref = (t.reference || '').toUpperCase();
-    const email = (t.email || '').toLowerCase().trim();
-    if (email === 'treasury@myrentilly.com' || email === 'admin@myrentilly.com') return true;
-    if (ref.startsWith('BVNAPI-')) return true;
-    if (title.includes('BVN VERIFICATION')) return true;
-    if (title.includes('PAYSTACK-TITAN') || title.includes('PAYSTACK - 0000336089')) return true;
-    if (title.includes('EXCHANGE FROM') || title.includes('SWAP')) return true;
-    if (title.includes('TREASURY TO SPEND') || title.includes('SPEND WALLET')) return true;
-    if (title === 'CARD ISSUANCE' && (t.amount || 0) <= 3) return true;
-    if (title.includes('GLOBALLINE LOGISTICS')) return true;
-    return false;
   }
 
   static async getTransactionsByEmail(email: string): Promise<WalletTransaction[]> {

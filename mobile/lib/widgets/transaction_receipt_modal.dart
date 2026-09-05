@@ -107,15 +107,21 @@ class _TransactionReceiptModalState extends State<TransactionReceiptModal> {
   @override
   Widget build(BuildContext context) {
     final tx = widget.transaction;
+    final isCardTx = widget.currency.toUpperCase() == 'USD' ||
+        widget.currency.toUpperCase() == 'CARD_USD' ||
+        tx['cardId'] != null ||
+        tx['merchantName'] != null;
+
     final rawAmount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
     final isCredit = tx['isCredit'] == true ||
-        (tx['type'] ?? '').toString().toLowerCase().contains('credit') ||
+        (tx['type'] ?? '').toString().toLowerCase() == 'credit' ||
+        (tx['entry'] ?? '').toString().toLowerCase() == 'credit' ||
         (tx['type'] ?? '').toString().toLowerCase().contains('inflow') ||
         (tx['type'] ?? '').toString().toLowerCase().contains('deposit') ||
-        (tx['type'] ?? '').toString().toLowerCase().contains('commission') ||
         (tx['type'] ?? '').toString().toLowerCase().contains('top');
 
-    final rawTitle = (tx['title'] ?? tx['narration'] ?? tx['type'] ?? (isCredit ? 'Escrow Inflow' : 'Wallet Withdrawal')).toString();
+    final rawTitle = (tx['title'] ?? tx['narration'] ?? tx['merchantName'] ?? tx['description'] ?? tx['type'] ?? (isCredit ? 'Escrow Inflow' : 'Wallet Withdrawal')).toString();
+    final merchantName = (tx['merchantName'] ?? tx['merchant']?['name'] ?? tx['description'] ?? rawTitle).toString();
 
     // Extract any transaction fee so that shared receipts strictly contain the sent amount
     double feeAmount = 0.0;
@@ -139,7 +145,9 @@ class _TransactionReceiptModalState extends State<TransactionReceiptModal> {
     final ref = tx['reference'] ?? tx['id'] ?? 'REF_${DateTime.now().millisecondsSinceEpoch}';
     final dateStr = tx['date'] != null
         ? DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.tryParse(tx['date'].toString()) ?? DateTime.now())
-        : DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.now());
+        : (tx['createdAt'] != null
+            ? DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.tryParse(tx['createdAt'].toString()) ?? DateTime.now())
+            : DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.now()));
     final status = (tx['status'] ?? 'SUCCESSFUL').toString().toUpperCase();
     final sym = _getCurrencySymbol(widget.currency);
 
@@ -175,21 +183,27 @@ class _TransactionReceiptModalState extends State<TransactionReceiptModal> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
+                      color: (isCardTx
+                          ? (isCredit ? const Color(0xFF0D9488) : const Color(0xFFE11D48))
+                          : AppColors.primary).withOpacity(0.1),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.receipt_long_rounded, color: AppColors.primary, size: 20),
+                    child: Icon(
+                      isCardTx ? (isCredit ? Icons.add_card_rounded : Icons.credit_card_rounded) : Icons.receipt_long_rounded,
+                      color: isCardTx ? (isCredit ? const Color(0xFF0D9488) : const Color(0xFFE11D48)) : AppColors.primary,
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(width: 10),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Transaction Receipt',
+                        isCardTx ? 'Card Purchase Receipt' : 'Transaction Receipt',
                         style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                       ),
                       Text(
-                        'Rentilly Living Protocol Certified',
+                        isCardTx ? 'Rentilly Platinum Virtual USD Card' : 'Rentilly Living Protocol Certified',
                         style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary),
                       ),
                     ],
@@ -210,16 +224,20 @@ class _TransactionReceiptModalState extends State<TransactionReceiptModal> {
             padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: isCredit
-                    ? [const Color(0xFF064E3B), const Color(0xFF0D9488)]
-                    : [const Color(0xFF1E293B), const Color(0xFF334155)],
+                colors: isCardTx
+                    ? (isCredit
+                        ? [const Color(0xFF064E3B), const Color(0xFF0D9488)]
+                        : [const Color(0xFF881337), const Color(0xFFE11D48)])
+                    : (isCredit
+                        ? [const Color(0xFF064E3B), const Color(0xFF0D9488)]
+                        : [const Color(0xFF1E293B), const Color(0xFF334155)]),
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: (isCredit ? const Color(0xFF064E3B) : const Color(0xFF1E293B)).withOpacity(0.25),
+                  color: (isCredit ? const Color(0xFF064E3B) : (isCardTx ? const Color(0xFF881337) : const Color(0xFF1E293B))).withOpacity(0.25),
                   blurRadius: 16,
                   offset: const Offset(0, 6),
                 ),
@@ -228,12 +246,14 @@ class _TransactionReceiptModalState extends State<TransactionReceiptModal> {
             child: Column(
               children: [
                 Text(
-                  isCredit ? 'TOTAL INFLOW SETTLEMENT' : 'AMOUNT SENT (EXCL. FEES)',
+                  isCardTx
+                      ? (isCredit ? 'CARD TOP-UP • CREDIT (+)' : 'CARD PURCHASE • DEBIT (-)')
+                      : (isCredit ? 'TOTAL INFLOW SETTLEMENT' : 'AMOUNT SENT (EXCL. FEES)'),
                   style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: Colors.white70),
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  '$sym${_currencyFormat.format(sentAmount)}${widget.currency.toUpperCase() == 'USDT' ? ' USDT' : ''}',
+                  '${isCardTx ? (isCredit ? "+" : "-") : ""}$sym${_currencyFormat.format(sentAmount)}${widget.currency.toUpperCase() == "USDT" ? " USDT" : (isCardTx ? " USD" : "")}',
                   style: GoogleFonts.plusJakartaSans(fontSize: 28, fontWeight: FontWeight.w900, color: Colors.white),
                 ),
                 const SizedBox(height: 8),
@@ -246,10 +266,12 @@ class _TransactionReceiptModalState extends State<TransactionReceiptModal> {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.check_circle_rounded, color: Color(0xFF4ADE80), size: 12),
+                      Icon(isCredit ? Icons.check_circle_rounded : Icons.shopping_bag_outlined, color: Colors.white, size: 12),
                       const SizedBox(width: 4),
                       Text(
-                        status,
+                        isCardTx
+                            ? (isCredit ? 'CREDIT • SETTLED' : 'DEBIT • SETTLED')
+                            : status,
                         style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.white),
                       ),
                     ],
@@ -270,21 +292,41 @@ class _TransactionReceiptModalState extends State<TransactionReceiptModal> {
             ),
             child: Column(
               children: [
-                _buildRow('Description', cleanTitle.isNotEmpty ? cleanTitle : rawTitle),
-                const Divider(height: 16, color: Color(0xFFE2E8F0)),
-                _buildCopyableRow('Reference ID', ref),
-                const Divider(height: 16, color: Color(0xFFE2E8F0)),
-                _buildRow('Timestamp', dateStr),
-                if (feeAmount > 0) ...[
+                if (isCardTx) ...[
+                  _buildRow('Entry Nature', isCredit ? 'CREDIT (+) - Card Top-Up' : 'DEBIT (-) - Online Card Purchase'),
                   const Divider(height: 16, color: Color(0xFFE2E8F0)),
-                  _buildRow('Transaction Fee', '$sym${_currencyFormat.format(feeAmount)} (In-app only)'),
+                  _buildRow('Merchant / Platform', merchantName),
                   const Divider(height: 16, color: Color(0xFFE2E8F0)),
-                  _buildRow('Total Account Debit', '$sym${_currencyFormat.format(rawAmount)}'),
+                  _buildRow('Purchase Category', tx['merchantCategory']?.toString() ?? 'Online Purchase'),
+                  const Divider(height: 16, color: Color(0xFFE2E8F0)),
+                  _buildCopyableRow('Reference ID', ref),
+                  const Divider(height: 16, color: Color(0xFFE2E8F0)),
+                  _buildRow('Card Used', 'Rentilly Platinum USD Virtual Card (Visa)'),
+                  const Divider(height: 16, color: Color(0xFFE2E8F0)),
+                  _buildRow('Billing Address', '1 Sansome St, San Francisco, CA 94104, USA'),
+                  const Divider(height: 16, color: Color(0xFFE2E8F0)),
+                  _buildRow('Cardholder Name', widget.user.fullName),
+                  const Divider(height: 16, color: Color(0xFFE2E8F0)),
+                  _buildRow('Timestamp', dateStr),
+                  const Divider(height: 16, color: Color(0xFFE2E8F0)),
+                  _buildRow('Security Protocol', '3D Secure 2.0 Dynamic OTP Verified'),
+                ] else ...[
+                  _buildRow('Description', cleanTitle.isNotEmpty ? cleanTitle : rawTitle),
+                  const Divider(height: 16, color: Color(0xFFE2E8F0)),
+                  _buildCopyableRow('Reference ID', ref),
+                  const Divider(height: 16, color: Color(0xFFE2E8F0)),
+                  _buildRow('Timestamp', dateStr),
+                  if (feeAmount > 0) ...[
+                    const Divider(height: 16, color: Color(0xFFE2E8F0)),
+                    _buildRow('Transaction Fee', '$sym${_currencyFormat.format(feeAmount)} (In-app only)'),
+                    const Divider(height: 16, color: Color(0xFFE2E8F0)),
+                    _buildRow('Total Account Debit', '$sym${_currencyFormat.format(rawAmount)}'),
+                  ],
+                  const Divider(height: 16, color: Color(0xFFE2E8F0)),
+                  _buildRow('Currency / Account', '${widget.currency} Wallet (${widget.user.bankName ?? "Flutterwave MFB"})'),
+                  const Divider(height: 16, color: Color(0xFFE2E8F0)),
+                  _buildRow('Protection Level', 'Escrow Guarded (E-Homes Global)'),
                 ],
-                const Divider(height: 16, color: Color(0xFFE2E8F0)),
-                _buildRow('Currency / Account', '${widget.currency} Wallet (${widget.user.bankName ?? "Flutterwave MFB"})'),
-                const Divider(height: 16, color: Color(0xFFE2E8F0)),
-                _buildRow('Protection Level', 'Escrow Guarded (E-Homes Global)'),
               ],
             ),
           ),

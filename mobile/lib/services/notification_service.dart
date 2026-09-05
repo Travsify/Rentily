@@ -243,6 +243,8 @@ class NotificationService {
         }
       } catch (_) {}
     }
+    // Instantly sync user balance if transaction notification occurred
+    AuthService.refreshCurrentUser();
   }
 
   // Mark single notification as read
@@ -328,16 +330,18 @@ class NotificationService {
     unreadCountNotifier.value = unread;
   }
 
-  // Periodic real-time background sync loop (polls Supabase every 20s while app active)
+  // Periodic real-time background sync loop (polls notifications & financial balance every 10s while app active)
   static Timer? _syncTimer;
 
   static void startRealtimeSync() {
     _syncTimer?.cancel();
     // Run initial sync
     getNotifications().catchError((_) => <InAppNotification>[]);
-    // Start periodic 20-second poll
-    _syncTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+    AuthService.refreshCurrentUser();
+    // Start periodic 10-second poll for zero-delay balance & notification sync
+    _syncTimer = Timer.periodic(const Duration(seconds: 10), (_) {
       getNotifications().catchError((_) => <InAppNotification>[]);
+      AuthService.refreshCurrentUser();
     });
   }
 

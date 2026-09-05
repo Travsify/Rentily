@@ -11,6 +11,7 @@ import '../services/api_service.dart';
 import '../services/notification_service.dart';
 import '../services/payment_security_service.dart';
 import '../services/security_telemetry_service.dart';
+import 'tier_upgrade_modal.dart';
 
 class WithdrawalModal extends StatefulWidget {
   final UserProfile user;
@@ -689,6 +690,49 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
               ),
             ),
             const SizedBox(height: 14),
+
+            // Tier Upgrade Limit Hint (Promoting Tier 3)
+            if (_withdrawalMode == 'NGN')
+              InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: () {
+                  TierUpgradeModal.show(context, user: widget.user);
+                },
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFFBEB),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFFDE68A)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.bolt_rounded, size: 16, color: Color(0xFFD97706)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Need higher transfer limits? Tier 3 unlocks ₦5,000,000 daily with unlimited volume.',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF92400E),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Upgrade ➔',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFFB45309),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
 
             if (_errorMessage != null) ...[
               Container(

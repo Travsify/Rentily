@@ -33,7 +33,7 @@ class MainNavigationScreen extends StatefulWidget {
   State<MainNavigationScreen> createState() => _MainNavigationScreenState();
 }
 
-class _MainNavigationScreenState extends State<MainNavigationScreen> {
+class _MainNavigationScreenState extends State<MainNavigationScreen> with WidgetsBindingObserver {
   late int _currentIndex;
   late String _activeViewMode; // 'consumer', 'landlord', 'partner'
   UserProfile? _user;
@@ -49,6 +49,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _currentIndex = widget.initialIndex;
 
     // Immediately resolve mode from current cached user profile or initial flags
@@ -70,6 +71,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     NotificationService.startRealtimeSync();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // User returned from bank app or background — instantly sync live balance
+      AuthService.refreshCurrentUser();
+    }
+  }
+
   void _onUserAuthChanged() {
     if (mounted) {
       final u = AuthService.currentUserNotifier.value;
@@ -88,6 +97,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     NotificationService.stopRealtimeSync();
     AuthService.currentUserNotifier.removeListener(_onUserAuthChanged);
     super.dispose();
