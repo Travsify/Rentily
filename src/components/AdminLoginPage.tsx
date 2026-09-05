@@ -57,7 +57,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onLoginSuccess }
         adminErr?.message?.toLowerCase().includes('unauthorized') ||
         loginMode === 'agent';
 
-      if (!isAuthError && loginMode !== 'agent') {
+      if (!isAuthError && (loginMode as string) !== 'agent') {
         setError(adminErr.message || 'Authentication failed.');
         setLoading(false);
         return;

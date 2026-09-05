@@ -89,7 +89,7 @@ interface ChatPanelProps {
   onClose: () => void; onStatusChange: (id: string, s: string) => void;
   onAssign: (id: string, agent: SupportAgent | null) => void;
   onSend: (text: string) => void; sending: boolean;
-  bottomRef: React.RefObject<HTMLDivElement>;
+  bottomRef: React.RefObject<HTMLDivElement | null>;
 }
 
 const ChatPanel: React.FC<ChatPanelProps> = ({ selected, messages, agents, isAdmin, agentSession, onClose, onStatusChange, onAssign, onSend, sending, bottomRef }) => {
