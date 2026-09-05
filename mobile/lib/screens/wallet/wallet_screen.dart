@@ -1256,7 +1256,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
-                                    '🏛️ Commercial Bank Rail — No PSB Caps (₦100M+ Corporate RTGS, Rent & Escrow)',
+                                    '🏛️ Commercial Bank Rail (₦100M+ Corporate RTGS, Rent & Escrow)',
                                     style: GoogleFonts.plusJakartaSans(fontSize: 8.5, color: const Color(0xFFFDE68A)),
                                   ),
                                 ],

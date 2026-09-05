@@ -1669,7 +1669,7 @@ export async function getVaultAccounts(req: Request, res: Response) {
         highValueVault = {
           vaultType: 'high_value_escrow',
           title: 'High-Value Escrow & Rent Vault',
-          tag: 'Commercial Bank • No PSB Limits',
+          tag: 'Commercial Bank Rail (Corporate RTGS)',
           accountNumber: wemaConfig.data.accountNumber,
           accountName: wemaConfig.data.accountName || prof?.full_name || 'Rentilly Escrow Client',
           bankName: wemaConfig.data.bankName || 'Wema Bank Plc',
@@ -1710,7 +1710,7 @@ export async function getVaultAccounts(req: Request, res: Response) {
             highValueVault = {
               vaultType: 'high_value_escrow',
               title: 'High-Value Escrow & Rent Vault',
-              tag: 'Commercial Bank • No PSB Limits',
+              tag: 'Commercial Bank Rail (Corporate RTGS)',
               accountNumber: wemaData.accountNumber,
               accountName: wemaData.accountName || prof?.full_name,
               bankName: wemaData.bankName,
