@@ -1126,6 +1126,75 @@ export async function mapleradWebhook(req: Request, res: Response) {
       }
     }
 
+    // 1b. AUTO-FREEZE ON INSUFFICIENT FUNDS DECLINE
+    // Maplerad fires card transaction webhooks for every authorization attempt.
+    // If the transaction fails due to insufficient funds, freeze the card immediately
+    // to stop repeated $0.50 decline fee charges from accumulating.
+    const txStatus = (data?.status || '').toString().toUpperCase();
+    const txDesc = (data?.description || data?.narration || data?.reason || '').toString().toLowerCase();
+    const txType = (data?.type || data?.entry || '').toString().toUpperCase();
+    const isDecline = txStatus === 'FAILED' || txStatus === 'DECLINED' || txType === 'DECLINE';
+    const isInsufficientFunds = txDesc.includes('insufficient') || txDesc.includes('no sufficient') || txDesc.includes('not enough');
+
+    if (isDecline && isInsufficientFunds && (data?.card_id || data?.id)) {
+      const declinedCardId = data?.card_id || data?.id;
+      console.log(`[Maplerad Webhook] 🔒 Insufficient funds decline detected for card ${declinedCardId} — auto-freezing...`);
+
+      const { email: frozenEmail, cardholderName } = await CardIssuingService.forceFreeze(
+        declinedCardId,
+        'auto_insufficient_funds'
+      );
+
+      // Send push notification + in-app alert to user
+      if (frozenEmail && supabase) {
+        const shortName = (cardholderName || 'Cardholder').split(' ')[0];
+
+        // 1. In-app notification
+        await supabase.from('notifications').insert({
+          user_email: frozenEmail,
+          type: 'card_auto_frozen',
+          title: '🔒 Your Card Was Auto-Frozen',
+          message: `Hi ${shortName}, your Rentilly virtual card was automatically frozen after a declined payment due to insufficient balance. Top up your card and unfreeze it to continue using it. This protects you from repeated $0.50 decline fees.`,
+          read: false,
+          created_at: new Date().toISOString()
+        });
+
+        // 2. Push notification via FCM token stored in profiles
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('fcm_token, full_name')
+          .eq('email', frozenEmail)
+          .single();
+
+        if (profile?.fcm_token) {
+          const fcmKey = process.env.FCM_SERVER_KEY || process.env.FIREBASE_SERVER_KEY;
+          if (fcmKey) {
+            fetch('https://fcm.googleapis.com/fcm/send', {
+              method: 'POST',
+              headers: {
+                'Authorization': `key=${fcmKey}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                to: profile.fcm_token,
+                notification: {
+                  title: '🔒 Card Auto-Frozen — Top Up Required',
+                  body: 'Your Rentilly card was frozen after a declined payment. Top up and unfreeze to resume.',
+                  sound: 'default'
+                },
+                data: {
+                  type: 'card_auto_frozen',
+                  action: 'open_cards'
+                }
+              })
+            }).catch(() => {});
+          }
+        }
+
+        console.log(`[Maplerad Webhook] ✅ Auto-freeze complete. Notified ${frozenEmail}`);
+      }
+    }
+
     // 2. Inbound Bank Transfer Collections (NGN Virtual Accounts)
     if (event?.includes('collection') || event?.includes('inbound') || event?.includes('deposit')) {
       const incomingAccNo = data?.account_number || data?.virtual_account_number;

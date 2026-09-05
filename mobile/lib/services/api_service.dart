@@ -409,6 +409,7 @@ class ApiService {
             'pin': c['pin']?.toString() ?? '1900',
             'balance': (c['balance'] as num?)?.toDouble() ?? 0.0,
             'isFrozen': c['is_frozen'] == true,
+            'freezeReason': c['freeze_reason']?.toString(),
             'status': c['status']?.toString() ?? 'ACTIVE',
             'billingAddress': {
               'street': '1 Sansome St',

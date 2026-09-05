@@ -194,6 +194,9 @@ class _CardsScreenState extends State<CardsScreen> {
     HapticFeedback.mediumImpact();
     setState(() {
       card['isFrozen'] = targetFrozen;
+      if (!targetFrozen) {
+        card['freezeReason'] = null;
+      }
     });
     _persistCardsToDisk();
 
@@ -2488,6 +2491,9 @@ class _CardsScreenState extends State<CardsScreen> {
                         ),
                       ],
 
+                      // --- AUTO-FROZEN / FROZEN STATUS BANNER ---
+                      _buildAutoFrozenBanner(card, isFrozen),
+
                       // --- LIVE VIRTUAL CARD CONTAINER ---
                       _buildVirtualCardWidget(card, isFrozen, cardBal, cardBalNgn),
                       const SizedBox(height: 18),
@@ -2579,6 +2585,62 @@ class _CardsScreenState extends State<CardsScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- 1b. AUTO-FROZEN / FROZEN STATUS BANNER ---
+  Widget _buildAutoFrozenBanner(Map<String, dynamic> card, bool isFrozen) {
+    if (!isFrozen) return const SizedBox.shrink();
+    final isAutoFrozen = card['freezeReason'] == 'auto_insufficient_funds';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isAutoFrozen ? const Color(0xFFFEF2F2) : const Color(0xFFFFF7ED),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isAutoFrozen ? const Color(0xFFFCA5A5) : const Color(0xFFFED7AA),
+          width: 1.2,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            isAutoFrozen ? Icons.shield_rounded : Icons.lock_rounded,
+            size: 18,
+            color: isAutoFrozen ? const Color(0xFFDC2626) : const Color(0xFFEA580C),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  isAutoFrozen ? 'Card Auto-Frozen (Insufficient Balance Protection)' : 'Card is Currently Frozen',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.bold,
+                    color: isAutoFrozen ? const Color(0xFF991B1B) : const Color(0xFF9A3412),
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  isAutoFrozen
+                      ? 'Rentilly automatically froze this card after a payment was declined for insufficient funds. This protects your balance from recurring \$0.50 decline penalties. Top up your card with sufficient funds before tapping Unfreeze below.'
+                      : 'This card is currently locked. No charges will be accepted until you tap Unfreeze below.',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 11,
+                    color: isAutoFrozen ? const Color(0xFFB91C1C) : const Color(0xFFC2410C),
+                    height: 1.4,
+                  ),
+                ),
+              ],
             ),
           ),
         ],

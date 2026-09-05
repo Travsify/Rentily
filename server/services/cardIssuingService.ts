@@ -22,6 +22,7 @@ export interface VirtualCard {
   balance: number;
   spendingLimit: number;
   isFrozen: boolean;
+  freezeReason?: string;
   status: 'ACTIVE' | 'INACTIVE' | 'BLOCKED';
   billingAddress: {
     street: string;
@@ -143,6 +144,7 @@ export class CardIssuingService {
             balance: Number(c.balance || 0),
             spendingLimit: 10000.00,
             isFrozen: c.is_frozen === true,
+            freezeReason: c.freeze_reason || undefined,
             status: (c.status || 'ACTIVE') as 'ACTIVE' | 'INACTIVE' | 'BLOCKED',
             billingAddress: this.DEFAULT_BILLING_ADDRESS,
             createdAt: c.created_at || new Date().toISOString(),
@@ -285,6 +287,7 @@ export class CardIssuingService {
               balance: liveBal,
               spendingLimit: 10000.00,
               isFrozen: c.is_frozen === true,
+              freezeReason: c.freeze_reason || undefined,
               status: (c.status || 'ACTIVE') as 'ACTIVE' | 'INACTIVE' | 'BLOCKED',
               billingAddress: this.DEFAULT_BILLING_ADDRESS,
               createdAt: c.created_at || new Date().toISOString(),
@@ -447,6 +450,7 @@ export class CardIssuingService {
               balance: liveBal,
               spendingLimit: 10000.00,
               isFrozen: c.is_frozen === true,
+              freezeReason: c.freeze_reason || undefined,
               status: (c.status || 'ACTIVE') as 'ACTIVE' | 'INACTIVE' | 'BLOCKED',
               billingAddress: this.DEFAULT_BILLING_ADDRESS,
               createdAt: c.created_at || new Date().toISOString(),
@@ -965,8 +969,27 @@ export class CardIssuingService {
     if (supabase) {
       await supabase
         .from('virtual_cards')
-        .update({ is_frozen: newFrozenState, updated_at: new Date().toISOString() })
+        .update({ 
+          is_frozen: newFrozenState, 
+          freeze_reason: newFrozenState ? (data?.freeze_reason || 'manual') : null,
+          updated_at: new Date().toISOString() 
+        })
         .or(`id.eq.${cardId},card_id.eq.${cardId}`);
+    }
+
+    // Call Maplerad live freeze/unfreeze endpoint
+    if (process.env.MAPLERAD_SECRET_KEY && cardId) {
+      try {
+        const action = newFrozenState ? 'freeze' : 'unfreeze';
+        await fetch(`https://api.maplerad.com/v1/issuing/${cardId}/${action}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${process.env.MAPLERAD_SECRET_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          signal: AbortSignal.timeout(4000)
+        });
+      } catch (_) {}
     }
 
     if (cardEmail && _runtimeCardCache.has(cardEmail)) {
@@ -983,6 +1006,66 @@ export class CardIssuingService {
       isFrozen: newFrozenState,
       message: newFrozenState ? 'Card has been frozen for security.' : 'Card is now active and ready for transactions.'
     };
+  }
+
+  /**
+   * Force-freezes a card (one-way — never unfreezes). Safe for automated systems.
+   * Used by: auto-freeze on insufficient funds decline, fraud detection.
+   */
+  static async forceFreeze(cardId: string, reason?: string): Promise<{ success: boolean; email: string; cardholderName: string }> {
+    let cardEmail = '';
+    let cardholderName = '';
+
+    if (supabase) {
+      const { data } = await supabase
+        .from('virtual_cards')
+        .select('*')
+        .or(`id.eq.${cardId},card_id.eq.${cardId}`)
+        .single();
+
+      if (data) {
+        cardEmail = data.email || '';
+        cardholderName = data.cardholder_name || 'Cardholder';
+
+        await supabase
+          .from('virtual_cards')
+          .update({
+            is_frozen: true,
+            updated_at: new Date().toISOString(),
+            freeze_reason: reason || 'auto_insufficient_funds'
+          })
+          .or(`id.eq.${cardId},card_id.eq.${cardId}`);
+      }
+    }
+
+    // Also freeze in Maplerad live if secret key is available
+    if (process.env.MAPLERAD_SECRET_KEY && cardId) {
+      try {
+        await fetch(`https://api.maplerad.com/v1/issuing/${cardId}/freeze`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${process.env.MAPLERAD_SECRET_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          signal: AbortSignal.timeout(4000)
+        });
+      } catch (_) {
+        // Non-fatal: Supabase freeze is already applied
+      }
+    }
+
+    // Update runtime cache
+    if (cardEmail && _runtimeCardCache.has(cardEmail)) {
+      const list = _runtimeCardCache.get(cardEmail)!;
+      for (const c of list) {
+        if (c.id === cardId || c.cardId === cardId) {
+          c.isFrozen = true;
+        }
+      }
+    }
+
+    console.log(`[CardIssuingService] 🔒 Auto-froze card ${cardId} for ${cardEmail}. Reason: ${reason || 'insufficient_funds'}`);
+    return { success: true, email: cardEmail, cardholderName };
   }
 
   /**
