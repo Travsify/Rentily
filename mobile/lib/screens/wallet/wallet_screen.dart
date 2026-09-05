@@ -157,6 +157,8 @@ class _WalletScreenState extends State<WalletScreen> {
             _cardData = cards.isNotEmpty ? cards.first : null;
           });
         }
+      } catch (_) {}
+
       // Fetch all User Funding Vaults (Daily 9PSB, Commercial Wema Bank Escrow, USDT TRC20)
       try {
         final vaults = await ApiService.fetchVaultAccounts(u.email);

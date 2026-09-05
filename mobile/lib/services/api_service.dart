@@ -891,6 +891,25 @@ class ApiService {
     return {'tier': 0, 'tierLabel': 'Unverified', 'canUpgradeToTier2': false, 'canUpgradeToTier3': false};
   }
 
+  // 18. Upgrade user to Maplerad Tier 2 via address details
+  static Future<Map<String, dynamic>> upgradeTier2({
+    required String email,
+    required String address,
+    required String lga,
+    required String state,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/auth/upgrade-tier2'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'email': email, 'address': address, 'lga': lga, 'state': state}),
+      ).timeout(const Duration(seconds: 20));
+      return json.decode(res.body);
+    } catch (e) {
+      return {'error': e.toString()};
+    }
+  }
+
   // 19. Fetch all User Funding Vaults (Daily 9PSB, Commercial Wema Bank Escrow, USDT TRC20)
   static Future<Map<String, dynamic>> fetchVaultAccounts(String email) async {
     try {
