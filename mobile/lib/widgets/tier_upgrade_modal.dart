@@ -230,7 +230,7 @@ class _TierUpgradeModalState extends State<TierUpgradeModal> {
                       Text(
                         isAlreadyTier3
                             ? 'Maximum limit active • High-volume escrow enabled'
-                            : 'CBN & Maplerad Regulatory Compliance',
+                            : 'CBN & Rentilly Settlement Rail Compliance',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 11.5,
                           color: AppColors.textSecondary,

@@ -1047,11 +1047,13 @@ class _CardsScreenState extends State<CardsScreen> {
     final card = _currentCard;
     if (card == null || _user == null) return;
 
-    final rawPan = (card['fullPan'] ?? card['maskedPan'] ?? '4288 5201 4513 2470').toString();
-    final cleanDigits = rawPan.replaceAll(RegExp(r'[^0-9•]'), '');
-    final fullPan = cleanDigits.length == 16 && !rawPan.contains(' ')
-        ? cleanDigits.replaceAllMapped(RegExp(r".{4}"), (m) => "${m.group(0)} ").trim()
-        : rawPan;
+    final rawPan = card['fullPan']?.toString();
+    final hasRealPan = rawPan != null && rawPan.isNotEmpty;
+    final maskedPanModal = card['maskedPan']?.toString() ?? '4288 •••• •••• ••••';
+    final cleanDigits = hasRealPan ? rawPan!.replaceAll(RegExp(r'[^0-9]'), '') : '';
+    final fullPan = hasRealPan && cleanDigits.length == 16
+        ? cleanDigits.replaceAllMapped(RegExp(r'.{4}'), (m) => '${m.group(0)} ').trim()
+        : maskedPanModal; // masked if real PAN not yet available
     final cardholder = (card['cardholderName'] ?? _user!.fullName).toString().toUpperCase();
     final rawExpM = card['expiryMonth']?.toString() ?? '';
     final expMonth = rawExpM.trim().isNotEmpty ? rawExpM.trim() : '09';
@@ -2587,11 +2589,13 @@ class _CardsScreenState extends State<CardsScreen> {
   // --- 2. LIVE VIRTUAL CARD WIDGET ---
   Widget _buildVirtualCardWidget(Map<String, dynamic> card, bool isFrozen, double balanceUsd, double balanceNgn) {
     final maskedPan = card['maskedPan']?.toString() ?? '4288 5201 •••• 2470';
-    final rawFull = (card['fullPan'] ?? maskedPan).toString();
-    final cleanDigits = rawFull.replaceAll(RegExp(r'[^0-9•]'), '');
-    final fullPan = cleanDigits.length == 16 && !rawFull.contains(' ')
-        ? cleanDigits.replaceAllMapped(RegExp(r".{4}"), (m) => "${m.group(0)} ").trim()
-        : rawFull;
+    // Only use real synced PAN — never fabricate. If fullPan is null, show masked PAN.
+    final hasRealPan = card['fullPan'] != null && card['fullPan'].toString().isNotEmpty;
+    final rawFull = hasRealPan ? card['fullPan'].toString() : maskedPan;
+    final cleanDigits = rawFull.replaceAll(RegExp(r'[^0-9]'), '');
+    final fullPan = hasRealPan && cleanDigits.length == 16
+        ? cleanDigits.replaceAllMapped(RegExp(r'.{4}'), (m) => '${m.group(0)} ').trim()
+        : maskedPan; // show properly masked PAN (with • intact) when real PAN not yet synced
     final cardholder = (card['cardholderName'] ?? _user?.fullName ?? 'CARDHOLDER').toString().toUpperCase();
     final expMonth = card['expiryMonth']?.toString() ?? '09';
     final expYear = card['expiryYear']?.toString() ?? '29';
@@ -3358,6 +3362,35 @@ class _CardsScreenState extends State<CardsScreen> {
                         ),
                       ],
                     ),
+                    // Decline Fee Explanation Banner
+                    if (tx['isDeclineFee'] == true) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFF7ED),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFFED7AA), width: 1),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.info_outline_rounded, size: 13, color: Color(0xFFD97706)),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                '⚠️ Declined Authorization Fee — \$0.50 is automatically charged whenever a card payment attempt fails due to insufficient card balance. Top up your card before making payments to avoid this charge.',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 10,
+                                  color: const Color(0xFF92400E),
+                                  height: 1.5,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 10),
                     const Divider(height: 1, color: Color(0xFFF1F5F9)),
                     const SizedBox(height: 8),

@@ -258,15 +258,15 @@ export class CardIssuingService {
             }
 
             // Format full PAN with 4-digit spacing e.g. "4288 5201 4513 2470"
-            let formattedFullPan = liveCardNumber;
+            // Only use the real PAN from Maplerad API sync — never fabricate from masked_pan
+            let formattedFullPan: string | undefined = liveCardNumber;
             if (formattedFullPan) {
               const raw = formattedFullPan.replace(/\s+/g, '');
               if (raw.length === 16) {
                 formattedFullPan = raw.match(/.{1,4}/g)?.join(' ') || raw;
               }
-            } else if (c.masked_pan) {
-              formattedFullPan = c.masked_pan.replace(/•/g, '8');
             }
+            // If no real PAN yet (Maplerad sync hasn't run) — leave undefined so UI shows masked_pan cleanly
 
             return {
               id: c.id,

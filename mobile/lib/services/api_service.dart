@@ -402,7 +402,7 @@ class ApiService {
             'currency': c['currency']?.toString() ?? 'USD',
             'brand': c['brand']?.toString() ?? 'VISA',
             'maskedPan': c['masked_pan']?.toString() ?? '4829 •••• •••• 7194',
-            'fullPan': c['full_pan']?.toString() ?? (c['masked_pan'] != null ? c['masked_pan'].toString().replaceAll('•', '8') : null),
+            'fullPan': c['full_pan']?.toString(), // Real PAN from Maplerad live sync only — never fabricated
             'expiryMonth': c['expiry_month']?.toString() ?? '09',
             'expiryYear': c['expiry_year']?.toString() ?? '29',
             'cvv': c['cvv']?.toString() ?? '226',
@@ -456,23 +456,66 @@ class ApiService {
         if (list.isNotEmpty && list[0]['data'] is List) {
           final rawTxs = list[0]['data'] as List;
           return rawTxs.map((t) {
+            // Amounts come in cents from Maplerad — convert to USD dollars
             final amtInCents = (t['amount'] as num?)?.toDouble() ?? 0.0;
             final amtUsd = (t['amount_in_usd'] as num?)?.toDouble() ?? (amtInCents / 100.0);
+
+            final rawType = (t['type'] ?? t['entry'] ?? '').toString().toUpperCase();
+            final rawDesc = (t['description'] ?? '').toString();
+            final rawMerchantName = (t['merchant'] is Map ? t['merchant']['name'] : null)?.toString() ?? '';
+            final rawStatus = (t['status'] ?? 'SUCCESS').toString().toUpperCase();
+
+            // --- Rebrand "Maplerad" internal operations → "Rentilly" ---
+            String friendlyName;
+            String friendlyType = rawType;
+            if (rawMerchantName.toLowerCase() == 'maplerad' || rawDesc.toLowerCase().contains('decline fee')) {
+              if (rawDesc.toLowerCase().contains('decline fee') || rawDesc.toLowerCase().contains('no sufficient funds')) {
+                // $0.50 penalty Maplerad charges per failed/declined authorization
+                friendlyName = 'Declined Card Auth Fee';
+                friendlyType = 'DEBIT';
+              } else if (rawDesc.toLowerCase().contains('card funding') || rawType == 'FUNDING') {
+                friendlyName = 'Rentilly Card Top-Up';
+                friendlyType = 'CREDIT';
+              } else {
+                friendlyName = 'Rentilly Card Services';
+              }
+            } else if (rawMerchantName.isNotEmpty) {
+              // Real merchant — clean up the name (trim extra spaces from Maplerad merchant strings)
+              friendlyName = rawMerchantName.trim().replaceAll(RegExp(r' {2,}'), ' ');
+            } else if (rawDesc.isNotEmpty) {
+              friendlyName = rawDesc;
+            } else {
+              friendlyName = amtUsd < 0 || friendlyType == 'DEBIT' ? 'Online Card Purchase' : 'Card Balance Funding';
+            }
+
+            // Build a clean merchant map (never expose "Maplerad" to user)
+            final cleanMerchant = (t['merchant'] is Map)
+                ? {
+                    'name': friendlyName,
+                    'city': (t['merchant']['city'] ?? '').toString().replaceAll('Lekki', 'Nigeria'),
+                    'country': t['merchant']['country']?.toString() ?? '',
+                  }
+                : {'name': friendlyName};
+
             return {
               'id': t['id']?.toString() ?? '',
               'cardId': cardId,
               'amount': amtUsd,
               'currency': t['currency']?.toString() ?? 'USD',
-              'description': t['description']?.toString() ?? (t['merchant']?['name']?.toString() ?? 'Card Transaction'),
-              'status': t['status']?.toString() ?? 'SUCCESS',
-              'type': t['type']?.toString() ?? t['entry']?.toString() ?? 'DEBIT',
-              'merchant': t['merchant'] is Map ? t['merchant'] : {'name': t['description'] ?? 'Card Purchase'},
+              'description': friendlyName,
+              'status': rawStatus == 'FAILED' ? 'DECLINED' : rawStatus,
+              'type': friendlyType,
+              'merchant': cleanMerchant,
               'createdAt': t['created_at']?.toString() ?? DateTime.now().toIso8601String(),
+              // Extra flag so UI can show a tooltip on decline fees
+              'isDeclineFee': rawDesc.toLowerCase().contains('decline fee'),
+              'rawDesc': rawDesc,
             };
           }).toList();
         }
       }
     } catch (_) {}
+
 
     // 2. Server API Fallback
     try {
