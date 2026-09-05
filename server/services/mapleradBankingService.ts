@@ -315,7 +315,7 @@ export class MapleradBankingService {
       return {
         success: false,
         reference: params.reference,
-        message: data?.message || 'Maplerad transfer was rejected'
+        message: data?.message || 'Bank transfer was rejected. Please try again or contact support.'
       };
     } catch (err: any) {
       console.error('[MapleradBanking] transferToBank error:', err.message);
@@ -682,7 +682,7 @@ export class MapleradBankingService {
     if (!mapleradCustomerId) {
       return {
         success: false,
-        message: 'Could not obtain Maplerad customer ID',
+        message: 'Could not provision your banking account. Please retry verification or contact support.',
         errors
       };
     }
@@ -809,7 +809,7 @@ export class MapleradBankingService {
       accountNumber,
       bankName,
       usdtTronAddress,
-      message: `Maplerad Tier 1 setup completed for ${cleanEmail}`,
+      message: `Rentilly account verification completed for ${cleanEmail}`,
       errors: errors.length > 0 ? errors : undefined
     };
   }
