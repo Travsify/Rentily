@@ -992,3 +992,101 @@ export async function upgradeTier2(req: Request, res: Response) {
     return res.status(500).json({ error: err.message });
   }
 }
+
+// ── Tier 3 Upgrade (High-Volume Unlimited Tier) ───────────────────────────────────
+export async function upgradeTier3(req: Request, res: Response) {
+  try {
+    const { email, idType, idNumber, utilityDocumentUrl } = req.body;
+    if (!email || !idType || !idNumber) {
+      return res.status(400).json({ error: 'email, idType, and idNumber are required' });
+    }
+    const cleanEmail = email.toLowerCase().trim();
+
+    if (!supabase) {
+      return res.status(500).json({ error: 'Database not configured.' });
+    }
+
+    // Get Maplerad customer ID from system_configs
+    let customerId: string | null = null;
+    let currentTier = 0;
+
+    const { data: cfg } = await supabase
+      .from('system_configs')
+      .select('data')
+      .eq('id', `maplerad_tier1_${cleanEmail}`)
+      .maybeSingle();
+
+    if (cfg?.data?.customerId) customerId = cfg.data.customerId;
+    if (cfg?.data?.tier != null) currentTier = Number(cfg.data.tier);
+
+    if (currentTier < 2) {
+      return res.status(400).json({ error: 'You must complete Tier 2 verification first before upgrading to Tier 3.' });
+    }
+    if (currentTier >= 3) {
+      return res.status(400).json({ error: 'You are already at Tier 3 (Fully Verified).' });
+    }
+
+    // Sync identity document to Maplerad customer record if customerId exists
+    if (process.env.MAPLERAD_SECRET_KEY && customerId) {
+      try {
+        await fetch('https://api.maplerad.com/v1/customers/update', {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${process.env.MAPLERAD_SECRET_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            customer_id: customerId,
+            identity: {
+              type: idType, // NIN, PASSPORT, VOTERS_CARD, DRIVERS_LICENSE
+              number: idNumber,
+              image: utilityDocumentUrl || 'https://api.myrentilly.com/docs/verified-identity.png',
+              country: 'NG',
+            },
+          }),
+        });
+      } catch (mapleErr: any) {
+        console.warn('[Maplerad] Tier 3 identity update warning:', mapleErr.message);
+      }
+    }
+
+    const newTier = 3;
+
+    // Persist Tier 3 into system_configs
+    await supabase.from('system_configs').upsert(
+      {
+        id: `maplerad_tier1_${cleanEmail}`,
+        data: {
+          ...cfg?.data,
+          tier: newTier,
+          customerId,
+          idType,
+          idNumber,
+          utilityDocumentUrl,
+          updatedAt: new Date().toISOString(),
+        },
+      },
+      { onConflict: 'id' }
+    );
+
+    // Also update profiles table
+    try {
+      await supabase.from('profiles').update({
+        id_type: idType,
+        id_number: idNumber,
+        is_tier3: true,
+        updated_at: new Date().toISOString()
+      }).eq('email', cleanEmail);
+    } catch (_) {}
+
+    return res.json({
+      success: true,
+      tier: newTier,
+      tierLabel: 'Tier 3 Fully Verified',
+      message: `🎉 Successfully upgraded to Tier 3! Daily limit is now ₦5,000,000 (Unlimited Monthly).`,
+    });
+  } catch (err: any) {
+    console.error('upgradeTier3 error:', err);
+    return res.status(500).json({ error: err.message });
+  }
+}

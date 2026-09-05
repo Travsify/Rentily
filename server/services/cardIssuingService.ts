@@ -207,7 +207,7 @@ export class CardIssuingService {
           .eq('email', cleanEmail);
 
         if (!error && data) {
-          const cards: VirtualCard[] = await Promise.all(data.map(async (c: any) => {
+          const cards: VirtualCard[] = data.map((c: any) => {
             const cardKey = c.card_id || c.id;
             const assignedPin = _cardPins[cardKey] || _cardPins[c.id] || '1900';
             let liveBal = Number(c.balance || 0);
@@ -216,33 +216,37 @@ export class CardIssuingService {
             let liveExpMonth: string = c.expiry_month || '09';
             let liveExpYear: string = c.expiry_year || '29';
 
-            // Attempt live balance & credentials refresh from Maplerad API
+            // Background async refresh from Maplerad API (does NOT block API response)
             if (process.env.MAPLERAD_SECRET_KEY && cardKey) {
-              try {
-                const mapleradRes = await fetch(`https://api.maplerad.com/v1/issuing/${cardKey}`, {
-                  headers: { 'Authorization': `Bearer ${process.env.MAPLERAD_SECRET_KEY}` },
-                  signal: AbortSignal.timeout(2500),
-                });
-                const mapleradData = await mapleradRes.json().catch(() => ({}));
-                if (mapleradData?.status && mapleradData?.data) {
-                  if (mapleradData.data.balance != null) {
-                    liveBal = Number(mapleradData.data.balance) / 100;
+              (async () => {
+                try {
+                  const mapleradRes = await fetch(`https://api.maplerad.com/v1/issuing/${cardKey}`, {
+                    headers: { 'Authorization': `Bearer ${process.env.MAPLERAD_SECRET_KEY}` },
+                    signal: AbortSignal.timeout(3000),
+                  });
+                  const mapleradData = await mapleradRes.json().catch(() => ({}));
+                  if (mapleradData?.status && mapleradData?.data) {
+                    const updateObj: any = {};
+                    if (mapleradData.data.balance != null) {
+                      updateObj.balance = Number(mapleradData.data.balance) / 100;
+                    }
+                    if (mapleradData.data.card_number) {
+                      updateObj.full_pan = mapleradData.data.card_number;
+                    }
+                    if (mapleradData.data.cvv) {
+                      updateObj.cvv = mapleradData.data.cvv;
+                    }
+                    if (mapleradData.data.expiry && typeof mapleradData.data.expiry === 'string' && mapleradData.data.expiry.includes('/')) {
+                      const [m, y] = mapleradData.data.expiry.split('/');
+                      updateObj.expiry_month = m;
+                      updateObj.expiry_year = y;
+                    }
+                    if (Object.keys(updateObj).length > 0) {
+                      await supabase?.from('virtual_cards').update(updateObj).eq('id', c.id);
+                    }
                   }
-                  if (mapleradData.data.card_number) {
-                    liveCardNumber = mapleradData.data.card_number;
-                  }
-                  if (mapleradData.data.cvv) {
-                    liveCvv = mapleradData.data.cvv;
-                  }
-                  if (mapleradData.data.expiry && typeof mapleradData.data.expiry === 'string' && mapleradData.data.expiry.includes('/')) {
-                    const [m, y] = mapleradData.data.expiry.split('/');
-                    liveExpMonth = m;
-                    liveExpYear = y;
-                  }
-                  // Persist to Supabase in background
-                  supabase?.from('virtual_cards').update({ balance: liveBal }).eq('id', c.id).then(() => {});
-                }
-              } catch (_) {}
+                } catch (_) {}
+              })();
             }
 
             // Format full PAN with 4-digit spacing e.g. "4288 5201 4513 2470"
@@ -1174,6 +1178,12 @@ export class CardIssuingService {
     }
 
     list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    if (list.length > 0) {
+      _runtimeTxCache.set(cardId, list);
+      if (targetCardId && targetCardId !== cardId) {
+        _runtimeTxCache.set(targetCardId, list);
+      }
+    }
     return list;
   }
 }
