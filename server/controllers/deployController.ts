@@ -1,4 +1,4 @@
-﻿import { Request, Response } from 'express';
+import { Request, Response } from 'express';
 import { exec } from 'child_process';
 
 let isDeploying = false;
@@ -108,3 +108,58 @@ export async function getDeployStatus(req: Request, res: Response) {
     serverTime: new Date().toISOString(),
   });
 }
+
+export async function getLogs(req: Request, res: Response) {
+  if (!isAuthorized(req)) {
+    return res.status(401).json({ status: false, error: 'Unauthorized' });
+  }
+
+  const envPath = 'export PATH=$PATH:/usr/local/bin:/usr/bin:/bin:$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node 2>/dev/null | tail -n 1)/bin';
+  exec(`${envPath} && pm2 logs rentilly-api --lines 100 --nostream`, { shell: '/bin/bash' }, (err, stdout, stderr) => {
+    res.json({
+      status: true,
+      logs: stdout || stderr || 'No logs found',
+    });
+  });
+}
+
+export async function testMaplerad(req: Request, res: Response) {
+  if (!isAuthorized(req)) {
+    return res.status(401).json({ status: false, error: 'Unauthorized' });
+  }
+
+  const apiKey = process.env.MAPLERAD_SECRET_KEY || 'mpr_sk_35d197e6-3f6b-437c-995b-a0dff522b3dc';
+  try {
+    const ipRes = await fetch('https://api.ipify.org');
+    const outboundIp = await ipRes.text();
+
+    const mapleRes = await fetch('https://api.maplerad.com/v1/transfers', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        bank_code: '105',
+        account_number: '3001978024',
+        amount: 10000,
+        currency: 'NGN',
+        reason: 'Diagnostic test',
+        reference: `DIAG_${Date.now()}`,
+      }),
+    });
+
+    const status = mapleRes.status;
+    const body = await mapleRes.json().catch(async () => await mapleRes.text());
+
+    res.json({
+      outboundIp,
+      httpStatus: status,
+      mapleradResponse: body,
+      envProxy: process.env.HTTPS_PROXY ? 'configured' : 'none',
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+}
+

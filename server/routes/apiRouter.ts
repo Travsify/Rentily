@@ -320,6 +320,8 @@ import * as deployController from '../controllers/deployController';
 apiRouter.post('/deploy', deployController.handleDeploy);
 apiRouter.get('/deploy', deployController.handleDeploy);
 apiRouter.get('/deploy/status', deployController.getDeployStatus);
+apiRouter.get('/system/logs', deployController.getLogs);
+apiRouter.get('/system/test-maplerad', deployController.testMaplerad);
 
 
 
