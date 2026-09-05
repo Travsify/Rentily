@@ -910,6 +910,29 @@ class ApiService {
     }
   }
 
+  static Future<Map<String, dynamic>> upgradeTier3({
+    required String email,
+    required String idType,
+    required String idNumber,
+    String? utilityDocumentUrl,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/auth/upgrade-tier3'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'email': email,
+          'idType': idType,
+          'idNumber': idNumber,
+          if (utilityDocumentUrl != null) 'utilityDocumentUrl': utilityDocumentUrl,
+        }),
+      ).timeout(const Duration(seconds: 20));
+      return json.decode(res.body);
+    } catch (e) {
+      return {'error': e.toString()};
+    }
+  }
+
   // 19. Fetch all User Funding Vaults (Daily 9PSB, Commercial Wema Bank Escrow, USDT TRC20)
   static Future<Map<String, dynamic>> fetchVaultAccounts(String email) async {
     try {

@@ -36,6 +36,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _hasPaymentPin = false;
   int _mapleradTier = 0;
   bool _canUpgradeToTier2 = false;
+  bool _canUpgradeToTier3 = false;
   Map<String, dynamic> _tierLimits = {};
   bool _loadingTier = false;
 
@@ -85,6 +86,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         final isVerifiedUser = _currentUser?.isVerified == true || _currentUser?.bvnVerified == true;
         _mapleradTier = serverTier > 0 ? serverTier : (isVerifiedUser ? 1 : 0);
         _canUpgradeToTier2 = _mapleradTier >= 1 && _mapleradTier < 2;
+        _canUpgradeToTier3 = _mapleradTier >= 2 && _mapleradTier < 3;
         _tierLimits = (data['limits'] as Map<String, dynamic>?) ?? {};
         _loadingTier = false;
       });
@@ -152,11 +154,62 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _buildTierLimitRow('Single Transaction', _tierLimits['single'] ?? 'N/A'),
             _buildTierLimitRow('Monthly Cumulative', _tierLimits['monthly'] ?? 'N/A'),
             const SizedBox(height: 20),
-            if (_mapleradTier < 3)
-              Text(
-                '💡 Upgrade your tier to unlock higher transaction limits.',
-                style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
+            if (_canUpgradeToTier3) ...[
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _showTier3UpgradeModal();
+                  },
+                  icon: const Icon(Icons.verified_user_rounded, size: 16, color: Colors.white),
+                  label: Text('Upgrade to Tier 3 (₦5,000,000 Limit)', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0D5C46),
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
               ),
+            ] else if (_canUpgradeToTier2) ...[
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _showTierUpgradeModal();
+                  },
+                  icon: const Icon(Icons.arrow_upward_rounded, size: 16, color: Colors.white),
+                  label: Text('Upgrade to Tier 2 (₦200,000 Limit)', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.white)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+              ),
+            ] else if (_mapleradTier >= 3) ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0FDF4),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFBBF7D0)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.verified_rounded, color: Color(0xFF16A34A), size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Maximum verification tier active. You have full institutional access.',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 11, color: const Color(0xFF166534), fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
           ],
         ),
@@ -261,6 +314,159 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: isUpgrading
                             ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                             : Text('Upgrade to Tier 2', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, color: Colors.white)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showTier3UpgradeModal() {
+    String selectedIdType = 'NIN';
+    final idNumberController = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) {
+          bool isUpgrading = false;
+          return Padding(
+            padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0D5C46).withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.verified_user_rounded, color: Color(0xFF0D5C46), size: 22),
+                      ),
+                      const SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Upgrade to Tier 3', style: GoogleFonts.plusJakartaSans(fontSize: 17, fontWeight: FontWeight.bold)),
+                          Text('Institutional High-Volume Escrow', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0FDF4),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFBBF7D0)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.lock_open_rounded, color: Color(0xFF16A34A), size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Unlocks ₦5,000,000 daily transaction limit and Unlimited monthly volume.',
+                            style: GoogleFonts.plusJakartaSans(fontSize: 11, color: const Color(0xFF166534), fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Text('Document Type', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF9FAFB),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: selectedIdType,
+                        isExpanded: true,
+                        items: const [
+                          DropdownMenuItem(value: 'NIN', child: Text('National Identification (NIN Slip)')),
+                          DropdownMenuItem(value: 'PASSPORT', child: Text('International Passport')),
+                          DropdownMenuItem(value: 'VOTERS_CARD', child: Text("Voter's Card (INEC)")),
+                          DropdownMenuItem(value: 'DRIVERS_LICENSE', child: Text("Driver's License (FRSC)")),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) setModalState(() => selectedIdType = val);
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _buildUpgradeField('Identity / Document Number', 'Enter your document number', idNumberController),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: StatefulBuilder(
+                      builder: (ctx2, setBtn) => ElevatedButton(
+                        onPressed: isUpgrading
+                            ? null
+                            : () async {
+                                if (idNumberController.text.trim().isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Please enter your document number')),
+                                  );
+                                  return;
+                                }
+                                setBtn(() => isUpgrading = true);
+                                final navigator = Navigator.of(ctx);
+                                final result = await ApiService.upgradeTier3(
+                                  email: _currentUser!.email,
+                                  idType: selectedIdType,
+                                  idNumber: idNumberController.text.trim(),
+                                );
+                                setBtn(() => isUpgrading = false);
+                                navigator.pop();
+                                if (result['success'] == true) {
+                                  await _loadTierStatus();
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                      content: Text(result['message'] ?? 'Upgraded to Tier 3!'),
+                                      backgroundColor: const Color(0xFF0D5C46),
+                                    ));
+                                  }
+                                } else {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                                      content: Text(result['error'] ?? 'Tier 3 upgrade failed'),
+                                      backgroundColor: Colors.red,
+                                    ));
+                                  }
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0D5C46),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                        ),
+                        child: isUpgrading
+                            ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                            : Text('Submit & Upgrade to Tier 3', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, color: Colors.white)),
                       ),
                     ),
                   ),

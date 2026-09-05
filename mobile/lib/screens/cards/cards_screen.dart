@@ -62,8 +62,29 @@ class _CardsScreenState extends State<CardsScreen> {
               _userCards = list;
               _isLoading = false;
             });
+            _loadCachedCardTransactions();
             _fetchCardTransactions();
           }
+        }
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadCachedCardTransactions() async {
+    final card = _currentCard;
+    if (card == null) return;
+    final cardId = (card['cardId'] ?? card['id'])?.toString();
+    if (cardId == null || cardId.isEmpty) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final cached = prefs.getString('rentilly_cached_card_tx_$cardId');
+      if (cached != null) {
+        final List<dynamic> decoded = json.decode(cached);
+        final list = decoded.map((e) => Map<String, dynamic>.from(e as Map)).toList();
+        if (mounted && list.isNotEmpty && _cardTransactions.isEmpty) {
+          setState(() {
+            _cardTransactions = list;
+          });
         }
       }
     } catch (_) {}
@@ -99,11 +120,13 @@ class _CardsScreenState extends State<CardsScreen> {
         final pricing = results[2] as Map<String, dynamic>;
         final spread = results[3] as Map<String, dynamic>;
 
-        // Cache fresh cards to disk immediately
-        try {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('rentilly_cached_cards_${user.email}', json.encode(cards));
-        } catch (_) {}
+        // Protect existing cards: Only overwrite cache if returned cards are non-empty!
+        if (cards.isNotEmpty) {
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString('rentilly_cached_cards_${user.email}', json.encode(cards));
+          } catch (_) {}
+        }
 
         if (mounted) {
           setState(() {
@@ -112,8 +135,10 @@ class _CardsScreenState extends State<CardsScreen> {
             _spreadBuyRate = (spread['buyRate'] as num?)?.toDouble() ?? 1370.0;
             _cardIssuanceFeeUsd = (pricing['issuanceFeeUsd'] as num?)?.toDouble() ?? 3.00;
             _liquidationFeePercent = (pricing['liquidationFeePercent'] as num?)?.toDouble() ?? 1.0;
-            _userCards = cards;
-            _selectedCardIndex = (_selectedCardIndex < cards.length) ? _selectedCardIndex : 0;
+            if (cards.isNotEmpty || _userCards.isEmpty) {
+              _userCards = cards.isNotEmpty ? cards : _userCards;
+            }
+            _selectedCardIndex = (_selectedCardIndex < _userCards.length) ? _selectedCardIndex : 0;
             _isLoading = false;
           });
           _fetchCardTransactions();
@@ -133,13 +158,20 @@ class _CardsScreenState extends State<CardsScreen> {
   Future<void> _fetchCardTransactions() async {
     final card = _currentCard;
     if (card == null) return;
-    final cardId = card['cardId'] ?? card['id'];
-    if (cardId != null && cardId.toString().isNotEmpty) {
-      final txs = await ApiService.fetchCardTransactions(cardId.toString());
-      if (mounted) {
+    final cardId = (card['cardId'] ?? card['id'])?.toString();
+    if (cardId != null && cardId.isNotEmpty) {
+      if (_cardTransactions.isEmpty) {
+        await _loadCachedCardTransactions();
+      }
+      final txs = await ApiService.fetchCardTransactions(cardId);
+      if (mounted && txs.isNotEmpty) {
         setState(() {
           _cardTransactions = txs;
         });
+        try {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('rentilly_cached_card_tx_$cardId', json.encode(txs));
+        } catch (_) {}
       }
     }
   }
