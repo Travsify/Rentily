@@ -57,13 +57,13 @@ async function saveBlacklist(entries: BlacklistEntry[]): Promise<void> {
 export async function getBlacklist(_req: Request, res: Response) {
   if (supabase) {
     try {
-      const { data } = await supabase.from('system_configs').select('data').eq('id', 'fraud_blacklist').single();
+      const { data } = await supabase.from('system_configs').select('data').eq('id', 'fraud_blacklist').maybeSingle();
       if (data && Array.isArray(data.data)) {
         _blacklistCache = data.data;
       }
     } catch (_) {}
   }
-  res.json({ success: true, count: _blacklistCache.length, blacklist: _blacklistCache });
+  res.json(_blacklistCache);
 }
 
 export async function addToBlacklist(req: Request, res: Response) {

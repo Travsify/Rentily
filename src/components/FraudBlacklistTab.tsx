@@ -33,10 +33,16 @@ export const FraudBlacklistTab: React.FC = () => {
       const res = await fetch('/api/fraud/blacklist');
       if (res.ok) {
         const data = await res.json();
-        setBlacklist(data);
+        const list = Array.isArray(data)
+          ? data
+          : (Array.isArray(data?.blacklist)
+              ? data.blacklist
+              : (Array.isArray(data?.data) ? data.data : []));
+        setBlacklist(list);
       }
     } catch (e) {
       console.error('Error fetching blacklist:', e);
+      setBlacklist([]);
     }
   };
 
@@ -87,14 +93,21 @@ export const FraudBlacklistTab: React.FC = () => {
     }
   };
 
-  const filtered = blacklist.filter((b) => {
-    const q = searchQuery.toLowerCase();
+  const safeList = Array.isArray(blacklist) ? blacklist : [];
+  const filtered = safeList.filter((b) => {
+    if (!b) return false;
+    const q = (searchQuery || '').toLowerCase();
+    const name = (b.fullName || '').toLowerCase();
+    const phone = (b.phoneNumber || '');
+    const bvn = (b.bvn || '');
+    const nin = (b.nin || '');
+    const reason = (b.flagReason || '').toLowerCase();
     return (
-      b.fullName.toLowerCase().includes(q) ||
-      (b.phoneNumber && b.phoneNumber.includes(q)) ||
-      (b.bvn && b.bvn.includes(q)) ||
-      (b.nin && b.nin.includes(q)) ||
-      b.flagReason.toLowerCase().includes(q)
+      name.includes(q) ||
+      phone.includes(q) ||
+      bvn.includes(q) ||
+      nin.includes(q) ||
+      reason.includes(q)
     );
   });
 
@@ -268,10 +281,10 @@ export const FraudBlacklistTab: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-slate-800/60">
               {filtered.map((entry) => (
-                <tr key={entry.id} className="hover:bg-slate-850/50 transition">
+                <tr key={entry.id || Math.random()} className="hover:bg-slate-850/50 transition">
                   <td className="py-3 font-semibold text-white">
-                    <div>{entry.fullName}</div>
-                    <span className="text-[10px] text-slate-500 font-mono">ID: {entry.id.slice(0, 8)}</span>
+                    <div>{entry.fullName || 'Unnamed Subject'}</div>
+                    <span className="text-[10px] text-slate-500 font-mono">ID: {(entry.id || '').toString().slice(0, 8)}</span>
                   </td>
 
                   <td className="py-3 text-slate-300 font-mono text-[11px] space-y-0.5">
@@ -281,7 +294,7 @@ export const FraudBlacklistTab: React.FC = () => {
                   </td>
 
                   <td className="py-3 text-slate-300 max-w-xs leading-relaxed">
-                    {entry.flagReason}
+                    {entry.flagReason || 'Flagged for suspicious activity'}
                   </td>
 
                   <td className="py-3">
@@ -292,12 +305,12 @@ export const FraudBlacklistTab: React.FC = () => {
                         ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
                         : 'bg-slate-800 text-slate-300 border-slate-700'
                     }`}>
-                      {entry.severity}
+                      {entry.severity || 'high'}
                     </span>
                   </td>
 
                   <td className="py-3 text-slate-400 text-[11px]">
-                    {new Date(entry.createdAt).toLocaleDateString()}
+                    {entry.createdAt ? new Date(entry.createdAt).toLocaleDateString() : 'Active'}
                   </td>
 
                   <td className="py-3 text-right">
