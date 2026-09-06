@@ -278,6 +278,11 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                                     scheduledTimeSlot: selectedTime,
                                     prospectName: nameController.text,
                                     prospectPhone: phoneController.text,
+                                    ownerId: widget.property.partnerId ?? widget.property.ownerId,
+                                    ownerName: widget.property.partnerName ?? widget.property.ownerName,
+                                    ownerPhone: widget.property.ownerPhone,
+                                    propertyTitle: widget.property.title,
+                                    propertyAddress: widget.property.address,
                                   );
                                   setModalState(() => _isBooking = false);
                                   if (context.mounted) {

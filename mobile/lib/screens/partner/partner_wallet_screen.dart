@@ -237,42 +237,20 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
     }
   }
 
-  // Provision foreign virtual account on explicit user request
+  // Request foreign virtual account on explicit user request
   void _provisionAccountOnDemand(String curr) {
     HapticFeedback.heavyImpact();
-    setState(() {
-      if (curr == 'USD') {
-        _virtualAccounts['USD'] = {
-          'bankName': 'Lead Bank (USA)',
-          'accountNumber': '8858${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
-          'routingNumber': '101000019',
-          'type': 'US Checking (ACH / Fedwire)',
-          'status': 'ACTIVE',
-        };
-      } else if (curr == 'GBP') {
-        _virtualAccounts['GBP'] = {
-          'bankName': 'ClearBank (UK)',
-          'accountNumber': '7492${DateTime.now().millisecondsSinceEpoch.toString().substring(9)}',
-          'sortCode': '04-00-04',
-          'type': 'UK Faster Payments / BACS',
-          'status': 'ACTIVE',
-        };
-      } else if (curr == 'EUR') {
-        _virtualAccounts['EUR'] = {
-          'bankName': 'Banque Internationale (EU)',
-          'iban': 'LU92 0019 4000 8858 ${DateTime.now().millisecondsSinceEpoch.toString().substring(9)}',
-          'bic': 'BILULULL',
-          'type': 'SEPA & SEPA Instant (EUR)',
-          'status': 'ACTIVE',
-        };
-      }
-    });
-
+    if (_user?.isVerified != true) {
+      VerificationModal.show(context, onSuccess: (updated) {
+        setState(() => _user = updated);
+      });
+      return;
+    }
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          '🎉 Your dedicated $curr collection account has been provisioned!',
-          style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+          'International $curr collection accounts require enterprise brokerage tier upgrade. Reach out via Live Support Desk. 🌐',
+          style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
         ),
         backgroundColor: AppColors.primary,
         behavior: SnackBarBehavior.floating,
@@ -280,236 +258,6 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
     );
   }
 
-  void _showIssueCardModal() {
-    final name = _user?.businessName ?? _user?.fullName ?? 'Corporate Partner';
-    String selectedFundingWallet = 'NGN';
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setModalState) {
-          // Calculate fees depending on chosen wallet and dynamic admin pricing
-          double feeInSelectedCurr = _cardIssuanceFeeUsd;
-          String feeFormatted = '\$${_cardIssuanceFeeUsd.toStringAsFixed(2)} USD';
-          double availableBalance = 0.0;
-          String currSymbol = '\$';
-
-          if (selectedFundingWallet == 'NGN') {
-            feeInSelectedCurr = _cardIssuanceFeeUsd * _fxUsdToNgn;
-            feeFormatted = '₦${_currencyFormat.format(feeInSelectedCurr)} NGN';
-            availableBalance = _user?.walletBalance ?? 0.0;
-            currSymbol = '₦';
-          } else if (selectedFundingWallet == 'USD') {
-            feeInSelectedCurr = _cardIssuanceFeeUsd;
-            feeFormatted = '\$${_cardIssuanceFeeUsd.toStringAsFixed(2)} USD';
-            availableBalance = _usdBalance;
-            currSymbol = '\$';
-          } else if (selectedFundingWallet == 'GBP') {
-            feeInSelectedCurr = _cardIssuanceFeeUsd * _fxUsdToGbp;
-            feeFormatted = '£${_currencyFormat.format(feeInSelectedCurr)} GBP';
-            availableBalance = _gbpBalance;
-            currSymbol = '£';
-          } else if (selectedFundingWallet == 'EUR') {
-            feeInSelectedCurr = _cardIssuanceFeeUsd * _fxUsdToEur;
-            feeFormatted = '€${_currencyFormat.format(feeInSelectedCurr)} EUR';
-            availableBalance = _eurBalance;
-            currSymbol = '€';
-          }
-
-          final bool hasEnoughBalance = availableBalance >= feeInSelectedCurr;
-
-          return Container(
-            padding: const EdgeInsets.all(24),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Request Virtual Dollar Card',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close_rounded, size: 20, color: AppColors.textSecondary),
-                      onPressed: () => Navigator.pop(ctx),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Provision an encrypted USD Visa debit card for global SaaS, travel, and international ad spend.',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary, height: 1.4),
-                ),
-                const SizedBox(height: 16),
-
-                // Select Funding Source Wallet
-                Text(
-                  'SELECT PAYMENT WALLET',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: AppColors.textSecondary),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    {'curr': 'NGN', 'flag': '🇳🇬', 'bal': _user?.walletBalance ?? 0.0, 'sym': '₦'},
-                    {'curr': 'USD', 'flag': '🇺🇸', 'bal': _usdBalance, 'sym': '\$'},
-                    {'curr': 'GBP', 'flag': '🇬🇧', 'bal': _gbpBalance, 'sym': '£'},
-                    {'curr': 'EUR', 'flag': '🇪🇺', 'bal': _eurBalance, 'sym': '€'},
-                  ].map((w) {
-                    final isSel = selectedFundingWallet == w['curr'];
-                    final code = w['curr'] as String;
-                    final flag = w['flag'] as String;
-                    final bal = w['bal'] as double;
-                    final sym = w['sym'] as String;
-
-                    return Expanded(
-                      child: GestureDetector(
-                        onTap: () => setModalState(() => selectedFundingWallet = code),
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 2.5),
-                          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-                          decoration: BoxDecoration(
-                            color: isSel ? AppColors.primary.withOpacity(0.08) : const Color(0xFFF9FAFB),
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: isSel ? AppColors.primary : AppColors.borderDark, width: isSel ? 1.5 : 1.0),
-                          ),
-                          child: Column(
-                            children: [
-                              Text(flag, style: const TextStyle(fontSize: 14)),
-                              const SizedBox(height: 2),
-                              Text(code, style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: isSel ? AppColors.primary : AppColors.textPrimary)),
-                              Text('$sym${_currencyFormat.format(bal)}', style: GoogleFonts.plusJakartaSans(fontSize: 8, color: AppColors.textSecondary), maxLines: 1, overflow: TextOverflow.ellipsis),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 16),
-
-                // Pricing Summary Box
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF9FAFB),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColors.borderDark),
-                  ),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('Cardholder Name', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
-                          Text(name, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                        ],
-                      ),
-                      const Divider(height: 14),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('Card Issuance Fee', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
-                          Text(feeFormatted, style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w900, color: AppColors.accentOrange)),
-                        ],
-                      ),
-                      if (selectedFundingWallet != 'USD') ...[
-                        const Divider(height: 14),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text('Exchange Rate', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textMuted)),
-                            Text(
-                              selectedFundingWallet == 'NGN' ? '\$1.00 = ₦${_fxUsdToNgn.toStringAsFixed(0)} NGN' : selectedFundingWallet == 'GBP' ? '\$1.00 = £${_fxUsdToGbp.toStringAsFixed(2)} GBP' : '\$1.00 = €${_fxUsdToEur.toStringAsFixed(2)} EUR',
-                              style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // Action Button (Pay or Insufficient Balance)
-                SizedBox(
-                  width: double.infinity,
-                  height: 46,
-                  child: ElevatedButton(
-                    onPressed: hasEnoughBalance
-                        ? () async {
-                            Navigator.pop(ctx);
-                            
-                            // Deduct fee from the selected wallet
-                            if (selectedFundingWallet == 'NGN') {
-                              final newNaira = (_user?.walletBalance ?? 0.0) - feeInSelectedCurr;
-                              final updated = _user!.copyWith(walletBalance: newNaira);
-                              await AuthService.updateUser(updated);
-                              setState(() => _user = updated);
-                            } else if (selectedFundingWallet == 'USD') {
-                              setState(() => _usdBalance -= feeInSelectedCurr);
-                            } else if (selectedFundingWallet == 'GBP') {
-                              setState(() => _gbpBalance -= feeInSelectedCurr);
-                            } else if (selectedFundingWallet == 'EUR') {
-                              setState(() => _eurBalance -= feeInSelectedCurr);
-                            }
-
-                            setState(() {
-                              _cardData = {
-                                'cardholderName': name,
-                                'maskedPan': '4829 •••• •••• 7194',
-                                'fullPan': '4829 9102 3847 7194',
-                                'expiryMonth': '08',
-                                'expiryYear': '29',
-                                'cvv': '819',
-                                'balance': 0.0,
-                              };
-                            });
-
-                            HapticFeedback.heavyImpact();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  '🎉 Virtual Dollar Card activated! ($feeFormatted debited from $selectedFundingWallet wallet)',
-                                  style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
-                                ),
-                                backgroundColor: AppColors.primary,
-                                behavior: SnackBarBehavior.floating,
-                              ),
-                            );
-                          }
-                        : () {
-                            Navigator.pop(ctx);
-                            if (_user != null) {
-                              AddMoneyModal.show(context, user: _user!, onAccountUpdated: (u) => setState(() => _user = u));
-                            }
-                          },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: hasEnoughBalance ? AppColors.primary : AppColors.accentOrange,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      elevation: 0,
-                    ),
-                    child: Text(
-                      hasEnoughBalance ? 'Pay $feeFormatted & Issue Card' : 'Insufficient $selectedFundingWallet Balance — Fund Wallet',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.white),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
 
   void _copyAccount(String accountNumber) {
     Clipboard.setData(ClipboardData(text: accountNumber));
@@ -1730,12 +1478,12 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                   Column(
                     children: [
                       VirtualCardWidget(
-                        cardholderName: _cardData!['cardholderName'] ?? 'Corporate Partner',
-                        maskedPan: _cardData!['maskedPan'] ?? '4829 •••• •••• 7194',
-                        fullPan: _cardData!['fullPan'] ?? '4829 9102 3847 7194',
-                        expiryMonth: _cardData!['expiryMonth'] ?? '08',
-                        expiryYear: _cardData!['expiryYear'] ?? '29',
-                        cvv: _cardData!['cvv'] ?? '819',
+                        cardholderName: _cardData!['cardholderName'] ?? _user?.businessName ?? _user?.fullName ?? 'Corporate Partner',
+                        maskedPan: _cardData!['maskedPan'] ?? '•••• •••• •••• ••••',
+                        fullPan: _cardData!['fullPan'] ?? _cardData!['pan'] ?? '',
+                        expiryMonth: _cardData!['expiryMonth'] ?? '••',
+                        expiryYear: _cardData!['expiryYear'] ?? '••',
+                        cvv: _cardData!['cvv'] ?? '•••',
                         balance: (_cardData!['balance'] as num?)?.toDouble() ?? 0.0,
                         currency: 'USD',
                         brand: 'VISA',

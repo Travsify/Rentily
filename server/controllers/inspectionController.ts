@@ -88,21 +88,55 @@ export async function bookInspection(req: Request, res: Response) {
     const newId = body.id || `insp_${Date.now()}`;
 
     const prospectEmail = (body.email || body.prospectEmail || '').toString().toLowerCase().trim();
-    const ownerEmail = (body.ownerEmail || '').toString().toLowerCase().trim();
+    let ownerEmail = (body.ownerEmail || '').toString().toLowerCase().trim();
+    let propOwnerId = body.ownerId || '';
+    let propOwnerName = body.ownerName || '';
+    let propOwnerPhone = body.ownerPhone || '';
+    let propTitle = body.propertyTitle || '';
+    let propAddress = body.propertyAddress || '';
+
+    // Auto-resolve property host/owner from AdminDataStore or Supabase
+    if (body.propertyId && (!propOwnerId || propOwnerId === 'owner_direct')) {
+      const propFromStore = AdminDataStore.getProperties().find(p => p.id === body.propertyId);
+      if (propFromStore) {
+        propOwnerId = (propFromStore as any).partnerId || propFromStore.ownerId || propOwnerId;
+        propOwnerName = (propFromStore as any).partnerBusinessName || (propFromStore as any).partnerName || propFromStore.ownerName || propOwnerName;
+        if (!ownerEmail && propFromStore.ownerEmail) ownerEmail = propFromStore.ownerEmail.toLowerCase().trim();
+        if (!propOwnerPhone && propFromStore.ownerPhone) propOwnerPhone = propFromStore.ownerPhone;
+        if (!propTitle && propFromStore.title) propTitle = propFromStore.title;
+        if (!propAddress && propFromStore.address) propAddress = propFromStore.address;
+      } else if (supabase) {
+        try {
+          const { data: pData } = await supabase.from('properties').select('*').eq('id', body.propertyId).single();
+          if (pData) {
+            propOwnerId = pData.partner_id || pData.owner_id || propOwnerId;
+            propOwnerName = pData.partner_business_name || pData.partner_name || pData.owner_name || propOwnerName;
+            if (!ownerEmail && pData.owner_email) ownerEmail = pData.owner_email.toLowerCase().trim();
+            if (!propOwnerPhone && pData.owner_phone) propOwnerPhone = pData.owner_phone;
+            if (!propTitle && pData.title) propTitle = pData.title;
+            if (!propAddress && pData.address) propAddress = pData.address;
+          }
+        } catch (_) {}
+      }
+    }
+
+    if (!propOwnerId) propOwnerId = 'owner_direct';
+    if (!propOwnerName) propOwnerName = 'Property Landlord';
+    if (!propTitle) propTitle = 'Property Walkthrough Inspection';
 
     const inspectionRecord: Inspection = {
       id: newId,
       propertyId: body.propertyId || 'unknown',
-      propertyTitle: body.propertyTitle || 'Property Walkthrough Inspection',
-      propertyAddress: body.propertyAddress || '',
+      propertyTitle: propTitle,
+      propertyAddress: propAddress,
       prospectId: body.prospectId || `usr_${Date.now()}`,
       prospectName: body.prospectName || 'Prospective Tenant',
       prospectEmail: prospectEmail,
       prospectPhone: body.prospectPhone || '',
-      ownerId: body.ownerId || 'owner_direct',
-      ownerName: body.ownerName || 'Property Landlord',
+      ownerId: propOwnerId,
+      ownerName: propOwnerName,
       ownerEmail: ownerEmail,
-      ownerPhone: body.ownerPhone || '',
+      ownerPhone: propOwnerPhone,
       scheduledDate: body.scheduledDate || new Date().toISOString().split('T')[0],
       scheduledTimeSlot: body.scheduledTimeSlot || '11:00 AM - 12:00 PM',
       inspectionPassCode: passCode,
@@ -133,7 +167,7 @@ export async function bookInspection(req: Request, res: Response) {
       } catch (_) {}
     }
 
-    // Dispatch notification
+    // Dispatch notifications to both Tenant and Host (Landlord / Partner)
     const recipientEmail = body.email || body.prospectEmail;
     if (recipientEmail) {
       NotificationDispatcher.dispatch({
@@ -146,6 +180,24 @@ export async function bookInspection(req: Request, res: Response) {
         metadata: {
           gateCode: passCode,
           propertyTitle: inspectionRecord.propertyTitle,
+          date: `${inspectionRecord.scheduledDate} (${inspectionRecord.scheduledTimeSlot})`
+        }
+      });
+    }
+
+    if (ownerEmail || (propOwnerId && propOwnerId !== 'owner_direct')) {
+      NotificationDispatcher.dispatch({
+        userId: propOwnerId,
+        email: ownerEmail || 'host@myrentilly.com',
+        userName: propOwnerName,
+        title: `🔑 New Inspection Request: ${inspectionRecord.propertyTitle}`,
+        category: 'inspection',
+        message: `${inspectionRecord.prospectName} requested a walkthrough on ${inspectionRecord.scheduledDate} (${inspectionRecord.scheduledTimeSlot}). Pass: ${passCode}`,
+        metadata: {
+          inspectionId: newId,
+          gateCode: passCode,
+          propertyTitle: inspectionRecord.propertyTitle,
+          prospectName: inspectionRecord.prospectName,
           date: `${inspectionRecord.scheduledDate} (${inspectionRecord.scheduledTimeSlot})`
         }
       });

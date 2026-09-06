@@ -18,6 +18,7 @@ import '../../widgets/partner_legal_modal.dart';
 import '../../widgets/app_avatar.dart';
 import '../../utils/id_utils.dart';
 import '../auth/login_screen.dart';
+import '../support/support_chat_screen.dart';
 
 class PartnerProfileScreen extends StatefulWidget {
   final VoidCallback? onSwitchToTenant;
@@ -32,6 +33,7 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
   UserProfile? _user;
   bool _isLoading = true;
   bool _hasPaymentPin = false;
+  int _mapleradTier = 0;
 
   @override
   void initState() {
@@ -63,10 +65,20 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
       user = user.copyWith(avatarUrl: savedLogo);
     }
     final hasPin = await PaymentSecurityService.hasPaymentPin();
+
+    int tier = 0;
+    if (user != null && user.email.isNotEmpty) {
+      try {
+        final tierData = await ApiService.fetchTierStatus(user.email);
+        tier = (tierData['tier'] as num?)?.toInt() ?? 0;
+      } catch (_) {}
+    }
+
     if (mounted) {
       setState(() {
         _user = user;
         _hasPaymentPin = hasPin;
+        _mapleradTier = tier;
         _isLoading = false;
       });
     }
@@ -309,16 +321,22 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: isVerified ? const Color(0xFFF0FDF4) : const Color(0xFFFEF3C7),
+                            color: (_mapleradTier >= 2 || isVerified) ? const Color(0xFFF0FDF4) : const Color(0xFFFEF3C7),
                             borderRadius: BorderRadius.circular(6),
-                            border: Border.all(color: isVerified ? const Color(0xFF86EFAC) : const Color(0xFFFCD34D)),
+                            border: Border.all(color: (_mapleradTier >= 2 || isVerified) ? const Color(0xFF86EFAC) : const Color(0xFFFCD34D)),
                           ),
                           child: Text(
-                            isVerified ? 'CAC & TIER-3 ACCREDITED 🛡️' : 'TIER-1 (PENDING KYB/KYC)',
+                            _mapleradTier >= 3
+                                ? 'CAC & TIER-3 ACCREDITED 🛡️'
+                                : _mapleradTier == 2
+                                    ? 'CAC TIER-2 ACCREDITED ✓'
+                                    : (isVerified || _mapleradTier == 1)
+                                        ? 'CAC TIER-1 ACCREDITED 🛡️'
+                                        : 'PENDING CAC KYB/KYC',
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 8.5,
                               fontWeight: FontWeight.w900,
-                              color: isVerified ? const Color(0xFF166534) : const Color(0xFF92400E),
+                              color: (_mapleradTier >= 2 || isVerified) ? const Color(0xFF166534) : const Color(0xFF92400E),
                             ),
                           ),
                         ),
@@ -422,6 +440,25 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
               title: 'Change Password',
               subtitle: 'Update your corporate account login security password',
               onTap: _showChangePasswordDialog,
+            ),
+            const SizedBox(height: 20),
+
+            // Support Desk
+            Text(
+              'SUPPORT & ASSISTANCE',
+              style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 10),
+
+            _buildTile(
+              icon: Icons.support_agent_rounded,
+              title: 'Rentilly Live Support Desk 💬',
+              subtitle: 'Chat directly with Rentilly human agents & escrow support desk',
+              onTap: () {
+                Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => SupportChatScreen(user: _user),
+                ));
+              },
             ),
             const SizedBox(height: 20),
 

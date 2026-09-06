@@ -291,6 +291,12 @@ class ApiService {
     required String prospectName,
     required String prospectPhone,
     String? notes,
+    String? ownerId,
+    String? ownerName,
+    String? ownerEmail,
+    String? ownerPhone,
+    String? propertyTitle,
+    String? propertyAddress,
   }) async {
     try {
       final response = await http.post(
@@ -303,6 +309,12 @@ class ApiService {
           'prospectName': prospectName,
           'prospectPhone': prospectPhone,
           'prospectNotes': notes,
+          'ownerId': ownerId,
+          'ownerName': ownerName,
+          'ownerEmail': ownerEmail,
+          'ownerPhone': ownerPhone,
+          'propertyTitle': propertyTitle,
+          'propertyAddress': propertyAddress,
         }),
       );
 
