@@ -34,6 +34,7 @@ export interface Tier1ProvisionResult {
   accountNumber?: string;
   bankName?: string;
   usdtTronAddress?: string;
+  usdtAddress?: string;
   message: string;
   errors?: string[];
 }
@@ -82,6 +83,8 @@ export class MapleradBankingService {
     fullName: string;
     phoneNumber?: string;
     nin?: string;
+    dob?: string;
+    bvn?: string;
   }): Promise<string | null> {
     const cleanEmail = params.email.trim().toLowerCase();
     const nameParts = params.fullName.trim().split(' ');
@@ -809,6 +812,7 @@ export class MapleradBankingService {
       accountNumber,
       bankName,
       usdtTronAddress,
+      usdtAddress: usdtTronAddress,
       message: `Rentilly account verification completed for ${cleanEmail}`,
       errors: errors.length > 0 ? errors : undefined
     };

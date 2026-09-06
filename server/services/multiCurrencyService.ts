@@ -78,6 +78,27 @@ export class MultiCurrencyService {
     return this.getFxRates();
   }
 
+  static convert(from: string, to: string, amount: number): { from: string; to: string; amount: number; rate: number; convertedAmount: number; fee: number } {
+    const f = from.toUpperCase().trim();
+    const t = to.toUpperCase().trim();
+    if (f === t) {
+      return { from: f, to: t, amount, rate: 1.0, convertedAmount: amount, fee: 0 };
+    }
+    const key = `${f}_${t}`;
+    const inverseKey = `${t}_${f}`;
+    let rate = this.fxRates[key];
+    if (!rate && this.fxRates[inverseKey]) {
+      rate = 1.0 / this.fxRates[inverseKey];
+    }
+    if (!rate) {
+      const fromToNgn = f === 'NGN' ? 1.0 : (this.fxRates[`${f}_NGN`] || 1500.0);
+      const toFromNgn = t === 'NGN' ? 1.0 : (this.fxRates[`${t}_NGN`] || 1500.0);
+      rate = fromToNgn / toFromNgn;
+    }
+    const convertedAmount = Number((amount * rate).toFixed(2));
+    return { from: f, to: t, amount, rate: Number(rate.toFixed(4)), convertedAmount, fee: 0 };
+  }
+
   static getSpreadRates() {
     const base = this.spreadConfig.baseRate || 1430.00;
     const buyMargin = this.spreadConfig.buyMargin ?? 30.00;

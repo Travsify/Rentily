@@ -133,6 +133,7 @@ export async function sendPushNotification(payload: OneSignalNotificationPayload
 export function pushToAll(title: string, message: string, data?: Record<string, string>) {
   return sendPushNotification({ title, message, data, targetSegments: ['Subscribed Users'] });
 }
+export const broadcastToAll = pushToAll;
 
 /** Send push to a specific user by their external User ID */
 export function pushToExternalUser(userId: string, title: string, message: string, data?: Record<string, string>) {

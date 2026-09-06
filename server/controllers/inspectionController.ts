@@ -59,9 +59,9 @@ export async function getInspections(req: Request, res: Response) {
         i.prospectEmail?.toLowerCase?.() === cleanEmail ||
         i.ownerEmail?.toLowerCase?.() === cleanEmail ||
         (i as any).email?.toLowerCase?.() === cleanEmail ||
-        i.prospectName.toLowerCase().includes(cleanEmail) ||
-        i.ownerName.toLowerCase().includes(cleanEmail) ||
-        i.prospectPhone.includes(cleanEmail)
+        i.prospectName?.toLowerCase().includes(cleanEmail) ||
+        i.ownerName?.toLowerCase().includes(cleanEmail) ||
+        i.prospectPhone?.includes(cleanEmail)
       );
     }
     if (userId) {
@@ -101,7 +101,7 @@ export async function bookInspection(req: Request, res: Response) {
       if (propFromStore) {
         propOwnerId = (propFromStore as any).partnerId || propFromStore.ownerId || propOwnerId;
         propOwnerName = (propFromStore as any).partnerBusinessName || (propFromStore as any).partnerName || propFromStore.ownerName || propOwnerName;
-        if (!ownerEmail && propFromStore.ownerEmail) ownerEmail = propFromStore.ownerEmail.toLowerCase().trim();
+        if (!ownerEmail && (propFromStore as any).ownerEmail) ownerEmail = ((propFromStore as any).ownerEmail || '').toLowerCase().trim();
         if (!propOwnerPhone && propFromStore.ownerPhone) propOwnerPhone = propFromStore.ownerPhone;
         if (!propTitle && propFromStore.title) propTitle = propFromStore.title;
         if (!propAddress && propFromStore.address) propAddress = propFromStore.address;
@@ -220,7 +220,7 @@ export async function updateInspectionStatus(req: Request, res: Response) {
     const { status, ownerNotes, rescheduledDate } = req.body;
 
     // Update in AdminDataStore
-    const updated = AdminDataStore.updateInspectionStatus(id, status, ownerNotes);
+    const updated = await AdminDataStore.updateInspectionStatus(id as string, status, ownerNotes);
 
     // Also update in Supabase
     if (supabase) {

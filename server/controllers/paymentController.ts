@@ -628,7 +628,7 @@ export async function executeCurrencySwap(req: Request, res: Response) {
         reference: txRef,
         sender: 'USDT Vault (TRON TRC20)',
         beneficiary: `${memUser.businessName || memUser.fullName || 'Rentilly User'} (Naira Wallet)`,
-        recipientAccount: memUser.virtualAccountNumber || 'Rentilly Wallet',
+        recipientAccount: (memUser as any).virtualAccountNumber || memUser.accountNumber || 'Rentilly Wallet',
         recipientBank: 'Rentilly Treasury',
         status: 'SUCCESSFUL',
         date: new Date().toISOString(),
@@ -972,11 +972,14 @@ export async function flutterwaveWebhook(req: Request, res: Response) {
           const sb = sbUsers[0];
           targetUser = {
             id: sb.id, email: sb.email, fullName: sb.full_name || sb.fullName || '',
+            phoneNumber: sb.phone_number || '',
             accountNumber: sb.account_number || incomingAccNo,
             bankName: sb.bank_name || 'Flutterwave MFB',
             walletBalance: sb.wallet_balance ?? 0,
             isVerified: sb.is_verified ?? true,
             role: sb.role || 'owner',
+            createdAt: sb.created_at || new Date().toISOString(),
+            updatedAt: sb.updated_at || new Date().toISOString()
           };
         }
       }
@@ -987,11 +990,14 @@ export async function flutterwaveWebhook(req: Request, res: Response) {
           const sb = sbUsers[0];
           targetUser = {
             id: sb.id, email: sb.email, fullName: sb.full_name || sb.fullName || '',
+            phoneNumber: sb.phone_number || '',
             accountNumber: sb.account_number || incomingAccNo,
             bankName: sb.bank_name || 'Flutterwave MFB',
             walletBalance: sb.wallet_balance ?? 0,
             isVerified: sb.is_verified ?? true,
             role: sb.role || 'owner',
+            createdAt: sb.created_at || new Date().toISOString(),
+            updatedAt: sb.updated_at || new Date().toISOString()
           };
         }
       }
@@ -1002,11 +1008,14 @@ export async function flutterwaveWebhook(req: Request, res: Response) {
           const sb = sbUsers[0];
           targetUser = {
             id: sb.id, email: sb.email, fullName: sb.full_name || sb.fullName || '',
+            phoneNumber: sb.phone_number || '',
             accountNumber: sb.account_number || incomingAccNo,
             bankName: sb.bank_name || 'Flutterwave MFB',
             walletBalance: sb.wallet_balance ?? 0,
             isVerified: sb.is_verified ?? true,
             role: sb.role || 'owner',
+            createdAt: sb.created_at || new Date().toISOString(),
+            updatedAt: sb.updated_at || new Date().toISOString()
           };
         }
       }
@@ -1652,7 +1661,9 @@ export async function fincraWebhook(req: Request, res: Response) {
 
           // Remove from pending system configs if present
           if (supabase && ref) {
-            await supabase.from('system_configs').delete().eq('id', `pending_fincra_${ref}`).catch(() => {});
+            try {
+              await supabase.from('system_configs').delete().eq('id', `pending_fincra_${ref}`);
+            } catch (_) {}
           }
 
           if (creditRes.success && !creditRes.alreadyProcessed) {
@@ -1694,7 +1705,7 @@ export async function fincraWebhook(req: Request, res: Response) {
 // 4f-3. Auto-Fetch / Verify Fincra Payment on Demand
 export async function verifyFincraPayment(req: Request, res: Response) {
   try {
-    const reference = req.params.reference || (req.query.reference as string);
+    const reference = ((req.params.reference || req.query.reference || '') as string).toString().trim();
     if (!reference) {
       return res.status(400).json({ success: false, error: 'Transaction reference is required' });
     }
@@ -1731,7 +1742,9 @@ export async function verifyFincraPayment(req: Request, res: Response) {
           narration: `High-Value Escrow Deposit (Auto-Fetched Fincra) from ${tx.customer?.name || 'Commercial Transfer'}`
         });
 
-        await supabase.from('system_configs').delete().eq('id', `pending_fincra_${reference}`).catch(() => {});
+        try {
+          await supabase.from('system_configs').delete().eq('id', `pending_fincra_${reference}`);
+        } catch (_) {}
 
         return res.json({
           success: true,
@@ -2015,16 +2028,18 @@ export async function initializeHighValueDeposit(req: Request, res: Response) {
 
       if (fincraRes.status && fincraRes.data?.checkoutUrl) {
         if (supabase) {
-          await supabase.from('system_configs').upsert({
-            id: `pending_fincra_${ref}`,
-            data: {
-              reference: ref,
-              email: cleanEmail,
-              amount: numAmount,
-              createdAt: new Date().toISOString(),
-              status: 'pending'
-            }
-          }, { onConflict: 'id' }).catch(() => {});
+          try {
+            await supabase.from('system_configs').upsert({
+              id: `pending_fincra_${ref}`,
+              data: {
+                reference: ref,
+                email: cleanEmail,
+                amount: numAmount,
+                createdAt: new Date().toISOString(),
+                status: 'pending'
+              }
+            }, { onConflict: 'id' });
+          } catch (_) {}
         }
 
         return res.json({
@@ -3742,7 +3757,7 @@ export async function revealCardDetails(req: Request, res: Response) {
 
 export async function getCardTransactions(req: Request, res: Response) {
   try {
-    const { cardId } = req.params;
+    const cardId = req.params.cardId as string;
     const txs = await CardIssuingService.getCardTransactions(cardId || 'default');
     res.json({
       status: true,

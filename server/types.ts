@@ -44,6 +44,14 @@ export interface Property {
   images: string[];
   videoWalkthroughUrl?: string;
   status: PropertyStatus;
+  listedByRole?: 'direct_landlord' | 'verified_partner' | string;
+  partnerId?: string;
+  partnerName?: string;
+  partnerBusinessName?: string;
+  partnerCacNumber?: string;
+  ownerEmail?: string;
+  partnerPresencePhotoUrl?: string;
+  powerOfAttorneyUrl?: string;
   verifiedAt?: string;
   verifiedBy?: string;
   createdAt: string;
@@ -77,6 +85,8 @@ export interface KYPRecord {
   discoMeterNumber: string;
   utilityBillUrl: string;
   videoKycUrl?: string;
+  partnerPresencePhotoUrl?: string;
+  powerOfAttorneyUrl?: string;
   
   landRegistrySearchStatus: 'verified_alausa' | 'verified_agis' | 'pending' | 'flagged';
   landRegistrySearchNotes?: string;
@@ -84,6 +94,11 @@ export interface KYPRecord {
   rejectionReason?: string;
   reviewedBy?: string;
   reviewedAt?: string;
+  listedByRole?: 'direct_landlord' | 'verified_partner' | string;
+  partnerId?: string;
+  partnerName?: string;
+  partnerBusinessName?: string;
+  partnerCacNumber?: string;
   submittedAt: string;
 }
 
@@ -94,21 +109,32 @@ export interface Inspection {
   propertyId: string;
   propertyTitle: string;
   propertyAddress: string;
-  prospectId: string;
-  prospectName: string;
+  prospectId?: string;
+  prospectName?: string;
   prospectEmail?: string;
-  prospectPhone: string;
-  ownerId: string;
-  ownerName: string;
+  prospectPhone?: string;
+  ownerId?: string;
+  ownerName?: string;
   ownerEmail?: string;
-  ownerPhone: string;
-  scheduledDate: string;
-  scheduledTimeSlot: string;
-  inspectionPassCode: string;
-  status: InspectionStatus;
+  ownerPhone?: string;
+  scheduledDate?: string;
+  scheduledTimeSlot?: string;
+  inspectionPassCode?: string;
+  status: InspectionStatus | string;
   prospectNotes?: string;
   ownerNotes?: string;
   createdAt: string;
+  // Database fields
+  renterId?: string;
+  date?: string;
+  timeSlot?: string;
+  type?: string;
+  renterName?: string;
+  renterPhone?: string;
+  renterEmail?: string;
+  feedback?: string;
+  rating?: number;
+  updatedAt?: string;
 }
 
 export type EscrowStatus = 'held_in_escrow' | 'released_to_owner' | 'refunded' | 'disputed';
@@ -138,25 +164,38 @@ export interface Transaction {
 export interface LegalAgreement {
   id: string;
   propertyId: string;
-  propertyTitle: string;
-  transactionId: string;
-  landlordId: string;
-  landlordName: string;
-  tenantId: string;
-  tenantName: string;
-  agreementType: 'tenancy_agreement' | 'contract_of_sale';
-  agreementTitle: string;
-  governingLaw: string;
-  tenancyCommencementDate: string;
-  tenancyExpirationDate: string;
-  annualRent: number;
-  cautionDeposit: number;
-  landlordSigned: boolean;
+  propertyTitle?: string;
+  propertyAddress?: string;
+  propertyState?: string;
+  transactionId?: string;
+  landlordId?: string;
+  landlordName?: string;
+  tenantId?: string;
+  tenantName?: string;
+  agreementType: 'tenancy_agreement' | 'contract_of_sale' | string;
+  agreementTitle?: string;
+  governingLaw?: string;
+  tenancyCommencementDate?: string;
+  tenancyExpirationDate?: string;
+  annualRent?: number;
+  cautionDeposit?: number;
+  landlordSigned?: boolean;
   landlordSignedAt?: string;
-  tenantSigned: boolean;
+  tenantSigned?: boolean;
   tenantSignedAt?: string;
-  legalOfficerStamp: boolean;
-  status: 'drafting' | 'pending_signatures' | 'fully_executed';
+  legalOfficerStamp?: boolean;
+  status: 'drafting' | 'pending_signatures' | 'fully_executed' | 'active' | 'draft' | string;
   pdfContractUrl?: string;
   createdAt: string;
+  // Database fields
+  renterId?: string;
+  ownerId?: string;
+  agreementText?: string;
+  rentAmount?: number;
+  tenancyPeriodMonths?: number;
+  startDate?: string;
+  endDate?: string;
+  signedByRenterAt?: string;
+  signedByOwnerAt?: string;
+  updatedAt?: string;
 }

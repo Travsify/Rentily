@@ -73,7 +73,7 @@ export async function reviewKYP(req: Request, res: Response) {
     const reviewedAt = new Date().toISOString();
 
     // 1. Update in AdminDataStore
-    const updated = AdminDataStore.reviewKYP(id, status, landRegistrySearchNotes, rejectionReason);
+    const updated = await AdminDataStore.reviewKYP(id as string, status, landRegistrySearchNotes, rejectionReason);
 
     // Update linked property in store
     if (updated?.propertyId) {

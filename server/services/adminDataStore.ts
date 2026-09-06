@@ -1,5 +1,5 @@
 import { supabase } from '../supabaseClient';
-import type { Property, KYPRecord, Inspection, LegalAgreement } from '../types';
+import type { Property, KYPRecord, Inspection, LegalAgreement, Transaction } from '../types';
 
 // In-memory runtime cache hydrated and synced with Supabase Cloud
 let _propertiesCache: Property[] = [];

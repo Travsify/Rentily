@@ -12,6 +12,8 @@ export interface StoredUser {
   role: string;
   isVerified: boolean;
   ninNumber?: string | null;
+  bvn?: string | null;
+  rekycRequired?: boolean;
   bvnVerified?: boolean;
   accountNumber?: string | null;
   bankName?: string | null;
@@ -23,6 +25,9 @@ export interface StoredUser {
   officeAddress?: string | null;
   partnerStatus?: string;
   lasreraNumber?: string | null;
+  usdtTronAddress?: string | null;
+  avatarUrl?: string | null;
+  virtualAccountNumber?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -407,7 +412,7 @@ export class UserStore {
     // Persist to Supabase Cloud profiles table (throttled: max 1 write per 30s per user)
     if (supabase && shouldPersistToSupabase(user.email.toLowerCase().trim())) {
       const dbRole = (user.role === 'partner' ? 'owner' : (user.role === 'legal_officer' ? 'admin' : user.role)) as any;
-      supabase.from('profiles').upsert({
+      Promise.resolve(supabase.from('profiles').upsert({
         id: user.id,
         email: user.email.toLowerCase().trim(),
         full_name: user.fullName || user.email,
@@ -423,13 +428,13 @@ export class UserStore {
         cac_number: user.cacNumber || null,
         state: user.state || 'Lagos',
         updated_at: new Date().toISOString()
-      }).then(({ error }) => {
+      })).then(({ error }: any) => {
         if (error) {
           console.error('[UserStore] Supabase profile update error:', error.message);
         } else {
           console.log(`[UserStore] Persisted ${user.email} (₦${user.walletBalance}) to Supabase ☁️`);
         }
-      }).catch(err => {
+      }).catch((err: any) => {
         console.error('[UserStore] Supabase profile upsert network error:', err);
       });
     }
@@ -524,4 +529,13 @@ export class UserStore {
 
     return false;
   }
+}
+
+export function verifyPassword(passwordInput: string, hash: string): boolean {
+  if (!passwordInput || !hash) return false;
+  if (hashPassword(passwordInput) === hash) return true;
+  const rawSha256 = crypto.createHash('sha256').update(passwordInput).digest('hex');
+  if (hash === rawSha256) return true;
+  if (hash === passwordInput) return true;
+  return false;
 }

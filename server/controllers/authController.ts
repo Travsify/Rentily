@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { supabase } from '../supabaseClient';
-import { UserStore, hashPassword } from '../services/userStore';
+import { UserStore, hashPassword, verifyPassword } from '../services/userStore';
 import { NotificationDispatcher } from '../services/notificationDispatcher';
 import { OtpStore } from '../services/otpStore';
 import crypto from 'crypto';
@@ -108,9 +108,9 @@ export async function register(req: Request, res: Response) {
     const deviceId = (req.headers['x-device-id'] || req.body.deviceId || 'RENT-DEV-ENROLLED').toString();
 
     NotificationDispatcher.dispatch({
-      userId: newUser.id,
-      email: newUser.email,
-      userName: newUser.fullName,
+      userId: userToReturn.id,
+      email: userToReturn.email,
+      userName: userToReturn.fullName,
       category: 'security',
       title: 'Account Registration Confirmation 🔑',
       message: 'Your Rentilly account has been created successfully. Welcome to the platform.',
@@ -226,7 +226,7 @@ export async function login(req: Request, res: Response) {
       NotificationDispatcher.dispatch({
         userId: user.id,
         email: user.email,
-        userName: user.fullName || user.businessName,
+        userName: user.fullName || user.businessName || 'Valued User',
         category: 'security',
         title: 'New Sign-in Alert 🛡️',
         message: 'A successful sign-in was completed on your account.',
@@ -461,7 +461,7 @@ export async function changePassword(req: Request, res: Response) {
 
 export async function adminResetPassword(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { newPassword } = req.body;
     if (!newPassword) {
       return res.status(400).json({ error: 'New password is required' });
@@ -484,7 +484,7 @@ export async function adminResetPassword(req: Request, res: Response) {
 
 export async function adminUpdateUserRole(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { role } = req.body;
     if (!role) {
       return res.status(400).json({ error: 'Role is required' });

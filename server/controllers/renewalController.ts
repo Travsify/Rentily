@@ -45,19 +45,19 @@ export function getUpcomingRenewals(_req: Request, res: Response) {
         renewalItems.push({
           id: `RNW-${ag.id}`,
           propertyId: ag.propertyId,
-          propertyTitle: ag.propertyTitle,
-          tenantId: ag.tenantId,
-          tenantName: ag.tenantName,
-          tenantEmail: `${ag.tenantId}@myrentilly.com`,
-          landlordId: ag.ownerId,
-          landlordName: ag.ownerName,
-          landlordEmail: `${ag.ownerId}@myrentilly.com`,
-          currentAnnualRent: ag.annualRent,
+          propertyTitle: ag.propertyTitle || 'Tenancy Agreement',
+          tenantId: ag.tenantId || ag.renterId || '',
+          tenantName: ag.tenantName || 'Tenant',
+          tenantEmail: `${ag.tenantId || ag.renterId || 'tenant'}@myrentilly.com`,
+          landlordId: ag.landlordId || ag.ownerId || '',
+          landlordName: ag.landlordName || 'Landlord',
+          landlordEmail: `${ag.landlordId || ag.ownerId || 'landlord'}@myrentilly.com`,
+          currentAnnualRent: ag.annualRent || ag.rentAmount || 0,
           leaseStartDate: start.toISOString(),
           leaseEndDate: end.toISOString(),
           daysRemaining,
           renewalStatus: status,
-          proposedNewRent: ag.annualRent
+          proposedNewRent: ag.annualRent || ag.rentAmount || 0
         });
       }
     }
@@ -81,7 +81,7 @@ export function dispatchRenewalReminder(req: Request, res: Response) {
       email: tenantEmail || 'tenant@myrentilly.com',
       userName: tenantName || 'Tenant',
       title: 'Annual Tenancy Renewal Notice 📜',
-      category: 'legal',
+      category: 'escrow',
       message: `Your annual lease for "${propertyTitle}" expires in ${daysRemaining} days. You can secure and renew your tenancy directly through Rentilly Escrow with zero agent fees.`,
       metadata: { renewalId, annualRent }
     });

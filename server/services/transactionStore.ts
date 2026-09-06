@@ -9,7 +9,7 @@ export interface WalletTransaction {
   email: string;
   title: string;
   type: string;
-  category: 'deposit' | 'withdrawal' | 'utility' | 'rent' | 'escrow' | 'wallet_funding';
+  category: 'deposit' | 'withdrawal' | 'utility' | 'rent' | 'escrow' | 'wallet_funding' | 'swap' | string;
   amount: number;
   currency?: 'NGN' | 'USDT' | 'USD' | string;
   isCredit: boolean;
@@ -18,13 +18,17 @@ export interface WalletTransaction {
   beneficiary?: string;
   recipientAccount?: string;
   recipientBank?: string;
-  status: 'SUCCESSFUL' | 'PENDING' | 'FAILED';
+  status: 'SUCCESSFUL' | 'PENDING' | 'FAILED' | 'PROCESSING' | string;
   escrowStatus?: 'held_in_escrow' | 'released_to_owner' | 'refunded' | 'disputed';
   ownerPayoutReference?: string;
   payoutReleasedAt?: string;
   token?: string;
   units?: string;
-  date: string;
+  date?: string;
+  createdAt?: string;
+  userEmail?: string;
+  user_email?: string;
+  description?: string;
 }
 
 const VAULT_PROPERTY_ID = '00000000-0000-0000-0000-000000000000';
@@ -239,7 +243,7 @@ export class TransactionStore {
       }
 
       const deduplicated = Array.from(new Set(canonicalMap.values()));
-      deduplicated.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      deduplicated.sort((a, b) => new Date(b.date || b.createdAt || 0).getTime() - new Date(a.date || a.createdAt || 0).getTime());
 
       _txCache = deduplicated;
       this.saveTransactions(deduplicated);
@@ -269,7 +273,7 @@ export class TransactionStore {
     const filtered = all.filter(t => 
       t.email.toLowerCase() === cleanEmail && !TransactionStore.isTreasuryTransaction(t)
     );
-    return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return filtered.sort((a, b) => new Date(b.date || b.createdAt || 0).getTime() - new Date(a.date || a.createdAt || 0).getTime());
   }
 
   static async addTransaction(tx: WalletTransaction): Promise<WalletTransaction> {
@@ -327,6 +331,8 @@ export class TransactionStore {
 
     return tx;
   }
+
+  static recordTransaction = TransactionStore.addTransaction;
 
   static updateTransactionStatus(
     id: string,

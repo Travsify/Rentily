@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { IdentitypassService } from '../services/identitypassService';
 import { FlutterwaveService } from '../services/flutterwaveService';
-import { UserStore } from '../services/userStore';
+import { UserStore, type StoredUser } from '../services/userStore';
 import { MapleradBankingService } from '../services/mapleradBankingService';
 import { NotificationDispatcher } from '../services/notificationDispatcher';
 import { supabase } from '../supabaseClient';
@@ -55,7 +55,7 @@ export async function verifyCAC(req: Request, res: Response) {
       return res.status(400).json({ error: 'CAC RC Number is required' });
     }
 
-    const result = await IdentitypassService.verifyCAC(rcNumber, companyName, companyType);
+    const result = await IdentitypassService.verifyCAC(rcNumber, companyName);
     return res.status(200).json(result);
   } catch (error: any) {
     console.error('CAC verification error:', error);
@@ -460,20 +460,13 @@ export async function requestReKyc(req: Request, res: Response) {
   try {
     const { email, allUsers } = req.body;
 
-    let targetUsers: Array<{ id: string; email: string; fullName: string; walletBalance?: number; ninNumber?: string; phoneNumber?: string }> = [];
+    let targetUsers: StoredUser[] = [];
 
     if (email) {
       const cleanEmail = email.toString().toLowerCase().trim();
       const user = await UserStore.findByEmail(cleanEmail);
       if (user) {
-        targetUsers.push({
-          id: user.id,
-          email: user.email,
-          fullName: user.fullName,
-          walletBalance: user.walletBalance,
-          ninNumber: user.ninNumber,
-          phoneNumber: user.phoneNumber
-        });
+        targetUsers.push(user);
       }
     } else if (allUsers) {
       const all = UserStore.getAllUsers();
@@ -506,7 +499,7 @@ export async function requestReKyc(req: Request, res: Response) {
         email: cleanEmail,
         fullName: u.fullName || 'Rentilly User',
         phoneNumber: u.phoneNumber,
-        nin: u.ninNumber,
+        nin: u.ninNumber || undefined,
         dob: userDob
       });
 

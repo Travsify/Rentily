@@ -3,7 +3,7 @@ import { UserStore } from '../services/userStore';
 
 export async function checkEligibility(req: Request, res: Response) {
   try {
-    const { userId } = req.params;
+    const userId = req.params.userId as string;
     const user = await UserStore.findById(userId);
 
     const isTier3 = user?.isVerified === true || (user?.ninNumber && user?.bvnVerified);

@@ -135,7 +135,7 @@ export async function updateConversation(req: Request, res: Response) {
 export async function getUserConversations(req: Request, res: Response) {
   try {
     if (!supabase) return res.status(503).json({ error: 'Database not available' });
-    const email = decodeURIComponent(req.params.email).toLowerCase().trim();
+    const email = decodeURIComponent(req.params.email as string).toLowerCase().trim();
     const { data, error } = await supabase.from('support_conversations').select('*').eq('user_email', email).order('last_message_at', { ascending: false });
     if (error) throw error;
     return res.json(data || []);

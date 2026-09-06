@@ -62,7 +62,7 @@ export async function getTransactions(_req: Request, res: Response) {
 
 export async function releaseEscrowPayout(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const payoutReference = `PAYOUT-RENTILLY-${Date.now()}`;
     const payoutReleasedAt = new Date().toISOString();
 
@@ -125,7 +125,7 @@ export async function releaseEscrowPayout(req: Request, res: Response) {
       const partnerId = (property as any).partnerId || property.ownerId;
       const allUsers = await UserStore.getAllUsers();
       const partnerUser = (await UserStore.findById(partnerId)) || 
-        allUsers.find(u => u.id === partnerId || (property.ownerPhone && u.phoneNumber === property.ownerPhone) || u.email === property.ownerEmail);
+        allUsers.find(u => u.id === partnerId || (property.ownerPhone && u.phoneNumber === property.ownerPhone) || u.email === (property as any).ownerEmail);
 
       if (partnerUser) {
         const isRent = (txn?.transaction_type === 'rent') || (property.purpose === 'rent');
@@ -147,6 +147,7 @@ export async function releaseEscrowPayout(req: Request, res: Response) {
           TransactionStore.recordTransaction({
             id: commTxId,
             userId: partnerUser.id,
+            email: partnerUser.email,
             userEmail: partnerUser.email,
             amount: partnerCommissionAmount,
             type: 'credit',
@@ -348,12 +349,15 @@ export async function payRentEscrow(req: Request, res: Response) {
     // 3. Debit Tenant Wallet in TransactionStore
     TransactionStore.recordTransaction({
       id: escrowRef,
+      email: cleanEmail,
       user_email: cleanEmail,
       type: 'debit',
+      category: 'escrow',
+      isCredit: false,
       amount: totalPayable,
       title: `Escrow Lock: ${propTitle}`,
       description: `Rent payment locked in Rentilly Escrow pending key handover. Caution: ₦${numCaution.toLocaleString()} | Legal Fee: ₦${rentillyLegalFee.toLocaleString()}`,
-      status: 'SUCCESS',
+      status: 'SUCCESSFUL',
       date: now,
       reference: escrowRef
     });
@@ -393,21 +397,23 @@ export async function payRentEscrow(req: Request, res: Response) {
         });
 
         // 5. Create active digital tenancy agreement in legal_agreements
-        await supabase.from('legal_agreements').insert({
-          property_id: propertyId,
-          tenant_email: cleanEmail,
-          tenant_name: tenantName || 'Tenant',
-          landlord_name: ownerName,
-          property_title: propTitle,
-          property_address: propAddress,
-          annual_rent: numBase,
-          caution_deposit: numCaution,
-          tenancy_duration: `${tenancyDurationMonths || 12} Months`,
-          status: 'fully_executed',
-          escrow_reference: escrowRef,
-          commencement_date: now.split('T')[0],
-          created_at: now
-        }).catch(() => {});
+        try {
+          await supabase.from('legal_agreements').insert({
+            property_id: propertyId,
+            tenant_email: cleanEmail,
+            tenant_name: tenantName || 'Tenant',
+            landlord_name: ownerName,
+            property_title: propTitle,
+            property_address: propAddress,
+            annual_rent: numBase,
+            caution_deposit: numCaution,
+            tenancy_duration: `${tenancyDurationMonths || 12} Months`,
+            status: 'fully_executed',
+            escrow_reference: escrowRef,
+            commencement_date: now.split('T')[0],
+            created_at: now
+          });
+        } catch (_) {}
 
         // 6. Notify tenant in-app
         await supabase.from('notifications').insert({

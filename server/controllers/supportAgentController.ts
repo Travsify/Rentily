@@ -194,7 +194,7 @@ export async function updateAgent(req: Request, res: Response) {
 export async function getAgentConversations(req: Request, res: Response) {
   try {
     if (!supabase) return res.status(503).json({ error: 'Database not available' });
-    const email = decodeURIComponent(req.params.agentEmail).toLowerCase().trim();
+    const email = decodeURIComponent(req.params.agentEmail as string).toLowerCase().trim();
     const { data, error } = await supabase
       .from('support_conversations')
       .select('*')

@@ -83,7 +83,7 @@ export async function sendBroadcast(req: Request, res: Response) {
         email: user.email,
         userName: user.fullName,
         title: `📢 ${title}`,
-        category: 'broadcast',
+        category: 'system',
         message: message,
         metadata: {
           channel,

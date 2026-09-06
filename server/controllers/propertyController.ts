@@ -258,12 +258,12 @@ export async function createProperty(req: Request, res: Response) {
 
 export async function updatePropertyStatus(req: Request, res: Response) {
   try {
-    const { id } = req.params;
+    const id = req.params.id as string;
     const { status, verifiedBy } = req.body;
     const now = new Date().toISOString();
 
     // Update in AdminDataStore
-    const updated = AdminDataStore.updatePropertyStatus(id, status);
+    const updated = await AdminDataStore.updatePropertyStatus(id, status);
 
     // Also try Supabase
     if (supabase) {

@@ -11,7 +11,7 @@ export async function getMasterLedger(req: Request, res: Response) {
     let transactions = [...TransactionStore.getAllTransactions()];
 
     // Sort descending by date
-    transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    transactions.sort((a, b) => new Date(b.date || b.createdAt || 0).getTime() - new Date(a.date || a.createdAt || 0).getTime());
 
     // Filter by category
     if (category && category !== 'all') {

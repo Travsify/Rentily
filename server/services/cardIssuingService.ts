@@ -920,10 +920,10 @@ export class CardIssuingService {
     // 6. Push / In-App Notification
     try {
       const { NotificationDispatcher } = await import('./notificationDispatcher');
-      await NotificationDispatcher.dispatchNotification({
+      await NotificationDispatcher.dispatch({
         userId: resolvedUserId,
         email: cleanEmail,
-        category: 'FINANCIAL',
+        category: 'wallet',
         title: 'Virtual Card Withdrawal Successful',
         message: destination === 'NGN'
           ? `You have successfully withdrawn $${amountUsd.toFixed(2)} USD from your virtual card. ₦${creditedAmount.toLocaleString()} has been credited to your Naira wallet.`
@@ -950,6 +950,7 @@ export class CardIssuingService {
   static async toggleFreeze(cardId: string): Promise<{ success: boolean; isFrozen: boolean; message: string }> {
     let currentFrozen = false;
     let cardEmail = '';
+    let freezeReason: string | null = null;
 
     if (supabase) {
       const { data, error } = await supabase
@@ -961,6 +962,7 @@ export class CardIssuingService {
       if (!error && data) {
         currentFrozen = data.is_frozen === true;
         cardEmail = data.email || '';
+        freezeReason = data.freeze_reason || null;
       }
     }
 
@@ -971,7 +973,7 @@ export class CardIssuingService {
         .from('virtual_cards')
         .update({ 
           is_frozen: newFrozenState, 
-          freeze_reason: newFrozenState ? (data?.freeze_reason || 'manual') : null,
+          freeze_reason: newFrozenState ? (freezeReason || 'manual') : null,
           updated_at: new Date().toISOString() 
         })
         .or(`id.eq.${cardId},card_id.eq.${cardId}`);

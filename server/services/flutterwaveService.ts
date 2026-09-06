@@ -5,7 +5,7 @@ dotenv.config();
 const FLW_BASE_URL = 'https://api.flutterwave.com/v3';
 
 export class FlutterwaveService {
-  private static getSecretKey(): string {
+  static getSecretKey(): string {
     return process.env.FLUTTERWAVE_SECRET_KEY || 'FLWSECK-e7dafb7e22bd7d3d6c04194775bdafbd-1a052a90db6vt-X';
   }
 
@@ -24,10 +24,12 @@ export class FlutterwaveService {
   // 1. Dynamic Virtual Account for Rent Escrow Collection
   static async createVirtualAccount(params: {
     email: string;
-    amount: number;
+    amount?: number;
+    expectedAmount?: number;
     propertyId: string;
     propertyTitle: string;
     tenantName: string;
+    phoneNumber?: string;
   }): Promise<{
     status: boolean;
     data?: {
@@ -36,6 +38,7 @@ export class FlutterwaveService {
       orderRef: string;
       flwRef: string;
       expiryDate: string;
+      accountReference?: string;
     };
     message?: string;
   }> {
@@ -233,6 +236,8 @@ export class FlutterwaveService {
       };
     }
   }
+
+  static transferToBank = FlutterwaveService.transferToLandlord;
 
   // 3. Fetch list of supported Nigerian banks
   static async getNigerianBanks(): Promise<Array<{ code: string; name: string }>> {
