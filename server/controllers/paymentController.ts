@@ -4022,3 +4022,231 @@ export async function getUserNotifications(req: Request, res: Response) {
   }
 }
 
+// ==================== BENEFICIARIES MANAGEMENT ====================
+
+function guessBankNameFromAccount(account: string, text: string): string {
+  const t = text.toLowerCase();
+  if (t.includes('opay')) return 'OPay Digital Services (OPay)';
+  if (t.includes('palmpay')) return 'PalmPay';
+  if (t.includes('kuda')) return 'Kuda Microfinance Bank';
+  if (t.includes('moniepoint')) return 'Moniepoint Microfinance Bank';
+  if (t.includes('gtb') || t.includes('guaranty')) return 'Guaranty Trust Bank (GTBank)';
+  if (t.includes('zenith')) return 'Zenith Bank';
+  if (t.includes('access')) return 'Access Bank';
+  if (t.includes('first bank')) return 'First Bank of Nigeria';
+  if (t.includes('uba') || t.includes('united bank')) return 'United Bank for Africa (UBA)';
+  if (t.includes('wema')) return 'Wema Bank';
+  if (t.includes('fidelity')) return 'Fidelity Bank';
+  if (t.includes('providus')) return 'Providus Bank';
+  if (t.includes('stanbic')) return 'Stanbic IBTC Bank';
+  if (t.includes('sterling')) return 'Sterling Bank';
+  if (/^[789]\d{9}$/.test(account)) return 'OPay Digital Services (OPay)';
+  return 'Nigerian Bank';
+}
+
+function guessBankCodeFromName(bankName: string): string {
+  const bn = bankName.toLowerCase();
+  if (bn.includes('guaranty') || bn.includes('gtb')) return '058';
+  if (bn.includes('zenith')) return '057';
+  if (bn.includes('access')) return '044';
+  if (bn.includes('first bank')) return '011';
+  if (bn.includes('uba') || bn.includes('united bank')) return '033';
+  if (bn.includes('kuda')) return '50211';
+  if (bn.includes('opay')) return '999992';
+  if (bn.includes('palmpay')) return '999991';
+  if (bn.includes('wema')) return '035';
+  if (bn.includes('providus')) return '101';
+  if (bn.includes('fidelity')) return '070';
+  if (bn.includes('stanbic')) return '221';
+  if (bn.includes('moniepoint')) return '50515';
+  if (bn.includes('sterling')) return '232';
+  return '058';
+}
+
+export async function getUserBeneficiaries(req: Request, res: Response) {
+  try {
+    const email = (req.query.email || '').toString().toLowerCase().trim();
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    // 1. Fetch user transactions from TransactionStore
+    const userTx = await TransactionStore.getTransactionsByEmail(email);
+
+    // 2. Also fetch from Supabase wallet_transactions
+    let rawDbTx: any[] = [];
+    if (supabase) {
+      try {
+        const { data } = await supabase
+          .from('wallet_transactions')
+          .select('*')
+          .eq('email', email)
+          .order('created_at', { ascending: false })
+          .limit(100);
+        if (data) rawDbTx = data;
+      } catch (_) {}
+    }
+
+    // 3. Extract beneficiaries from transactions
+    const combined = [...userTx, ...rawDbTx];
+    const beneficiariesMap = new Map<string, any>();
+
+    for (const tx of combined) {
+      const isWithdrawal = tx.category === 'withdrawal' ||
+        (tx.type && (tx.type.toLowerCase().includes('payout') || tx.type.toLowerCase() === 'debit')) ||
+        (tx.title && (tx.title.toLowerCase().includes('payout') || tx.title.toLowerCase().includes('withdrawal') || tx.title.toLowerCase().includes('debit'))) ||
+        (tx.narration && tx.narration.toLowerCase().includes('payout'));
+
+      if (!isWithdrawal) continue;
+
+      const fullText = [tx.title, tx.narration, tx.description, tx.subtitle].filter(Boolean).join(' ');
+
+      let name = tx.beneficiary || tx.accountName || tx.recipient || '';
+      let account = tx.recipientAccount || tx.accountNumber || '';
+      let bank = tx.recipientBank || tx.bankName || '';
+
+      // Pattern 1: Payout to NAME (ACCOUNT)
+      const m1 = fullText.match(/Payout to ([A-Za-z\s]+?)\s*\((\d{10})\)/i);
+      if (m1) {
+        if (!name) name = m1[1].trim();
+        if (!account) account = m1[2].trim();
+      }
+
+      // Pattern 2: Payout to NAME
+      if (!name) {
+        const m2 = fullText.match(/Payout to ([A-Za-z\s]+?)(?:[•\(\-\[]|$)/i);
+        if (m2) name = m2[1].trim();
+      }
+
+      // Pattern 3: Bank Transfer Payout to NAME
+      if (!name) {
+        const m3 = fullText.match(/Payout to ([A-Za-z\s]+)/i);
+        if (m3) name = m3[1].trim();
+      }
+
+      // Pattern 4: 10-digit account number anywhere in text
+      if (!account) {
+        const mAcc = fullText.match(/\b(\d{10})\b/);
+        if (mAcc) account = mAcc[1];
+      }
+
+      if (name && name.length >= 2) {
+        name = name.replace(/\s+/g, ' ').trim();
+        // Clean up common suffix
+        name = name.replace(/•.*$/i, '').trim();
+
+        // Infer bank name if missing
+        if (!bank || bank === 'Direct Bank Transfer') {
+          bank = guessBankNameFromAccount(account, fullText);
+        }
+
+        const bankCode = tx.bankCode || guessBankCodeFromName(bank);
+        const dedupeKey = (account && account.length === 10) ? account : name.toLowerCase();
+
+        const txDate = tx.date || tx.createdAt || tx.created_at || new Date().toISOString();
+
+        if (!beneficiariesMap.has(dedupeKey)) {
+          beneficiariesMap.set(dedupeKey, {
+            accountName: name,
+            accountNumber: account || '',
+            bankName: bank || 'Nigerian Bank',
+            bankCode,
+            type: 'bank',
+            lastUsed: txDate,
+            useCount: 1,
+          });
+        } else {
+          const existing = beneficiariesMap.get(dedupeKey);
+          existing.useCount = (existing.useCount || 1) + 1;
+          if (new Date(txDate) > new Date(existing.lastUsed)) {
+            existing.lastUsed = txDate;
+          }
+        }
+      }
+    }
+
+    // 4. Also fetch explicitly saved beneficiaries from Supabase system_configs if present
+    if (supabase) {
+      try {
+        const { data: cfg } = await supabase
+          .from('system_configs')
+          .select('data')
+          .eq('id', `beneficiaries_${email}`)
+          .maybeSingle();
+
+        if (cfg?.data && Array.isArray(cfg.data)) {
+          for (const item of cfg.data) {
+            const key = item.accountNumber || item.accountName?.toLowerCase();
+            if (key) {
+              if (beneficiariesMap.has(key)) {
+                const ex = beneficiariesMap.get(key);
+                beneficiariesMap.set(key, { ...ex, ...item });
+              } else {
+                beneficiariesMap.set(key, item);
+              }
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    const result = Array.from(beneficiariesMap.values()).sort(
+      (a, b) => new Date(b.lastUsed).getTime() - new Date(a.lastUsed).getTime()
+    );
+
+    return res.json({ status: true, data: result });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+
+export async function saveUserBeneficiary(req: Request, res: Response) {
+  try {
+    const { email, accountName, accountNumber, bankName, bankCode, type, cryptoAddress } = req.body;
+    const cleanEmail = (email || '').toString().toLowerCase().trim();
+    if (!cleanEmail || !accountName) {
+      return res.status(400).json({ error: 'Email and accountName are required' });
+    }
+
+    if (supabase) {
+      const { data: existing } = await supabase
+        .from('system_configs')
+        .select('data')
+        .eq('id', `beneficiaries_${cleanEmail}`)
+        .maybeSingle();
+
+      let list: any[] = existing?.data && Array.isArray(existing.data) ? existing.data : [];
+
+      const cleanAcc = (accountNumber || '').toString().trim();
+      const existingIdx = list.findIndex(b => b.accountNumber === cleanAcc);
+
+      const newItem = {
+        accountName: accountName.toString().trim(),
+        accountNumber: cleanAcc,
+        bankName: (bankName || 'Nigerian Bank').toString().trim(),
+        bankCode: (bankCode || '058').toString().trim(),
+        type: type || 'bank',
+        cryptoAddress: cryptoAddress || null,
+        lastUsed: new Date().toISOString(),
+        useCount: existingIdx >= 0 ? (list[existingIdx].useCount || 1) + 1 : 1,
+      };
+
+      if (existingIdx >= 0) {
+        list[existingIdx] = newItem;
+      } else {
+        list.unshift(newItem);
+      }
+
+      await supabase.from('system_configs').upsert({
+        id: `beneficiaries_${cleanEmail}`,
+        data: list.slice(0, 50),
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'id' });
+    }
+
+    return res.json({ status: true, message: 'Beneficiary saved successfully' });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+

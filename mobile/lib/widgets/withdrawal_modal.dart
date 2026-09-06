@@ -160,8 +160,16 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
         _cryptoAddressController.text = b['cryptoAddress'].toString();
       } else {
         _withdrawalMode = 'NGN';
-        _selectedBankCode = bankCode.isNotEmpty ? bankCode : '058';
-        _selectedBankName = bankName.isNotEmpty ? bankName : 'Guaranty Trust Bank (GTBank)';
+        final matchedBank = _banks.firstWhere(
+          (bk) => (bankCode.isNotEmpty && bk['code'] == bankCode) || 
+                  (bankName.isNotEmpty && bk['name']!.toLowerCase().contains(bankName.toLowerCase())),
+          orElse: () => {
+            'name': bankName.isNotEmpty ? bankName : 'Guaranty Trust Bank (GTBank)',
+            'code': bankCode.isNotEmpty ? bankCode : '058'
+          },
+        );
+        _selectedBankCode = matchedBank['code'] ?? (bankCode.isNotEmpty ? bankCode : '058');
+        _selectedBankName = matchedBank['name'] ?? (bankName.isNotEmpty ? bankName : 'Guaranty Trust Bank (GTBank)');
         _accountController.text = accNum;
         _resolvedAccountName = accName.isNotEmpty ? accName : null;
         _accountResolutionError = null;
@@ -976,28 +984,33 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
             ],
 
             // ── Past Recipients / Beneficiaries Section ──
-            if (_savedBeneficiaries.isNotEmpty || _beneficiarySearchController.text.isNotEmpty) ...[
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.history_rounded, size: 14, color: AppColors.primary),
-                      const SizedBox(width: 5),
-                      Text(
-                        'PAST RECIPIENTS (${_savedBeneficiaries.length})',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w800, color: AppColors.textSecondary, letterSpacing: 0.5),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.history_rounded, size: 14, color: AppColors.primary),
+                    const SizedBox(width: 5),
+                    Text(
+                      'PAST RECIPIENTS (${_savedBeneficiaries.length})',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textSecondary,
+                        letterSpacing: 0.5,
                       ),
-                      if (_isLoadingBeneficiaries) ...[
-                        const SizedBox(width: 6),
-                        const SizedBox(
-                          width: 10,
-                          height: 10,
-                          child: CircularProgressIndicator(strokeWidth: 1.5, color: AppColors.primary),
-                        ),
-                      ],
+                    ),
+                    if (_isLoadingBeneficiaries) ...[
+                      const SizedBox(width: 6),
+                      const SizedBox(
+                        width: 10,
+                        height: 10,
+                        child: CircularProgressIndicator(strokeWidth: 1.5, color: AppColors.primary),
+                      ),
                     ],
-                  ),
+                  ],
+                ),
+                if (_savedBeneficiaries.isNotEmpty)
                   GestureDetector(
                     onTap: _openBeneficiarySearchSheet,
                     child: Text(
@@ -1005,10 +1018,66 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
                       style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
                     ),
                   ),
-                ],
-              ),
-              const SizedBox(height: 6),
+              ],
+            ),
+            const SizedBox(height: 6),
 
+            if (_isLoadingBeneficiaries && _savedBeneficiaries.isEmpty) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF9FAFB),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.borderDark),
+                ),
+                child: Row(
+                  children: [
+                    const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 1.5, color: AppColors.primary),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Syncing your past recipients & beneficiaries...',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
+                    ),
+                  ],
+                ),
+              ),
+            ] else if (_savedBeneficiaries.isEmpty) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF9FAFB),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.borderDark),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.people_outline_rounded, size: 16, color: AppColors.primary),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Anyone you transfer funds to will automatically be saved here for 1-tap re-use.',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary, height: 1.3),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ] else ...[
               // Search Past Recipients Input
               TextField(
                 controller: _beneficiarySearchController,
@@ -1062,7 +1131,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
                           return GestureDetector(
                             onTap: () => _selectBeneficiary(b),
                             child: Container(
-                              width: 110,
+                              width: 115,
                               margin: const EdgeInsets.only(right: 8),
                               padding: const EdgeInsets.all(6),
                               decoration: BoxDecoration(
@@ -1103,7 +1172,10 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
                                     bank,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.plusJakartaSans(fontSize: 8.5, color: AppColors.textSecondary),
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 8.5,
+                                      color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -1157,8 +1229,8 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
                   ),
                 ),
               ],
-              const SizedBox(height: 12),
             ],
+            const SizedBox(height: 12),
 
             // If USDT: Show Destination Selector (Bank Payout or Crypto Address)
             if (_withdrawalMode == 'USDT') ...[

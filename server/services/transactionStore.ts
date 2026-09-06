@@ -163,6 +163,22 @@ export class TransactionStore {
             txCurrency = 'USD';
           }
 
+          let txBeneficiary: string | undefined;
+          let txRecipientAccount: string | undefined;
+          let txRecipientBank: string | undefined;
+          if (category === 'withdrawal') {
+            const m1 = rawNarration.match(/Payout to ([A-Za-z\s]+?)\s*\((\d{10})\)/i);
+            if (m1) {
+              txBeneficiary = m1[1].trim();
+              txRecipientAccount = m1[2].trim();
+            } else {
+              const m2 = rawNarration.match(/Payout to ([A-Za-z\s]+?)(?:[•\(\-\[]|$)/i);
+              if (m2) txBeneficiary = m2[1].trim();
+              const mAcc = rawNarration.match(/\b(\d{10})\b/);
+              if (mAcc) txRecipientAccount = mAcc[1];
+            }
+          }
+
           const mapped: WalletTransaction = {
             id: row.id,
             userId: row.user_id,
@@ -174,6 +190,9 @@ export class TransactionStore {
             currency: row.currency || txCurrency,
             isCredit,
             reference: ref,
+            beneficiary: txBeneficiary,
+            recipientAccount: txRecipientAccount,
+            recipientBank: txRecipientBank,
             status,
             date: row.created_at || new Date().toISOString()
           };
