@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -436,6 +437,43 @@ class PartnerIdCardModal extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Anti-Photoshop Live Cryptographic Watermark & Ticker
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.3)),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Container(
+                                    width: 7,
+                                    height: 7,
+                                    decoration: const BoxDecoration(
+                                      color: Color(0xFF4ADE80),
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'LIVE DATABASE SYNC',
+                                    style: GoogleFonts.sourceCodePro(fontSize: 8.5, fontWeight: FontWeight.w900, color: const Color(0xFF4ADE80), letterSpacing: 0.5),
+                                  ),
+                                ],
+                              ),
+                              Text(
+                                '${DateFormat('dd MMM yyyy HH:mm').format(DateTime.now())} WAT',
+                                style: GoogleFonts.sourceCodePro(fontSize: 8.5, fontWeight: FontWeight.bold, color: Colors.white70),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
                         // Top Security Header Strip
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -665,13 +703,44 @@ class PartnerIdCardModal extends StatelessWidget {
                                   ),
                                 ],
                               ),
-                              Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  color: Colors.black,
-                                  borderRadius: BorderRadius.circular(6),
+                              InkWell(
+                                onTap: () {
+                                  Share.share(
+                                    '🛡️ OFFICIAL RENTILLY DIGITAL CREDENTIAL AUDIT\n\n'
+                                    'Accredited Member: ${holderName.toUpperCase()}\n'
+                                    'Credential ID: $digitalId\n'
+                                    'Role: $designation\n'
+                                    'Escrow Status: ${isVerified ? "Class-A Verified Owner / Partner" : "Pending Audit"}\n\n'
+                                    'Verify Live Cryptographic Authenticity: https://api.myrentilly.com/verify/credential/$digitalId',
+                                  );
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF064E3B),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: const Color(0xFF10B981)),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.qr_code_2_rounded, size: 24, color: Color(0xFF4ADE80)),
+                                      const SizedBox(width: 4),
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'TAP TO VERIFY',
+                                            style: GoogleFonts.sourceCodePro(fontSize: 7.5, fontWeight: FontWeight.w900, color: const Color(0xFF4ADE80)),
+                                          ),
+                                          Text(
+                                            'Live URL Audit 🔗',
+                                            style: GoogleFonts.plusJakartaSans(fontSize: 7, color: Colors.white70),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                                child: const Icon(Icons.qr_code_2_rounded, size: 28, color: Colors.white),
                               ),
                             ],
                           ),

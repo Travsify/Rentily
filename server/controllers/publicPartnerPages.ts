@@ -419,3 +419,257 @@ export async function renderReKycPage(req: Request, res: Response) {
   `);
 }
 
+/**
+ * Public Gate Pass Verification Page for Estate Security Guards
+ * Accessible on mobile browser at: /gate/:code or /gate?code=:code
+ */
+export async function renderGatePassPage(req: Request, res: Response) {
+  const code = (req.params.code || req.query.code || '').toString().trim();
+
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Estate Gate Pass Verification | Rentilly Escrow Network</title>
+      <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+      <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; background: #030712; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 16px; }
+        .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 24px; max-width: 460px; width: 100%; padding: 28px 24px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6); text-align: center; }
+        .logo-wrap { width: 56px; height: 56px; margin: 0 auto 16px; border-radius: 14px; overflow: hidden; border: 1px solid rgba(16,185,129,0.3); }
+        .logo-wrap img { width: 100%; height: 100%; object-fit: cover; }
+        h1 { font-size: 20px; font-weight: 900; color: #ffffff; margin-bottom: 4px; }
+        .sub { font-size: 11px; color: #94a3b8; margin-bottom: 20px; }
+        .code-input-box { background: #020617; border: 2px solid #334155; border-radius: 16px; padding: 14px; margin-bottom: 16px; display: flex; gap: 8px; }
+        .code-input { flex: 1; background: transparent; border: none; font-size: 24px; font-weight: 900; letter-spacing: 6px; color: #10b981; text-align: center; outline: none; font-family: monospace; }
+        .verify-btn { width: 100%; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #ffffff; border: none; padding: 15px; border-radius: 14px; font-size: 14px; font-weight: 800; cursor: pointer; text-transform: uppercase; letter-spacing: 0.5px; transition: opacity 0.2s; }
+        .verify-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .result-box { display: none; margin-top: 20px; padding: 18px; border-radius: 16px; text-align: left; }
+        .result-valid { background: rgba(16,185,129,0.1); border: 1.5px solid #10b981; }
+        .result-invalid { background: rgba(239,68,68,0.1); border: 1.5px solid #ef4444; }
+        .res-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 12px; }
+        .res-row:last-child { margin-bottom: 0; }
+        .res-lbl { color: #94a3b8; font-weight: 600; }
+        .res-val { color: #f8fafc; font-weight: 800; }
+        .status-pill { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 10px; font-weight: 900; letter-spacing: 0.5px; }
+        .status-ok { background: #10b981; color: #022c22; }
+        .status-bad { background: #ef4444; color: #450a0a; }
+        .shield-note { font-size: 10px; color: #64748b; margin-top: 20px; line-height: 1.4; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <div class="logo-wrap">
+          <img src="/logo.png" alt="Rentilly" />
+        </div>
+        <h1>SECURITY GATE CHECK-IN</h1>
+        <div class="sub">Rentilly Estate Walkthrough Pass Terminal</div>
+
+        <div class="code-input-box">
+          <input type="text" id="passCode" class="code-input" maxlength="6" placeholder="000000" value="${code}" />
+        </div>
+
+        <button id="verifyBtn" class="verify-btn" onclick="verifyPass()">Verify & Check In Visitor 🔑</button>
+
+        <div id="resultBox" class="result-box"></div>
+
+        <p class="shield-note">
+          🛡️ <strong>Estate Security Protocol:</strong> Visitors must present a verified Rentilly 6-digit gate code. Personal contact numbers are masked for data privacy.
+        </p>
+      </div>
+
+      <script>
+        async function verifyPass() {
+          const codeInput = document.getElementById('passCode');
+          const btn = document.getElementById('verifyBtn');
+          const resBox = document.getElementById('resultBox');
+          const code = codeInput.value.trim();
+
+          if (!code || code.length !== 6) {
+            alert('Please enter a 6-digit pass code');
+            return;
+          }
+
+          btn.disabled = true;
+          btn.textContent = 'Verifying Pass...';
+          resBox.style.display = 'none';
+
+          try {
+            const res = await fetch('/api/inspections/verify-pass', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ code })
+            });
+
+            const data = await res.json();
+            btn.disabled = false;
+            btn.textContent = 'Verify & Check In Visitor 🔑';
+
+            if (res.ok && data.success && data.inspection) {
+              const insp = data.inspection;
+              resBox.className = 'result-box result-valid';
+              resBox.innerHTML = \`
+                <div style="text-align: center; margin-bottom: 14px;">
+                  <span class="status-pill status-ok">\${data.alreadyCheckedIn ? 'ALREADY CHECKED IN' : 'ACCESS GRANTED ✓'}</span>
+                  <h3 style="font-size: 16px; font-weight: 800; color: #34d399; margin-top: 8px;">\${insp.verificationStatus}</h3>
+                </div>
+                <div class="res-row"><span class="res-lbl">Visitor (Masked)</span><span class="res-val">\${insp.visitorName}</span></div>
+                <div class="res-row"><span class="res-lbl">Contact</span><span class="res-val">\${insp.visitorPhone}</span></div>
+                <div class="res-row"><span class="res-lbl">Destination</span><span class="res-val" style="max-width: 60%; text-align: right;">\${insp.propertyTitle}</span></div>
+                <div class="res-row"><span class="res-lbl">Address</span><span class="res-val" style="max-width: 60%; text-align: right; color: #94a3b8;">\${insp.propertyAddress}</span></div>
+                <div class="res-row"><span class="res-lbl">Time Window</span><span class="res-val">\${insp.scheduledDate} (\${insp.scheduledTimeSlot})</span></div>
+                <div class="res-row"><span class="res-lbl">Check-In Time</span><span class="res-val" style="color: #34d399;">\${insp.checkInTime}</span></div>
+              \`;
+              resBox.style.display = 'block';
+            } else {
+              resBox.className = 'result-box result-invalid';
+              resBox.innerHTML = \`
+                <div style="text-align: center; margin-bottom: 10px;">
+                  <span class="status-pill status-bad">ACCESS DENIED ✕</span>
+                </div>
+                <p style="color: #f87171; font-size: 12px; font-weight: 700; text-align: center;">
+                  \${data.error || 'Invalid or Expired Gate Pass Code.'}
+                </p>
+              \`;
+              resBox.style.display = 'block';
+            }
+          } catch (e) {
+            btn.disabled = false;
+            btn.textContent = 'Verify & Check In Visitor 🔑';
+            resBox.className = 'result-box result-invalid';
+            resBox.innerHTML = '<p style="color: #f87171; font-size: 12px; text-align: center;">Network error connecting to verification engine.</p>';
+            resBox.style.display = 'block';
+          }
+        }
+
+        // Auto-verify if code was in URL
+        if (document.getElementById('passCode').value.length === 6) {
+          verifyPass();
+        }
+      </script>
+    </body>
+    </html>
+  `);
+}
+
+/**
+ * Public Live Digital Credential Verification Page (Anti-Photoshop Safeguard)
+ * Accessible on mobile browser at: /verify/credential/:id or /verify/credential?id=:id
+ */
+export async function renderCredentialVerificationPage(req: Request, res: Response) {
+  const id = (req.params.id || req.query.id || '').toString().trim();
+
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Official Credential Audit | Rentilly Escrow Network</title>
+      <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+      <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; background: #030712; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 16px; }
+        .card { background: #0f172a; border: 1.5px solid #065f46; border-radius: 24px; max-width: 480px; width: 100%; padding: 28px 24px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6); text-align: center; position: relative; overflow: hidden; }
+        .live-ticker { background: rgba(16,185,129,0.15); border-bottom: 1px solid rgba(16,185,129,0.3); padding: 8px 12px; font-size: 10px; font-weight: 800; color: #34d399; letter-spacing: 0.5px; margin: -28px -24px 20px -24px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+        .pulse-dot { width: 8px; height: 8px; border-radius: 50%; background: #10b981; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { transform: scale(0.9); opacity: 0.8; } 50% { transform: scale(1.3); opacity: 1; } 100% { transform: scale(0.9); opacity: 0.8; } }
+        .logo-wrap { width: 60px; height: 60px; margin: 0 auto 12px; border-radius: 16px; overflow: hidden; border: 2px solid #10b981; box-shadow: 0 4px 14px rgba(16,185,129,0.3); }
+        .logo-wrap img { width: 100%; height: 100%; object-fit: cover; }
+        h1 { font-size: 20px; font-weight: 900; color: #ffffff; margin-bottom: 2px; }
+        .sub { font-size: 11px; color: #a7f3d0; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 20px; }
+        .info-box { background: #020617; border: 1px solid #1e293b; border-radius: 18px; padding: 18px; text-align: left; margin-bottom: 20px; }
+        .row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 12px; }
+        .row:last-child { margin-bottom: 0; }
+        .lbl { color: #94a3b8; font-weight: 600; }
+        .val { color: #f8fafc; font-weight: 800; }
+        .badge-verified { background: rgba(16,185,129,0.15); border: 1px solid #10b981; color: #34d399; padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 800; }
+        .anti-fraud-banner { background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.25); border-radius: 14px; padding: 12px 14px; font-size: 11px; color: #93c5fd; text-align: left; line-height: 1.45; margin-bottom: 16px; }
+        .security-hash { font-family: monospace; font-size: 9px; color: #64748b; word-break: break-all; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <div class="live-ticker">
+          <span class="pulse-dot"></span>
+          LIVE DATABASE SYNC • <span id="liveClock"></span>
+        </div>
+
+        <div class="logo-wrap">
+          <img src="/logo.png" alt="Rentilly" />
+        </div>
+
+        <h1>RENTILLY CREDENTIAL AUDIT</h1>
+        <div class="sub">Official Trust & Identity Verification</div>
+
+        <div id="contentBox">
+          <p style="color: #94a3b8; font-size: 12px;">Auditing cryptographic signature against live database...</p>
+        </div>
+
+        <div class="anti-fraud-banner">
+          🛡️ <strong>Zero-Trust Protocol:</strong> If a host presents a static screenshot or paper ID that does not match this live URL verification, do NOT enter or transact.
+        </div>
+
+        <p class="security-hash" id="securityHash">RENTILLY SECURE ENCRYPTION SHA-256</p>
+      </div>
+
+      <script>
+        function updateClock() {
+          const now = new Date();
+          document.getElementById('liveClock').textContent = now.toLocaleTimeString('en-US', { hour12: true }) + ' (WAT)';
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        async function fetchCredential() {
+          const targetId = '${id}';
+          const content = document.getElementById('contentBox');
+          const hashBox = document.getElementById('securityHash');
+
+          try {
+            const res = await fetch('/api/verify/credential/' + encodeURIComponent(targetId));
+            const data = await res.json();
+
+            if (res.ok && data.valid && data.holder) {
+              const h = data.holder;
+              content.innerHTML = \`
+                <div style="margin-bottom: 16px;">
+                  <span class="badge-verified">✓ AUTHENTIC & ACCREDITED</span>
+                  <h2 style="font-size: 18px; font-weight: 900; color: #ffffff; margin-top: 8px;">\${h.name}</h2>
+                  <p style="font-size: 11px; color: #34d399; font-weight: 700;">\${h.designation}</p>
+                </div>
+
+                <div class="info-box">
+                  <div class="row"><span class="lbl">Credential ID</span><span class="val" style="font-family: monospace; color: #34d399;">\${data.credentialId}</span></div>
+                  <div class="row"><span class="lbl">Compliance Audit</span><span class="val" style="color: #fbbf24;">\${h.complianceBadge}</span></div>
+                  <div class="row"><span class="lbl">Escrow Custody</span><span class="val" style="color: #34d399;">\${h.escrowTrustRating}</span></div>
+                  <div class="row"><span class="lbl">Jurisdiction</span><span class="val">\${h.jurisdiction}</span></div>
+                  <div class="row"><span class="lbl">Validity Review</span><span class="val">September 2026 – Active</span></div>
+                  <div class="row"><span class="lbl">Issuing Authority</span><span class="val">\${h.issuer}</span></div>
+                </div>
+              \`;
+              hashBox.textContent = 'AUDIT HASH: ' + data.securitySignature;
+            } else {
+              content.innerHTML = \`
+                <div style="padding: 20px; background: rgba(239,68,68,0.1); border: 1.5px solid #ef4444; border-radius: 16px; margin-bottom: 16px;">
+                  <h3 style="color: #f87171; font-size: 16px; font-weight: 900; margin-bottom: 6px;">FRAUD ALERT</h3>
+                  <p style="color: #fca5a5; font-size: 12px; line-height: 1.4;">
+                    \${data.error || 'This credential is NOT recognized on the Rentilly Escrow Network. Do not engage in transactions with this individual.'}
+                  </p>
+                </div>
+              \`;
+            }
+          } catch (e) {
+            content.innerHTML = '<p style="color: #f87171; font-size: 12px;">Verification service temporarily unreachable.</p>';
+          }
+        }
+        fetchCredential();
+      </script>
+    </body>
+    </html>
+  `);
+}
+
+

@@ -101,6 +101,197 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
     );
   }
 
+  void _showVerifyPassDialog(BuildContext context) {
+    final codeController = TextEditingController();
+    bool isVerifying = false;
+    Map<String, dynamic>? verifiedResult;
+    String? errorText;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                20,
+                20,
+                MediaQuery.of(context).viewInsets.bottom + 20,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.qr_code_scanner_rounded, size: 20, color: AppColors.primary),
+                          ),
+                          const SizedBox(width: 10),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Verify Visitor Gate Pass',
+                                style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                              ),
+                              Text(
+                                'Enter 6-digit visitor access code',
+                                style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 20, color: AppColors.textMuted),
+                        onPressed: () => Navigator.of(context).pop(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  if (verifiedResult != null) ...[
+                    // Verification Success Box
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF10B981).withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFF10B981)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.check_circle_rounded, size: 20, color: Color(0xFF10B981)),
+                              const SizedBox(width: 8),
+                              Text(
+                                verifiedResult!['alreadyCheckedIn'] == true ? 'ALREADY CHECKED IN' : 'VALID GATE PASS ✓',
+                                style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w900, color: const Color(0xFF047857)),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            verifiedResult!['inspection']['propertyTitle'] ?? '',
+                            style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Visitor: ${verifiedResult!['inspection']['visitorName']} • ${verifiedResult!['inspection']['visitorPhone']}',
+                            style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary, fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Window: ${verifiedResult!['inspection']['scheduledDate']} (${verifiedResult!['inspection']['scheduledTimeSlot']})',
+                            style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: const Color(0xFF059669)),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          _loadData();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: Text('Done', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.white)),
+                      ),
+                    ),
+                  ] else ...[
+                    // Input TextField
+                    TextField(
+                      controller: codeController,
+                      keyboardType: TextInputType.number,
+                      textAlign: TextAlign.center,
+                      maxLength: 6,
+                      style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: 6.0, color: AppColors.primary),
+                      decoration: InputDecoration(
+                        hintText: '000000',
+                        counterText: '',
+                        filled: true,
+                        fillColor: const Color(0xFFF9FAFB),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.borderDark)),
+                      ),
+                    ),
+                    if (errorText != null) ...[
+                      const SizedBox(height: 6),
+                      Center(
+                        child: Text(
+                          errorText!,
+                          style: GoogleFonts.plusJakartaSans(fontSize: 11, color: Colors.red, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: isVerifying
+                            ? null
+                            : () async {
+                                final code = codeController.text.trim();
+                                if (code.length != 6) {
+                                  setModalState(() => errorText = 'Please enter a valid 6-digit code');
+                                  return;
+                                }
+                                setModalState(() {
+                                  isVerifying = true;
+                                  errorText = null;
+                                });
+                                final res = await ApiService.verifyGatePass(code);
+                                setModalState(() => isVerifying = false);
+                                if (res['success'] == true) {
+                                  setModalState(() => verifiedResult = res);
+                                } else {
+                                  setModalState(() => errorText = res['error'] ?? 'Pass code not found or expired.');
+                                }
+                              },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: Text(
+                          isVerifying ? 'Verifying...' : 'Verify & Check In Visitor 🔑',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -112,6 +303,25 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
         ),
         backgroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          if (_isHost)
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: TextButton.icon(
+                onPressed: () => _showVerifyPassDialog(context),
+                icon: const Icon(Icons.qr_code_scanner_rounded, size: 16, color: AppColors.primary),
+                label: Text(
+                  'Verify Pass 🔑',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
+                ),
+                style: TextButton.styleFrom(
+                  backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                ),
+              ),
+            ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           labelColor: AppColors.primary,

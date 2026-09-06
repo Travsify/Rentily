@@ -117,7 +117,12 @@ export async function createProperty(req: Request, res: Response) {
     const isRent = body.purpose === 'rent';
     const rentillyFeeRate = isRent ? 0.10 : 0.05;
     const rentillyFee = Math.round(basePrice * rentillyFeeRate);
-    const cautionFee = Number(body.cautionFee || 0);
+    
+    // Rentilly Escrow Policy: Caution deposit is strictly capped at max 10% of annual rent
+    const requestedCaution = Number(body.cautionFee || 0);
+    const maxAllowedCaution = isRent ? Math.round(basePrice * 0.10) : 0;
+    const cautionFee = isRent ? Math.min(requestedCaution, maxAllowedCaution) : 0;
+    
     const serviceCharge = Number(body.serviceCharge || 0);
     const totalInitialPayment = basePrice + cautionFee + serviceCharge + rentillyFee;
 

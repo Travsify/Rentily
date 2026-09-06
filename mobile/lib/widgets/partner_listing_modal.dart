@@ -447,10 +447,17 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
       purpose: _purpose,
       propertyType: _propertyType,
       basePrice: price,
-      cautionFee: double.tryParse(_cautionController.text.replaceAll(',', '')) ?? (price * 0.1),
+      cautionFee: _purpose == 'rent'
+          ? ((double.tryParse(_cautionController.text.replaceAll(',', '')) ?? (price * 0.1)).clamp(0.0, price * 0.10))
+          : 0.0,
       serviceCharge: double.tryParse(_serviceChargeController.text.replaceAll(',', '')) ?? 0.0,
       rentillyFee: price * 0.025,
-      totalInitialPayment: price + (double.tryParse(_cautionController.text.replaceAll(',', '')) ?? (price * 0.1)),
+      totalInitialPayment: price +
+          (_purpose == 'rent'
+              ? ((double.tryParse(_cautionController.text.replaceAll(',', '')) ?? (price * 0.1)).clamp(0.0, price * 0.10))
+              : 0.0) +
+          (double.tryParse(_serviceChargeController.text.replaceAll(',', '')) ?? 0.0) +
+          (price * 0.025),
       paymentFrequency: 'annually',
       address: address,
       state: _selectedState,
@@ -1091,8 +1098,17 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
                 controller: _priceController,
                 keyboardType: TextInputType.number,
                 style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold),
-                decoration: _inputDeco(hint: _purpose == 'rent' ? 'Annual Rent: e.g. 3,500,000' : 'Sale Price: e.g. 85,000,000'),
-                onChanged: (_) => setState(() {}),
+                onChanged: (val) {
+                  setState(() {
+                    if (_purpose == 'rent') {
+                      final parsedPrice = double.tryParse(val.replaceAll(',', '')) ?? 0.0;
+                      if (parsedPrice > 0) {
+                        final maxCaution = (parsedPrice * 0.10).round();
+                        _cautionController.text = NumberFormat('#,###').format(maxCaution);
+                      }
+                    }
+                  });
+                },
               ),
             ),
             const SizedBox(width: 10),
@@ -1121,7 +1137,25 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
                 controller: _cautionController,
                 keyboardType: TextInputType.number,
                 style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600),
-                decoration: _inputDeco(hint: 'Caution: e.g. 350,000'),
+                decoration: _inputDeco(hint: 'Caution: Max 10% of rent'),
+                onChanged: (val) {
+                  final entered = double.tryParse(val.replaceAll(',', '')) ?? 0.0;
+                  final maxAllowed = _basePrice * 0.10;
+                  if (maxAllowed > 0 && entered > maxAllowed) {
+                    _cautionController.text = NumberFormat('#,###').format(maxAllowed.round());
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Rentilly Escrow Rule: Caution deposit is strictly capped at max 10% (₦${NumberFormat('#,###').format(maxAllowed.round())}).',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
+                        backgroundColor: const Color(0xFFD97706),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                  setState(() {});
+                },
               ),
             ),
             const SizedBox(width: 10),
@@ -1136,7 +1170,7 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
           ],
         ),
         const SizedBox(height: 6),
-        Text('🔒 100% of Caution Deposit is held in Rentilly Escrow. Neither the landlord nor partner touches it.', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.primary, fontWeight: FontWeight.w600)),
+        Text('🔒 Rentilly Escrow Policy: Caution deposit is capped at max 10% of annual rent and locked 100% in escrow. Refundable upon lease completion.', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.primary, fontWeight: FontWeight.w600)),
         const SizedBox(height: 18),
 
         // Escrow Payout Breakdown Card (Overflow Proof)

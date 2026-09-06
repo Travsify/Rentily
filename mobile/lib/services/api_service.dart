@@ -343,6 +343,20 @@ class ApiService {
     return null;
   }
 
+  // 3b. Verify Gate Pass Code on live API (Host / Security Guard Check-In)
+  static Future<Map<String, dynamic>> verifyGatePass(String code) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/inspections/verify-pass'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'code': code.trim()}),
+      ).timeout(const Duration(seconds: 12));
+      return json.decode(response.body);
+    } catch (e) {
+      return {'success': false, 'error': 'Network error connecting to verification engine'};
+    }
+  }
+
   // 4. Generate Dedicated Escrow Virtual Account for Rent/Deposit Payment
   static Future<Map<String, dynamic>?> generateVirtualAccount({
     required String propertyId,

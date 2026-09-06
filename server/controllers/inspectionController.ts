@@ -274,3 +274,112 @@ export async function updateInspectionStatus(req: Request, res: Response) {
     res.status(500).json({ error: err.message });
   }
 }
+
+/**
+ * Verify and Redeem 6-Digit Gate Pass Code
+ * Used by Landlord/Partner in mobile app or Estate Security Guard via public web link.
+ */
+export async function verifyGatePass(req: Request, res: Response) {
+  try {
+    const { code } = req.body;
+    const cleanCode = String(code || req.query.code || '').trim();
+
+    if (!cleanCode || cleanCode.length !== 6) {
+      return res.status(400).json({
+        success: false,
+        error: 'Please enter a valid 6-digit gate pass code'
+      });
+    }
+
+    // Search AdminDataStore
+    const inspections = AdminDataStore.getInspections();
+    let found = inspections.find(i => String(i.inspectionPassCode).trim() === cleanCode);
+
+    // Fallback: Supabase
+    if (!found && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('inspections')
+          .select('*, properties(*)')
+          .eq('inspection_pass_code', cleanCode)
+          .single();
+
+        if (!error && data) {
+          found = {
+            id: data.id,
+            propertyId: data.property_id,
+            propertyTitle: data.properties?.title || 'Property',
+            propertyAddress: data.properties ? `${data.properties.address}, ${data.properties.neighborhood}` : '',
+            prospectId: data.prospect_id,
+            prospectName: data.prospect_name || 'Prospective Tenant',
+            prospectEmail: (data.prospect_email || data.renter_email || '').toLowerCase().trim(),
+            prospectPhone: data.prospect_phone || '',
+            ownerId: data.owner_id,
+            ownerName: data.owner_name || 'Property Owner',
+            ownerEmail: (data.owner_email || '').toLowerCase().trim(),
+            ownerPhone: data.owner_phone || '',
+            scheduledDate: data.scheduled_date,
+            scheduledTimeSlot: data.scheduled_time_slot,
+            inspectionPassCode: data.inspection_pass_code,
+            status: data.status,
+            createdAt: data.created_at
+          };
+        }
+      } catch (_) {}
+    }
+
+    if (!found) {
+      return res.status(404).json({
+        success: false,
+        error: 'Invalid or Unrecognized Gate Pass Code. Access Denied.'
+      });
+    }
+
+    const isAlreadyCheckedIn = found.status === 'completed' || found.status === 'checked_in';
+
+    // Mark checked in if not already
+    if (!isAlreadyCheckedIn) {
+      await AdminDataStore.updateInspectionStatus(found.id, 'checked_in', 'Checked in via Gate Pass Verification Terminal');
+      if (supabase) {
+        try {
+          await supabase.from('inspections').update({ status: 'checked_in' }).eq('id', found.id);
+        } catch (_) {}
+      }
+    }
+
+    // Mask sensitive details for privacy (Zero Raw Contact Leak)
+    const rawName = found.prospectName || 'Prospective Tenant';
+    const nameParts = rawName.split(' ');
+    const maskedName = nameParts.length > 1 
+      ? `${nameParts[0]} ${nameParts[1].charAt(0)}.` 
+      : nameParts[0];
+
+    const rawPhone = found.prospectPhone || '';
+    const maskedPhone = rawPhone.length > 7
+      ? `${rawPhone.substring(0, 4)} ••• ••• ${rawPhone.substring(rawPhone.length - 4)}`
+      : '••• ••• ••••';
+
+    return res.json({
+      success: true,
+      valid: true,
+      alreadyCheckedIn: isAlreadyCheckedIn,
+      message: isAlreadyCheckedIn 
+        ? 'Pass already checked in previously. Access granted.' 
+        : 'Pass successfully verified! Tenant check-in recorded.',
+      inspection: {
+        id: found.id,
+        propertyTitle: found.propertyTitle,
+        propertyAddress: found.propertyAddress,
+        scheduledDate: found.scheduledDate,
+        scheduledTimeSlot: found.scheduledTimeSlot,
+        visitorName: maskedName,
+        visitorPhone: maskedPhone,
+        verificationStatus: 'VERIFIED TENANT 🛡️',
+        checkInTime: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
+      }
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+}
+

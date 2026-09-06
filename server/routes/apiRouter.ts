@@ -140,9 +140,10 @@ apiRouter.post('/verification/sync-nuban', verificationController.syncNuban);
 apiRouter.post('/verify/nin', verificationController.verifyNIN);
 apiRouter.post('/verify/bvn', verificationController.verifyBVN);
 apiRouter.post('/verify/cac', verificationController.verifyCAC);
-apiRouter.get('/verification/rekyc-status', verificationController.getVerificationStatus);
 apiRouter.post('/verification/complete-maplerad-kyc', verificationController.completeMapleradKyc);
 apiRouter.post('/admin/request-rekyc', verificationController.requestReKyc);
+apiRouter.get('/verify/credential/:id', verificationController.verifyPublicCredential);
+apiRouter.get('/verify/credential', verificationController.verifyPublicCredential);
 
 // 7. Flutterwave Virtual Bank Accounts & Utility Bills
 apiRouter.post('/payments/create-virtual-account', paymentController.createVirtualAccount);
@@ -190,10 +191,12 @@ apiRouter.post('/fraud/blacklist', fraudController.addToBlacklist);
 apiRouter.delete('/fraud/blacklist/:id', fraudController.deleteFromBlacklist);
 apiRouter.post('/fraud/check', fraudController.checkBlacklist);
 
-// 9. Inspections
+// 9. Inspections & Gate Pass Verification
 apiRouter.get('/inspections', inspectionController.getInspections);
 apiRouter.post('/inspections/book', inspectionController.bookInspection);
 apiRouter.patch('/inspections/:id/status', inspectionController.updateInspectionStatus);
+apiRouter.post('/inspections/verify-pass', inspectionController.verifyGatePass);
+apiRouter.get('/inspections/verify-pass', inspectionController.verifyGatePass);
 
 // 10. Escrow & Transactions
 apiRouter.get('/escrow/transactions', escrowController.getTransactions);

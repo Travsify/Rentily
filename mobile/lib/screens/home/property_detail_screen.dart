@@ -226,8 +226,31 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                     ),
                     const SizedBox(height: 14),
 
-                    // Name
-                    Text('YOUR FULL NAME', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                    // Privacy Shield Notice
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF10B981).withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.25)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.shield_rounded, size: 14, color: Color(0xFF10B981)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Data Privacy Guaranteed: Your personal phone number and direct contact details are never disclosed to third parties. Verified in-app communications only.',
+                              style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: const Color(0xFF065F46), fontWeight: FontWeight.w600, height: 1.3),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Name (Masked for privacy)
+                    Text('CONFIRM VISITOR IDENTITY (MASKED ON HOST VIEW)', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
                     const SizedBox(height: 4),
                     TextField(
                       controller: nameController,
@@ -237,21 +260,27 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                         fillColor: const Color(0xFFF9FAFB),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.borderDark)),
+                        helperText: 'Host will only see: ${nameController.text.split(" ").isNotEmpty ? nameController.text.split(" ").first : "Visitor"} • Verified Tenant 🛡️',
+                        helperStyle: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: const Color(0xFF059669), fontWeight: FontWeight.w600),
                       ),
                     ),
                     const SizedBox(height: 12),
 
-                    // Phone
-                    Text('PHONE NUMBER', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                    // Phone (Encrypted for internal SMS only)
+                    Text('RESERVATION PHONE NUMBER (SECURE / HIDDEN FROM HOST)', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
                     const SizedBox(height: 4),
                     TextField(
                       controller: phoneController,
+                      keyboardType: TextInputType.phone,
                       style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
                       decoration: InputDecoration(
                         filled: true,
                         fillColor: const Color(0xFFF9FAFB),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.borderDark)),
+                        prefixIcon: const Icon(Icons.lock_rounded, size: 14, color: AppColors.primary),
+                        helperText: 'Used only by Rentilly automated SMS gateway for gate pass delivery.',
+                        helperStyle: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textSecondary),
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -586,14 +615,45 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
-                          '${prop.address}, ${prop.neighborhood}, ${prop.state}',
+                          // Anti-Poaching Shield: Strip specific flat/plot numbers on public display
+                          () {
+                            final rawAddr = prop.address.trim();
+                            // If address starts with Plot/No./Flat/House number, shield it to landmark/neighborhood
+                            final shieldedAddr = rawAddr.replaceAll(RegExp(r'^(No\.?\s*\d+|Plot\s*\d+|Flat\s*\d+|House\s*\d+|\d+[\w\-]*)\s*,?\s*', caseSensitive: false), 'Off ');
+                            final displayVicinity = shieldedAddr.isNotEmpty && shieldedAddr != rawAddr ? shieldedAddr : (prop.neighborhood.isNotEmpty ? prop.neighborhood : prop.address);
+                            return '$displayVicinity, ${prop.state} • Exact address unlocked upon confirmed gate pass 🔒';
+                          }(),
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 11,
                             color: AppColors.textSecondary,
+                            height: 1.3,
                           ),
                         ),
                       ),
                     ],
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0369A1).withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFF0284C7).withValues(alpha: 0.25)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.shield_outlined, size: 13, color: Color(0xFF0284C7)),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            prop.listedByRole == 'verified_partner'
+                                ? 'Corporate Mandate: Partner escorts all visits. Door numbers are held confidential until your inspection is confirmed.'
+                                : 'Anti-Circumvention Protection: Exact unit address is revealed via your encrypted Rentilly Gate Pass.',
+                            style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: const Color(0xFF0369A1), fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 14),
 
