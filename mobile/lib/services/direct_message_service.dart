@@ -240,12 +240,15 @@ class DirectMessageService {
   // ---------------------------------------------------------------------------
   // 5. getOwnerConversations
   // ---------------------------------------------------------------------------
-  /// Fetches all active conversations for a landlord/partner by their user id.
+  /// Fetches all active conversations for a landlord/partner by their user id or email.
   static Future<List<Map<String, dynamic>>> getOwnerConversations(
-      String ownerId) async {
+      String ownerId, {String? ownerEmail}) async {
+    final filter = (ownerEmail != null && ownerEmail.isNotEmpty)
+        ? 'owner_id=in.(${Uri.encodeComponent(ownerId)},${Uri.encodeComponent(ownerEmail)})'
+        : 'owner_id=eq.${Uri.encodeComponent(ownerId)}';
     final response = await http.get(
       Uri.parse(
-          '$_baseUrl/direct_conversations?owner_id=eq.${Uri.encodeComponent(ownerId)}&status=neq.closed&order=last_message_at.desc&select=*'),
+          '$_baseUrl/direct_conversations?$filter&status=neq.closed&order=last_message_at.desc&select=*'),
       headers: _headers,
     );
 

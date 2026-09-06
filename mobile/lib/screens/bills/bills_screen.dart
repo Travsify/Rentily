@@ -8,7 +8,6 @@ import '../../constants/app_constants.dart';
 import '../../services/auth_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/payment_security_service.dart';
-import '../../widgets/rentilly_bottom_bar.dart';
 
 class BillsScreen extends StatefulWidget {
   final String initialCategory;
@@ -581,7 +580,6 @@ class _BillsScreenState extends State<BillsScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
-      bottomNavigationBar: const RentillyBottomBar(currentIndex: 0),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),

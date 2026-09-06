@@ -20,6 +20,7 @@ import '../../widgets/partner_id_card_modal.dart';
 import '../../widgets/app_avatar.dart';
 import '../../utils/id_utils.dart';
 import '../auth/login_screen.dart';
+import '../support/support_chat_screen.dart';
 
 class LandlordProfileScreen extends StatefulWidget {
   final VoidCallback? onSwitchToTenant;
@@ -1017,6 +1018,25 @@ class _LandlordProfileScreenState extends State<LandlordProfileScreen> {
               title: 'Change Password',
               subtitle: 'Update your account login security password',
               onTap: _showChangePasswordDialog,
+            ),
+            const SizedBox(height: 20),
+
+            // Support Desk
+            Text(
+              'SUPPORT & ASSISTANCE',
+              style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 10),
+
+            _buildTile(
+              icon: Icons.support_agent_rounded,
+              title: 'Rentilly Live Support Desk 💬',
+              subtitle: 'Chat directly with Rentilly human agents & escrow support desk',
+              onTap: () {
+                Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => SupportChatScreen(user: _user),
+                ));
+              },
             ),
             const SizedBox(height: 20),
 

@@ -49,7 +49,7 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
     }
     try {
       final convos =
-          await DirectMessageService.getOwnerConversations(user.id);
+          await DirectMessageService.getOwnerConversations(user.id, ownerEmail: user.email);
       if (mounted) {
         setState(() {
           _convos = convos;
@@ -67,7 +67,7 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
       if (user == null || !mounted) return;
       try {
         final convos =
-            await DirectMessageService.getOwnerConversations(user.id);
+            await DirectMessageService.getOwnerConversations(user.id, ownerEmail: user.email);
         if (mounted) setState(() => _convos = convos);
       } catch (_) {}
     });
