@@ -21,7 +21,8 @@ import {
   Calendar,
   Scale,
   Activity,
-  Globe
+  Globe,
+  Landmark
 } from 'lucide-react';
 import type { AdminTab } from '../types';
 
@@ -236,6 +237,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           icon: Globe,
           badge: enableVirtualCards ? 'USD/Cards' : 'Disabled',
           badgeColor: enableVirtualCards ? 'text-emerald-400 border-emerald-800' : 'text-slate-500 border-slate-800'
+        },
+        {
+          id: 'maplerad',
+          label: 'Maplerad Treasury',
+          icon: Landmark,
+          badge: 'Live',
+          badgeColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
         },
         {
           id: 'bills_operations',

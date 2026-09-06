@@ -211,6 +211,7 @@ export type AdminTab =
   | 'lease_renewals'
   | 'reconciliation'
   | 'global_cards'
+  | 'maplerad'
   | 'fraud_blacklist'
   | 'support_tickets'
   | 'live_support'

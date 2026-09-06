@@ -25,6 +25,7 @@ import { StatutoryNoticesTab } from './components/StatutoryNoticesTab';
 import { LeaseRenewalsTab } from './components/LeaseRenewalsTab';
 import { ReconciliationTab } from './components/ReconciliationTab';
 import { GlobalCardsDeskTab } from './components/GlobalCardsDeskTab';
+import { MapleradTab } from './components/MapleradTab';
 import { IntegrationsTab } from './components/IntegrationsTab';
 import { FeatureFlagsTab } from './components/FeatureFlagsTab';
 import { SupabaseConfigTab } from './components/SupabaseConfigTab';
@@ -291,6 +292,10 @@ export default function App() {
 
           {currentTab === 'global_cards' && (
             <GlobalCardsDeskTab />
+          )}
+
+          {currentTab === 'maplerad' && (
+            <MapleradTab />
           )}
 
           {currentTab === 'statutory_notices' && (

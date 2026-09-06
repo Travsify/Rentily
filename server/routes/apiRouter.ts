@@ -336,5 +336,10 @@ apiRouter.get('/deploy/status', deployController.getDeployStatus);
 apiRouter.get('/system/logs', deployController.getLogs);
 apiRouter.get('/system/test-maplerad', deployController.testMaplerad);
 
-
-
+// 29. Maplerad Live Liquidity & Admin Operations Desk
+import * as mapleradAdminController from '../controllers/mapleradAdminController';
+apiRouter.get('/admin/maplerad/wallets', mapleradAdminController.getMapleradWallets);
+apiRouter.get('/admin/maplerad/transactions', mapleradAdminController.getMapleradTransactions);
+apiRouter.post('/admin/maplerad/transfer-to-spend', mapleradAdminController.transferTreasuryToSpend);
+apiRouter.post('/admin/maplerad/fx/quote', mapleradAdminController.getFxQuote);
+apiRouter.post('/admin/maplerad/fx/exchange', mapleradAdminController.executeFxExchange);
