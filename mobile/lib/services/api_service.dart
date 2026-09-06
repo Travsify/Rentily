@@ -9,12 +9,21 @@ import 'auth_service.dart';
 class ApiService {
   static const String baseUrl = AppConstants.apiBaseUrl;
 
-  // 1. Fetch Properties Feed with optional purpose/search/ownerId/status filters from live API
+  // 1. Fetch Properties Feed with optional purpose/search/ownerId/status/state/lga/type filters from live API
   static Future<List<Property>> fetchProperties({
     String? purpose,
     String? search,
     String? ownerId,
     String? status,
+    String? state,
+    String? lga,
+    String? propertyType,
+    int? bedrooms,
+    double? minPrice,
+    double? maxPrice,
+    String? furnishing,
+    String? listedByRole,
+    String? sortBy,
   }) async {
     try {
       final queryParams = <String, String>{};
@@ -22,6 +31,17 @@ class ApiService {
       if (search != null && search.isNotEmpty) queryParams['search'] = search;
       if (ownerId != null && ownerId.isNotEmpty) queryParams['ownerId'] = ownerId;
       if (status != null && status.isNotEmpty && status != 'all') queryParams['status'] = status;
+      if (state != null && state.isNotEmpty && state != 'All Nigeria') queryParams['state'] = state;
+      if (lga != null && lga.isNotEmpty && lga != 'All LGAs') queryParams['lga'] = lga;
+      if (propertyType != null && propertyType.isNotEmpty && propertyType != 'All Types' && propertyType != 'all') {
+        queryParams['propertyType'] = propertyType;
+      }
+      if (bedrooms != null && bedrooms > 0) queryParams['bedrooms'] = bedrooms.toString();
+      if (minPrice != null && minPrice > 0) queryParams['minPrice'] = minPrice.toString();
+      if (maxPrice != null && maxPrice > 0) queryParams['maxPrice'] = maxPrice.toString();
+      if (furnishing != null && furnishing.isNotEmpty && furnishing != 'All') queryParams['furnishing'] = furnishing;
+      if (listedByRole != null && listedByRole.isNotEmpty && listedByRole != 'all') queryParams['listedByRole'] = listedByRole;
+      if (sortBy != null && sortBy.isNotEmpty) queryParams['sortBy'] = sortBy;
 
       final uri = Uri.parse('$baseUrl/properties').replace(
         queryParameters: queryParams.isNotEmpty ? queryParams : null,

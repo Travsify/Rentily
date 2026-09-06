@@ -6,7 +6,44 @@ import { AdminDataStore } from '../services/adminDataStore';
 
 export async function getProperties(req: Request, res: Response) {
   try {
-    const { purpose, status, state, search, ownerId } = req.query;
+    const { 
+      purpose, 
+      status, 
+      state, 
+      lga,
+      search, 
+      ownerId,
+      propertyType,
+      bedrooms,
+      minPrice,
+      maxPrice,
+      furnishing,
+      listedByRole,
+      sortBy
+    } = req.query;
+
+    // Helper to check property type match
+    const matchesPropertyType = (propType: string, filterType: string): boolean => {
+      const p = (propType || '').toLowerCase();
+      const f = filterType.toLowerCase();
+      if (f === 'all' || f === 'all types') return true;
+      if (f.includes('flat') || f.includes('apartment')) {
+        return p.includes('flat') || p.includes('apartment') || p.includes('self_contain') || p.includes('studio') || p.includes('penthouse') || p.includes('maisonette');
+      }
+      if (f.includes('duplex') || f.includes('terrace')) {
+        return p.includes('duplex') || p.includes('terrace') || p.includes('terraced') || p.includes('semi_detached');
+      }
+      if (f.includes('mansion') || f.includes('detached')) {
+        return p.includes('mansion') || p.includes('fully_detached') || p.includes('detached');
+      }
+      if (f.includes('commercial') || f.includes('office')) {
+        return p.includes('commercial') || p.includes('office') || p.includes('warehouse') || p.includes('shop');
+      }
+      if (f.includes('land') || f.includes('plot')) {
+        return p.includes('land') || p.includes('plot');
+      }
+      return p === f;
+    };
 
     // Try Supabase first
     let supabaseProps: Property[] = [];
@@ -16,10 +53,39 @@ export async function getProperties(req: Request, res: Response) {
         if (ownerId) query = query.eq('owner_id', String(ownerId).trim());
         if (purpose && purpose !== 'all') query = query.eq('purpose', purpose);
         if (status && status !== 'all') query = query.eq('status', status);
-        if (state) query = query.ilike('state', `%${state}%`);
-        if (search) query = query.or(`title.ilike.%${search}%,neighborhood.ilike.%${search}%,address.ilike.%${search}%`);
+        if (state && state !== 'All Nigeria') {
+          const cleanState = String(state).split(' ')[0].replace(/[^a-zA-Z]/g, '');
+          query = query.ilike('state', `%${cleanState}%`);
+        }
+        if (lga && lga !== 'All LGAs') query = query.ilike('lga', `%${lga}%`);
+        if (bedrooms) {
+          const b = Number(bedrooms);
+          if (b >= 4) {
+            query = query.gte('bedrooms', 4);
+          } else if (b > 0) {
+            query = query.eq('bedrooms', b);
+          }
+        }
+        if (minPrice) query = query.gte('base_price', Number(minPrice));
+        if (maxPrice) query = query.lte('base_price', Number(maxPrice));
+        if (furnishing && furnishing !== 'all') query = query.ilike('furnishing', `%${furnishing}%`);
+        if (listedByRole && listedByRole !== 'all') query = query.eq('listed_by_role', listedByRole);
+        if (search) {
+          query = query.or(`title.ilike.%${search}%,neighborhood.ilike.%${search}%,address.ilike.%${search}%,lga.ilike.%${search}%,state.ilike.%${search}%`);
+        }
 
-        const { data, error } = await query.order('created_at', { ascending: false });
+        // Sorting
+        if (sortBy === 'price_asc') {
+          query = query.order('base_price', { ascending: true });
+        } else if (sortBy === 'price_desc') {
+          query = query.order('base_price', { ascending: false });
+        } else if (sortBy === 'bedrooms') {
+          query = query.order('bedrooms', { ascending: false });
+        } else {
+          query = query.order('created_at', { ascending: false });
+        }
+
+        const { data, error } = await query;
         if (!error && data && data.length > 0) {
           supabaseProps = data.map((row: any) => ({
             id: row.id,
@@ -50,9 +116,19 @@ export async function getProperties(req: Request, res: Response) {
             status: row.status,
             verifiedAt: row.verified_at,
             verifiedBy: row.verified_by,
+            listedByRole: row.listed_by_role || 'direct_landlord',
+            partnerId: row.partner_id,
+            partnerName: row.partner_name,
+            partnerBusinessName: row.partner_business_name,
+            partnerCacNumber: row.partner_cac_number,
             createdAt: row.created_at,
             updatedAt: row.updated_at
           }));
+
+          // If propertyType filter was requested, filter memory results since DB uses various slugs
+          if (propertyType && propertyType !== 'all') {
+            supabaseProps = supabaseProps.filter(p => matchesPropertyType(p.propertyType, String(propertyType)));
+          }
         }
       } catch (_) {}
     }
@@ -64,14 +140,51 @@ export async function getProperties(req: Request, res: Response) {
     if (ownerId) storeProps = storeProps.filter(p => p.ownerId === ownerId);
     if (purpose && purpose !== 'all') storeProps = storeProps.filter(p => p.purpose === purpose);
     if (status && status !== 'all') storeProps = storeProps.filter(p => p.status === status);
-    if (state) storeProps = storeProps.filter(p => p.state.toLowerCase().includes(String(state).toLowerCase()));
+    if (state && state !== 'All Nigeria') {
+      const cleanState = String(state).split(' ')[0].toLowerCase().replace(/[^a-z]/g, '');
+      storeProps = storeProps.filter(p => p.state.toLowerCase().includes(cleanState));
+    }
+    if (lga && lga !== 'All LGAs') {
+      const cleanLga = String(lga).toLowerCase();
+      storeProps = storeProps.filter(p => (p.lga || '').toLowerCase().includes(cleanLga) || (p.neighborhood || '').toLowerCase().includes(cleanLga));
+    }
+    if (propertyType && propertyType !== 'all') {
+      storeProps = storeProps.filter(p => matchesPropertyType(p.propertyType, String(propertyType)));
+    }
+    if (bedrooms) {
+      const b = Number(bedrooms);
+      if (b >= 4) {
+        storeProps = storeProps.filter(p => p.bedrooms >= 4);
+      } else if (b > 0) {
+        storeProps = storeProps.filter(p => p.bedrooms === b);
+      }
+    }
+    if (minPrice) storeProps = storeProps.filter(p => p.basePrice >= Number(minPrice));
+    if (maxPrice) storeProps = storeProps.filter(p => p.basePrice <= Number(maxPrice));
+    if (furnishing && furnishing !== 'all') {
+      storeProps = storeProps.filter(p => (p.furnishing || '').toLowerCase().includes(String(furnishing).toLowerCase()));
+    }
+    if (listedByRole && listedByRole !== 'all') {
+      storeProps = storeProps.filter(p => p.listedByRole === listedByRole);
+    }
     if (search) {
       const s = String(search).toLowerCase();
       storeProps = storeProps.filter(p =>
         p.title.toLowerCase().includes(s) ||
         p.neighborhood.toLowerCase().includes(s) ||
-        p.address.toLowerCase().includes(s)
+        p.address.toLowerCase().includes(s) ||
+        (p.lga || '').toLowerCase().includes(s) ||
+        p.state.toLowerCase().includes(s)
       );
+    }
+
+    // Sort storeProps
+    if (sortBy === 'price_asc') {
+      storeProps.sort((a, b) => a.basePrice - b.basePrice);
+    } else if (sortBy === 'price_desc') {
+      storeProps.sort((a, b) => b.basePrice - a.basePrice);
+    } else if (sortBy === 'bedrooms') {
+      storeProps.sort((a, b) => b.bedrooms - a.bedrooms);
     }
 
     // Merge: prefer Supabase if it returned data, append non-duplicate store items
