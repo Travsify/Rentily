@@ -601,9 +601,86 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
                 ),
               ),
             ),
+            const SizedBox(height: 12),
+
+            // Delete Account Button (Required by Apple Guideline 5.1.1(v) & Google Play)
+            Center(
+              child: TextButton.icon(
+                onPressed: _showDeleteAccountDialog,
+                icon: const Icon(Icons.delete_forever_rounded, size: 16, color: Color(0xFF94A3B8)),
+                label: Text(
+                  'Delete Account',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFF94A3B8),
+                  ),
+                ),
+              ),
+            ),
             const SizedBox(height: 30),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showDeleteAccountDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 22),
+            const SizedBox(width: 8),
+            Text('Delete Account', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to permanently delete your Partner / Brokerage account? All your company listings, client mandates, and verification credentials will be permanently removed.\n\nNote: Any outstanding commission settlements or active escrow holds must be cleared before account deletion.',
+          style: GoogleFonts.plusJakartaSans(fontSize: 12, height: 1.5, color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+              if (_user == null) return;
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+              );
+              final res = await ApiService.deleteAccount(_user!.email);
+              if (mounted) Navigator.of(context).pop();
+              if (res['success'] == true) {
+                await PushNotificationService.clearUserTags();
+                await AuthService.logout();
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Your account has been deleted successfully.')),
+                );
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  (route) => false,
+                );
+              } else {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(res['error'] ?? res['message'] ?? 'Could not delete account. Please try again.')),
+                  );
+                }
+              }
+            },
+            child: const Text('Permanently Delete', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
       ),
     );
   }

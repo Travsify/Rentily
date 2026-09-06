@@ -118,7 +118,25 @@ class ApiService {
     }
   }
 
-  // 1a5. Update Property Status (e.g. unlisted, rented, verified)
+  // 1a5. Delete Account (App Store & Play Store Compliance)
+  static Future<Map<String, dynamic>> deleteAccount(String email) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/auth/delete-account'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'email': email}),
+      ).timeout(const Duration(seconds: 15));
+      final data = json.decode(response.body);
+      return {
+        'success': response.statusCode == 200 && data['success'] == true,
+        'message': data['message'] ?? 'Account deleted successfully',
+      };
+    } catch (e) {
+      return {'success': false, 'error': e.toString(), 'message': e.toString()};
+    }
+  }
+
+  // 1a6. Update Property Status (e.g. unlisted, rented, verified)
   static Future<bool> updatePropertyStatus({
     required String propertyId,
     required String status,

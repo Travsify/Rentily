@@ -123,6 +123,66 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  void _showDeleteAccountDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded, color: AppColors.error, size: 22),
+            const SizedBox(width: 8),
+            Text('Delete Account', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to permanently delete your Rentilly account? All your personal information, KYC tier verification status, and transaction history will be permanently deleted.\n\nNote: Any active escrow balances must be settled or withdrawn before deleting your account.',
+          style: GoogleFonts.plusJakartaSans(fontSize: 12, height: 1.5, color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+              if (_currentUser == null) return;
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+              );
+              final res = await ApiService.deleteAccount(_currentUser!.email);
+              if (mounted) Navigator.of(context).pop();
+              if (res['success'] == true) {
+                await PushNotificationService.clearUserTags();
+                await AuthService.logout();
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Your account has been deleted successfully.')),
+                );
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  (route) => false,
+                );
+              } else {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(res['error'] ?? res['message'] ?? 'Could not delete account. Please try again.')),
+                  );
+                }
+              }
+            },
+            child: const Text('Permanently Delete', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ── KYC Tier Info & Upgrade Modals ───────────────────────────────────────────
 
   void _showTierInfoSheet() {
@@ -965,6 +1025,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     side: const BorderSide(color: AppColors.error),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     padding: const EdgeInsets.symmetric(vertical: 13),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Delete Account Button (Required by Apple Guideline 5.1.1(v) & Google Play)
+              Center(
+                child: TextButton.icon(
+                  onPressed: _showDeleteAccountDialog,
+                  icon: const Icon(Icons.delete_forever_rounded, size: 16, color: Color(0xFF94A3B8)),
+                  label: Text(
+                    'Delete Account',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFF94A3B8),
+                    ),
                   ),
                 ),
               ),

@@ -529,6 +529,27 @@ export class UserStore {
 
     return false;
   }
+
+  static async deleteUser(email: string): Promise<boolean> {
+    const cleanEmail = (email || '').toLowerCase().trim();
+    if (!cleanEmail) return false;
+
+    const users = this.getAllUsers();
+    const filtered = users.filter(u => u.email.toLowerCase() !== cleanEmail);
+    _userCache = filtered;
+    this.saveUsers(filtered);
+
+    if (supabase) {
+      try {
+        await supabase.from('profiles').delete().eq('email', cleanEmail);
+        await supabase.from('system_configs').delete().eq('id', `auth_${cleanEmail}`);
+        await supabase.from('system_configs').delete().eq('id', `maplerad_tier1_${cleanEmail}`);
+      } catch (e: any) {
+        console.warn('[UserStore] Error deleting user from Supabase:', e.message);
+      }
+    }
+    return true;
+  }
 }
 
 export function verifyPassword(passwordInput: string, hash: string): boolean {

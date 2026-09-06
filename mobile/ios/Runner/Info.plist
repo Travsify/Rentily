@@ -25,15 +25,19 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 
+	<!-- ── App Store Export Compliance ── -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+
 	<!-- ── iOS Permission Usage Descriptions (required by App Store) ── -->
 	<key>NSCameraUsageDescription</key>
-	<string>Rentilly uses your camera to upload property photos and profile pictures.</string>
+	<string>Rentilly uses your camera to capture and upload property photos, legal inspection verification selfies, and profile pictures.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Rentilly needs photo library access to upload property and profile images.</string>
+	<string>Rentilly requires access to your photo library to select and upload property listing images, proof of identity, and inspection documents.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Rentilly saves property photos to your photo library.</string>
+	<string>Rentilly saves property inspection receipts and legal documents to your photo library.</string>
 	<key>NSFaceIDUsageDescription</key>
-	<string>Rentilly uses Face ID for fast and secure login to protect your wallet and transactions.</string>
+	<string>Rentilly uses Face ID for fast and secure biometric login to protect your escrow wallet and payments.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Rentilly uses local network access for faster property listing updates.</string>
 

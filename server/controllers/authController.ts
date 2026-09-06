@@ -1155,3 +1155,22 @@ export async function upgradeTier3(req: Request, res: Response) {
   }
 }
 
+export async function deleteAccount(req: Request, res: Response) {
+  try {
+    const email = (req.body.email || req.query.email || (req as any).user?.email || '').toLowerCase().trim();
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required to process account deletion.' });
+    }
+
+    console.log(`[deleteAccount] Processing account deletion request for: ${email}`);
+    await UserStore.deleteUser(email);
+
+    return res.json({
+      success: true,
+      message: 'Your Rentilly account and associated personal data have been permanently deleted.'
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+

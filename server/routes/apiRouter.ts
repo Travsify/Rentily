@@ -119,6 +119,7 @@ apiRouter.patch('/users/:id/role', authController.adminUpdateUserRole);
 apiRouter.get('/auth/tier-status', authController.getTierStatus);
 apiRouter.post('/auth/upgrade-tier2', authController.upgradeTier2);
 apiRouter.post('/auth/upgrade-tier3', authController.upgradeTier3);
+apiRouter.post('/auth/delete-account', authController.deleteAccount);
 
 // 3. Analytics & GMV
 apiRouter.get('/analytics/metrics', analyticsController.getMetrics);
