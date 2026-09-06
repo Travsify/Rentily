@@ -382,28 +382,80 @@ export async function listUsers(_req: Request, res: Response) {
 export async function changePassword(req: Request, res: Response) {
   try {
     const { email, currentPassword, newPassword } = req.body;
-    if (!email || !newPassword) {
-      return res.status(400).json({ error: 'Email and new password are required' });
+    if (!email || !currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Email, current password, and new password are required.' });
     }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'New password must be at least 6 characters long.' });
+    }
+
     const cleanEmail = email.toLowerCase().trim();
     const user = await UserStore.findByEmail(cleanEmail);
-    if (!user) {
-      return res.status(404).json({ error: 'Account not found' });
+
+    let isValid = false;
+    if (user?.passwordHash) {
+      isValid = verifyPassword(currentPassword, user.passwordHash);
     }
-    if (currentPassword && user.passwordHash) {
-      const currentHash = crypto.createHash('sha256').update(currentPassword).digest('hex');
-      if (user.passwordHash !== currentHash && user.passwordHash !== currentPassword) {
-        return res.status(401).json({ error: 'Current password does not match' });
-      }
+
+    if (!isValid && supabase) {
+      try {
+        const { data } = await supabase.from('system_configs').select('data').eq('id', `auth_${cleanEmail}`).single();
+        if (data?.data?.passwordHash) {
+          isValid = verifyPassword(currentPassword, data.data.passwordHash);
+        }
+      } catch (_) {}
     }
-    const newHash = crypto.createHash('sha256').update(newPassword).digest('hex');
-    UserStore.upsertUser({
-      ...user,
-      passwordHash: newHash
+
+    if (!isValid && supabase) {
+      try {
+        const { data } = await supabase.from('profiles').select('password_hash').eq('email', cleanEmail).single();
+        if (data?.password_hash) {
+          isValid = verifyPassword(currentPassword, data.password_hash);
+        }
+      } catch (_) {}
+    }
+
+    if (!isValid) {
+      return res.status(401).json({ error: 'Current password is incorrect.' });
+    }
+
+    const newHash = hashPassword(newPassword);
+
+    if (user) {
+      user.passwordHash = newHash;
+      UserStore.upsertUser({
+        ...user,
+        passwordHash: newHash,
+        updatedAt: new Date().toISOString()
+      });
+    }
+
+    if (supabase) {
+      try {
+        await supabase.from('system_configs').upsert({
+          id: `auth_${cleanEmail}`,
+          data: {
+            email: cleanEmail,
+            passwordHash: newHash,
+            updatedAt: new Date().toISOString()
+          }
+        });
+
+        await supabase.from('profiles').update({
+          password_hash: newHash,
+          updated_at: new Date().toISOString()
+        }).eq('email', cleanEmail);
+      } catch (_) {}
+    }
+
+    return res.json({
+      success: true,
+      message: 'Password changed successfully.'
     });
-    return res.json({ success: true, message: 'Password updated successfully' });
   } catch (err: any) {
-    return res.status(500).json({ error: err.message });
+    console.error('changePassword error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to change password.' });
   }
 }
 
@@ -1091,82 +1143,3 @@ export async function upgradeTier3(req: Request, res: Response) {
   }
 }
 
-export async function changePassword(req: Request, res: Response) {
-  try {
-    const { email, currentPassword, newPassword } = req.body;
-    if (!email || !currentPassword || !newPassword) {
-      return res.status(400).json({ error: 'Email, current password, and new password are required.' });
-    }
-
-    if (newPassword.length < 6) {
-      return res.status(400).json({ error: 'New password must be at least 6 characters long.' });
-    }
-
-    const cleanEmail = email.toLowerCase().trim();
-    const user = await UserStore.findByEmail(cleanEmail);
-
-    let isValid = false;
-    if (user?.passwordHash) {
-      isValid = verifyPassword(currentPassword, user.passwordHash);
-    }
-
-    if (!isValid && supabase) {
-      try {
-        const { data } = await supabase.from('system_configs').select('data').eq('id', `auth_${cleanEmail}`).single();
-        if (data?.data?.passwordHash) {
-          isValid = verifyPassword(currentPassword, data.data.passwordHash);
-        }
-      } catch (_) {}
-    }
-
-    if (!isValid && supabase) {
-      try {
-        const { data } = await supabase.from('profiles').select('password_hash').eq('email', cleanEmail).single();
-        if (data?.password_hash) {
-          isValid = verifyPassword(currentPassword, data.password_hash);
-        }
-      } catch (_) {}
-    }
-
-    if (!isValid) {
-      return res.status(401).json({ error: 'Current password is incorrect.' });
-    }
-
-    const newHash = hashPassword(newPassword);
-
-    if (user) {
-      user.passwordHash = newHash;
-      UserStore.upsertUser({
-        ...user,
-        passwordHash: newHash,
-        updatedAt: new Date().toISOString()
-      });
-    }
-
-    if (supabase) {
-      try {
-        await supabase.from('system_configs').upsert({
-          id: `auth_${cleanEmail}`,
-          data: {
-            email: cleanEmail,
-            passwordHash: newHash,
-            updatedAt: new Date().toISOString()
-          }
-        });
-
-        await supabase.from('profiles').update({
-          password_hash: newHash,
-          updated_at: new Date().toISOString()
-        }).eq('email', cleanEmail);
-      } catch (_) {}
-    }
-
-    return res.json({
-      success: true,
-      message: 'Password changed successfully.'
-    });
-  } catch (err: any) {
-    console.error('changePassword error:', err);
-    return res.status(500).json({ error: err.message || 'Failed to change password.' });
-  }
-}
