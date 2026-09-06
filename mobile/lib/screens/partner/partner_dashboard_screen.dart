@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -52,6 +51,7 @@ class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
       ),
       const PartnerMandatesScreen(),
       const PartnerWalletScreen(),
+      const InspectionsScreen(),
       PartnerProfileScreen(onSwitchToTenant: widget.onSwitchToTenant),
     ];
 

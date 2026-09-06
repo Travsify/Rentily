@@ -250,6 +250,7 @@ apiRouter.get('/chat/oversight', directChatController.getFlaggedMessages);
 // 13. Platform Fee & Tariff Configuration
 apiRouter.get('/config/fees', feeController.getFees);
 apiRouter.get('/platform/fees', feeController.getFees);
+apiRouter.get('/admin/fees', feeController.getFees);
 apiRouter.post('/config/fees', feeController.updateFees);
 
 // 13b. Dynamic Remote Feature Flags & App Rollout

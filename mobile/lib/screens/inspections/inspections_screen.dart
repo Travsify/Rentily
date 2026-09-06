@@ -9,6 +9,7 @@ import '../../services/auth_service.dart';
 import '../../widgets/partner_id_card_modal.dart';
 import '../../utils/id_utils.dart';
 import '../main_navigation_screen.dart';
+import '../shared/qr_scanner_screen.dart';
 
 class InspectionsScreen extends StatefulWidget {
   const InspectionsScreen({super.key});
@@ -222,6 +223,70 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
                       ),
                     ),
                   ] else ...[
+                    // Camera QR Scan Button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          final scanned = await QRScannerScreen.startScan(
+                            context,
+                            mode: QRScannerMode.gatePass,
+                            title: 'Scan Gate Pass QR',
+                            instruction: 'Point camera at visitor QR pass',
+                          );
+                          if (scanned != null && scanned.trim().isNotEmpty) {
+                            final clean = scanned.replaceAll(RegExp(r'\D'), '');
+                            final effectiveCode = clean.length >= 6 ? clean.substring(clean.length - 6) : scanned.trim();
+                            codeController.text = effectiveCode;
+
+                            setModalState(() {
+                              isVerifying = true;
+                              errorText = null;
+                            });
+
+                            final res = await ApiService.verifyGatePass(scanned.trim());
+                            setModalState(() => isVerifying = false);
+                            if (res['success'] == true) {
+                              setModalState(() => verifiedResult = res);
+                            } else {
+                              // Try with effectiveCode
+                              final res2 = await ApiService.verifyGatePass(effectiveCode);
+                              if (res2['success'] == true) {
+                                setModalState(() => verifiedResult = res2);
+                              } else {
+                                setModalState(() => errorText = res['error'] ?? 'Pass code not found or expired.');
+                              }
+                            }
+                          }
+                        },
+                        icon: const Icon(Icons.qr_code_scanner_rounded, color: Colors.white, size: 20),
+                        label: Text(
+                          'Scan Visitor QR with Camera',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.white),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF059669),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          elevation: 1,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        const Expanded(child: Divider(color: AppColors.borderDark)),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          child: Text(
+                            'OR ENTER CODE MANUALLY',
+                            style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.w800, color: AppColors.textMuted, letterSpacing: 0.5),
+                          ),
+                        ),
+                        const Expanded(child: Divider(color: AppColors.borderDark)),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
                     // Input TextField
                     TextField(
                       controller: codeController,

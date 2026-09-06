@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../constants/app_colors.dart';
 import '../../models/user_profile.dart';
@@ -188,6 +189,10 @@ class _SupportChatScreenState extends State<SupportChatScreen> {
       'is_read': false,
       'created_at': DateTime.now().toUtc().toIso8601String(),
     };
+
+    // Play chime sound and haptic feedback
+    SystemSound.play(SystemSoundType.click);
+    HapticFeedback.lightImpact();
 
     setState(() {
       _messages.add(optimisticMsg);

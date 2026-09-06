@@ -13,6 +13,7 @@ import '../services/notification_service.dart';
 import '../services/payment_security_service.dart';
 import '../services/security_telemetry_service.dart';
 import 'tier_upgrade_modal.dart';
+import '../screens/shared/qr_scanner_screen.dart';
 
 class WithdrawalModal extends StatefulWidget {
   final UserProfile user;
@@ -1351,7 +1352,24 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
                   hintStyle: GoogleFonts.firaCode(fontSize: 12, color: AppColors.textMuted),
                   filled: true,
                   fillColor: const Color(0xFFF9FAFB),
-                  prefixIcon: const Icon(Icons.qr_code_rounded, size: 18, color: Color(0xFF00E676)),
+                  prefixIcon: const Icon(Icons.account_balance_wallet_rounded, size: 18, color: AppColors.primary),
+                  suffixIcon: IconButton(
+                    icon: const Icon(Icons.qr_code_scanner_rounded, size: 20, color: Color(0xFF00E676)),
+                    tooltip: 'Scan Wallet QR Code',
+                    onPressed: () async {
+                      final scanned = await QRScannerScreen.startScan(
+                        context,
+                        mode: QRScannerMode.cryptoAddress,
+                        title: 'Scan USDT Address',
+                        instruction: 'Align recipient TRON (TRC20) QR code',
+                      );
+                      if (scanned != null && scanned.trim().isNotEmpty) {
+                        setState(() {
+                          _cryptoAddressController.text = scanned.trim();
+                        });
+                      }
+                    },
+                  ),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.borderDark)),
                 ),
