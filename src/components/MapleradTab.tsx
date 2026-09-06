@@ -360,8 +360,8 @@ export function MapleradTab() {
           </div>
 
           <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
-            <span>Spend Wallet:</span>
-            <span className="font-mono text-slate-300 font-semibold">₦0.00</span>
+            <span>Direct Bank Payouts:</span>
+            <span className="font-mono text-emerald-400 font-semibold text-[11px]">Direct from Treasury (No Spend Pool Needed)</span>
           </div>
         </div>
 
@@ -758,17 +758,21 @@ export function MapleradTab() {
                 </div>
               )}
 
+              {/* Informational Policy Banner */}
+              <div className="p-3 bg-blue-950/40 border border-blue-800/60 rounded-xl text-[11px] text-blue-300 leading-relaxed">
+                <span className="font-bold text-white">Maplerad Spend Wallets Policy:</span> Spend wallets are exclusively dedicated to funding <strong>USD Virtual Cards</strong> and <strong>USDT Liquidity</strong>. All Nigerian Naira (NGN) settlements & bank payouts operate directly out of your Treasury balance (₦{walletsData ? walletsData.summary.ngnTreasury.toLocaleString('en-NG', { minimumFractionDigits: 2 }) : '30,387.18'}) without needing a spend pool.
+              </div>
+
               {/* Currency */}
               <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1.5">Currency</label>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">Select Spend-Enabled Currency</label>
                 <select
                   value={transferCurrency}
                   onChange={(e) => setTransferCurrency(e.target.value)}
                   className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500"
                 >
-                  <option value="USD">USD - US Dollar (Virtual Cards Pool)</option>
-                  <option value="USDT">USDT - Tether (TRC20)</option>
-                  <option value="NGN">NGN - Nigerian Naira</option>
+                  <option value="USD">USD - US Dollar (Virtual Cards Issuing Pool)</option>
+                  <option value="USDT">USDT - Tether TRC20 (Crypto Spend Pool)</option>
                 </select>
               </div>
 

@@ -366,6 +366,14 @@ export async function transferTreasuryToSpend(req: Request, res: Response) {
       return res.status(400).json({ error: 'Valid amount is required.' });
     }
 
+    const cur = currency.toUpperCase();
+    if (cur === 'NGN') {
+      return res.status(400).json({
+        success: false,
+        error: 'Maplerad does not use Spend wallets for NGN. All Nigerian Naira payouts, bank settlements, and rent distributions operate directly out of the NGN Treasury. Spend wallets are exclusively reserved for USD Virtual Card issuing and USDT liquidity.'
+      });
+    }
+
     // Convert to minor units (cents / kobo: multiply by 100)
     const amountMinor = Math.round(Number(amount) * 100);
 
