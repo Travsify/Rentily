@@ -330,27 +330,28 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Brand Shield Emblem
+        // Brand Logo Emblem
         Container(
-          width: 54,
-          height: 54,
+          width: 56,
+          height: 56,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [AppColors.primary, AppColors.primaryLight],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: AppColors.primary.withValues(alpha: 0.25),
+                color: const Color(0xFF0D5C46).withValues(alpha: 0.3),
                 blurRadius: 16,
                 offset: const Offset(0, 6),
               ),
             ],
           ),
-          child: const Center(
-            child: Icon(Icons.shield_rounded, size: 28, color: Colors.white),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Image.asset(
+              'assets/images/logo.png',
+              width: 56,
+              height: 56,
+              fit: BoxFit.cover,
+            ),
           ),
         ),
         const SizedBox(height: 12),
@@ -677,22 +678,23 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             width: 64,
             height: 64,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [AppColors.primary, AppColors.primaryLight],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(18),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.primary.withValues(alpha: 0.25),
+                  color: const Color(0xFF0D5C46).withValues(alpha: 0.3),
                   blurRadius: 16,
                   offset: const Offset(0, 6),
                 ),
               ],
             ),
-            child: const Center(
-              child: Icon(Icons.shield_rounded, size: 32, color: Colors.white),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: Image.asset(
+                'assets/images/logo.png',
+                width: 64,
+                height: 64,
+                fit: BoxFit.cover,
+              ),
             ),
           ),
         ),

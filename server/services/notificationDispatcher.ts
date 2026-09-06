@@ -168,7 +168,7 @@ export class NotificationDispatcher {
               <table width="100%" border="0" cellspacing="0" cellpadding="0">
                 <tr>
                   <td align="center">
-                    <div style="display: inline-block; background-color: #10B981; color: #FFFFFF; font-weight: 900; font-size: 20px; width: 42px; height: 42px; line-height: 42px; border-radius: 12px; margin-bottom: 8px;">R</div>
+                    <img src="https://api.myrentilly.com/logo.png" width="48" height="48" alt="Rentilly" style="display: block; margin: 0 auto 10px auto; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);" />
                     <h1 style="margin: 0; color: #FFFFFF; font-size: 22px; font-weight: 800; letter-spacing: -0.5px;">RENTILLY</h1>
                     <p style="margin: 4px 0 0 0; color: #A7F3D0; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Built By Landlords for every Tenant/Landlord</p>
                   </td>
