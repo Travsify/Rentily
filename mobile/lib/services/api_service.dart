@@ -239,15 +239,17 @@ class ApiService {
     }
   }
 
-  // 2. Fetch User Inspections from live API
-  static Future<List<Inspection>> fetchInspections() async {
+  // 2. Fetch User & Host Inspections from live API
+  static Future<List<Inspection>> fetchInspections({String? userId}) async {
     try {
       final user = await AuthService.getCurrentUser();
       final email = user?.email;
-      if (email == null || email.isEmpty) return [];
+      final uid = userId ?? user?.id;
+      if ((email == null || email.isEmpty) && (uid == null || uid.isEmpty)) return [];
 
       final uri = Uri.parse('$baseUrl/inspections').replace(queryParameters: {
-        'email': email,
+        if (email != null && email.isNotEmpty) 'email': email,
+        if (uid != null && uid.isNotEmpty) 'userId': uid,
       });
       final response = await http.get(uri).timeout(const Duration(seconds: 8));
       if (response.statusCode == 200) {
@@ -256,6 +258,29 @@ class ApiService {
       }
     } catch (e) {}
     return [];
+  }
+
+  // 2b. Update Inspection Status (Landlord / Host Approval or Rescheduling)
+  static Future<bool> updateInspectionStatus({
+    required String inspectionId,
+    required String status,
+    String? ownerNotes,
+    String? rescheduledDate,
+  }) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/inspections/$inspectionId/status'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'status': status,
+          if (ownerNotes != null) 'ownerNotes': ownerNotes,
+          if (rescheduledDate != null) 'rescheduledDate': rescheduledDate,
+        }),
+      ).timeout(const Duration(seconds: 10));
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
   }
 
   // 3. Book Physical Inspection with 6-Digit Gate Code on live API

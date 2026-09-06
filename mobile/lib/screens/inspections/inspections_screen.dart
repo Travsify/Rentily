@@ -39,13 +39,33 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
   void _loadData() async {
     setState(() => _isLoading = true);
     final user = await AuthService.getCurrentUser();
-    final data = await ApiService.fetchInspections();
+    final data = await ApiService.fetchInspections(userId: user?.id);
     if (mounted) {
       setState(() {
         _user = user;
         _inspections = data;
         _isLoading = false;
       });
+    }
+  }
+
+  void _approveInspection(Inspection insp) async {
+    final success = await ApiService.updateInspectionStatus(
+      inspectionId: insp.id,
+      status: 'confirmed',
+    );
+    if (success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Walkthrough confirmed! Gate pass sent to tenant. 🔑',
+            style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold),
+          ),
+          backgroundColor: const Color(0xFF16A34A),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      _loadData();
     }
   }
 
@@ -397,15 +417,32 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
                         Row(
                           children: [
                             if (_isHost) ...[
+                              if (insp.status != 'confirmed') ...[
+                                Expanded(
+                                  flex: 3,
+                                  child: ElevatedButton.icon(
+                                    onPressed: () => _approveInspection(insp),
+                                    icon: const Icon(Icons.check_circle_rounded, size: 14, color: Colors.white),
+                                    label: Text('Approve Gate Pass ✅', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF16A34A),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      padding: const EdgeInsets.symmetric(vertical: 10),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                              ],
                               Expanded(
-                                child: ElevatedButton.icon(
+                                flex: 2,
+                                child: OutlinedButton.icon(
                                   onPressed: () {
                                     if (_user != null) PartnerIdCardModal.show(context, user: _user!);
                                   },
-                                  icon: const Icon(Icons.badge_rounded, size: 14, color: Colors.white),
-                                  label: Text('Present My Digital ID 🪪', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: AppColors.primary,
+                                  icon: const Icon(Icons.badge_rounded, size: 14, color: AppColors.primary),
+                                  label: Text('Digital ID 🪪', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                                  style: OutlinedButton.styleFrom(
+                                    side: const BorderSide(color: AppColors.primary),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                                     padding: const EdgeInsets.symmetric(vertical: 10),
                                   ),

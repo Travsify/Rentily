@@ -30,7 +30,10 @@ class _LandlordDigitalLeasesScreenState extends State<LandlordDigitalLeasesScree
     final user = await AuthService.getCurrentUser();
     List<Map<String, dynamic>> realLeases = [];
     try {
-      final list = await ApiService.fetchLegalAgreements(email: user?.email);
+      final list = await ApiService.fetchLegalAgreements(
+        email: user?.email,
+        landlordId: user?.id,
+      );
       for (final item in list) {
         realLeases.add({
           'id': item['transactionId'] ?? item['id'] ?? 'LEASE-2026',

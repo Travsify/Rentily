@@ -64,19 +64,17 @@ export async function getLegalAgreements(req: Request, res: Response) {
     }
 
     // Filter if requested by Flutter app
-    if (cleanEmail) {
+    if (landlordId) {
+      storeLegal = storeLegal.filter(a => a.landlordId === landlordId);
+    } else if (tenantId) {
+      storeLegal = storeLegal.filter(a => a.tenantId === tenantId);
+    } else if (cleanEmail) {
       storeLegal = storeLegal.filter(a =>
         a.tenantName.toLowerCase().includes(cleanEmail) ||
         a.landlordName.toLowerCase().includes(cleanEmail) ||
         a.tenantId.toLowerCase() === cleanEmail ||
         a.landlordId.toLowerCase() === cleanEmail
       );
-    }
-    if (tenantId) {
-      storeLegal = storeLegal.filter(a => a.tenantId === tenantId);
-    }
-    if (landlordId) {
-      storeLegal = storeLegal.filter(a => a.landlordId === landlordId);
     }
 
     return res.json(storeLegal);

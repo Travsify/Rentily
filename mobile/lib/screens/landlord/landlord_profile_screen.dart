@@ -207,8 +207,8 @@ class _LandlordProfileScreenState extends State<LandlordProfileScreen> {
 
   // --- 1. NOTICE TO QUIT GENERATOR (NIGERIAN RECOVERY OF PREMISES ACT) ---
   void _showNoticeToQuitDialog() {
-    final tenantNameController = TextEditingController(text: 'Tunde Bakare');
-    final addressController = TextEditingController(text: 'Flat 3B, Plot 14 Admiralty Way, Lekki');
+    final tenantNameController = TextEditingController();
+    final addressController = TextEditingController();
     String noticePeriod = '6 Months (Yearly Tenancy)';
 
     showDialog(
@@ -237,6 +237,7 @@ class _LandlordProfileScreenState extends State<LandlordProfileScreen> {
                   style: GoogleFonts.plusJakartaSans(fontSize: 12),
                   decoration: InputDecoration(
                     labelText: 'Tenant Full Name',
+                    hintText: 'e.g. Tunde Bakare',
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                 ),
@@ -246,6 +247,7 @@ class _LandlordProfileScreenState extends State<LandlordProfileScreen> {
                   style: GoogleFonts.plusJakartaSans(fontSize: 12),
                   decoration: InputDecoration(
                     labelText: 'Premises / Property Address',
+                    hintText: 'e.g. Flat 3B, Plot 14 Admiralty Way, Lekki',
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                 ),
@@ -360,8 +362,8 @@ class _LandlordProfileScreenState extends State<LandlordProfileScreen> {
 
   // --- 2. 7 DAYS NOTICE OF OWNER'S INTENTION ---
   void _showSevenDaysNoticeDialog() {
-    final tenantNameController = TextEditingController(text: 'Tunde Bakare');
-    final addressController = TextEditingController(text: 'Flat 3B, Plot 14 Admiralty Way, Lekki');
+    final tenantNameController = TextEditingController();
+    final addressController = TextEditingController();
 
     showDialog(
       context: context,
@@ -388,6 +390,7 @@ class _LandlordProfileScreenState extends State<LandlordProfileScreen> {
                 style: GoogleFonts.plusJakartaSans(fontSize: 12),
                 decoration: InputDecoration(
                   labelText: 'Tenant Full Name',
+                  hintText: 'e.g. Tunde Bakare',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 ),
               ),
@@ -397,6 +400,7 @@ class _LandlordProfileScreenState extends State<LandlordProfileScreen> {
                 style: GoogleFonts.plusJakartaSans(fontSize: 12),
                 decoration: InputDecoration(
                   labelText: 'Premises Address',
+                  hintText: 'e.g. Flat 3B, Plot 14 Admiralty Way, Lekki',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                 ),
               ),
