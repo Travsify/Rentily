@@ -183,6 +183,66 @@ class _CardsScreenState extends State<CardsScreen> {
     return _userCards[_selectedCardIndex];
   }
 
+  bool _isRevealingDetails = false;
+
+  Future<void> _toggleCardDetailsReveal() async {
+    HapticFeedback.lightImpact();
+    if (_showCardDetails) {
+      setState(() => _showCardDetails = false);
+      return;
+    }
+
+    final card = _currentCard;
+    if (card == null) return;
+
+    final cardId = (card['cardId'] ?? card['id'])?.toString();
+    final currentPan = card['fullPan']?.toString();
+    final hasRealPan = currentPan != null &&
+        currentPan.isNotEmpty &&
+        !currentPan.contains('0000') &&
+        !currentPan.contains('•');
+
+    if (hasRealPan) {
+      setState(() => _showCardDetails = true);
+      return;
+    }
+
+    if (cardId != null && cardId.isNotEmpty) {
+      setState(() => _isRevealingDetails = true);
+      try {
+        final details = await ApiService.revealCardDetails(cardId);
+        if (details != null && mounted) {
+          final pan = details['fullPan']?.toString();
+          final cvv = details['cvv']?.toString();
+          final expM = details['expiryMonth']?.toString();
+          final expY = details['expiryYear']?.toString();
+          final pin = details['pin']?.toString();
+
+          setState(() {
+            if (pan != null && pan.isNotEmpty) card['fullPan'] = pan;
+            if (cvv != null && cvv.isNotEmpty) card['cvv'] = cvv;
+            if (expM != null && expM.isNotEmpty) card['expiryMonth'] = expM;
+            if (expY != null && expY.isNotEmpty) card['expiryYear'] = expY;
+            if (pin != null && pin.isNotEmpty) card['pin'] = pin;
+            _showCardDetails = true;
+            _isRevealingDetails = false;
+          });
+          _persistCardsToDisk();
+          return;
+        }
+      } catch (_) {}
+
+      if (mounted) {
+        setState(() {
+          _isRevealingDetails = false;
+          _showCardDetails = true;
+        });
+      }
+    } else {
+      setState(() => _showCardDetails = true);
+    }
+  }
+
   // --- 1. TOGGLE FREEZE / UNFREEZE ---
   Future<void> _toggleFreeze() async {
     final card = _currentCard;
@@ -1046,17 +1106,41 @@ class _CardsScreenState extends State<CardsScreen> {
   }
 
   // --- 5. DETAILS & BILLING ADDRESS MODAL (REVEALS EVERYTHING SECURELY) ---
-  void _showCardDetailsAndAddressModal() {
+  Future<void> _showCardDetailsAndAddressModal() async {
     final card = _currentCard;
     if (card == null || _user == null) return;
+    final cardId = (card['cardId'] ?? card['id'])?.toString();
+
+    // Ensure live decrypted credentials are fetched
+    final currentPan = card['fullPan']?.toString();
+    final hasRealPan = currentPan != null &&
+        currentPan.isNotEmpty &&
+        !currentPan.contains('0000') &&
+        !currentPan.contains('•');
+
+    if (!hasRealPan && cardId != null && cardId.isNotEmpty) {
+      try {
+        final details = await ApiService.revealCardDetails(cardId);
+        if (details != null && mounted) {
+          setState(() {
+            if (details['fullPan'] != null) card['fullPan'] = details['fullPan'];
+            if (details['cvv'] != null) card['cvv'] = details['cvv'];
+            if (details['expiryMonth'] != null) card['expiryMonth'] = details['expiryMonth'];
+            if (details['expiryYear'] != null) card['expiryYear'] = details['expiryYear'];
+            if (details['pin'] != null) card['pin'] = details['pin'];
+          });
+          _persistCardsToDisk();
+        }
+      } catch (_) {}
+    }
 
     final rawPan = card['fullPan']?.toString();
-    final hasRealPan = rawPan != null && rawPan.isNotEmpty;
+    final hasRealPanNow = rawPan != null && rawPan.isNotEmpty && !rawPan.contains('0000') && !rawPan.contains('•');
     final maskedPanModal = card['maskedPan']?.toString() ?? '4288 •••• •••• ••••';
-    final cleanDigits = hasRealPan ? rawPan!.replaceAll(RegExp(r'[^0-9]'), '') : '';
-    final fullPan = hasRealPan && cleanDigits.length == 16
+    final cleanDigits = hasRealPanNow ? rawPan.replaceAll(RegExp(r'[^0-9]'), '') : '';
+    final fullPan = hasRealPanNow && cleanDigits.length == 16
         ? cleanDigits.replaceAllMapped(RegExp(r'.{4}'), (m) => '${m.group(0)} ').trim()
-        : maskedPanModal; // masked if real PAN not yet available
+        : (hasRealPanNow ? rawPan : maskedPanModal);
     final cardholder = (card['cardholderName'] ?? _user!.fullName).toString().toUpperCase();
     final rawExpM = card['expiryMonth']?.toString() ?? '';
     final expMonth = rawExpM.trim().isNotEmpty ? rawExpM.trim() : '09';
@@ -1370,6 +1454,32 @@ class _CardsScreenState extends State<CardsScreen> {
               ),
               const SizedBox(height: 16),
 
+              // Test Online Spend / POS Debit Button
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 12),
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _showSpendCardModal();
+                  },
+                  icon: const Icon(Icons.shopping_cart_checkout_rounded, color: Color(0xFF0D5C46), size: 18),
+                  label: Text(
+                    'Simulate Online Spend / Debit Test',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF0D5C46),
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    side: const BorderSide(color: Color(0xFF0D5C46), width: 1.2),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+
               // Delete Card Option inside Details Modal
               Center(
                 child: TextButton.icon(
@@ -1386,6 +1496,172 @@ class _CardsScreenState extends State<CardsScreen> {
                       color: const Color(0xFFEF4444),
                     ),
                   ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // --- 5B. TEST SPEND / DEBIT MODAL (SIMULATE MERCHANT PURCHASE) ---
+  void _showSpendCardModal() {
+    final card = _currentCard;
+    if (card == null) return;
+    final cardId = (card['cardId'] ?? card['id'])?.toString();
+    if (cardId == null || cardId.isEmpty) return;
+
+    final bal = (card['balance'] as num?)?.toDouble() ?? 0.0;
+    final amountController = TextEditingController(text: '1.00');
+    String selectedMerchant = 'Amazon.com';
+    bool isSpending = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          padding: EdgeInsets.only(
+            left: 20, right: 20, top: 20,
+            bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+          ),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0D5C46).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(Icons.shopping_bag_outlined, color: Color(0xFF0D5C46), size: 20),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Card Spend / Debit Test',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 17, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Simulate a real online checkout transaction on your virtual card.',
+                style: GoogleFonts.plusJakartaSans(fontSize: 12, color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade200),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Card Balance:', style: GoogleFonts.plusJakartaSans(fontSize: 13, color: Colors.grey.shade700)),
+                    Text('\$${bal.toStringAsFixed(2)} USD', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold, color: const Color(0xFF10B981))),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text('Spend Amount (\$ USD)', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 6),
+              TextField(
+                controller: amountController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: InputDecoration(
+                  prefixText: '\$ ',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text('Merchant', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 6),
+              Wrap(
+                spacing: 8,
+                children: ['Amazon.com', 'Netflix', 'Apple', 'Uber', 'Spotify'].map((m) {
+                  final isSelected = selectedMerchant == m;
+                  return ChoiceChip(
+                    label: Text(m, style: GoogleFonts.plusJakartaSans(fontSize: 11, color: isSelected ? Colors.white : Colors.black87)),
+                    selected: isSelected,
+                    selectedColor: const Color(0xFF0D5C46),
+                    onSelected: (val) {
+                      if (val) setModalState(() => selectedMerchant = m);
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: isSpending ? null : () async {
+                    final amt = double.tryParse(amountController.text.trim()) ?? 0.0;
+                    if (amt <= 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a valid amount')));
+                      return;
+                    }
+                    if (amt > bal) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Amount exceeds available card balance')));
+                      return;
+                    }
+
+                    setModalState(() => isSpending = true);
+                    final res = await ApiService.spendCard(
+                      cardId: cardId,
+                      amountUsd: amt,
+                      merchantName: selectedMerchant,
+                    );
+                    setModalState(() => isSpending = false);
+
+                    if (res != null && res['status'] == true) {
+                      final newBal = (res['data']?['newBalance'] as num?)?.toDouble() ?? (bal - amt);
+                      if (mounted) {
+                        setState(() {
+                          card['balance'] = newBal;
+                        });
+                        await _loadData();
+                        Navigator.pop(ctx);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('✓ Spent \$$amt at $selectedMerchant. New Balance: \$$newBal USD'),
+                            backgroundColor: const Color(0xFF10B981),
+                          ),
+                        );
+                      }
+                    } else {
+                      final msg = res?['message'] ?? 'Spend declined. Check balance or try again.';
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(msg), backgroundColor: Colors.red),
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0D5C46),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  ),
+                  child: isSpending
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : Text('Confirm Spend Payment', style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
@@ -2732,12 +3008,7 @@ class _CardsScreenState extends State<CardsScreen> {
                       children: [
                         // Eye Icon Toggle Button
                         GestureDetector(
-                          onTap: () {
-                            HapticFeedback.lightImpact();
-                            setState(() {
-                              _showCardDetails = !_showCardDetails;
-                            });
-                          },
+                          onTap: _isRevealingDetails ? null : _toggleCardDetailsReveal,
                           child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                             decoration: BoxDecoration(
@@ -2751,11 +3022,17 @@ class _CardsScreenState extends State<CardsScreen> {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(
-                                  _showCardDetails ? Icons.visibility_rounded : Icons.visibility_off_rounded,
-                                  size: 13,
-                                  color: Colors.white,
-                                ),
+                                _isRevealingDetails
+                                    ? const SizedBox(
+                                        width: 12,
+                                        height: 12,
+                                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 1.5),
+                                      )
+                                    : Icon(
+                                        _showCardDetails ? Icons.visibility_rounded : Icons.visibility_off_rounded,
+                                        size: 13,
+                                        color: Colors.white,
+                                      ),
                                 const SizedBox(width: 4),
                                 Text(
                                   _showCardDetails ? 'Hide' : 'Show',
@@ -2843,17 +3120,18 @@ class _CardsScreenState extends State<CardsScreen> {
                         ),
                         const SizedBox(width: 8),
                         GestureDetector(
-                          onTap: () {
-                            HapticFeedback.lightImpact();
-                            setState(() {
-                              _showCardDetails = !_showCardDetails;
-                            });
-                          },
-                          child: Icon(
-                            _showCardDetails ? Icons.visibility_rounded : Icons.visibility_off_rounded,
-                            size: 16,
-                            color: Colors.white70,
-                          ),
+                          onTap: _isRevealingDetails ? null : _toggleCardDetailsReveal,
+                          child: _isRevealingDetails
+                              ? const SizedBox(
+                                  width: 14,
+                                  height: 14,
+                                  child: CircularProgressIndicator(color: Colors.white70, strokeWidth: 1.5),
+                                )
+                              : Icon(
+                                  _showCardDetails ? Icons.visibility_rounded : Icons.visibility_off_rounded,
+                                  size: 16,
+                                  color: Colors.white70,
+                                ),
                         ),
                         const SizedBox(width: 6),
                         GestureDetector(

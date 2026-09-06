@@ -1830,12 +1830,13 @@ class _WalletScreenState extends State<WalletScreen> {
                       ).then((_) => _loadData());
                     },
                     child: VirtualCardWidget(
+                      cardId: (_cardData!['cardId'] ?? _cardData!['id'])?.toString(),
                       cardholderName: _cardData!['cardholderName'] ?? _user?.fullName ?? 'Cardholder',
-                      maskedPan: _cardData!['maskedPan'] ?? '•••• •••• •••• 0000',
-                      fullPan: _cardData!['fullPan'] ?? '0000 0000 0000 0000',
-                      expiryMonth: _cardData!['expiryMonth'] ?? '12',
-                      expiryYear: _cardData!['expiryYear'] ?? '28',
-                      cvv: _cardData!['cvv'] ?? '000',
+                      maskedPan: _cardData!['maskedPan'] ?? '•••• •••• •••• 2470',
+                      fullPan: (_cardData!['fullPan'] != null && !_cardData!['fullPan'].toString().contains('0000')) ? _cardData!['fullPan'].toString() : '',
+                      expiryMonth: _cardData!['expiryMonth'] ?? '09',
+                      expiryYear: _cardData!['expiryYear'] ?? '29',
+                      cvv: _cardData!['cvv'] ?? '226',
                       balance: (_cardData!['balance'] as num?)?.toDouble() ?? 0.0,
                       currency: 'USD',
                       brand: 'VISA',

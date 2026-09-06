@@ -3755,6 +3755,41 @@ export async function revealCardDetails(req: Request, res: Response) {
   }
 }
 
+export async function spendCard(req: Request, res: Response) {
+  try {
+    const { cardId, amountUsd, merchantName, merchantCategory } = req.body;
+    if (!cardId || amountUsd == null) {
+      return res.status(400).json({ error: 'cardId and amountUsd are required' });
+    }
+
+    const result = await CardIssuingService.spendCard(
+      cardId,
+      Number(amountUsd),
+      merchantName || 'Online Merchant',
+      merchantCategory || 'Shopping'
+    );
+
+    if (!result.success) {
+      return res.status(400).json({
+        status: false,
+        message: result.message,
+        newBalance: result.newBalance
+      });
+    }
+
+    res.json({
+      status: true,
+      message: result.message,
+      data: {
+        newBalance: result.newBalance,
+        transaction: result.transaction,
+      }
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
 export async function getCardTransactions(req: Request, res: Response) {
   try {
     const cardId = req.params.cardId as string;

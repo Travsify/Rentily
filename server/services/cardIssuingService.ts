@@ -217,50 +217,81 @@ export class CardIssuingService {
         const { data, error } = await query;
 
         if (!error && data) {
-          const cards: VirtualCard[] = data.map((c: any) => {
+          const cards: VirtualCard[] = await Promise.all(data.map(async (c: any) => {
             const cardKey = c.card_id || c.id;
             const assignedPin = _cardPins[cardKey] || _cardPins[c.id] || '1900';
             let liveBal = Number(c.balance || 0);
-            let liveCardNumber: string | undefined = c.full_pan;
+            let liveCardNumber: string | undefined = undefined;
             let liveCvv: string = c.cvv || '226';
             let liveExpMonth: string = c.expiry_month || '09';
             let liveExpYear: string = c.expiry_year || '29';
 
-            // Background async refresh from Maplerad API (does NOT block API response)
+            // Check cached revealed credentials from system_configs first
+            if (supabase) {
+              try {
+                const { data: cfg } = await supabase.from('system_configs').select('data').eq('id', `card_details_${cardKey}`).maybeSingle();
+                if (cfg?.data?.fullPan) {
+                  liveCardNumber = cfg.data.fullPan;
+                  if (cfg.data.cvv) liveCvv = cfg.data.cvv;
+                  if (cfg.data.expiryMonth) liveExpMonth = cfg.data.expiryMonth;
+                  if (cfg.data.expiryYear) liveExpYear = cfg.data.expiryYear;
+                }
+              } catch (_) {}
+            }
+
+            // Synchronous live sync with Maplerad issuing API (2.5s timeout)
             if (process.env.MAPLERAD_SECRET_KEY && cardKey) {
-              (async () => {
-                try {
-                  const mapleradRes = await fetch(`https://api.maplerad.com/v1/issuing/${cardKey}`, {
-                    headers: { 'Authorization': `Bearer ${process.env.MAPLERAD_SECRET_KEY}` },
-                    signal: AbortSignal.timeout(3000),
-                  });
-                  const mapleradData = await mapleradRes.json().catch(() => ({}));
-                  if (mapleradData?.status && mapleradData?.data) {
-                    const updateObj: any = {};
-                    if (mapleradData.data.balance != null) {
-                      updateObj.balance = Number(mapleradData.data.balance) / 100;
-                    }
-                    if (mapleradData.data.card_number) {
-                      updateObj.full_pan = mapleradData.data.card_number;
-                    }
-                    if (mapleradData.data.cvv) {
-                      updateObj.cvv = mapleradData.data.cvv;
-                    }
-                    if (mapleradData.data.expiry && typeof mapleradData.data.expiry === 'string' && mapleradData.data.expiry.includes('/')) {
-                      const [m, y] = mapleradData.data.expiry.split('/');
-                      updateObj.expiry_month = m;
-                      updateObj.expiry_year = y;
-                    }
-                    if (Object.keys(updateObj).length > 0) {
-                      await supabase?.from('virtual_cards').update(updateObj).eq('id', c.id);
-                    }
+              try {
+                const mapleradRes = await fetch(`https://api.maplerad.com/v1/issuing/${cardKey}`, {
+                  headers: { 'Authorization': `Bearer ${process.env.MAPLERAD_SECRET_KEY}` },
+                  signal: AbortSignal.timeout(2500),
+                });
+                const mapleradData = await mapleradRes.json().catch(() => ({}));
+                if (mapleradData?.status && mapleradData?.data) {
+                  if (mapleradData.data.balance != null) {
+                    liveBal = Number(mapleradData.data.balance) / 100;
                   }
-                } catch (_) {}
-              })();
+                  if (mapleradData.data.card_number) {
+                    liveCardNumber = mapleradData.data.card_number;
+                  }
+                  if (mapleradData.data.cvv) {
+                    liveCvv = mapleradData.data.cvv;
+                  }
+                  if (mapleradData.data.expiry && typeof mapleradData.data.expiry === 'string' && mapleradData.data.expiry.includes('/')) {
+                    const [m, y] = mapleradData.data.expiry.split('/');
+                    liveExpMonth = m;
+                    liveExpYear = y;
+                  }
+
+                  // Update Supabase virtual_cards with latest balance, expiry, cvv
+                  await supabase?.from('virtual_cards').update({
+                    balance: liveBal,
+                    cvv: liveCvv,
+                    expiry_month: liveExpMonth,
+                    expiry_year: liveExpYear,
+                    updated_at: new Date().toISOString()
+                  }).eq('id', c.id);
+
+                  // Persist full decrypted card details
+                  if (liveCardNumber) {
+                    await supabase?.from('system_configs').upsert({
+                      id: `card_details_${cardKey}`,
+                      data: {
+                        cardId: cardKey,
+                        fullPan: liveCardNumber,
+                        cvv: liveCvv,
+                        expiryMonth: liveExpMonth,
+                        expiryYear: liveExpYear,
+                        balance: liveBal,
+                        updatedAt: new Date().toISOString()
+                      }
+                    }, { onConflict: 'id' });
+                  }
+                }
+              } catch (_) {}
             }
 
             // Format full PAN with 4-digit spacing e.g. "4288 5201 4513 2470"
-            // Only use the real PAN from Maplerad API sync — never fabricate from masked_pan
             let formattedFullPan: string | undefined = liveCardNumber;
             if (formattedFullPan) {
               const raw = formattedFullPan.replace(/\s+/g, '');
@@ -268,7 +299,6 @@ export class CardIssuingService {
                 formattedFullPan = raw.match(/.{1,4}/g)?.join(' ') || raw;
               }
             }
-            // If no real PAN yet (Maplerad sync hasn't run) — leave undefined so UI shows masked_pan cleanly
 
             return {
               id: c.id,
@@ -292,7 +322,7 @@ export class CardIssuingService {
               billingAddress: this.DEFAULT_BILLING_ADDRESS,
               createdAt: c.created_at || new Date().toISOString(),
             };
-          });
+          }));
 
           _runtimeCardCache.set(cleanEmail, cards);
           return cards;
@@ -743,6 +773,103 @@ export class CardIssuingService {
   }
 
   /**
+   * Spends / debits funds on a virtual card (merchant payment / simulation)
+   * Decrements card balance in Supabase and records the debit transaction.
+   */
+  static async spendCard(
+    cardId: string,
+    amountUsd: number,
+    merchantName: string = 'Amazon.com',
+    merchantCategory: string = 'Online Shopping'
+  ): Promise<{ success: boolean; newBalance: number; message: string; transaction?: CardTransaction }> {
+    if (amountUsd <= 0) {
+      return { success: false, newBalance: 0, message: 'Invalid spend amount' };
+    }
+
+    let currentBalance = 0;
+    let cardEmail = '';
+    let cardKey = cardId;
+    let cardholderName = 'Cardholder';
+    let isFrozen = false;
+
+    if (supabase) {
+      const { data: card, error } = await supabase
+        .from('virtual_cards')
+        .select('*')
+        .or(`id.eq.${cardId},card_id.eq.${cardId}`)
+        .single();
+
+      if (error || !card) {
+        return { success: false, newBalance: 0, message: 'Card not found' };
+      }
+
+      currentBalance = Number(card.balance || 0);
+      cardEmail = card.email || '';
+      cardKey = card.card_id || card.id;
+      cardholderName = card.cardholder_name || 'Cardholder';
+      isFrozen = card.is_frozen === true;
+    }
+
+    if (isFrozen) {
+      return { success: false, newBalance: currentBalance, message: 'Card is frozen. Please unfreeze before making payments.' };
+    }
+
+    if (currentBalance < amountUsd) {
+      return {
+        success: false,
+        newBalance: currentBalance,
+        message: `Insufficient card balance: $${currentBalance.toFixed(2)} USD available, $${amountUsd.toFixed(2)} USD requested.`
+      };
+    }
+
+    const newBalance = Number((currentBalance - amountUsd).toFixed(2));
+
+    // Update in Supabase
+    if (supabase) {
+      await supabase
+        .from('virtual_cards')
+        .update({ balance: newBalance, updated_at: new Date().toISOString() })
+        .or(`id.eq.${cardId},card_id.eq.${cardId}`);
+    }
+
+    // Update runtime card cache
+    if (cardEmail && _runtimeCardCache.has(cardEmail)) {
+      const list = _runtimeCardCache.get(cardEmail)!;
+      for (const c of list) {
+        if (c.id === cardId || c.cardId === cardId || c.id === cardKey || c.cardId === cardKey) {
+          c.balance = newBalance;
+        }
+      }
+    }
+
+    // Record transaction
+    const tx: CardTransaction = {
+      id: `RTL_CTX_${Date.now()}`,
+      cardId: cardKey,
+      merchantName,
+      merchantCategory,
+      amount: amountUsd,
+      currency: 'USD',
+      type: 'DEBIT',
+      status: 'SUCCESSFUL',
+      date: new Date().toISOString(),
+    };
+
+    const existingTxs = _runtimeTxCache.get(cardKey) || [];
+    _runtimeTxCache.set(cardKey, [tx, ...existingTxs]);
+    if (cardId !== cardKey) {
+      _runtimeTxCache.set(cardId, [tx, ...(_runtimeTxCache.get(cardId) || [])]);
+    }
+
+    return {
+      success: true,
+      newBalance,
+      message: `Card spend of $${amountUsd.toFixed(2)} USD at ${merchantName} processed successfully.`,
+      transaction: tx,
+    };
+  }
+
+  /**
    * Withdraws/Liquidates funds from a virtual card to Naira (NGN) or USDT
    * Ensures platform profit via liquidation fee + FX buy spread margin.
    */
@@ -1137,6 +1264,10 @@ export class CardIssuingService {
                 expiryMonth = m;
                 expiryYear = y;
               }
+              if (mapleradData.data.balance != null) {
+                const balUsd = Number(mapleradData.data.balance) / 100;
+                await supabase.from('virtual_cards').update({ balance: balUsd, updated_at: new Date().toISOString() }).eq('id', data.id);
+              }
             }
           } catch (_) {}
         }
@@ -1147,6 +1278,23 @@ export class CardIssuingService {
         const raw = fullPan.replace(/\s+/g, '');
         if (raw.length === 16) {
           fullPan = raw.match(/.{1,4}/g)?.join(' ') || raw;
+        }
+
+        // Persist revealed credentials to system_configs cache
+        if (supabase) {
+          try {
+            await supabase.from('system_configs').upsert({
+              id: `card_details_${cardKey}`,
+              data: {
+                cardId: cardKey,
+                fullPan: fullPan,
+                cvv: cvv,
+                expiryMonth: expiryMonth,
+                expiryYear: expiryYear,
+                updatedAt: new Date().toISOString()
+              }
+            }, { onConflict: 'id' });
+          } catch (_) {}
         }
 
         return {

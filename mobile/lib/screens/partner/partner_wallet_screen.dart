@@ -1510,6 +1510,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                   Column(
                     children: [
                       VirtualCardWidget(
+                        cardId: (_cardData!['cardId'] ?? _cardData!['id'])?.toString(),
                         cardholderName: _cardData!['cardholderName'] ?? _user?.businessName ?? _user?.fullName ?? 'Corporate Partner',
                         maskedPan: _cardData!['maskedPan'] ?? '•••• •••• •••• ••••',
                         fullPan: _cardData!['fullPan'] ?? _cardData!['pan'] ?? '',

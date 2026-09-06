@@ -821,6 +821,35 @@ class ApiService {
     return null;
   }
 
+  /// Spends / debits funds on virtual card (POS/Online merchant purchase or simulation)
+  static Future<Map<String, dynamic>?> spendCard({
+    required String cardId,
+    required double amountUsd,
+    String merchantName = 'Amazon.com',
+    String merchantCategory = 'Online Shopping',
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$baseUrl/cards/spend'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'cardId': cardId,
+          'amountUsd': amountUsd,
+          'merchantName': merchantName,
+          'merchantCategory': merchantCategory,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      if (res.statusCode == 200) {
+        final data = json.decode(res.body);
+        if (data['status'] == true) {
+          return Map<String, dynamic>.from(data);
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
   /// Freeze/Unfreeze virtual card directly in Supabase
   static Future<bool> toggleFreezeVirtualCard(String email, String cardId, {bool? targetFrozen}) async {
     // 1. Direct Supabase Cloud REST

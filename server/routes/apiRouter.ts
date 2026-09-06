@@ -297,6 +297,7 @@ apiRouter.post('/cards/toggle-freeze', paymentController.toggleFreezeVirtualCard
 apiRouter.post('/cards/delete', paymentController.deleteVirtualCard);
 apiRouter.post('/cards/set-pin', paymentController.setCardPin);
 apiRouter.post('/cards/reveal-details', paymentController.revealCardDetails);
+apiRouter.post('/cards/spend', paymentController.spendCard);
 apiRouter.get('/cards/transactions/:cardId', paymentController.getCardTransactions);
 
 // 23. Client Push & Email Notification Dispatch Trigger
