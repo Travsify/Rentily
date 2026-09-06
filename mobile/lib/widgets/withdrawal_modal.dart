@@ -8,6 +8,7 @@ import '../constants/app_constants.dart';
 import '../models/user_profile.dart';
 import '../services/auth_service.dart';
 import '../services/api_service.dart';
+import '../services/beneficiary_service.dart';
 import '../services/notification_service.dart';
 import '../services/payment_security_service.dart';
 import '../services/security_telemetry_service.dart';
@@ -39,6 +40,8 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
   final TextEditingController _accountController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _cryptoAddressController = TextEditingController();
+  final TextEditingController _beneficiarySearchController = TextEditingController();
+  final FocusNode _amountFocusNode = FocusNode();
 
   String _withdrawalMode = 'NGN'; // 'NGN' or 'USDT'
   String _usdtDestinationType = 'BANK'; // 'BANK' (Convert to NGN) or 'CRYPTO' (Send on-chain)
@@ -53,6 +56,12 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
   bool _isProcessing = false;
   bool _isLoadingBanks = false;
   String? _errorMessage;
+
+  // Beneficiary Management
+  List<Map<String, dynamic>> _savedBeneficiaries = [];
+  List<Map<String, dynamic>> _filteredBeneficiaries = [];
+  bool _isLoadingBeneficiaries = false;
+  Map<String, dynamic>? _selectedBeneficiary;
 
   double get _enteredAmount {
     return double.tryParse(_amountController.text.replaceAll(',', '').trim()) ?? 0.0;
@@ -106,6 +115,213 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
     _fetchPaystackBanks();
     _fetchSpreadRates();
     _fetchPlatformFees();
+    _loadBeneficiaries();
+  }
+
+  @override
+  void dispose() {
+    _amountFocusNode.dispose();
+    _beneficiarySearchController.dispose();
+    _accountController.dispose();
+    _amountController.dispose();
+    _cryptoAddressController.dispose();
+    super.dispose();
+  }
+
+  void _loadBeneficiaries() async {
+    setState(() => _isLoadingBeneficiaries = true);
+    final list = await BeneficiaryService.getBeneficiaries(userEmail: widget.user.email);
+    if (mounted) {
+      setState(() {
+        _savedBeneficiaries = list;
+        _filteredBeneficiaries = list;
+        _isLoadingBeneficiaries = false;
+      });
+    }
+  }
+
+  void _onSearchBeneficiaries(String query) {
+    setState(() {
+      _filteredBeneficiaries = BeneficiaryService.search(query, _savedBeneficiaries);
+    });
+  }
+
+  void _selectBeneficiary(Map<String, dynamic> b) {
+    final bankCode = b['bankCode']?.toString() ?? '';
+    final bankName = b['bankName']?.toString() ?? '';
+    final accNum = b['accountNumber']?.toString() ?? '';
+    final accName = b['accountName']?.toString() ?? '';
+
+    setState(() {
+      _selectedBeneficiary = b;
+      if (b['type'] == 'crypto' && b['cryptoAddress'] != null) {
+        _withdrawalMode = 'USDT';
+        _usdtDestinationType = 'CRYPTO';
+        _cryptoAddressController.text = b['cryptoAddress'].toString();
+      } else {
+        _withdrawalMode = 'NGN';
+        _selectedBankCode = bankCode.isNotEmpty ? bankCode : '058';
+        _selectedBankName = bankName.isNotEmpty ? bankName : 'Guaranty Trust Bank (GTBank)';
+        _accountController.text = accNum;
+        _resolvedAccountName = accName.isNotEmpty ? accName : null;
+        _accountResolutionError = null;
+      }
+      _errorMessage = null;
+    });
+
+    // Auto-focus on the amount field so the user can immediately type how much to send
+    Future.delayed(const Duration(milliseconds: 150), () {
+      if (mounted) {
+        _amountFocusNode.requestFocus();
+      }
+    });
+  }
+
+  void _openBeneficiarySearchSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) {
+        String query = '';
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            final results = BeneficiaryService.search(query, _savedBeneficiaries);
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.80,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.people_alt_rounded, size: 20, color: AppColors.primary),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Past Recipients (${_savedBeneficiaries.length})',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ],
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 20),
+                        onPressed: () => Navigator.of(sheetCtx).pop(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    autofocus: true,
+                    style: GoogleFonts.plusJakartaSans(fontSize: 13),
+                    decoration: InputDecoration(
+                      hintText: 'Search by recipient name, bank, or account...',
+                      hintStyle: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textMuted),
+                      prefixIcon: const Icon(Icons.search_rounded, size: 18, color: AppColors.primary),
+                      suffixIcon: query.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear_rounded, size: 16),
+                              onPressed: () => setSheetState(() => query = ''),
+                            )
+                          : null,
+                      filled: true,
+                      fillColor: const Color(0xFFF9FAFB),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: AppColors.borderDark),
+                      ),
+                    ),
+                    onChanged: (val) => setSheetState(() => query = val),
+                  ),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: results.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.person_search_rounded, size: 40, color: AppColors.textMuted),
+                                const SizedBox(height: 8),
+                                Text(
+                                  query.isEmpty
+                                      ? 'No past recipients yet.\nRecipients will be saved here automatically whenever you send money.'
+                                      : 'No recipients matching "$query"',
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textMuted),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.separated(
+                            itemCount: results.length,
+                            separatorBuilder: (_, __) => const Divider(height: 1, color: AppColors.borderDark),
+                            itemBuilder: (context, idx) {
+                              final b = results[idx];
+                              final name = (b['accountName'] ?? 'Unknown Recipient').toString();
+                              final bank = (b['bankName'] ?? 'Bank').toString();
+                              final acc = (b['accountNumber'] ?? '').toString();
+                              final initials = name.trim().split(' ').map((s) => s.isNotEmpty ? s[0] : '').take(2).join('').toUpperCase();
+
+                              return ListTile(
+                                dense: true,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                                leading: CircleAvatar(
+                                  radius: 18,
+                                  backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                                  child: Text(
+                                    initials.isNotEmpty ? initials : 'RP',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                ),
+                                title: Text(
+                                  name,
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                ),
+                                subtitle: Text(
+                                  '$bank • $acc',
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
+                                ),
+                                trailing: IconButton(
+                                  icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.textMuted),
+                                  onPressed: () async {
+                                    await BeneficiaryService.deleteBeneficiary(
+                                      userEmail: widget.user.email,
+                                      accountNumber: acc,
+                                      bankCode: b['bankCode'] ?? '',
+                                    );
+                                    _loadBeneficiaries();
+                                    setSheetState(() {});
+                                  },
+                                ),
+                                onTap: () {
+                                  Navigator.of(sheetCtx).pop();
+                                  _selectBeneficiary(b);
+                                },
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   void _fetchPlatformFees() async {
@@ -348,30 +564,25 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
     } else {
       final double totalNgnRequired = _computedNgnAmount;
       if (totalNgnRequired > currentBal) {
-        setState(() => _errorMessage = 'Amount exceeds available balance (₦${NumberFormat('#,###.00').format(currentBal)}).');
+        setState(() => _errorMessage = 'Insufficient funds. Available balance: ₦${NumberFormat('#,###.00').format(currentBal)}');
         return;
       }
     }
 
-    final double totalNgnRequired = _computedNgnAmount;
-
-    // Branch A: Direct Crypto Payout (USDT on-chain)
+    // Branch A: USDT On-chain Transfer to TRC20 Address
     if (_withdrawalMode == 'USDT' && _usdtDestinationType == 'CRYPTO') {
-      final cryptoAddress = _cryptoAddressController.text.trim();
-      if (cryptoAddress.isEmpty || cryptoAddress.length < 15) {
-        setState(() => _errorMessage = 'Please enter a valid recipient TRC20 / TRON wallet address.');
+      final cryptoAddr = _cryptoAddressController.text.trim();
+      if (cryptoAddr.length < 30 || !cryptoAddr.startsWith('T')) {
+        setState(() => _errorMessage = 'Please enter a valid TRON TRC20 wallet address (starts with T).');
         return;
       }
-
-      final feeAmount = _usdtFeeAmount;
-      final netAmount = _usdtNetPayoutAmount;
 
       if (!mounted) return;
       final authorized = await PaymentSecurityService.authorizeTransaction(
         context,
-        title: 'Crypto Payout: ${entered.toStringAsFixed(2)} USDT',
-        amount: totalNgnRequired,
-        recipient: '$cryptoAddress (Fee: ${_usdtWithdrawalFeePct.toStringAsFixed(1)}% | Net: ${netAmount.toStringAsFixed(2)} USDT)',
+        title: 'Transfer $entered USDT (TRC20)',
+        amount: entered,
+        recipient: '${cryptoAddr.substring(0, 6)}...${cryptoAddr.substring(cryptoAddr.length - 6)}',
       );
       if (!authorized) {
         setState(() => _errorMessage = 'Payment authorization cancelled or incorrect.');
@@ -391,9 +602,11 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
           body: json.encode({
             'userId': currentUser.id,
             'email': currentUser.email,
-            'address': cryptoAddress,
+            'cryptoAddress': cryptoAddr,
+            'chain': 'TRC20',
             'amountUsdt': entered,
-            'chain': 'tron'
+            'feeUsdt': _usdtFeeAmount,
+            'netPayoutUsdt': _usdtNetPayoutAmount,
           }),
         ).timeout(const Duration(seconds: 30));
 
@@ -403,24 +616,28 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
         if (res.statusCode == 200 && data['status'] == true) {
           final serverNewBal = (data['newBalance'] != null)
               ? (data['newBalance'] as num).toDouble()
-              : currentBal;
-          final updatedUsdtBal = (data['newUsdtBalance'] != null)
-              ? (data['newUsdtBalance'] as num).toDouble()
               : (availUsdt - entered).clamp(0.0, double.infinity);
-          final updatedUser = currentUser.copyWith(usdtBalance: updatedUsdtBal);
-          await AuthService.updateUser(updatedUser);
           widget.onWithdrawalSuccess(serverNewBal);
 
+          // Save crypto beneficiary
+          BeneficiaryService.saveBeneficiary(
+            userEmail: currentUser.email,
+            accountName: 'TRC20 Wallet (${cryptoAddr.substring(0, 6)}...)',
+            accountNumber: cryptoAddr,
+            bankName: 'TRON TRC20',
+            bankCode: 'TRON',
+            type: 'crypto',
+            cryptoAddress: cryptoAddr,
+          );
+
           NotificationService.addNotification(
-            title: 'USDT Withdrawal Dispatched ⚡',
-            message: 'Payout of $entered USDT dispatched to $cryptoAddress. ${_usdtWithdrawalFeePct.toStringAsFixed(1)}% fee (${feeAmount.toStringAsFixed(2)} USDT) applied; recipient receives ${netAmount.toStringAsFixed(2)} USDT.',
+            title: 'USDT Withdrawal Dispatched 🚀',
+            message: 'Transfer of $entered USDT to ${cryptoAddr.substring(0, 8)}... has been submitted to the blockchain.',
             category: 'transaction',
             metadata: {
-              'amountUsdt': entered.toString(),
-              'feeUsdt': feeAmount.toString(),
-              'netUsdt': netAmount.toString(),
-              'amountNgn': totalNgnRequired.toString(),
-              'address': cryptoAddress,
+              'amount': '\$$entered USDT',
+              'address': cryptoAddr,
+              'network': 'TRON TRC20',
             },
           );
 
@@ -468,6 +685,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
     }
 
     final confirmedRecipient = _resolvedAccountName!.trim();
+    final double totalNgnRequired = _computedNgnAmount;
 
     if (!mounted) return;
     final authorized = await PaymentSecurityService.authorizeTransaction(
@@ -517,6 +735,16 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
             ? (data['newBalance'] as num).toDouble()
             : (currentBal - totalNgnRequired).clamp(0.0, double.infinity);
         widget.onWithdrawalSuccess(serverNewBal);
+
+        // Save beneficiary for future instant 1-tap searches & auto-fill
+        BeneficiaryService.saveBeneficiary(
+          userEmail: currentUser.email,
+          accountName: confirmedRecipient,
+          accountNumber: accNum,
+          bankName: _selectedBankName,
+          bankCode: _selectedBankCode,
+          type: 'bank',
+        );
 
         NotificationService.addNotification(
           title: 'Bank Withdrawal Dispatched 💳',
@@ -591,7 +819,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
                     const Icon(Icons.north_east_rounded, size: 20, color: AppColors.primary),
                     const SizedBox(width: 8),
                     Text(
-                      'Withdraw Funds',
+                      'Send / Withdraw Funds',
                       style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                     ),
                   ],
@@ -604,7 +832,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Withdraw directly to any Nigerian bank or transfer USDT on-chain.',
+              'Send money to saved beneficiaries, any Nigerian bank account, or transfer USDT on-chain.',
               style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 14),
@@ -628,7 +856,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 10),
                         decoration: BoxDecoration(
-                          color: _withdrawalMode == 'NGN' ? Colors.white : Colors.transparent,
+                           color: _withdrawalMode == 'NGN' ? Colors.white : Colors.transparent,
                           borderRadius: BorderRadius.circular(10),
                           boxShadow: _withdrawalMode == 'NGN'
                               ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2))]
@@ -747,6 +975,191 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
               const SizedBox(height: 12),
             ],
 
+            // ── Past Recipients / Beneficiaries Section ──
+            if (_savedBeneficiaries.isNotEmpty || _beneficiarySearchController.text.isNotEmpty) ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.history_rounded, size: 14, color: AppColors.primary),
+                      const SizedBox(width: 5),
+                      Text(
+                        'PAST RECIPIENTS (${_savedBeneficiaries.length})',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w800, color: AppColors.textSecondary, letterSpacing: 0.5),
+                      ),
+                      if (_isLoadingBeneficiaries) ...[
+                        const SizedBox(width: 6),
+                        const SizedBox(
+                          width: 10,
+                          height: 10,
+                          child: CircularProgressIndicator(strokeWidth: 1.5, color: AppColors.primary),
+                        ),
+                      ],
+                    ],
+                  ),
+                  GestureDetector(
+                    onTap: _openBeneficiarySearchSheet,
+                    child: Text(
+                      'Search All ➔',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+
+              // Search Past Recipients Input
+              TextField(
+                controller: _beneficiarySearchController,
+                style: GoogleFonts.plusJakartaSans(fontSize: 12),
+                decoration: InputDecoration(
+                  hintText: 'Search past recipient name, bank, or account...',
+                  hintStyle: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: AppColors.textMuted),
+                  prefixIcon: const Icon(Icons.search_rounded, size: 16, color: AppColors.primary),
+                  suffixIcon: _beneficiarySearchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear_rounded, size: 14),
+                          onPressed: () {
+                            _beneficiarySearchController.clear();
+                            _onSearchBeneficiaries('');
+                          },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: const Color(0xFFF9FAFB),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.borderDark)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.borderDark)),
+                ),
+                onChanged: _onSearchBeneficiaries,
+              ),
+              const SizedBox(height: 8),
+
+              // Quick Beneficiary Chips / Avatars
+              SizedBox(
+                height: 72,
+                child: _filteredBeneficiaries.isEmpty
+                    ? Center(
+                        child: Text(
+                          'No past recipient found for "${_beneficiarySearchController.text}"',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textMuted),
+                        ),
+                      )
+                    : ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _filteredBeneficiaries.length,
+                        itemBuilder: (context, idx) {
+                          final b = _filteredBeneficiaries[idx];
+                          final name = (b['accountName'] ?? 'Recipient').toString();
+                          final bank = (b['bankName'] ?? 'Bank').toString();
+                          final isSelected = _selectedBeneficiary != null &&
+                              _selectedBeneficiary!['accountNumber'] == b['accountNumber'] &&
+                              _selectedBeneficiary!['bankCode'] == b['bankCode'];
+
+                          final initials = name.trim().split(' ').map((s) => s.isNotEmpty ? s[0] : '').take(2).join('').toUpperCase();
+
+                          return GestureDetector(
+                            onTap: () => _selectBeneficiary(b),
+                            child: Container(
+                              width: 110,
+                              margin: const EdgeInsets.only(right: 8),
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: isSelected ? AppColors.primary.withValues(alpha: 0.08) : const Color(0xFFF9FAFB),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isSelected ? AppColors.primary : AppColors.borderDark,
+                                  width: isSelected ? 1.5 : 1,
+                                ),
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  CircleAvatar(
+                                    radius: 13,
+                                    backgroundColor: isSelected ? AppColors.primary : const Color(0xFFE5E7EB),
+                                    child: Text(
+                                      initials.isNotEmpty ? initials : 'R',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 9.5,
+                                        fontWeight: FontWeight.bold,
+                                        color: isSelected ? Colors.white : AppColors.textPrimary,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 10.5,
+                                      fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                      color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                                    ),
+                                  ),
+                                  Text(
+                                    bank,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.plusJakartaSans(fontSize: 8.5, color: AppColors.textSecondary),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+
+              if (_selectedBeneficiary != null) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFECFDF5),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFA7F3D0)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.check_circle_rounded, size: 16, color: Color(0xFF059669)),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Sending to: ${_selectedBeneficiary!['accountName']} • ${_selectedBeneficiary!['bankName']}',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF065F46)),
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _selectedBeneficiary = null;
+                            _accountController.clear();
+                            _resolvedAccountName = null;
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: const Color(0xFFA7F3D0)),
+                          ),
+                          child: Text(
+                            'Clear',
+                            style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.bold, color: const Color(0xFF059669)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+            ],
+
             // If USDT: Show Destination Selector (Bank Payout or Crypto Address)
             if (_withdrawalMode == 'USDT') ...[
               Text(
@@ -797,6 +1210,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
             const SizedBox(height: 6),
             TextField(
               controller: _amountController,
+              focusNode: _amountFocusNode,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
               decoration: InputDecoration(
@@ -1005,7 +1419,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
                             ? (_usdtDestinationType == 'CRYPTO' 
                                 ? 'Authorize & Send ${_enteredAmount.toStringAsFixed(2)} USDT' 
                                 : 'Convert & Payout ₦${NumberFormat('#,###.00').format(_computedNgnAmount)}')
-                            : 'Authorize & Withdraw ₦${NumberFormat('#,###.00').format(_computedNgnAmount)}',
+                            : 'Authorize & Send ₦${NumberFormat('#,###.00').format(_computedNgnAmount)}',
                         style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold),
                       ),
               ),
