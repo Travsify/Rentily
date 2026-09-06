@@ -791,7 +791,7 @@ export async function loginWithOtp(req: Request, res: Response) {
 // Critical for users whose name was auto-set from email prefix.
 export async function updateProfile(req: Request, res: Response) {
   try {
-    const { email, fullName, phoneNumber, state, avatarUrl } = req.body;
+    const { email, fullName, phoneNumber, state, avatarUrl, businessName, cacNumber, officeAddress, lasreraNumber } = req.body;
     if (!email) {
       return res.status(400).json({ error: 'Email is required to identify the account.' });
     }
@@ -807,6 +807,10 @@ export async function updateProfile(req: Request, res: Response) {
     if (phoneNumber) user.phoneNumber = phoneNumber.replace(/[^0-9+]/g, '');
     if (state) user.state = state;
     if (avatarUrl) user.avatarUrl = avatarUrl;
+    if (businessName) user.businessName = businessName.trim();
+    if (cacNumber) user.cacNumber = cacNumber.trim();
+    if (officeAddress) user.officeAddress = officeAddress.trim();
+    if (lasreraNumber !== undefined) user.lasreraNumber = lasreraNumber ? lasreraNumber.trim() : null;
 
     UserStore.upsertUser(user);
 
@@ -818,6 +822,10 @@ export async function updateProfile(req: Request, res: Response) {
         if (phoneNumber) update.phone_number = phoneNumber.replace(/[^0-9+]/g, '');
         if (state) update.state = state;
         if (avatarUrl) update.avatar_url = avatarUrl;
+        if (businessName) update.business_name = businessName.trim();
+        if (cacNumber) update.cac_number = cacNumber.trim();
+        if (officeAddress) update.office_address = officeAddress.trim();
+        if (lasreraNumber !== undefined) update.lasrera_number = lasreraNumber ? lasreraNumber.trim() : null;
         if (Object.keys(update).length > 0) {
           await supabase.from('profiles').update(update).eq('email', cleanEmail);
         }
@@ -836,6 +844,10 @@ export async function updateProfile(req: Request, res: Response) {
         phoneNumber: user.phoneNumber,
         role: user.role,
         state: user.state,
+        businessName: user.businessName,
+        cacNumber: user.cacNumber,
+        officeAddress: user.officeAddress,
+        lasreraNumber: user.lasreraNumber,
         isVerified: user.isVerified,
         bvnVerified: user.bvnVerified,
         walletBalance: user.walletBalance || 0,

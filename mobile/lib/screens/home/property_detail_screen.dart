@@ -89,6 +89,37 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
     }
   }
 
+  void _shareClientPitch() {
+    final prop = widget.property;
+    final isRent = prop.purpose == 'rent';
+    final firmName = _currentUser?.businessName != null && _currentUser!.businessName!.trim().isNotEmpty
+        ? _currentUser!.businessName!.trim()
+        : (_currentUser?.fullName.trim().isNotEmpty == true ? _currentUser!.fullName.trim() : 'Accredited Brokerage Partner');
+    final repPhone = _currentUser?.phoneNumber.isNotEmpty == true ? _currentUser!.phoneNumber : '';
+    final repEmail = _currentUser?.email ?? '';
+
+    final pitchText = '🏢 EXCLUSIVE PROPERTY PRESENTATION\n'
+        'Prepared by: $firmName\n'
+        '━━━━━━━━━━━━━━━━━━━━\n\n'
+        '📍 ${prop.title}\n'
+        '📌 Location: ${prop.neighborhood}, ${prop.state}\n'
+        '💰 Price: ₦${_currencyFormat.format(prop.basePrice)}${isRent ? ' /year' : ' (Outright Sale)'}\n'
+        '🛏️ Specifications: ${prop.bedrooms} Bed • ${prop.bathrooms} Bath • ${prop.furnishing.replaceAll('_', ' ').toUpperCase()}\n'
+        '🛡️ Title: Anti-Ghost Verified & Title Audited\n\n'
+        '✨ Key Amenities:\n'
+        '${prop.amenities.take(5).map((a) => '• $a').join('\n')}\n\n'
+        '🔒 Escrow Protection Guarantee:\n'
+        'All client transactions and caution deposits are secured through Rentilly Escrow. Zero unverified agency fees.\n\n'
+        '📞 To schedule an exclusive private walkthrough, contact our accredited representative:\n'
+        'Broker: $firmName\n'
+        '${repPhone.isNotEmpty ? "Phone: $repPhone\n" : ""}'
+        'Email: $repEmail\n'
+        '━━━━━━━━━━━━━━━━━━━━\n'
+        'Verified on Rentilly Escrow Network 🛡️';
+
+    Share.share(pitchText, subject: 'Exclusive Property Presentation: ${prop.title}');
+  }
+
   void _showInspectionModal() {
     String inspectionType = 'video'; // 'video' or 'in_person'
     String selectedDate = DateFormat('yyyy-MM-dd').format(DateTime.now().add(const Duration(days: 1)));
@@ -778,10 +809,20 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
           border: Border(top: BorderSide(color: AppColors.borderDark)),
         ),
         child: SafeArea(
-          child: (_currentUser?.id != null && _currentUser!.id == prop.ownerId)
-              ? Row(
+          child: Builder(
+            builder: (context) {
+              final isDirectOwner = _currentUser?.id != null && _currentUser!.id == prop.ownerId;
+              final isMandatePartner = _currentUser?.id != null &&
+                  (_currentUser!.id == prop.partnerId ||
+                      (_currentUser!.phoneNumber.isNotEmpty && _currentUser!.phoneNumber == prop.ownerPhone && prop.listedByRole == 'verified_partner'));
+              final isPartnerViewer = _currentUser?.isPartner == true;
+
+              // CASE 1: The host viewing their own property (Direct Landlord or Mandate Partner)
+              if (isDirectOwner || isMandatePartner) {
+                return Row(
                   children: [
                     Expanded(
+                      flex: 4,
                       child: OutlinedButton.icon(
                         onPressed: () async {
                           final newStatus = prop.status == 'unlisted' ? 'verified' : 'unlisted';
@@ -804,13 +845,13 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                         },
                         icon: Icon(
                           prop.status == 'unlisted' ? Icons.visibility_rounded : Icons.visibility_off_rounded,
-                          size: 16,
+                          size: 15,
                           color: prop.status == 'unlisted' ? const Color(0xFF16A34A) : Colors.red,
                         ),
                         label: Text(
-                          prop.status == 'unlisted' ? 'Relist Unit 🚀' : 'Unlist Unit',
+                          prop.status == 'unlisted' ? 'Relist' : 'Unlist',
                           style: GoogleFonts.plusJakartaSans(
-                            fontSize: 11.5,
+                            fontSize: 11,
                             fontWeight: FontWeight.bold,
                             color: prop.status == 'unlisted' ? const Color(0xFF16A34A) : Colors.red,
                           ),
@@ -822,14 +863,15 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    const SizedBox(width: 8),
                     Expanded(
+                      flex: 6,
                       child: ElevatedButton.icon(
-                        onPressed: () => Navigator.of(context).pop(),
-                        icon: const Icon(Icons.check_circle_rounded, size: 16, color: Colors.white),
+                        onPressed: _shareClientPitch,
+                        icon: const Icon(Icons.share_rounded, size: 15, color: Colors.white),
                         label: Text(
-                          'Your Portfolio Unit 🔑',
-                          style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white),
+                          isMandatePartner ? 'Mandate Unit 🏢' : 'Portfolio Unit 🔑',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF064E3B),
@@ -839,8 +881,13 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                       ),
                     ),
                   ],
-                )
-              : Column(
+                );
+              }
+
+              // CASE 2: An accredited Partner viewing another host's property on Public Marketplace
+              if (isPartnerViewer) {
+                final coBrokerYield = prop.basePrice * (isRent ? 0.025 : 0.02);
+                return Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Row(
@@ -852,19 +899,19 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                isRent ? 'Direct Landlord Rent' : 'Direct Purchase Price',
+                                '₦${_currencyFormat.format(prop.basePrice)}${isRent ? ' /yr' : ''}',
                                 style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 10,
-                                  color: AppColors.textSecondary,
-                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w900,
+                                  color: AppColors.primary,
                                 ),
                               ),
                               Text(
-                                '₦${_currencyFormat.format(prop.basePrice)}${isRent ? ' /yr' : ''}',
+                                'Co-Broker Yield: ₦${_currencyFormat.format(coBrokerYield)}',
                                 style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w900,
-                                  color: AppColors.primary,
+                                  fontSize: 9.5,
+                                  color: const Color(0xFF16A34A),
+                                  fontWeight: FontWeight.w800,
                                 ),
                               ),
                             ],
@@ -874,7 +921,6 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // Chat with Landlord / Partner
                             InkWell(
                               borderRadius: BorderRadius.circular(10),
                               onTap: _startChat,
@@ -893,68 +939,167 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            // Book Inspection Button
-                            OutlinedButton(
+                            OutlinedButton.icon(
                               onPressed: _showInspectionModal,
+                              icon: const Icon(Icons.calendar_month_rounded, size: 14),
+                              label: Text(
+                                'Book for Client',
+                                style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold),
+                              ),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: AppColors.primary,
                                 side: const BorderSide(color: AppColors.primary, width: 1.2),
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                              ),
-                              child: Text(
-                                'Book Inspection',
-                                style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold),
                               ),
                             ),
                           ],
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
-                    // PRIMARY ESCROW ACTION BUTTON
+                    const SizedBox(height: 8),
                     SizedBox(
                       width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () {
-                          if (_currentUser == null) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Please log in to initiate escrow.')),
-                            );
-                            return;
-                          }
-                          EscrowCheckoutModal.show(
-                            context,
-                            property: prop,
-                            user: _currentUser!,
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0D5C46), // Deep emerald escrow green
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 13),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          elevation: 0,
+                      child: ElevatedButton.icon(
+                        onPressed: _shareClientPitch,
+                        icon: const Icon(Icons.send_rounded, size: 15, color: Colors.white),
+                        label: Text(
+                          'Share Client Pitch Deck 📱 (Whitelabel)',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF064E3B),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }
+
+              // CASE 3: Standard prospective tenant or buyer view
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.shield_rounded, size: 16),
-                            const SizedBox(width: 6),
                             Text(
-                              isRent ? 'Rent Now (Lock in Escrow)' : 'Buy Property (Initiate Escrow)',
+                              isRent ? 'Direct Landlord Rent' : 'Direct Purchase Price',
                               style: GoogleFonts.plusJakartaSans(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.2,
+                                fontSize: 10,
+                                color: AppColors.textSecondary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text(
+                              '₦${_currencyFormat.format(prop.basePrice)}${isRent ? ' /yr' : ''}',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w900,
+                                color: AppColors.primary,
                               ),
                             ),
                           ],
                         ),
                       ),
+                      const SizedBox(width: 8),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Chat with Landlord / Partner
+                          InkWell(
+                            borderRadius: BorderRadius.circular(10),
+                            onTap: _startChat,
+                            child: Container(
+                              padding: const EdgeInsets.all(9),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: AppColors.borderDark),
+                              ),
+                              child: const Icon(
+                                Icons.chat_bubble_outline_rounded,
+                                size: 17,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          // Book Inspection Button
+                          OutlinedButton(
+                            onPressed: _showInspectionModal,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.primary,
+                              side: const BorderSide(color: AppColors.primary, width: 1.2),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                            child: Text(
+                              'Book Inspection',
+                              style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  // PRIMARY ESCROW ACTION BUTTON
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        if (_currentUser == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Please log in to initiate escrow.')),
+                          );
+                          return;
+                        }
+                        EscrowCheckoutModal.show(
+                          context,
+                          property: prop,
+                          user: _currentUser!,
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0D5C46), // Deep emerald escrow green
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 13),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 0,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.shield_rounded, size: 16),
+                          const SizedBox(width: 6),
+                          Text(
+                            isRent ? 'Rent Now (Lock in Escrow)' : 'Buy Property (Initiate Escrow)',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );

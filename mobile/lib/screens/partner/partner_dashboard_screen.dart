@@ -28,6 +28,7 @@ import '../../services/notification_service.dart';
 import '../shared/notification_center_screen.dart';
 import '../shared/chat_inbox_screen.dart';
 import '../../widgets/biometric_prompt_modal.dart';
+import '../../widgets/partner_lead_pipeline_modal.dart';
 
 class PartnerDashboardScreen extends StatefulWidget {
   final VoidCallback? onSwitchToTenant;
@@ -743,6 +744,18 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
                       color: const Color(0xFFF59E0B),
                       onTap: () {
                         Navigator.of(context).push(MaterialPageRoute(builder: (_) => const InspectionsScreen()));
+                      },
+                    ),
+                    _buildGridCard(
+                      icon: Icons.hub_rounded,
+                      title: 'Deal Pipeline CRM',
+                      subtitle: 'Walkthroughs & Closings',
+                      badge: 'PIPELINE',
+                      color: const Color(0xFF0D9488),
+                      onTap: () {
+                        if (_user != null) {
+                          PartnerLeadPipelineModal.show(context, user: _user!);
+                        }
                       },
                     ),
                     _buildGridCard(

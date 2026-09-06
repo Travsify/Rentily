@@ -22,6 +22,7 @@ export interface StoredUser {
   cacNumber?: string | null;
   officeAddress?: string | null;
   partnerStatus?: string;
+  lasreraNumber?: string | null;
   createdAt: string;
   updatedAt: string;
 }

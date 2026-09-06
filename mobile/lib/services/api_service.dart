@@ -1236,6 +1236,38 @@ class ApiService {
       return {'success': false, 'error': e.toString()};
     }
   }
+
+  static Future<Map<String, dynamic>> updateProfile({
+    required String email,
+    String? fullName,
+    String? phoneNumber,
+    String? state,
+    String? avatarUrl,
+    String? businessName,
+    String? cacNumber,
+    String? officeAddress,
+    String? lasreraNumber,
+  }) async {
+    try {
+      final res = await http.patch(
+        Uri.parse('$baseUrl/auth/update-profile'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'email': email,
+          if (fullName != null) 'fullName': fullName,
+          if (phoneNumber != null) 'phoneNumber': phoneNumber,
+          if (state != null) 'state': state,
+          if (avatarUrl != null) 'avatarUrl': avatarUrl,
+          if (businessName != null) 'businessName': businessName,
+          if (cacNumber != null) 'cacNumber': cacNumber,
+          if (officeAddress != null) 'officeAddress': officeAddress,
+          if (lasreraNumber != null) 'lasreraNumber': lasreraNumber,
+        }),
+      ).timeout(const Duration(seconds: 10));
+      if (res.statusCode == 200) return json.decode(res.body);
+    } catch (_) {}
+    return {'success': false};
+  }
 }
 
 

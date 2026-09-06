@@ -227,6 +227,81 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
     );
   }
 
+  void _showEditLasreraDialog() {
+    final controller = TextEditingController(text: _user?.lasreraNumber ?? '');
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'LASRERA / Regulatory Accreditation 🛡️',
+          style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Enter your Lagos State Real Estate Regulatory Authority (LASRERA) or State Regulatory License registration number to display on your accredited mandate credentials.',
+              style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary, height: 1.35),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: controller,
+              style: GoogleFonts.plusJakartaSans(fontSize: 12),
+              decoration: InputDecoration(
+                labelText: 'LASRERA / State License Number',
+                hintText: 'e.g. LASRERA/BRK/2026/089',
+                labelStyle: GoogleFonts.plusJakartaSans(fontSize: 11),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: AppColors.textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final val = controller.text.trim();
+              if (_user != null) {
+                final updated = _user!.copyWith(lasreraNumber: val);
+                setState(() => _user = updated);
+                await AuthService.updateUser(updated);
+
+                // Sync with server
+                try {
+                  await ApiService.updateProfile(
+                    email: _user!.email,
+                    lasreraNumber: val,
+                  );
+                } catch (_) {}
+
+                if (mounted) {
+                  Navigator.of(ctx).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Regulatory accreditation updated! 🛡️', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
+                      backgroundColor: const Color(0xFF16A34A),
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: Text('Save License', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -403,6 +478,26 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
                   setState(() => _user = updated);
                 });
               },
+            ),
+
+            _buildTile(
+              icon: Icons.shield_outlined,
+              title: 'LASRERA / State Regulatory License 🛡️',
+              subtitle: (_user?.lasreraNumber != null && _user!.lasreraNumber!.isNotEmpty)
+                  ? 'Registration No: ${_user!.lasreraNumber} ✓'
+                  : 'Add your Lagos LASRERA or State Regulatory Broker license',
+              trailing: (_user?.lasreraNumber != null && _user!.lasreraNumber!.isNotEmpty)
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0FDF4),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: const Color(0xFFBBF7D0)),
+                      ),
+                      child: Text('REGISTERED', style: GoogleFonts.plusJakartaSans(fontSize: 7.5, fontWeight: FontWeight.w900, color: const Color(0xFF16A34A))),
+                    )
+                  : const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.textMuted),
+              onTap: _showEditLasreraDialog,
             ),
             const SizedBox(height: 20),
 

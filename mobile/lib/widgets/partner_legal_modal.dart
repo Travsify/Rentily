@@ -1,6 +1,10 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import '../constants/app_colors.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
@@ -182,19 +186,199 @@ class PartnerLegalModal extends StatelessWidget {
             decoration: const BoxDecoration(
               border: Border(top: BorderSide(color: AppColors.borderDark)),
             ),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    onPressed: () => generateMandateAgreementPdf(context),
+                    icon: const Icon(Icons.picture_as_pdf_rounded, size: 16, color: Color(0xFF064E3B)),
+                    label: Text(
+                      'Download Exclusive Mandate Agreement (PDF) 📄',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold, color: const Color(0xFF064E3B)),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Color(0xFF064E3B), width: 1.3),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
                 ),
-                child: Text('Understood & Acknowledged', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
-              ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: Text('Understood & Acknowledged', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+                  ),
+                ),
+              ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  static Future<void> generateMandateAgreementPdf(BuildContext context) async {
+    final user = await AuthService.getCurrentUser();
+    if (user == null) return;
+
+    final firmName = (user.businessName != null && user.businessName!.trim().isNotEmpty)
+        ? user.businessName!.trim()
+        : (user.fullName.trim().isNotEmpty ? user.fullName.trim() : 'Accredited Brokerage Firm');
+    final cacNumber = user.cacNumber ?? 'CAC Registered Entity';
+    final repName = user.fullName.isNotEmpty ? user.fullName : 'Principal Broker';
+    final repPhone = user.phoneNumber;
+    final repEmail = user.email;
+    final state = user.state ?? 'Lagos';
+    final lasrera = user.lasreraNumber ?? 'Accredited Partner';
+
+    try {
+      final doc = pw.Document();
+
+      doc.addPage(
+        pw.MultiPage(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(32),
+          build: (pw.Context ctx) => [
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text('RENTILLY ESCROW NETWORK', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('064E3B'))),
+                    pw.Text('EXCLUSIVE AGENCY & BROKERAGE MANDATE AGREEMENT', style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('0F172A'))),
+                  ],
+                ),
+                pw.Container(
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColor.fromHex('F0FDF4'),
+                    border: pw.Border.all(color: PdfColor.fromHex('16A34A')),
+                    borderRadius: pw.BorderRadius.circular(4),
+                  ),
+                  child: pw.Text('LEGAL INSTRUMENT', style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('16A34A'))),
+                ),
+              ],
+            ),
+            pw.SizedBox(height: 12),
+            pw.Divider(thickness: 1, color: PdfColor.fromHex('CBD5E1')),
+            pw.SizedBox(height: 12),
+
+            pw.Text('THIS EXCLUSIVE BROKERAGE MANDATE AGREEMENT is entered into on this _____ day of _______________, 2026 by and between:', style: const pw.TextStyle(fontSize: 9)),
+            pw.SizedBox(height: 10),
+
+            pw.Container(
+              padding: const pw.EdgeInsets.all(10),
+              decoration: pw.BoxDecoration(
+                color: PdfColor.fromHex('F8FAFC'),
+                borderRadius: pw.BorderRadius.circular(8),
+                border: pw.Border.all(color: PdfColor.fromHex('CBD5E1')),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text('1. THE ACCREDITED BROKERAGE FIRM:', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('0F172A'))),
+                  pw.SizedBox(height: 3),
+                  pw.Text('Firm: $firmName (CAC: $cacNumber • Regulatory Reg: $lasrera)', style: const pw.TextStyle(fontSize: 8)),
+                  pw.Text('Principal Broker: $repName • Phone: $repPhone • Email: $repEmail', style: const pw.TextStyle(fontSize: 8)),
+                  pw.Text('Territory Jurisdiction: $state State, Federal Republic of Nigeria', style: const pw.TextStyle(fontSize: 8)),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 8),
+
+            pw.Container(
+              padding: const pw.EdgeInsets.all(10),
+              decoration: pw.BoxDecoration(
+                color: PdfColor.fromHex('F8FAFC'),
+                borderRadius: pw.BorderRadius.circular(8),
+                border: pw.Border.all(color: PdfColor.fromHex('CBD5E1')),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text('2. THE PROPERTY OWNER / LESSOR:', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('0F172A'))),
+                  pw.SizedBox(height: 3),
+                  pw.Text('Owner Full Legal Name: __________________________________________________', style: const pw.TextStyle(fontSize: 8)),
+                  pw.Text('Phone / Email: _____________________________________________________', style: const pw.TextStyle(fontSize: 8)),
+                  pw.Text('Subject Property Address: __________________________________________', style: const pw.TextStyle(fontSize: 8)),
+                  pw.Text('Target Asking Price (Rent/Sale): ₦____________________________________', style: const pw.TextStyle(fontSize: 8)),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 12),
+
+            pw.Text('OPERATIVE MANDATE COVENANTS:', style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('0F172A'))),
+            pw.SizedBox(height: 6),
+
+            _buildPdfTerm('1. Grant of Exclusive Mandate', 'The Owner grants the Firm the sole representation right to market, exhibit, and secure verified tenants/buyers for the Subject Property through the Rentilly Escrow Network.'),
+            _buildPdfTerm('2. Guaranteed Escrow Remuneration (2.5% / 2.0%)', 'Upon execution of a valid lease or deed of sale, the Firm is entitled to 2.5% of annual rent or 2.0% of purchase consideration, settled automatically via Rentilly Central Escrow on handover.'),
+            _buildPdfTerm('3. Strict Anti-Circumvention Protection', 'The Owner expressly warrants not to bypass, negotiate directly, or transact with any prospective tenant or buyer introduced by the Firm during or within 12 months after the mandate term.'),
+            _buildPdfTerm('4. Physical Due Diligence & Anti-Ghost Protocol', 'The Firm undertakes to conduct in-person physical walkthroughs and verify utility bills as required under LASRERA and Nigerian Tenancy Laws.'),
+            _buildPdfTerm('5. Arbitration & Dispute Resolution', 'Any contest or disagreement under this contract shall be submitted to the Lagos Multi-Door Courthouse (LMDC) or Rentilly Legal Arbitration Desk within 72 hours.'),
+
+            pw.SizedBox(height: 18),
+
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text('FOR THE PROPERTY OWNER:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                    pw.SizedBox(height: 20),
+                    pw.Text('Signature: ______________________', style: const pw.TextStyle(fontSize: 7.5)),
+                    pw.SizedBox(height: 3),
+                    pw.Text('Date: _________________________', style: const pw.TextStyle(fontSize: 7.5)),
+                  ],
+                ),
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text('FOR THE ACCREDITED FIRM:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                    pw.SizedBox(height: 20),
+                    pw.Text('Signature: ______________________', style: const pw.TextStyle(fontSize: 7.5)),
+                    pw.SizedBox(height: 3),
+                    pw.Text('Date: ${DateFormat('dd MMMM yyyy').format(DateTime.now())}', style: const pw.TextStyle(fontSize: 7.5)),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) async => doc.save(),
+        name: 'Rentilly_Mandate_Agreement_${user.id}.pdf',
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not generate PDF: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  static pw.Widget _buildPdfTerm(String title, String desc) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.only(bottom: 6),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(title, style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('0F172A'))),
+          pw.SizedBox(height: 1),
+          pw.Text(desc, style: pw.TextStyle(fontSize: 7.5, color: PdfColor.fromHex('475569'), height: 1.25)),
         ],
       ),
     );

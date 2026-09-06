@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 import '../constants/app_colors.dart';
+import '../models/property.dart';
 import '../models/user_profile.dart';
+import '../services/api_service.dart';
 import '../utils/id_utils.dart';
 
 class PartnerLandlordOnboardModal extends StatefulWidget {
@@ -27,6 +30,55 @@ class PartnerLandlordOnboardModal extends StatefulWidget {
 class _PartnerLandlordOnboardModalState extends State<PartnerLandlordOnboardModal> {
   final _landlordPhoneController = TextEditingController();
   final _landlordNameController = TextEditingController();
+  final NumberFormat _currencyFormat = NumberFormat('#,###');
+  bool _isLoadingLandlords = true;
+  List<Map<String, dynamic>> _onboardedLandlords = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadOnboardedLandlords();
+  }
+
+  Future<void> _loadOnboardedLandlords() async {
+    final allProps = await ApiService.fetchProperties();
+    final partnerProps = allProps.where((p) =>
+      (p.partnerId != null && p.partnerId == widget.user.id) ||
+      (p.ownerId == widget.user.id) ||
+      (p.ownerPhone.isNotEmpty && p.ownerPhone == widget.user.phoneNumber)
+    ).toList();
+
+    final Map<String, List<Property>> grouped = {};
+    for (final p in partnerProps) {
+      final key = p.ownerName.isNotEmpty && p.ownerName != 'Property Owner'
+          ? p.ownerName
+          : (p.ownerPhone.isNotEmpty ? p.ownerPhone : p.ownerId);
+      grouped.putIfAbsent(key, () => []).add(p);
+    }
+
+    final List<Map<String, dynamic>> list = [];
+    grouped.forEach((ownerName, props) {
+      double totalCommission = 0.0;
+      for (final p in props) {
+        final rate = p.purpose == 'rent' ? 0.025 : 0.02;
+        totalCommission += p.basePrice * rate;
+      }
+      list.add({
+        'name': ownerName,
+        'phone': props.first.ownerPhone,
+        'unitCount': props.length,
+        'properties': props,
+        'lockedCommission': totalCommission,
+      });
+    });
+
+    if (mounted) {
+      setState(() {
+        _onboardedLandlords = list;
+        _isLoadingLandlords = false;
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -261,7 +313,9 @@ class _PartnerLandlordOnboardModalState extends State<PartnerLandlordOnboardModa
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        '0 Active Clients',
+                        _isLoadingLandlords
+                            ? 'Scanning...'
+                            : '${_onboardedLandlords.length} Active Client${_onboardedLandlords.length == 1 ? '' : 's'}',
                         style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.primary),
                       ),
                     ),
@@ -269,31 +323,133 @@ class _PartnerLandlordOnboardModalState extends State<PartnerLandlordOnboardModa
                 ),
                 const SizedBox(height: 10),
 
-                // Empty / Instructional Card
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.borderDark),
+                if (_isLoadingLandlords) ...[
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: CircularProgressIndicator(color: AppColors.primary),
+                    ),
                   ),
-                  child: Column(
-                    children: [
-                      const Icon(Icons.people_outline_rounded, size: 36, color: AppColors.textMuted),
-                      const SizedBox(height: 8),
-                      Text(
-                        'No Landlords Onboarded Yet',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Share your unique link with your landlord network. Once they register, their listings appear here and your commissions are locked.',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary, height: 1.35),
-                      ),
-                    ],
+                ] else if (_onboardedLandlords.isEmpty) ...[
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.borderDark),
+                    ),
+                    child: Column(
+                      children: [
+                        const Icon(Icons.people_outline_rounded, size: 36, color: AppColors.textMuted),
+                        const SizedBox(height: 8),
+                        Text(
+                          'No Landlords Onboarded Yet',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Share your unique link with your landlord network. Once they register, their listings appear here and your commissions are locked.',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary, height: 1.35),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+                ] else ...[
+                  ..._onboardedLandlords.map((client) {
+                    final name = client['name']?.toString() ?? 'Verified Owner';
+                    final phone = client['phone']?.toString() ?? '';
+                    final units = client['unitCount'] as int? ?? 1;
+                    final comm = (client['lockedCommission'] as num?)?.toDouble() ?? 0.0;
+
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.borderDark),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.1),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Text(
+                                name.isNotEmpty ? name[0].toUpperCase() : 'L',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        name,
+                                        style: GoogleFonts.plusJakartaSans(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.textPrimary,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF0FDF4),
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(color: const Color(0xFFBBF7D0)),
+                                      ),
+                                      child: Text(
+                                        'MANDATE ACTIVE',
+                                        style: GoogleFonts.plusJakartaSans(
+                                          fontSize: 7.5,
+                                          fontWeight: FontWeight.w800,
+                                          color: const Color(0xFF16A34A),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  phone.isNotEmpty ? '$phone • $units Units Listed' : '$units Units Under Mandate',
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Locked Commission: ₦${_currencyFormat.format(comm)}',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w800,
+                                    color: const Color(0xFF16A34A),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
               ],
             ),
           ),
