@@ -108,9 +108,13 @@ class ApiService {
           'newPassword': newPassword,
         }),
       ).timeout(const Duration(seconds: 15));
-      return json.decode(response.body);
+      final data = json.decode(response.body);
+      return {
+        'success': response.statusCode == 200 && (data['success'] == true || data['status'] == true),
+        'message': data['message'] ?? data['error'] ?? 'Could not change password',
+      };
     } catch (e) {
-      return {'success': false, 'error': e.toString()};
+      return {'success': false, 'error': e.toString(), 'message': e.toString()};
     }
   }
 
@@ -465,32 +469,6 @@ class ApiService {
     return {'success': true, 'ticketId': 'TKT-${DateTime.now().millisecondsSinceEpoch}'};
   }
 
-  /// Changes the user's account password on the server
-  static Future<Map<String, dynamic>> changePassword({
-    required String email,
-    required String currentPassword,
-    required String newPassword,
-  }) async {
-    try {
-      final response = await http.post(
-        Uri.parse('$baseUrl/auth/change-password'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'email': email,
-          'currentPassword': currentPassword,
-          'newPassword': newPassword,
-        }),
-      ).timeout(const Duration(seconds: 10));
-
-      final data = json.decode(response.body);
-      return {
-        'success': response.statusCode == 200,
-        'message': data['message'] ?? data['error'] ?? 'Could not change password'
-      };
-    } catch (e) {
-      return {'success': false, 'message': e.toString()};
-    }
-  }
 
   /// Fetch live multi-currency accounts from Render / Korapay
   static Future<List<Map<String, dynamic>>> fetchMultiCurrencyAccounts(String email) async {
