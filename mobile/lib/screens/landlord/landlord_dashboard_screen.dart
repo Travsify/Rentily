@@ -14,8 +14,7 @@ import '../../widgets/partner_id_card_modal.dart';
 import '../../widgets/quick_utilities_modal.dart';
 import '../../widgets/add_money_modal.dart';
 import '../../widgets/withdrawal_modal.dart';
-import '../properties/properties_screen.dart';
-import '../inspections/inspections_screen.dart';
+import 'landlord_properties_screen.dart';
 import 'landlord_wallet_screen.dart';
 import 'landlord_profile_screen.dart';
 import 'landlord_digital_leases_screen.dart';
@@ -49,7 +48,7 @@ class _LandlordDashboardScreenState extends State<LandlordDashboardScreen> {
         onSwitchToTenant: widget.onSwitchToTenant,
         onNavigateToTab: (index) => setState(() => _currentIndex = index),
       ),
-      const PropertiesScreen(initialPurpose: 'all'),
+      const LandlordPropertiesScreen(),
       const LandlordWalletScreen(),
       const InspectionsScreen(),
       LandlordProfileScreen(onSwitchToTenant: widget.onSwitchToTenant),
@@ -83,6 +82,7 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
   final NumberFormat _currencyFormat = NumberFormat('#,###.00', 'en_US');
   UserProfile? _user;
   List<Property> _properties = [];
+  double _escrowBalance = 0.0;
   bool _isLoading = true;
 
   final List<String> _landlordQuotes = const [
@@ -114,14 +114,29 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
 
   void _loadData() async {
     final user = await AuthService.getCurrentUser();
-    final allProps = await ApiService.fetchProperties();
+    List<Property> myProps = [];
+    double liveEscrow = 0.0;
+
+    if (user != null) {
+      final results = await Future.wait([
+        ApiService.fetchProperties(ownerId: user.id),
+        ApiService.fetchLandlordEscrowSummary(email: user.email, ownerId: user.id),
+      ]);
+      myProps = results[0] as List<Property>;
+      final summary = results[1] as Map<String, dynamic>;
+      liveEscrow = (summary['totalEscrowVolume'] as num?)?.toDouble() ??
+                   (summary['activeEscrowBalance'] as num?)?.toDouble() ?? 0.0;
+    }
+
     try {
       await ApiService.fetchFeatureFlags();
     } catch (_) {}
+
     if (mounted) {
       setState(() {
         _user = user;
-        _properties = allProps;
+        _properties = myProps;
+        _escrowBalance = liveEscrow;
         _isLoading = false;
       });
 
@@ -155,7 +170,7 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
     final name = _user?.fullName ?? 'Property Owner';
     final landlordId = IdUtils.formatOpsId(_user?.id, isPartner: false);
     final operationalBalance = _user?.walletBalance ?? 0.0;
-    final escrowBalance = 0.00;
+    final escrowBalance = _escrowBalance;
     final accountNumber = _user?.accountNumber ?? (_user?.isVerified == true ? 'Pending 9PSB NUBAN' : 'Pending Verification');
     final bankName = _user?.bankName ?? '9PSB (Rentilly)';
 
@@ -622,16 +637,42 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
                         if (widget.onNavigateToTab != null) {
                           widget.onNavigateToTab!(1);
                         } else {
-                          Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PropertiesScreen()));
+                          Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LandlordPropertiesScreen()));
                         }
                       },
-                      child: Text('View Public Feed', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                      child: Text('View All / Public Market', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
                     ),
                   ],
                 ),
                 const SizedBox(height: 6),
 
-                ..._properties.take(3).map((prop) {
+                if (_properties.isEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppColors.borderDark),
+                    ),
+                    child: Column(
+                      children: [
+                        const Icon(Icons.holiday_village_outlined, size: 36, color: AppColors.textMuted),
+                        const SizedBox(height: 10),
+                        Text(
+                          'No properties listed in your portfolio yet',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Tap "List Property" above to add your first apartment or building.',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  ..._properties.take(3).map((prop) {
                   return Container(
                     margin: const EdgeInsets.only(bottom: 12),
                     padding: const EdgeInsets.all(14),

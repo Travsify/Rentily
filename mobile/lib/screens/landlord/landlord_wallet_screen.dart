@@ -37,7 +37,7 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
   String _selectedLedgerFilter = 'All';
   String _selectedCurrency = 'NGN';
   bool _isCardFrozen = false;
-  double _cardBalance = 1250.00;
+  double _escrowBalance = 0.0;
   List<Map<String, dynamic>> _transactions = [];
 
   // Live balance polling — fires every 8 seconds
@@ -141,6 +141,9 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
     if (user != null) {
       try {
         final live = await ApiService.fetchLiveBalance(user.email);
+        final escrowSummary = await ApiService.fetchLandlordEscrowSummary(email: user.email, ownerId: user.id);
+        final liveEscrow = (escrowSummary['totalEscrowVolume'] as num?)?.toDouble() ??
+                           (escrowSummary['activeEscrowBalance'] as num?)?.toDouble() ?? 0.0;
         if (live != null && mounted) {
           final serverBal = (live['walletBalance'] as num?)?.toDouble() ?? user.walletBalance;
           final serverUsdtBal = (live['usdtBalance'] as num?)?.toDouble() ?? user.usdtBalance;
@@ -149,6 +152,7 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
           setState(() {
             _user = updated;
             _lastKnownBalance = serverBal;
+            _escrowBalance = liveEscrow;
           });
         }
       } catch (_) {}
@@ -260,7 +264,7 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
     final String effectiveCurrency = ApiService.featureFlags.enableMultiCurrencyVault ? _selectedCurrency : 'NGN';
     final String symbol = effectiveCurrency == 'USD' ? '\$' : effectiveCurrency == 'GBP' ? '£' : effectiveCurrency == 'EUR' ? '€' : '₦';
     final double operationalBalance = effectiveCurrency == 'NGN' ? (_user?.walletBalance ?? 0.0) : 0.00;
-    final escrowBalance = 0.00;
+    final escrowBalance = _escrowBalance;
     final accountNumber = effectiveCurrency == 'NGN' ? (_user?.accountNumber ?? '') : '';
     final bankName = effectiveCurrency == 'USD' 
         ? 'Lead Bank (USA) • ACH/Wire' 

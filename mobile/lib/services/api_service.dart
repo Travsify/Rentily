@@ -9,13 +9,23 @@ import 'auth_service.dart';
 class ApiService {
   static const String baseUrl = AppConstants.apiBaseUrl;
 
-  // 1. Fetch Properties Feed with optional purpose/search filters from live API
-  static Future<List<Property>> fetchProperties({String? purpose, String? search}) async {
+  // 1. Fetch Properties Feed with optional purpose/search/ownerId/status filters from live API
+  static Future<List<Property>> fetchProperties({
+    String? purpose,
+    String? search,
+    String? ownerId,
+    String? status,
+  }) async {
     try {
-      final uri = Uri.parse('$baseUrl/properties').replace(queryParameters: {
-        if (purpose != null && purpose != 'all') 'purpose': purpose,
-        if (search != null && search.isNotEmpty) 'search': search,
-      });
+      final queryParams = <String, String>{};
+      if (purpose != null && purpose != 'all') queryParams['purpose'] = purpose;
+      if (search != null && search.isNotEmpty) queryParams['search'] = search;
+      if (ownerId != null && ownerId.isNotEmpty) queryParams['ownerId'] = ownerId;
+      if (status != null && status.isNotEmpty && status != 'all') queryParams['status'] = status;
+
+      final uri = Uri.parse('$baseUrl/properties').replace(
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
+      );
 
       final response = await http.get(uri).timeout(const Duration(seconds: 10));
 
@@ -25,6 +35,100 @@ class ApiService {
       }
     } catch (e) {}
     return [];
+  }
+
+  // 1a2. Fetch Real Landlord Escrow Balances & Held Deposits
+  static Future<Map<String, dynamic>> fetchLandlordEscrowSummary({
+    required String email,
+    String? ownerId,
+  }) async {
+    try {
+      final queryParams = <String, String>{
+        'email': email,
+        if (ownerId != null && ownerId.isNotEmpty) 'ownerId': ownerId,
+      };
+      final uri = Uri.parse('$baseUrl/escrow/landlord-summary').replace(queryParameters: queryParams);
+      final response = await http.get(uri).timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      }
+    } catch (_) {}
+    return {
+      'success': false,
+      'activeEscrowBalance': 0.0,
+      'cautionDepositsHeld': 0.0,
+      'totalEscrowVolume': 0.0,
+      'activeLeasesCount': 0,
+    };
+  }
+
+  // 1a3. Submit Escrow Damage Claim
+  static Future<Map<String, dynamic>> submitEscrowClaim({
+    required String email,
+    required String ownerName,
+    required String tenantName,
+    required String propertyAddress,
+    required String damageCategory,
+    required double estimatedCost,
+    required String description,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/escrow/claims'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'email': email,
+          'ownerName': ownerName,
+          'tenantName': tenantName,
+          'propertyAddress': propertyAddress,
+          'damageCategory': damageCategory,
+          'estimatedCost': estimatedCost,
+          'description': description,
+        }),
+      ).timeout(const Duration(seconds: 15));
+      return json.decode(response.body);
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  // 1a4. Real Password Change
+  static Future<Map<String, dynamic>> changePassword({
+    required String email,
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/auth/change-password'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'email': email,
+          'currentPassword': currentPassword,
+          'newPassword': newPassword,
+        }),
+      ).timeout(const Duration(seconds: 15));
+      return json.decode(response.body);
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  // 1a5. Update Property Status (e.g. unlisted, rented, verified)
+  static Future<bool> updatePropertyStatus({
+    required String propertyId,
+    required String status,
+  }) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$baseUrl/properties/$propertyId/status'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'status': status}),
+      ).timeout(const Duration(seconds: 10));
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
   }
 
   // 1b. Create & Publish New Property Listing

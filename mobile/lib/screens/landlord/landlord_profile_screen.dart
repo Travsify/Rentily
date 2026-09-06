@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../constants/app_colors.dart';
 import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
+import '../../services/api_service.dart';
 import '../../services/push_notification_service.dart';
 import '../../services/payment_security_service.dart';
 import '../../services/notification_service.dart';
@@ -145,7 +146,13 @@ class _LandlordProfileScreenState extends State<LandlordProfileScreen> {
             child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: AppColors.textSecondary, fontWeight: FontWeight.bold)),
           ),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
+              if (currentPassController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Please enter your current password.', style: GoogleFonts.plusJakartaSans(fontSize: 11)), backgroundColor: Colors.red),
+                );
+                return;
+              }
               if (newPassController.text.length < 6) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('New password must be at least 6 characters.', style: GoogleFonts.plusJakartaSans(fontSize: 11)), backgroundColor: Colors.red),
@@ -158,10 +165,34 @@ class _LandlordProfileScreenState extends State<LandlordProfileScreen> {
                 );
                 return;
               }
-              Navigator.of(ctx).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Password updated successfully! 🔒', style: GoogleFonts.plusJakartaSans(fontSize: 11)), backgroundColor: AppColors.primary),
+
+              final email = _user?.email ?? '';
+              if (email.isEmpty) return;
+
+              final res = await ApiService.changePassword(
+                email: email,
+                currentPassword: currentPassController.text.trim(),
+                newPassword: newPassController.text.trim(),
               );
+
+              if (!mounted) return;
+              Navigator.of(ctx).pop();
+
+              if (res['success'] == true) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Password updated successfully! 🔒', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold)),
+                    backgroundColor: const Color(0xFF16A34A),
+                  ),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(res['error'] ?? 'Current password is incorrect.', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
@@ -505,8 +536,24 @@ class _LandlordProfileScreenState extends State<LandlordProfileScreen> {
             TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: AppColors.textSecondary, fontWeight: FontWeight.bold))),
             ElevatedButton(
               onPressed: () async {
-                final claimRef = 'CLM-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
+                final amount = double.tryParse(amountController.text.replaceAll(',', '')) ?? 0.0;
+                if (tenantNameController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Please provide the tenant full name.', style: GoogleFonts.plusJakartaSans(fontSize: 11)), backgroundColor: Colors.red),
+                  );
+                  return;
+                }
                 Navigator.of(ctx).pop();
+                final res = await ApiService.submitEscrowClaim(
+                  email: _user?.email ?? '',
+                  ownerName: _user?.fullName ?? 'Landlord',
+                  tenantName: tenantNameController.text.trim(),
+                  propertyAddress: 'Unit Premises',
+                  damageCategory: damageCategory,
+                  estimatedCost: amount,
+                  description: descController.text.trim(),
+                );
+                final claimRef = res['claimReference'] ?? 'CLM-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
                 await NotificationService.addNotification(
                   title: 'Escrow Damage Claim Filed 🛡️',
                   message: 'Claim $claimRef has been filed against caution escrow deposit. Assigned to Rentilly Legal Desk.',
@@ -590,8 +637,17 @@ class _LandlordProfileScreenState extends State<LandlordProfileScreen> {
             TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: AppColors.textSecondary, fontWeight: FontWeight.bold))),
             ElevatedButton(
               onPressed: () async {
-                final ticketId = 'TKT-MED-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
                 Navigator.of(ctx).pop();
+                final res = await ApiService.submitEscrowClaim(
+                  email: _user?.email ?? '',
+                  ownerName: _user?.fullName ?? 'Landlord',
+                  tenantName: 'Tenant Dispute',
+                  propertyAddress: addressController.text.trim().isNotEmpty ? addressController.text.trim() : 'Property Unit',
+                  damageCategory: complaintType,
+                  estimatedCost: 0.0,
+                  description: complaintController.text.trim(),
+                );
+                final ticketId = res['claimReference'] ?? 'TKT-MED-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}';
                 await NotificationService.addNotification(
                   title: 'Intervention Request Lodged ⚖️',
                   message: 'Ticket $ticketId assigned to Rentilly Legal Desk. Mediation officer dispatched.',

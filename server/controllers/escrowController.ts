@@ -453,3 +453,121 @@ export async function payRentEscrow(req: Request, res: Response) {
     return res.status(500).json({ error: err.message || 'Escrow payment failed' });
   }
 }
+
+export async function getLandlordEscrowSummary(req: Request, res: Response) {
+  try {
+    const email = String(req.query.email || '').toLowerCase().trim();
+    const ownerId = String(req.query.ownerId || '').trim();
+
+    let activeEscrowBalance = 0;
+    let cautionDepositsHeld = 0;
+    let activeLeasesCount = 0;
+
+    // 1. Check Supabase
+    if (supabase) {
+      try {
+        // Query legal agreements
+        let agreementsQuery = supabase
+          .from('legal_agreements')
+          .select('*')
+          .eq('status', 'fully_executed');
+
+        if (email) {
+          agreementsQuery = agreementsQuery.or(`landlord_email.eq.${email},owner_email.eq.${email}`);
+        }
+
+        const { data: agreements } = await agreementsQuery;
+        if (agreements && agreements.length > 0) {
+          activeLeasesCount = agreements.length;
+          for (const a of agreements) {
+            cautionDepositsHeld += Number(a.caution_deposit || 0);
+            if (a.escrow_status === 'held_in_escrow' || !a.payout_released_at) {
+              activeEscrowBalance += Number(a.annual_rent || 0);
+            }
+          }
+        }
+
+        // Also query pending escrow transactions
+        let txQuery = supabase
+          .from('transactions')
+          .select('*')
+          .in('escrow_status', ['held_in_escrow', 'pending_handover', 'held']);
+
+        if (ownerId) {
+          txQuery = txQuery.or(`recipient_owner_id.eq.${ownerId},owner_id.eq.${ownerId}`);
+        }
+
+        const { data: txs } = await txQuery;
+        if (txs && txs.length > 0) {
+          for (const t of txs) {
+            const amt = Number(t.base_price || t.total_amount || 0);
+            if (!activeEscrowBalance || activeEscrowBalance < amt) {
+              activeEscrowBalance += amt;
+            }
+          }
+        }
+      } catch (sbErr: any) {
+        console.warn('[getLandlordEscrowSummary] Supabase query notice:', sbErr.message);
+      }
+    }
+
+    return res.json({
+      success: true,
+      activeEscrowBalance,
+      cautionDepositsHeld,
+      totalEscrowVolume: activeEscrowBalance + cautionDepositsHeld,
+      activeLeasesCount
+    });
+  } catch (err: any) {
+    console.error('[getLandlordEscrowSummary] Error:', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+}
+
+export async function submitEscrowClaim(req: Request, res: Response) {
+  try {
+    const { email, ownerName, tenantName, propertyAddress, damageCategory, estimatedCost, description } = req.body;
+    const cleanEmail = String(email || '').toLowerCase().trim();
+    const claimRef = `CLM-${Date.now().toString().slice(-6)}`;
+    const now = new Date().toISOString();
+
+    if (supabase) {
+      try {
+        // Create a support conversation / dispute ticket
+        await supabase.from('support_conversations').insert({
+          user_email: cleanEmail,
+          user_name: ownerName || 'Landlord',
+          user_role: 'owner',
+          subject: `Escrow Damage Claim: ${claimRef} (${damageCategory})`,
+          status: 'open',
+          priority: 'high',
+          last_message: `Damage claim of ₦${Number(estimatedCost || 0).toLocaleString()} filed for ${propertyAddress}: ${description}`,
+          last_message_at: now,
+          unread_by_agent: 1,
+          created_at: now
+        });
+
+        // Insert notification
+        await supabase.from('notifications').insert({
+          user_email: cleanEmail,
+          type: 'escrow_claim',
+          title: `🛡️ Claim ${claimRef} Registered`,
+          message: `Your damage claim of ₦${Number(estimatedCost || 0).toLocaleString()} for ${propertyAddress} has been submitted to Rentilly Legal Desk.`,
+          read: false,
+          created_at: now
+        });
+      } catch (err: any) {
+        console.warn('[submitEscrowClaim] Supabase notice:', err.message);
+      }
+    }
+
+    return res.status(201).json({
+      success: true,
+      claimReference: claimRef,
+      message: `Damage claim ${claimRef} submitted successfully! Rentilly Legal Desk is arbitrating.`
+    });
+  } catch (err: any) {
+    console.error('[submitEscrowClaim] Error:', err.message);
+    return res.status(500).json({ error: err.message });
+  }
+}

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import '../../constants/app_colors.dart';
 import '../../services/auth_service.dart';
 import '../../services/api_service.dart';
@@ -34,11 +37,13 @@ class _LandlordDigitalLeasesScreenState extends State<LandlordDigitalLeasesScree
           'status': item['status'] == 'fully_executed' ? 'ACTIVE' : 'PENDING',
           'statusColor': item['status'] == 'fully_executed' ? const Color(0xFF16A34A) : const Color(0xFFD97706),
           'propertyTitle': item['agreementTitle'] ?? item['propertyTitle'] ?? 'Tenancy Property',
+          'address': item['propertyAddress'] ?? item['address'] ?? 'Lagos, Nigeria',
           'tenantName': item['tenantName'] ?? 'Direct Tenant',
+          'tenantPhone': item['tenantPhone'] ?? item['tenantEmail'] ?? 'Verified Tenant',
           'annualRent': (item['annualRent'] as num?)?.toDouble() ?? 0.0,
-          'startDate': item['tenancyCommencementDate'] ?? 'N/A',
-          'endDate': item['tenancyExpirationDate'] ?? 'N/A',
-          'cautionEscrow': (item['cautionDeposit'] as num?)?.toDouble() ?? 0.0,
+          'startDate': item['tenancyCommencementDate'] ?? item['commencement_date'] ?? 'N/A',
+          'endDate': item['tenancyExpirationDate'] ?? '12 Months',
+          'caution': (item['cautionDeposit'] as num?)?.toDouble() ?? (item['caution_deposit'] as num?)?.toDouble() ?? 0.0,
           'rentillyFee': 0.0,
           'governingLaw': item['governingLaw'] ?? (item['propertyState'] != null ? 'Laws of ${item['propertyState']} State' : 'Laws of the Federal Republic of Nigeria'),
           'isDisputed': false,
@@ -52,6 +57,91 @@ class _LandlordDigitalLeasesScreenState extends State<LandlordDigitalLeasesScree
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _generateLeasePdf(Map<String, dynamic> lease) async {
+    final doc = pw.Document();
+    final user = await AuthService.getCurrentUser();
+    final landlordName = user?.fullName.isNotEmpty == true ? user!.fullName : 'Property Owner';
+
+    doc.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(36),
+        build: (pw.Context ctx) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text('RENTILLY DIGITAL LEASE AGREEMENT', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+                      pw.Text('Under the Tenancy Laws of the Federal Republic of Nigeria', style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
+                    ],
+                  ),
+                  pw.BarcodeWidget(
+                    barcode: pw.Barcode.qrCode(),
+                    data: 'https://myrentilly.com/verify/lease/${lease['id']}',
+                    width: 44,
+                    height: 44,
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 14),
+              pw.Divider(thickness: 1),
+              pw.SizedBox(height: 10),
+              pw.Text('THIS RESIDENTIAL TENANCY AGREEMENT is executed between:', style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey800)),
+              pw.SizedBox(height: 6),
+              pw.Text('LANDLORD / PROPERTY OWNER: $landlordName', style: pw.TextStyle(fontSize: 10.5, fontWeight: pw.FontWeight.bold)),
+              pw.Text('DIRECT TENANT: ${lease['tenantName']}', style: pw.TextStyle(fontSize: 10.5, fontWeight: pw.FontWeight.bold)),
+              pw.SizedBox(height: 10),
+              pw.Text('1. DEMISED PREMISES', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
+              pw.Text('The Landlord agrees to let and the Tenant agrees to take the property described as ${lease['propertyTitle']}, situated at ${lease['address']}.', style: const pw.TextStyle(fontSize: 10, lineSpacing: 1.4)),
+              pw.SizedBox(height: 10),
+              pw.Text('2. TERM & FINANCIAL CONSIDERATION', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
+              pw.Text('• Annual Rent: NGN ${_currencyFormat.format(lease['annualRent'])} (Locked in CBN Regulated Escrow)', style: const pw.TextStyle(fontSize: 10)),
+              pw.Text('• Caution / Security Deposit: NGN ${_currencyFormat.format(lease['caution'])} (100% Escrow Vaulted)', style: const pw.TextStyle(fontSize: 10)),
+              pw.Text('• Commencement Date: ${lease['startDate']}', style: const pw.TextStyle(fontSize: 10)),
+              pw.SizedBox(height: 10),
+              pw.Text('3. STATUTORY COVENANTS & GOVERNING LAW', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
+              pw.Text('This agreement is governed by the ${lease['governingLaw']}. Key handover and tenant move-in are validated digitally through the Rentilly Escrow Vault.', style: const pw.TextStyle(fontSize: 10, lineSpacing: 1.4)),
+              pw.Spacer(),
+              pw.Divider(thickness: 1),
+              pw.SizedBox(height: 8),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text('Digitally Signed by Landlord:', style: const pw.TextStyle(fontSize: 9)),
+                      pw.Text(landlordName, style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                      pw.Text('Status: Certified & Executed', style: const pw.TextStyle(fontSize: 8, color: PdfColors.green800)),
+                    ],
+                  ),
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text('Digitally Signed by Tenant:', style: const pw.TextStyle(fontSize: 9)),
+                      pw.Text(lease['tenantName'] ?? 'Tenant', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                      pw.Text('Verification Ref: ${lease['id']}', style: const pw.TextStyle(fontSize: 8, color: PdfColors.blue800)),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    await Printing.sharePdf(
+      bytes: await doc.save(),
+      filename: 'Rentilly_Lease_${lease['id']}.pdf',
+    );
   }
 
   void _showLeaseDetails(Map<String, dynamic> lease) {
@@ -116,11 +206,9 @@ class _LandlordDigitalLeasesScreenState extends State<LandlordDigitalLeasesScree
                   ),
                   const SizedBox(height: 20),
                   ElevatedButton.icon(
-                    onPressed: () {
+                    onPressed: () async {
                       Navigator.of(ctx).pop();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Downloading Signed Digital Tenancy PDF... 📄', style: GoogleFonts.plusJakartaSans(fontSize: 11)), backgroundColor: AppColors.primary),
-                      );
+                      await _generateLeasePdf(lease);
                     },
                     icon: const Icon(Icons.download_rounded, size: 18, color: Colors.white),
                     label: Text('Download Signed Agreement PDF', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),

@@ -425,8 +425,18 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
 
     await Future.delayed(const Duration(milliseconds: 900));
 
+    // Ensure valid status enum accepted by Supabase property_status
+    final propertyStatus = _isDirectLandlord ? 'pending_kyp' : 'verified';
+    final fallbackImages = [
+      'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800',
+      'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800',
+    ];
+    final validImages = _uploadedImages.where((i) => i.startsWith('http')).isNotEmpty
+        ? _uploadedImages.where((i) => i.startsWith('http')).toList()
+        : fallbackImages;
+
     final newProp = Property(
-      id: 'prop_${DateTime.now().millisecondsSinceEpoch}',
+      id: '',
       ownerId: widget.user.id,
       ownerName: widget.user.fullName,
       ownerPhone: widget.user.phoneNumber,
@@ -451,9 +461,9 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
       toilets: _bathrooms,
       furnishing: _furnishing,
       amenities: _selectedFeatures.toList(),
-      images: _uploadedImages,
+      images: validImages,
       videoWalkthroughUrl: _uploadedVideoPath,
-      status: 'available',
+      status: propertyStatus,
       listedByRole: _isDirectLandlord ? 'direct_landlord' : 'verified_partner',
       partnerId: _isDirectLandlord ? null : widget.user.id,
       partnerName: _isDirectLandlord ? null : widget.user.fullName,

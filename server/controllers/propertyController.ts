@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import type { Request, Response } from 'express';
 import { supabase } from '../supabaseClient';
 import type { Property, KYPRecord } from '../types';
@@ -5,13 +6,14 @@ import { AdminDataStore } from '../services/adminDataStore';
 
 export async function getProperties(req: Request, res: Response) {
   try {
-    const { purpose, status, state, search } = req.query;
+    const { purpose, status, state, search, ownerId } = req.query;
 
     // Try Supabase first
     let supabaseProps: Property[] = [];
     if (supabase) {
       try {
         let query = supabase.from('properties').select('*');
+        if (ownerId) query = query.eq('owner_id', String(ownerId).trim());
         if (purpose && purpose !== 'all') query = query.eq('purpose', purpose);
         if (status && status !== 'all') query = query.eq('status', status);
         if (state) query = query.ilike('state', `%${state}%`);
@@ -59,6 +61,7 @@ export async function getProperties(req: Request, res: Response) {
     let storeProps = AdminDataStore.getProperties();
 
     // Apply filters
+    if (ownerId) storeProps = storeProps.filter(p => p.ownerId === ownerId);
     if (purpose && purpose !== 'all') storeProps = storeProps.filter(p => p.purpose === purpose);
     if (status && status !== 'all') storeProps = storeProps.filter(p => p.status === status);
     if (state) storeProps = storeProps.filter(p => p.state.toLowerCase().includes(String(state).toLowerCase()));
@@ -118,12 +121,16 @@ export async function createProperty(req: Request, res: Response) {
     const serviceCharge = Number(body.serviceCharge || 0);
     const totalInitialPayment = basePrice + cautionFee + serviceCharge + rentillyFee;
 
+    const isUuid = (str?: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str || '');
     const now = new Date().toISOString();
-    const newId = body.id || `prop_${Date.now()}`;
+    const newId = isUuid(body.id) ? body.id : crypto.randomUUID();
+    const validOwnerId = isUuid(body.ownerId) ? body.ownerId : (isUuid(body.userId) ? body.userId : 'a197e323-d8b1-4d54-800a-65c4f16299c0');
+    const allowedStatuses = ['verified', 'draft', 'pending_kyp', 'rejected', 'rented', 'sold', 'unlisted'];
+    const validStatus = allowedStatuses.includes(body.status) ? body.status : 'pending_kyp';
 
     const newProperty: Property = {
       id: newId,
-      ownerId: body.ownerId || body.userId || 'usr_landlord',
+      ownerId: validOwnerId,
       ownerName: body.ownerName || 'Property Owner',
       ownerPhone: body.ownerPhone || '',
       title: body.title || 'Untitled Property',
