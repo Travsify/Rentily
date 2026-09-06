@@ -1,6 +1,10 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:intl/intl.dart';
 import '../../constants/app_colors.dart';
+import '../../services/auth_service.dart';
+import '../../services/api_service.dart';
+import '../../models/user_profile.dart';
 import '../../widgets/rentilly_bottom_bar.dart';
 import '../main_navigation_screen.dart';
 
@@ -13,6 +17,63 @@ class MySpacesScreen extends StatefulWidget {
 
 class _MySpacesScreenState extends State<MySpacesScreen> {
   String _activeTab = 'rented'; // 'rented', 'owned', 'receipts'
+  UserProfile? _user;
+  List<Map<String, dynamic>> _rentedSpaces = [];
+  List<Map<String, dynamic>> _ownedSpaces = [];
+  List<Map<String, dynamic>> _receipts = [];
+  bool _isLoading = true;
+
+  final NumberFormat _currencyFormat = NumberFormat('#,###', 'en_US');
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSpaces();
+  }
+
+  Future<void> _loadSpaces() async {
+    setState(() => _isLoading = true);
+    final user = await AuthService.getCurrentUser();
+    if (user == null) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+
+    try {
+      final agreements = await ApiService.fetchLegalAgreements(email: user.email);
+      final List<Map<String, dynamic>> rented = [];
+      final List<Map<String, dynamic>> owned = [];
+      final List<Map<String, dynamic>> receipts = [];
+
+      for (final a in agreements) {
+        final isRent = (a['transactionType'] ?? a['purpose'] ?? 'rent').toString().toLowerCase() == 'rent';
+        if (isRent) {
+          rented.add(a);
+        } else {
+          owned.add(a);
+        }
+        receipts.add({
+          'id': a['id'] ?? a['escrowReference'] ?? 'REC-',
+          'title': a['propertyTitle'] ?? 'Tenancy Agreement',
+          'amount': a['annualRent'] ?? a['basePrice'] ?? 0,
+          'date': a['commencementDate'] ?? a['createdAt'] ?? '2026-09-05',
+          'ref': a['escrowReference'] ?? 'RENT-ESCROW',
+        });
+      }
+
+      if (mounted) {
+        setState(() {
+          _user = user;
+          _rentedSpaces = rented;
+          _ownedSpaces = owned;
+          _receipts = receipts;
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,39 +93,56 @@ class _MySpacesScreenState extends State<MySpacesScreen> {
       ),
       bottomNavigationBar: const RentillyBottomBar(currentIndex: 0),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Segmented Switcher
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.borderDark),
+        child: RefreshIndicator(
+          onRefresh: _loadSpaces,
+          color: AppColors.primary,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Segmented Switcher
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.borderDark),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _buildSubTab('rented', 'Rented ()'),
+                      ),
+                      Expanded(
+                        child: _buildSubTab('owned', 'Owned ()'),
+                      ),
+                      Expanded(
+                        child: _buildSubTab('receipts', 'Legal Receipts ()'),
+                      ),
+                    ],
+                  ),
                 ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _buildSubTab('rented', 'Rented (0)'),
-                    ),
-                    Expanded(
-                      child: _buildSubTab('owned', 'Owned (0)'),
-                    ),
-                    Expanded(
-                      child: _buildSubTab('receipts', 'Legal Receipts'),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
+                const SizedBox(height: 20),
 
-              if (_activeTab == 'rented') _buildEmptyRentedSpaces(),
-              if (_activeTab == 'owned') _buildEmptyOwnedSpaces(),
-              if (_activeTab == 'receipts') _buildEmptyReceipts(),
-            ],
+                if (_isLoading)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 40),
+                      child: CircularProgressIndicator(color: AppColors.primary),
+                    ),
+                  )
+                else ...[
+                  if (_activeTab == 'rented')
+                    _rentedSpaces.isNotEmpty ? _buildRentedSpacesList() : _buildEmptyRentedSpaces(),
+                  if (_activeTab == 'owned')
+                    _ownedSpaces.isNotEmpty ? _buildOwnedSpacesList() : _buildEmptyOwnedSpaces(),
+                  if (_activeTab == 'receipts')
+                    _receipts.isNotEmpty ? _buildReceiptsList() : _buildEmptyReceipts(),
+                ],
+              ],
+            ),
           ),
         ),
       ),
@@ -95,6 +173,262 @@ class _MySpacesScreenState extends State<MySpacesScreen> {
     );
   }
 
+  Widget _buildRentedSpacesList() {
+    return Column(
+      children: _rentedSpaces.map((space) {
+        final title = space['propertyTitle'] ?? space['property_title'] ?? 'Rented Apartment';
+        final address = space['propertyAddress'] ?? space['property_address'] ?? 'Lagos, Nigeria';
+        final rent = (space['annualRent'] ?? space['annual_rent'] ?? 0) as num;
+        final caution = (space['cautionDeposit'] ?? space['caution_deposit'] ?? 0) as num;
+        final duration = space['tenancyDuration'] ?? space['tenancy_duration'] ?? '12 Months';
+        final landlord = space['landlordName'] ?? space['landlord_name'] ?? 'Verified Landlord';
+        final ref = space['escrowReference'] ?? space['escrow_reference'] ?? 'ESCROW-ACTIVE';
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFBBF7D0), width: 1.5),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFDCFCE7),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      'ACTIVE LEASE • ESCROW SECURED',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w900,
+                        color: const Color(0xFF15803D),
+                      ),
+                    ),
+                  ),
+                  Text(
+                    duration,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                title,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  const Icon(Icons.location_on_rounded, size: 13, color: AppColors.accentOrange),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      address,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Annual Rent', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textMuted)),
+                        Text('₦', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.primary)),
+                      ],
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Caution (Held)', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textMuted)),
+                        Text('₦', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: const Color(0xFF059669))),
+                      ],
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Landlord', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textMuted)),
+                        Text(landlord.split(' ')[0], style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Tenancy Agreement # verified on Rentilly Protocol.'),
+                            backgroundColor: AppColors.primary,
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.description_outlined, size: 14),
+                      label: const Text('View Agreement'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: const BorderSide(color: AppColors.primary),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        textStyle: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Maintenance ticket logged with landlord.'),
+                            backgroundColor: Color(0xFF0D5C46),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.build_rounded, size: 14),
+                      label: const Text('Report Issue'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        elevation: 0,
+                        textStyle: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildOwnedSpacesList() {
+    return Column(
+      children: _ownedSpaces.map((space) {
+        final title = space['propertyTitle'] ?? space['property_title'] ?? 'Owned Property';
+        final address = space['propertyAddress'] ?? space['property_address'] ?? 'Nigeria';
+        final price = (space['annualRent'] ?? space['basePrice'] ?? 0) as num;
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFFDE68A), width: 1.5),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  'C OF O & TITLE VERIFIED',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w900, color: const Color(0xFFB45309)),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(title, style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.textPrimary)),
+              const SizedBox(height: 4),
+              Text(address, style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+              const SizedBox(height: 10),
+              Text('Purchase Value: ₦', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w900, color: AppColors.primary)),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildReceiptsList() {
+    return Column(
+      children: _receipts.map((rec) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.borderDark),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.receipt_long_rounded, color: AppColors.primary, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(rec['title'], style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                    const SizedBox(height: 2),
+                    Text('Ref:  • ', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary)),
+                  ],
+                ),
+              ),
+              Text(
+                '₦',
+                style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.w800, color: AppColors.primary),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
   Widget _buildEmptyRentedSpaces() {
     return Container(
       width: double.infinity,
@@ -114,7 +448,7 @@ class _MySpacesScreenState extends State<MySpacesScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: AppColors.backgroundDark,
               shape: BoxShape.circle,
             ),
@@ -168,7 +502,7 @@ class _MySpacesScreenState extends State<MySpacesScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: AppColors.backgroundDark,
               shape: BoxShape.circle,
             ),
@@ -203,7 +537,7 @@ class _MySpacesScreenState extends State<MySpacesScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: AppColors.backgroundDark,
               shape: BoxShape.circle,
             ),

@@ -95,6 +95,42 @@ class ApiService {
     };
   }
 
+  // 1d. Lock Rent / Sales Payment in Escrow
+  static Future<Map<String, dynamic>> payRentEscrow({
+    required String propertyId,
+    required String tenantEmail,
+    required String tenantName,
+    required double basePrice,
+    double cautionFee = 0.0,
+    double serviceCharge = 0.0,
+    int tenancyDurationMonths = 12,
+    String? notes,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/escrow/pay'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'propertyId': propertyId,
+          'tenantEmail': tenantEmail,
+          'tenantName': tenantName,
+          'basePrice': basePrice,
+          'cautionFee': cautionFee,
+          'serviceCharge': serviceCharge,
+          'tenancyDurationMonths': tenancyDurationMonths,
+          'notes': notes,
+        }),
+      ).timeout(const Duration(seconds: 20));
+
+      return json.decode(response.body);
+    } catch (e) {
+      return {
+        'success': false,
+        'error': 'Network error while locking escrow payment. Please check your connection.',
+      };
+    }
+  }
+
   // 2. Fetch User Inspections from live API
   static Future<List<Inspection>> fetchInspections() async {
     try {

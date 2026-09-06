@@ -96,9 +96,11 @@ export interface Inspection {
   propertyAddress: string;
   prospectId: string;
   prospectName: string;
+  prospectEmail?: string;
   prospectPhone: string;
   ownerId: string;
   ownerName: string;
+  ownerEmail?: string;
   ownerPhone: string;
   scheduledDate: string;
   scheduledTimeSlot: string;

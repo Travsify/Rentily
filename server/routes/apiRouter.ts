@@ -198,6 +198,7 @@ apiRouter.patch('/inspections/:id/status', inspectionController.updateInspection
 apiRouter.get('/escrow/transactions', escrowController.getTransactions);
 apiRouter.get('/escrow/partner-commissions', escrowController.getPartnerCommissions);
 apiRouter.post('/escrow/:id/release-payout', escrowController.releaseEscrowPayout);
+apiRouter.post('/escrow/pay', escrowController.payRentEscrow);
 
 // 11. Legal Agreements
 apiRouter.get('/legal/agreements', legalController.getLegalAgreements);

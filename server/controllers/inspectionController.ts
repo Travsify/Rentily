@@ -31,9 +31,11 @@ export async function getInspections(req: Request, res: Response) {
             propertyAddress: row.properties ? `${row.properties.address}, ${row.properties.neighborhood}` : '',
             prospectId: row.prospect_id,
             prospectName: row.prospect_name || 'Prospective Tenant',
+            prospectEmail: (row.prospect_email || row.renter_email || row.email || '').toLowerCase().trim(),
             prospectPhone: row.prospect_phone || '+234 812 345 6789',
             ownerId: row.owner_id,
             ownerName: row.owner_name || 'Property Owner',
+            ownerEmail: (row.owner_email || '').toLowerCase().trim(),
             ownerPhone: row.owner_phone || '+234 803 000 0000',
             scheduledDate: row.scheduled_date,
             scheduledTimeSlot: row.scheduled_time_slot,
@@ -54,6 +56,8 @@ export async function getInspections(req: Request, res: Response) {
     // Apply filters if requested by Flutter app
     if (cleanEmail) {
       storeInsps = storeInsps.filter(i =>
+        i.prospectEmail?.toLowerCase?.() === cleanEmail ||
+        i.ownerEmail?.toLowerCase?.() === cleanEmail ||
         (i as any).email?.toLowerCase?.() === cleanEmail ||
         i.prospectName.toLowerCase().includes(cleanEmail) ||
         i.ownerName.toLowerCase().includes(cleanEmail) ||
@@ -83,6 +87,9 @@ export async function bookInspection(req: Request, res: Response) {
     const now = new Date().toISOString();
     const newId = body.id || `insp_${Date.now()}`;
 
+    const prospectEmail = (body.email || body.prospectEmail || '').toString().toLowerCase().trim();
+    const ownerEmail = (body.ownerEmail || '').toString().toLowerCase().trim();
+
     const inspectionRecord: Inspection = {
       id: newId,
       propertyId: body.propertyId || 'unknown',
@@ -90,9 +97,11 @@ export async function bookInspection(req: Request, res: Response) {
       propertyAddress: body.propertyAddress || '',
       prospectId: body.prospectId || `usr_${Date.now()}`,
       prospectName: body.prospectName || 'Prospective Tenant',
+      prospectEmail: prospectEmail,
       prospectPhone: body.prospectPhone || '',
       ownerId: body.ownerId || 'owner_direct',
       ownerName: body.ownerName || 'Property Landlord',
+      ownerEmail: ownerEmail,
       ownerPhone: body.ownerPhone || '',
       scheduledDate: body.scheduledDate || new Date().toISOString().split('T')[0],
       scheduledTimeSlot: body.scheduledTimeSlot || '11:00 AM - 12:00 PM',

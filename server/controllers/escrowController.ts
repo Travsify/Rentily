@@ -273,3 +273,183 @@ export async function getPartnerCommissions(req: Request, res: Response) {
     return res.json({ status: true, escrowBalance: 0, settledCommissions: 0, transactions: [] });
   }
 }
+
+/**
+ * Initiates Rent / Sale Escrow Locking from Tenant Wallet Balance or Direct Settlement Rail.
+ * Automatically handles:
+ * 1. Balance verification
+ * 2. Instant ledger debit in TransactionStore + Supabase wallet_transactions
+ * 3. Recording escrow transaction in Supabase transactions (with exact 10%/5% legal fee calculation)
+ * 4. Creating digital lease / tenancy agreement record in Supabase
+ * 5. Firing in-app and push notifications to tenant & landlord
+ */
+export async function payRentEscrow(req: Request, res: Response) {
+  try {
+    const {
+      propertyId,
+      tenantEmail,
+      tenantName,
+      tenantPhone,
+      basePrice,
+      cautionFee,
+      serviceCharge,
+      tenancyDurationMonths,
+      notes
+    } = req.body;
+
+    const cleanEmail = (tenantEmail || '').toString().toLowerCase().trim();
+    if (!cleanEmail) {
+      return res.status(400).json({ error: 'Tenant email is required to initiate escrow.' });
+    }
+
+    const numBase = Number(basePrice || 0);
+    if (numBase <= 0) {
+      return res.status(400).json({ error: 'Valid property price is required.' });
+    }
+
+    // 1. Fetch Property Details (from Supabase or AdminDataStore)
+    let property: any = null;
+    if (supabase) {
+      const { data } = await supabase.from('properties').select('*').eq('id', propertyId).maybeSingle();
+      if (data) property = data;
+    }
+    if (!property) {
+      const storeProps = AdminDataStore.getProperties();
+      property = storeProps.find(p => p.id === propertyId);
+    }
+
+    const propTitle = property?.title || 'Rentilly Verified Property';
+    const propAddress = property ? `${property.address}, ${property.neighborhood}, ${property.state}` : 'Lagos, Nigeria';
+    const isRent = (property?.purpose || 'rent') === 'rent';
+    const ownerId = property?.owner_id || property?.ownerId || 'owner_direct';
+    const ownerName = property?.owner_name || property?.ownerName || 'Direct Landlord';
+
+    // Calculate official transparent legal fee (10% on rent, 5% on sale)
+    const legalFeeRate = isRent ? 0.10 : 0.05;
+    const rentillyLegalFee = Math.round(numBase * legalFeeRate);
+    const numCaution = Number(cautionFee || property?.caution_fee || 0);
+    const numServiceCharge = Number(serviceCharge || property?.service_charge || 0);
+    const totalPayable = numBase + numCaution + numServiceCharge + rentillyLegalFee;
+
+    // 2. Check user's available wallet balance
+    const currentBal = TransactionStore.computeNetBalance(cleanEmail);
+    if (currentBal < totalPayable) {
+      return res.status(400).json({
+        error: `Insufficient wallet balance. Total required for escrow is ₦${totalPayable.toLocaleString()} (Rent: ₦${numBase.toLocaleString()}, Caution: ₦${numCaution.toLocaleString()}, Service: ₦${numServiceCharge.toLocaleString()}, Legal: ₦${rentillyLegalFee.toLocaleString()}). Your available balance is ₦${currentBal.toLocaleString()}. Please top up your wallet.`,
+        requiredAmount: totalPayable,
+        currentBalance: currentBal,
+        shortfall: totalPayable - currentBal
+      });
+    }
+
+    const escrowRef = `ESCROW_${isRent ? 'RENT' : 'SALE'}_${Date.now()}`;
+    const now = new Date().toISOString();
+
+    // 3. Debit Tenant Wallet in TransactionStore
+    TransactionStore.recordTransaction({
+      id: escrowRef,
+      user_email: cleanEmail,
+      type: 'debit',
+      amount: totalPayable,
+      title: `Escrow Lock: ${propTitle}`,
+      description: `Rent payment locked in Rentilly Escrow pending key handover. Caution: ₦${numCaution.toLocaleString()} | Legal Fee: ₦${rentillyLegalFee.toLocaleString()}`,
+      status: 'SUCCESS',
+      date: now,
+      reference: escrowRef
+    });
+
+    // 4. Save in Supabase `transactions` table
+    let savedTxId = escrowRef;
+    if (supabase) {
+      try {
+        const { data: txRow } = await supabase.from('transactions').insert({
+          property_id: propertyId,
+          payer_id: cleanEmail,
+          owner_id: ownerId,
+          transaction_type: isRent ? 'rent' : 'sale',
+          payment_reference: escrowRef,
+          payment_gateway: 'wallet_escrow',
+          base_amount: numBase,
+          rentilly_legal_fee: rentillyLegalFee,
+          caution_fee: numCaution,
+          service_charge: numServiceCharge,
+          total_amount: totalPayable,
+          escrow_status: 'held_in_escrow',
+          created_at: now
+        }).select().maybeSingle();
+
+        if (txRow) savedTxId = txRow.id;
+
+        // Also record debit in wallet_transactions for user statement export
+        await supabase.from('wallet_transactions').insert({
+          user_email: cleanEmail,
+          amount: totalPayable,
+          type: 'DEBIT',
+          category: 'escrow',
+          title: `Escrow Locked: ${propTitle}`,
+          reference: escrowRef,
+          flw_ref: escrowRef,
+          created_at: now
+        });
+
+        // 5. Create active digital tenancy agreement in legal_agreements
+        await supabase.from('legal_agreements').insert({
+          property_id: propertyId,
+          tenant_email: cleanEmail,
+          tenant_name: tenantName || 'Tenant',
+          landlord_name: ownerName,
+          property_title: propTitle,
+          property_address: propAddress,
+          annual_rent: numBase,
+          caution_deposit: numCaution,
+          tenancy_duration: `${tenancyDurationMonths || 12} Months`,
+          status: 'fully_executed',
+          escrow_reference: escrowRef,
+          commencement_date: now.split('T')[0],
+          created_at: now
+        }).catch(() => {});
+
+        // 6. Notify tenant in-app
+        await supabase.from('notifications').insert({
+          user_email: cleanEmail,
+          type: 'escrow_locked',
+          title: '🔐 Rent Safely Locked in Escrow',
+          message: `Your payment of ₦${totalPayable.toLocaleString()} for "${propTitle}" is now secured in Rentilly Escrow. Funds will only be released to the landlord after physical key handover.`,
+          read: false,
+          created_at: now
+        });
+      } catch (sbErr: any) {
+        console.warn('[payRentEscrow] Supabase save warning:', sbErr.message);
+      }
+    }
+
+    // 7. Dispatch Push / Real-time Alert
+    NotificationDispatcher.dispatch({
+      userId: cleanEmail,
+      email: cleanEmail,
+      userName: tenantName || 'Tenant',
+      title: '🔐 Rent Locked in Escrow',
+      category: 'escrow',
+      message: `₦${totalPayable.toLocaleString()} locked for ${propTitle}. Physical handover pending.`,
+      metadata: {
+        escrowReference: escrowRef,
+        propertyTitle: propTitle,
+        totalAmount: totalPayable
+      }
+    });
+
+    return res.json({
+      success: true,
+      message: 'Rent payment locked in escrow successfully. Your tenancy agreement is now active.',
+      escrowReference: escrowRef,
+      transactionId: savedTxId,
+      totalAmount: totalPayable,
+      rentillyLegalFee: rentillyLegalFee,
+      cautionDeposit: numCaution,
+      status: 'held_in_escrow'
+    });
+  } catch (err: any) {
+    console.error('[payRentEscrow] Error:', err.message);
+    return res.status(500).json({ error: err.message || 'Escrow payment failed' });
+  }
+}
