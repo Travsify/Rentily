@@ -222,6 +222,53 @@ export class FincraService {
   }
 
   /**
+   * List Merchant Collections (Inbound Bank Transfers into Virtual Accounts)
+   * Fetches real-time collections directly from Fincra
+   */
+  static async listCollections(params?: { page?: number; perPage?: number }): Promise<{
+    status: boolean;
+    data?: any[];
+    total?: number;
+    message?: string;
+  }> {
+    try {
+      const page = params?.page || 1;
+      const perPage = params?.perPage || 50;
+      const url = `${this.BASE_URL}/collections?business=${this.BUSINESS_ID}&page=${page}&perPage=${perPage}`;
+
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: this.getHeaders()
+      });
+
+      const resJson: any = await res.json().catch(() => null);
+
+      if (res.ok && resJson && (resJson.status === true || resJson.success === true || Array.isArray(resJson.data?.results) || Array.isArray(resJson.data))) {
+        const results = Array.isArray(resJson.data?.results)
+          ? resJson.data.results
+          : (Array.isArray(resJson.data) ? resJson.data : []);
+        const total = resJson.data?.total || results.length;
+        return {
+          status: true,
+          data: results,
+          total,
+          message: 'Collections fetched successfully'
+        };
+      }
+
+      return {
+        status: false,
+        message: resJson?.error || resJson?.message || 'Failed to fetch collections from Fincra'
+      };
+    } catch (err: any) {
+      return {
+        status: false,
+        message: err.message || 'Error connecting to Fincra Collections API'
+      };
+    }
+  }
+
+  /**
    * Fetch All Merchant Virtual Accounts from Fincra
    */
   static async getMerchantVirtualAccounts(currency: string = 'NGN'): Promise<{

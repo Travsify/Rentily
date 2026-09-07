@@ -1605,10 +1605,17 @@ export async function fincraWebhook(req: Request, res: Response) {
       }
     }
 
-    if (event === 'charge.successful' || event === 'charge.success' || event === 'collection.successful' || event === 'virtualaccount.approved' || verifiedData?.status === 'successful') {
-      const amountPaid = Number(verifiedData?.amount || verifiedData?.settlementAmount || data?.amount || 0);
+    if (event === 'charge.successful' || event === 'charge.success' || event === 'collection.successful' || event === 'collection_successful' || event === 'virtualaccount.approved' || verifiedData?.status === 'successful') {
+      const amountPaid = Number(
+        verifiedData?.amount ||
+        verifiedData?.sourceAmount ||
+        verifiedData?.settlementAmount ||
+        data?.amount ||
+        data?.sourceAmount ||
+        0
+      );
       let cleanEmail = (verifiedData?.customer?.email || data?.customer?.email || '').toString().toLowerCase().trim();
-      const senderName = verifiedData?.customer?.name || verifiedData?.sender?.name || data?.customer?.name || 'Commercial Bank Transfer (Fincra)';
+      let senderName = verifiedData?.customer?.name || verifiedData?.sender?.name || data?.customer?.name || 'Commercial Bank Transfer (Fincra)';
       const incomingAccNo = String(
         verifiedData?.virtualAccount?.accountNumber ||
         verifiedData?.accountInformation?.accountNumber ||
@@ -1620,8 +1627,31 @@ export async function fincraWebhook(req: Request, res: Response) {
         ''
       ).trim();
 
+      const incomingVirtualAccId = String(
+        verifiedData?.virtualAccountId ||
+        verifiedData?.virtual_account_id ||
+        data?.virtualAccountId ||
+        data?.virtual_account_id ||
+        ''
+      ).trim();
+
+      const payeeName = String(
+        verifiedData?.payeeName ||
+        data?.payeeName ||
+        ''
+      ).trim();
+
+      // Extract sender name from refundInfo if available
+      try {
+        const rInfo = verifiedData?.refundInfo || data?.refundInfo;
+        if (rInfo) {
+          const parsed = typeof rInfo === 'string' ? JSON.parse(rInfo) : rInfo;
+          if (parsed.account_name) senderName = parsed.account_name;
+        }
+      } catch (_) {}
+
       if (amountPaid > 0) {
-        console.log(`[Fincra Webhook] Inbound payment: ₦${amountPaid} for account: ${incomingAccNo}, email: ${cleanEmail}`);
+        console.log(`[Fincra Webhook] Inbound payment: ₦${amountPaid} for account: ${incomingAccNo || incomingVirtualAccId}, email: ${cleanEmail}, payee: ${payeeName}`);
 
         let targetUser: any = null;
         if (supabase) {
@@ -1635,14 +1665,17 @@ export async function fincraWebhook(req: Request, res: Response) {
             if (profByAcc) targetUser = profByAcc;
           }
 
-          // 2. Try matching by fincra_va_* in system_configs
-          if (!targetUser && incomingAccNo) {
+          // 2. Try matching by fincra_va_* in system_configs (by accountNumber or virtualAccountId)
+          if (!targetUser && (incomingAccNo || incomingVirtualAccId)) {
             const { data: cfgs } = await supabase
               .from('system_configs')
               .select('id, data')
               .like('id', 'fincra_va_%');
             if (cfgs) {
-              const matched = cfgs.find((c: any) => c.data?.accountNumber === incomingAccNo);
+              const matched = cfgs.find((c: any) =>
+                (incomingAccNo && c.data?.accountNumber === incomingAccNo) ||
+                (incomingVirtualAccId && (c.data?.virtualAccountId === incomingVirtualAccId || c.data?._id === incomingVirtualAccId))
+              );
               if (matched) {
                 const userEmail = matched.id.replace('fincra_va_', '');
                 const { data: profByEmail } = await supabase
@@ -1655,7 +1688,25 @@ export async function fincraWebhook(req: Request, res: Response) {
             }
           }
 
-          // 3. Try matching by email
+          // 3. Try matching by payeeName (e.g. "patrick Achua" -> "Patrick Achua")
+          if (!targetUser && payeeName) {
+            const cleanPayee = payeeName.replace(/^FIN-|^M-/i, '').trim().toLowerCase();
+            const { data: allProfs } = await supabase
+              .from('profiles')
+              .select('id, email, full_name, wallet_balance');
+            if (allProfs) {
+              const matched = allProfs.find((p: any) => {
+                const pName = (p.full_name || '').toLowerCase().trim();
+                if (!pName) return false;
+                if (pName === cleanPayee) return true;
+                const payeeWords = cleanPayee.split(/\s+/).filter(Boolean);
+                return payeeWords.length >= 2 && payeeWords.every((w: string) => pName.includes(w));
+              });
+              if (matched) targetUser = matched;
+            }
+          }
+
+          // 4. Try matching by email
           if (!targetUser && cleanEmail) {
             const { data: profByEmail } = await supabase
               .from('profiles')
@@ -2755,9 +2806,101 @@ async function syncPaystackInboundTransactionsForUser(cleanEmail: string) {
 // 5d. Sync Inbound Fincra / Commercial Wema Bank Transactions for User
 export async function syncFincraTransactionsForUser(cleanEmail: string) {
   try {
-    if (!supabase || !cleanEmail) return;
+    if (!cleanEmail) return;
 
-    // Check wallet_transactions in Supabase for any recorded Fincra credits
+    // 1. Live query to Fincra collections to auto-capture any inbound bank transfers
+    if (FincraService.isConfigured() && supabase) {
+      try {
+        const colRes = await FincraService.listCollections({ page: 1, perPage: 25 });
+        if (colRes.status && Array.isArray(colRes.data) && colRes.data.length > 0) {
+          const { data: prof } = await supabase
+            .from('profiles')
+            .select('id, email, full_name, account_number, wallet_balance')
+            .eq('email', cleanEmail)
+            .maybeSingle();
+
+          const { data: vaConfig } = await supabase
+            .from('system_configs')
+            .select('data')
+            .eq('id', `fincra_va_${cleanEmail}`)
+            .maybeSingle();
+
+          const userVaId = vaConfig?.data?.virtualAccountId || vaConfig?.data?._id;
+          const userFullName = (prof?.full_name || '').toLowerCase().trim();
+
+          for (const col of colRes.data) {
+            const isSuccess = col.status === 'successful' || col.status === 'success';
+            const amount = Number(col.sourceAmount || col.amount || 0);
+            if (!isSuccess || amount <= 0) continue;
+
+            const ref = String(col.reference || col.id || '').trim();
+            if (!ref) continue;
+
+            // Match user
+            let isUserMatch = false;
+            if (userVaId && col.virtualAccountId && String(col.virtualAccountId) === String(userVaId)) {
+              isUserMatch = true;
+            } else if (col.payeeName && userFullName) {
+              const cleanPayee = String(col.payeeName).replace(/^FIN-|^M-/i, '').trim().toLowerCase();
+              if (cleanPayee === userFullName) {
+                isUserMatch = true;
+              } else {
+                const words = cleanPayee.split(/\s+/).filter(Boolean);
+                if (words.length >= 2 && words.every((w: string) => userFullName.includes(w))) {
+                  isUserMatch = true;
+                }
+              }
+            }
+
+            if (isUserMatch && prof) {
+              // Extract sender name
+              let senderName = 'Bank Transfer';
+              try {
+                if (col.refundInfo) {
+                  const parsed = typeof col.refundInfo === 'string' ? JSON.parse(col.refundInfo) : col.refundInfo;
+                  if (parsed.account_name) senderName = parsed.account_name;
+                }
+              } catch (_) {}
+
+              // Atomic credit
+              const creditRes = await AtomicLedgerService.creditWalletAtomic({
+                userId: prof.id,
+                email: prof.email,
+                amount,
+                flwRef: ref,
+                txRef: ref,
+                narration: `Inbound Bank Transfer from ${senderName} (Wema Bank Rail)`
+              });
+
+              if (creditRes.success && !creditRes.alreadyProcessed) {
+                console.log(`⚡ [syncFincraTransactionsForUser] Auto-credited inbound bank transfer: ₦${amount.toLocaleString()} for ${cleanEmail}`);
+
+                NotificationDispatcher.dispatch({
+                  userId: prof.id,
+                  email: prof.email,
+                  userName: prof.full_name || 'Valued User',
+                  category: 'wallet',
+                  title: `Bank Transfer Received: ₦${amount.toLocaleString()}`,
+                  message: `Your Rentilly Wema Bank Account received ₦${amount.toLocaleString()} from ${senderName}. New Balance: ₦${(creditRes.newBalance ?? 0).toLocaleString()}.`,
+                  metadata: {
+                    amount,
+                    reference: ref,
+                    bankName: 'Wema Bank (Fincra)',
+                    sender: senderName,
+                    date: col.createdAt || new Date().toISOString()
+                  }
+                }).catch(() => {});
+              }
+            }
+          }
+        }
+      } catch (fincraErr: any) {
+        console.warn('[syncFincraTransactionsForUser] Fincra live collection sync notice:', fincraErr?.message || fincraErr);
+      }
+    }
+
+    // 2. Check wallet_transactions in Supabase for any recorded Fincra credits
+    if (!supabase) return;
     const { data: records } = await supabase
       .from('wallet_transactions')
       .select('*')
@@ -2775,6 +2918,7 @@ export async function syncFincraTransactionsForUser(cleanEmail: string) {
       const isFincra = narration.toLowerCase().includes('fincra') || 
                        narration.toLowerCase().includes('wema') ||
                        ref.includes('775f02df') ||
+                       ref.includes('d50f958c') ||
                        (r.type === 'credit' && narration.toLowerCase().includes('commercial rail'));
 
       if (!isFincra) continue;

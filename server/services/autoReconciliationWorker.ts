@@ -10,7 +10,7 @@ dotenv.config();
 
 export class AutoReconciliationWorker {
   private static isRunning = false;
-  private static pollIntervalMs = 60000; // Poll every 60 seconds (production standard)
+  private static pollIntervalMs = 15000; // Poll every 15 seconds for instant bank transfer capture
   private static timer: NodeJS.Timeout | null = null;
 
   /**
@@ -19,7 +19,7 @@ export class AutoReconciliationWorker {
   static start() {
     if (this.isRunning) return;
     this.isRunning = true;
-    console.log('⚡ [AutoReconciliation] Realtime Worker started (Polling every 60s)');
+    console.log('⚡ [AutoReconciliation] Realtime Worker started (Polling every 15s)');
 
     // Run first sync quietly
     this.syncAll().catch(() => {});
@@ -512,14 +512,125 @@ export class AutoReconciliationWorker {
   }
 
   /**
-   * Autonomous Fincra High-Value Escrow Auto-Fetch Worker
-   * Auto-fetches pending checkouts directly from Fincra's verification API
-   * and auto-credits users even if the webhook was delayed or dropped.
+   * Autonomous Fincra High-Value Escrow & Bank Transfer Auto-Capture Worker
+   * Polls live collections directly from Fincra Collections API and auto-credits users instantly,
+   * plus auto-fetches pending checkouts from Fincra's verification API.
    */
   private static async syncFincraTransactions() {
     if (!FincraService.isConfigured() || !supabase) return;
 
     try {
+      // 1. Fetch live collections directly from Fincra (Inbound bank transfers to virtual accounts)
+      const colRes = await FincraService.listCollections({ page: 1, perPage: 30 });
+      if (colRes.status && Array.isArray(colRes.data) && colRes.data.length > 0) {
+        // Pre-fetch configs and profiles to match collections efficiently
+        const { data: fincraConfigs } = await supabase
+          .from('system_configs')
+          .select('id, data')
+          .like('id', 'fincra_va_%');
+
+        const { data: allProfiles } = await supabase
+          .from('profiles')
+          .select('id, email, full_name, account_number, wallet_balance');
+
+        for (const col of colRes.data) {
+          const isSuccess = col.status === 'successful' || col.status === 'success';
+          const amount = Number(col.sourceAmount || col.amount || 0);
+          if (!isSuccess || amount <= 0) continue;
+
+          const ref = String(col.reference || col.id || '').trim();
+          if (!ref) continue;
+
+          // Check if already processed
+          if (await this.isAlreadyProcessed(ref)) continue;
+
+          // Match target user
+          let targetUser: any = null;
+
+          // Strategy A: Match by virtualAccountId in fincra_va_* configs
+          if (col.virtualAccountId && fincraConfigs) {
+            const matchedCfg = fincraConfigs.find((c: any) =>
+              c.data?.virtualAccountId === col.virtualAccountId ||
+              c.data?._id === col.virtualAccountId
+            );
+            if (matchedCfg) {
+              const matchedEmail = matchedCfg.id.replace('fincra_va_', '');
+              targetUser = allProfiles?.find((p: any) => p.email.toLowerCase() === matchedEmail.toLowerCase());
+            }
+          }
+
+          // Strategy B: Match by payeeName (e.g. "patrick Achua" -> "Patrick Achua")
+          if (!targetUser && col.payeeName && allProfiles) {
+            const cleanPayee = String(col.payeeName).replace(/^FIN-|^M-/i, '').trim().toLowerCase();
+            targetUser = allProfiles.find((p: any) => {
+              const pName = (p.full_name || '').toLowerCase().trim();
+              if (!pName) return false;
+              if (pName === cleanPayee) return true;
+              const payeeWords = cleanPayee.split(/\s+/).filter(Boolean);
+              return payeeWords.length >= 2 && payeeWords.every((w: string) => pName.includes(w));
+            });
+          }
+
+          if (targetUser) {
+            // Extract sender name
+            let senderName = 'Bank Transfer';
+            try {
+              if (col.refundInfo) {
+                const parsed = typeof col.refundInfo === 'string' ? JSON.parse(col.refundInfo) : col.refundInfo;
+                if (parsed.account_name) senderName = parsed.account_name;
+              }
+            } catch (_) {}
+
+            const creditRes = await AtomicLedgerService.creditWalletAtomic({
+              userId: targetUser.id,
+              email: targetUser.email,
+              amount,
+              flwRef: ref,
+              txRef: ref,
+              narration: `Inbound Bank Transfer from ${senderName} (Wema Bank Rail)`
+            });
+
+            if (creditRes.success && !creditRes.alreadyProcessed) {
+              console.log(`⚡ [AutoReconciliation] Auto-credited Fincra bank transfer: ₦${amount.toLocaleString()} for ${targetUser.email} (Ref: ${ref})`);
+
+              await TransactionStore.addTransaction({
+                id: `FINCRA_TX_${ref}`,
+                userId: targetUser.id,
+                email: targetUser.email,
+                title: `Wema Bank Inbound Deposit (${senderName})`,
+                type: 'Electronic Bank Inbound Deposit',
+                category: 'deposit',
+                amount,
+                isCredit: true,
+                reference: ref,
+                sender: senderName,
+                beneficiary: targetUser.full_name || targetUser.email,
+                recipientBank: 'Wema Bank Commercial Rail',
+                status: 'SUCCESSFUL',
+                date: col.createdAt || new Date().toISOString()
+              });
+
+              NotificationDispatcher.dispatch({
+                userId: targetUser.id,
+                email: targetUser.email,
+                userName: targetUser.full_name || 'Valued User',
+                category: 'wallet',
+                title: `Bank Transfer Received: ₦${amount.toLocaleString()}`,
+                message: `Your Rentilly Wema Bank Account received ₦${amount.toLocaleString()} from ${senderName}. New Balance: ₦${(creditRes.newBalance ?? 0).toLocaleString()}.`,
+                metadata: {
+                  amount,
+                  reference: ref,
+                  bankName: 'Wema Bank (Fincra)',
+                  sender: senderName,
+                  date: col.createdAt || new Date().toISOString()
+                }
+              }).catch(() => {});
+            }
+          }
+        }
+      }
+
+      // 2. Auto-fetch pending checkouts directly from Fincra's verification API
       const { data: pendingConfigs } = await supabase
         .from('system_configs')
         .select('id, data')
