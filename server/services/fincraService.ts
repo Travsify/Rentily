@@ -225,6 +225,147 @@ export class FincraService {
   }
 
   /**
+   * Fetch All Merchant Virtual Accounts from Fincra
+   */
+  static async getMerchantVirtualAccounts(currency: string = 'NGN'): Promise<{
+    status: boolean;
+    data?: any[];
+    total?: number;
+    message?: string;
+  }> {
+    try {
+      const res = await fetch(`${this.BASE_URL}/profile/virtual-accounts?currency=${encodeURIComponent(currency)}`, {
+        method: 'GET',
+        headers: this.getHeaders()
+      });
+      const resJson: any = await res.json().catch(() => null);
+      if (res.ok && resJson && (resJson.status === true || resJson.success === true)) {
+        return {
+          status: true,
+          data: resJson.data?.results || [],
+          total: resJson.data?.total || 0,
+          message: 'Virtual accounts fetched successfully'
+        };
+      }
+      return {
+        status: false,
+        message: resJson?.error || resJson?.message || 'Failed to fetch virtual accounts'
+      };
+    } catch (err: any) {
+      return {
+        status: false,
+        message: err.message || 'Error connecting to Fincra Virtual Accounts API'
+      };
+    }
+  }
+
+  /**
+   * Create / Request Virtual Account on Fincra
+   * Primary provider: Wema Bank (035), with zero PSB limits and instant corporate limits
+   */
+  static async createVirtualAccount(params: {
+    currency?: string;
+    accountType?: 'individual' | 'corporate';
+    channel?: string; // 'wema' | 'globus' | 'sterling'
+    KYCInformation: {
+      firstName?: string;
+      lastName?: string;
+      email: string;
+      bvn: string;
+      businessName?: string;
+      bvnName?: string;
+    };
+  }): Promise<{
+    status: boolean;
+    data?: any;
+    message?: string;
+  }> {
+    try {
+      const payload: any = {
+        currency: params.currency || 'NGN',
+        accountType: params.accountType || 'individual',
+        channel: params.channel || 'wema',
+        KYCInformation: {
+          email: params.KYCInformation.email,
+          bvn: params.KYCInformation.bvn
+        }
+      };
+
+      if (params.accountType === 'corporate') {
+        payload.KYCInformation.businessName = params.KYCInformation.businessName || 'Ehomes Global Inclusive Limited';
+        if (params.KYCInformation.bvnName) {
+          payload.KYCInformation.bvnName = params.KYCInformation.bvnName;
+        }
+      } else {
+        payload.KYCInformation.firstName = params.KYCInformation.firstName || 'Rentilly';
+        payload.KYCInformation.lastName = params.KYCInformation.lastName || 'User';
+      }
+
+      const res = await fetch(`${this.BASE_URL}/profile/virtual-accounts/requests`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify(payload)
+      });
+
+      const resJson: any = await res.json().catch(() => null);
+
+      if (res.ok && resJson && (resJson.status === true || resJson.success === true)) {
+        return {
+          status: true,
+          data: resJson.data,
+          message: resJson.message || 'Virtual account requested successfully'
+        };
+      }
+
+      const errMsg = resJson?.error || resJson?.message || 'Failed to request virtual account from Fincra';
+      console.warn('[FincraService] createVirtualAccount warning:', res.status, resJson);
+      return {
+        status: false,
+        message: errMsg
+      };
+    } catch (err: any) {
+      console.error('[FincraService] createVirtualAccount error:', err.message);
+      return {
+        status: false,
+        message: err.message || 'Error connecting to Fincra Virtual Account creation API'
+      };
+    }
+  }
+
+  /**
+   * Get Merchant Wallets & Balances across all currencies
+   */
+  static async getWallets(): Promise<{
+    status: boolean;
+    data?: any[];
+    message?: string;
+  }> {
+    try {
+      const res = await fetch(`${this.BASE_URL}/wallets?businessID=${this.BUSINESS_ID}`, {
+        method: 'GET',
+        headers: this.getHeaders()
+      });
+      const resJson: any = await res.json().catch(() => null);
+      if (res.ok && resJson && (resJson.status === true || resJson.success === true)) {
+        return {
+          status: true,
+          data: resJson.data || [],
+          message: 'Wallets fetched successfully'
+        };
+      }
+      return {
+        status: false,
+        message: resJson?.error || resJson?.message || 'Failed to fetch wallets'
+      };
+    } catch (err: any) {
+      return {
+        status: false,
+        message: err.message || 'Error connecting to Fincra Wallets API'
+      };
+    }
+  }
+
+  /**
    * Verify HMAC-SHA512 Signature from Fincra Webhooks
    */
   static verifyWebhookSignature(payload: any, signature: string | string[] | undefined): boolean {
@@ -240,3 +381,4 @@ export class FincraService {
     }
   }
 }
+

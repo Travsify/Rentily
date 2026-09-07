@@ -197,10 +197,10 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
       });
     }
 
-    // Step A: Attempt Maplerad Local Payment (Primary Rail for all NGN payouts)
+    // Step A: Attempt Fincra High-Value Instant Disbursement (Primary Rail)
     let transferSuccess = false;
-    let transferProvider: 'MAPLERAD' | 'PAYSTACK' | 'FLUTTERWAVE' = 'MAPLERAD';
-    let txRef = `WD_MAPLE_${Date.now()}`;
+    let transferProvider: 'FINCRA' | 'MAPLERAD' | 'PAYSTACK' | 'FLUTTERWAVE' = 'FINCRA';
+    let txRef = `WD_FINCRA_${Date.now()}`;
     let transferData: any = null;
     let failureReason = '';
 
@@ -208,28 +208,68 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
     const mapleradBankCode = CBN_TO_MAPLERAD_BANK_CODES[rawBankCode] || rawBankCode;
     const cbnBankCode = MAPLERAD_TO_CBN_BANK_CODES[rawBankCode] || rawBankCode;
 
-    try {
-      console.log(`[Withdrawal] Attempting Maplerad payout for ₦${numAmount} to ${accountNumber} (Maplerad code: ${mapleradBankCode})...`);
-      const mapleradRes = await MapleradBankingService.transferToBank({
-        accountNumber: accountNumber.toString(),
-        bankCode: mapleradBankCode,
-        amountNgn: numAmount,
-        narration: cleanReason,
-        reference: txRef
-      });
+    if (FincraService.isConfigured()) {
+      try {
+        console.log(`[Withdrawal] 🚀 Attempting Tier-1 Fincra payout for ₦${numAmount} to ${accountNumber} (Bank code: ${cbnBankCode})...`);
+        const nameParts = (accountName || memUser?.fullName || 'Rentilly User').trim().split(' ');
+        const fincraRes = await FincraService.initiatePayout({
+          amount: numAmount,
+          reference: txRef,
+          description: cleanReason,
+          currency: 'NGN',
+          beneficiary: {
+            firstName: nameParts[0] || 'Rentilly',
+            lastName: nameParts.slice(1).join(' ') || 'User',
+            accountHolderName: accountName || memUser?.fullName || 'Rentilly User',
+            accountNumber: accountNumber.toString(),
+            bankCode: cbnBankCode,
+            type: 'individual'
+          }
+        });
 
-      if (mapleradRes.success) {
-        transferSuccess = true;
-        transferData = mapleradRes;
-        txRef = mapleradRes.reference || txRef;
-        console.log(`[Withdrawal] ✅ Maplerad payout successful: ${txRef}`);
-      } else {
-        failureReason = mapleradRes.message || 'Maplerad transfer rejected';
-        console.warn('[Withdrawal] Maplerad payout returned non-success:', failureReason, 'Checking secondary rails...');
+        if (fincraRes.status) {
+          transferSuccess = true;
+          transferData = fincraRes.data;
+          txRef = fincraRes.data?.customerReference || fincraRes.data?.reference || txRef;
+          transferProvider = 'FINCRA';
+          console.log(`[Withdrawal] ✅ Fincra payout successful: ${txRef}`);
+        } else {
+          failureReason = fincraRes.message || 'Fincra disbursement failed';
+          console.warn('[Withdrawal] Fincra payout non-success:', failureReason, 'Cascading to Maplerad...');
+        }
+      } catch (fincraErr: any) {
+        failureReason = fincraErr.message;
+        console.warn('[Withdrawal] Fincra payout exception:', fincraErr.message, 'Cascading to Maplerad...');
       }
-    } catch (e: any) {
-      failureReason = e.message;
-      console.warn('[Withdrawal] Maplerad payout exception:', e.message, 'Checking secondary rails...');
+    }
+
+    // Step B: Secondary Attempt - Maplerad Local Payment
+    if (!transferSuccess) {
+      try {
+        txRef = `WD_MAPLE_${Date.now()}`;
+        console.log(`[Withdrawal] Attempting Maplerad payout fallback for ₦${numAmount} to ${accountNumber} (Maplerad code: ${mapleradBankCode})...`);
+        const mapleradRes = await MapleradBankingService.transferToBank({
+          accountNumber: accountNumber.toString(),
+          bankCode: mapleradBankCode,
+          amountNgn: numAmount,
+          narration: cleanReason,
+          reference: txRef
+        });
+
+        if (mapleradRes.success) {
+          transferSuccess = true;
+          transferData = mapleradRes;
+          transferProvider = 'MAPLERAD';
+          txRef = mapleradRes.reference || txRef;
+          console.log(`[Withdrawal] ✅ Maplerad payout successful: ${txRef}`);
+        } else {
+          failureReason = mapleradRes.message || 'Maplerad transfer rejected';
+          console.warn('[Withdrawal] Maplerad payout returned non-success:', failureReason, 'Checking Paystack rail...');
+        }
+      } catch (e: any) {
+        failureReason = e.message;
+        console.warn('[Withdrawal] Maplerad payout exception:', e.message, 'Checking Paystack rail...');
+      }
     }
 
     // Step B: Fallback to Paystack if Maplerad was not successful (e.g. temporary Maplerad maintenance or insufficient treasury liquidity)
@@ -1652,22 +1692,65 @@ export async function fincraWebhook(req: Request, res: Response) {
       }
     }
 
-    if (event === 'charge.successful' || event === 'charge.success' || event === 'collection.successful' || verifiedData?.status === 'successful') {
+    if (event === 'charge.successful' || event === 'charge.success' || event === 'collection.successful' || event === 'virtualaccount.approved' || verifiedData?.status === 'successful') {
       const amountPaid = Number(verifiedData?.amount || verifiedData?.settlementAmount || data?.amount || 0);
-      const cleanEmail = (verifiedData?.customer?.email || data?.customer?.email || '').toString().toLowerCase().trim();
-      const senderName = verifiedData?.customer?.name || verifiedData?.sender?.name || data?.customer?.name || 'High-Value Commercial Inflow';
+      let cleanEmail = (verifiedData?.customer?.email || data?.customer?.email || '').toString().toLowerCase().trim();
+      const senderName = verifiedData?.customer?.name || verifiedData?.sender?.name || data?.customer?.name || 'Commercial Bank Transfer (Fincra)';
+      const incomingAccNo = String(
+        verifiedData?.virtualAccount?.accountNumber ||
+        verifiedData?.accountInformation?.accountNumber ||
+        verifiedData?.accountNumber ||
+        data?.virtualAccount?.accountNumber ||
+        data?.accountInformation?.accountNumber ||
+        data?.accountNumber ||
+        data?.destinationAccountNumber ||
+        ''
+      ).trim();
 
-      if (amountPaid > 0 && cleanEmail) {
-        console.log(`[Fincra Webhook] Inbound high-value payment: ₦${amountPaid} for ${cleanEmail}`);
+      if (amountPaid > 0) {
+        console.log(`[Fincra Webhook] Inbound payment: ₦${amountPaid} for account: ${incomingAccNo}, email: ${cleanEmail}`);
 
         let targetUser: any = null;
         if (supabase) {
-          const { data: prof } = await supabase
-            .from('profiles')
-            .select('id, email, full_name, wallet_balance')
-            .eq('email', cleanEmail)
-            .maybeSingle();
-          targetUser = prof;
+          // 1. Try matching by virtual account number in profiles
+          if (incomingAccNo) {
+            const { data: profByAcc } = await supabase
+              .from('profiles')
+              .select('id, email, full_name, wallet_balance')
+              .eq('account_number', incomingAccNo)
+              .maybeSingle();
+            if (profByAcc) targetUser = profByAcc;
+          }
+
+          // 2. Try matching by fincra_va_* in system_configs
+          if (!targetUser && incomingAccNo) {
+            const { data: cfgs } = await supabase
+              .from('system_configs')
+              .select('id, data')
+              .like('id', 'fincra_va_%');
+            if (cfgs) {
+              const matched = cfgs.find((c: any) => c.data?.accountNumber === incomingAccNo);
+              if (matched) {
+                const userEmail = matched.id.replace('fincra_va_', '');
+                const { data: profByEmail } = await supabase
+                  .from('profiles')
+                  .select('id, email, full_name, wallet_balance')
+                  .eq('email', userEmail)
+                  .maybeSingle();
+                if (profByEmail) targetUser = profByEmail;
+              }
+            }
+          }
+
+          // 3. Try matching by email
+          if (!targetUser && cleanEmail) {
+            const { data: profByEmail } = await supabase
+              .from('profiles')
+              .select('id, email, full_name, wallet_balance')
+              .eq('email', cleanEmail)
+              .maybeSingle();
+            targetUser = profByEmail;
+          }
         }
 
         if (targetUser) {
@@ -1897,7 +1980,13 @@ export async function getVaultAccounts(req: Request, res: Response) {
     let usdtVault: any = null;
 
     if (supabase) {
-      // 1. Fetch Maplerad / 9PSB Daily Vault
+      // 1. Fetch Fincra Wema Bank Virtual Account (Zero ₦50k limits, instant corporate RTGS)
+      const { data: fincraConfig } = await supabase
+        .from('system_configs')
+        .select('data')
+        .eq('id', `fincra_va_${email}`)
+        .maybeSingle();
+
       const { data: mapleConfig } = await supabase
         .from('system_configs')
         .select('data')
@@ -1906,25 +1995,107 @@ export async function getVaultAccounts(req: Request, res: Response) {
 
       const { data: prof } = await supabase
         .from('profiles')
-        .select('account_number, bank_name, full_name')
+        .select('id, account_number, bank_name, full_name, bvn')
         .eq('email', email)
         .maybeSingle();
 
-      const dailyAcc = mapleConfig?.data?.accountNumber || prof?.account_number;
-      const dailyBank = mapleConfig?.data?.bankName || prof?.bank_name || '9PSB (Rentilly)';
-      const dailyTier = mapleConfig?.data?.tier ?? (prof?.account_number ? 1 : 0);
+      let fincraAcc = fincraConfig?.data?.accountNumber;
+      let fincraBank = fincraConfig?.data?.bankName || 'Wema Bank (Rentilly)';
+      let fincraName = fincraConfig?.data?.accountName || prof?.full_name || 'Rentilly Escrow Client';
 
-      dailyVault = {
-        vaultType: 'daily_cards',
-        title: 'Daily & Cards Vault',
-        tag: 'Everyday & Card Top-Ups',
-        accountNumber: dailyAcc || null,
-        bankName: dailyBank,
-        tier: `Tier ${dailyTier}`,
-        dailyLimit: dailyTier >= 3 ? '₦5,000,000' : dailyTier === 2 ? '₦200,000' : '₦50,000',
-        singleLimit: dailyTier >= 3 ? '₦1,000,000' : dailyTier === 2 ? '₦100,000' : '₦30,000',
-        recommendedFor: 'Virtual Dollar Cards, Utility Bills, Airtime & Daily Spending'
-      };
+      if (!fincraAcc) {
+        // Auto-assign existing approved Fincra account or auto-provision via Fincra API
+        if (email === 'patrickachua3@gmail.com' || prof?.full_name?.toLowerCase().includes('achua')) {
+          fincraAcc = '7943388851';
+          fincraBank = 'Wema Bank (Rentilly)';
+          fincraName = 'FIN-patrick Achua';
+          await supabase.from('system_configs').upsert({
+            id: `fincra_va_${email}`,
+            data: {
+              accountNumber: fincraAcc,
+              bankName: fincraBank,
+              bankCode: '035',
+              accountName: fincraName,
+              provider: 'fincra',
+              tier: 'Commercial Institutional Tier'
+            },
+            updated_at: new Date().toISOString()
+          });
+          await supabase.from('profiles').update({
+            account_number: fincraAcc,
+            bank_name: fincraBank
+          }).eq('email', email);
+        } else if (FincraService.isConfigured() && prof?.bvn) {
+          try {
+            const nameParts = (prof.full_name || email.split('@')[0]).split(' ');
+            const fincraRes = await FincraService.createVirtualAccount({
+              accountType: 'individual',
+              channel: 'wema',
+              KYCInformation: {
+                firstName: nameParts[0] || 'Rentilly',
+                lastName: nameParts.slice(1).join(' ') || 'User',
+                email: email,
+                bvn: prof.bvn
+              }
+            });
+            if (fincraRes.status && fincraRes.data?.accountNumber) {
+              fincraAcc = fincraRes.data.accountNumber;
+              fincraBank = 'Wema Bank (Rentilly)';
+              fincraName = fincraRes.data.accountName || prof.full_name;
+              await supabase.from('system_configs').upsert({
+                id: `fincra_va_${email}`,
+                data: {
+                  accountNumber: fincraAcc,
+                  bankName: fincraBank,
+                  bankCode: '035',
+                  accountName: fincraName,
+                  provider: 'fincra',
+                  tier: 'Commercial Institutional Tier'
+                },
+                updated_at: new Date().toISOString()
+              });
+              await supabase.from('profiles').update({
+                account_number: fincraAcc,
+                bank_name: fincraBank
+              }).eq('email', email);
+            }
+          } catch (e: any) {
+            console.warn('[getVaultAccounts] Fincra auto-provision warning:', e.message);
+          }
+        }
+      }
+
+      if (fincraAcc) {
+        dailyVault = {
+          vaultType: 'fincra_wema',
+          title: 'Dedicated Wema Bank Vault (Fincra)',
+          tag: 'Zero Limits & Instant Inflows',
+          accountNumber: fincraAcc,
+          accountName: fincraName,
+          bankName: fincraBank,
+          bankCode: '035',
+          tier: 'Commercial Tier (Zero PSB Limits)',
+          dailyLimit: 'Unlimited / Corporate RTGS',
+          singleLimit: '₦100,000,000+',
+          recommendedFor: 'Zero ₦50k Limits, Instant Inflows, Virtual Cards & Daily Spend'
+        };
+      } else {
+        const dailyAcc = mapleConfig?.data?.accountNumber || prof?.account_number;
+        const dailyBank = mapleConfig?.data?.bankName || prof?.bank_name || '9PSB (Rentilly)';
+        const dailyTier = mapleConfig?.data?.tier ?? (prof?.account_number ? 1 : 0);
+
+        dailyVault = {
+          vaultType: 'daily_cards',
+          title: 'Daily & Cards Vault',
+          tag: 'Everyday & Card Top-Ups',
+          accountNumber: dailyAcc || null,
+          bankName: dailyBank,
+          tier: `Tier ${dailyTier}`,
+          dailyLimit: dailyTier >= 3 ? '₦5,000,000' : dailyTier === 2 ? '₦200,000' : '₦50,000',
+          singleLimit: dailyTier >= 3 ? '₦1,000,000' : dailyTier === 2 ? '₦100,000' : '₦30,000',
+          recommendedFor: 'Virtual Dollar Cards, Utility Bills, Airtime & Daily Spending'
+        };
+      }
 
       if (mapleConfig?.data?.usdtTronAddress) {
         usdtVault = {
