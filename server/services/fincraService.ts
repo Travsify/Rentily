@@ -362,6 +362,10 @@ export class FincraService {
     description: string;
     beneficiary: FincraBeneficiary;
     currency?: string;
+    sender?: {
+      name: string;
+      email?: string;
+    };
   }): Promise<{
     status: boolean;
     data?: any;
@@ -369,7 +373,7 @@ export class FincraService {
   }> {
     try {
       const fincraBankCode = this.mapToFincraBankCode(params.beneficiary.bankCode);
-      const payload = {
+      const payload: any = {
         business: this.BUSINESS_ID,
         sourceCurrency: params.currency || 'NGN',
         destinationCurrency: params.currency || 'NGN',
@@ -386,6 +390,13 @@ export class FincraService {
           type: params.beneficiary.type || 'individual'
         }
       };
+
+      if (params.sender && params.sender.name) {
+        payload.sender = {
+          name: params.sender.name.trim(),
+          email: params.sender.email?.trim() || 'support@myrentilly.com'
+        };
+      }
 
       const res = await fetch(`${this.BASE_URL}/disbursements/payouts`, {
         method: 'POST',

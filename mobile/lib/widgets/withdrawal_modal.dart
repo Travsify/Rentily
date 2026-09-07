@@ -729,6 +729,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
           'bankCode': _selectedBankCode,
           'bankName': _selectedBankName,
           'accountName': confirmedRecipient,
+          'senderName': currentUser.fullName.isNotEmpty ? currentUser.fullName : (currentUser.businessName ?? 'Rentilly User'),
           'amount': totalNgnRequired,
           'sourceCurrency': _withdrawalMode,
           'usdtAmount': _withdrawalMode == 'USDT' ? entered : null,
@@ -737,7 +738,10 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
               ? _narrationController.text.trim()
               : (_withdrawalMode == 'USDT' 
                   ? 'USDT Payout Converted to NGN' 
-                  : 'Rentilly Payout')
+                  : 'Rentilly Payout'),
+          'narration': _narrationController.text.trim().isNotEmpty
+              ? _narrationController.text.trim()
+              : null,
         }),
       ).timeout(const Duration(seconds: 30));
 

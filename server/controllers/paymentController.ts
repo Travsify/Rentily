@@ -333,7 +333,9 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
 
     try {
       console.log(`[Withdrawal] 🚀 Executing exclusive Fincra payout for ₦${numAmount} to ${accountNumber} (Bank code: ${cbnBankCode})...`);
-      const nameParts = (accountName || memUser?.fullName || 'Rentilly User').trim().split(' ');
+      const rawReason = (reason || req.body.narration || req.body.remark || '').toString().trim();
+      const senderDisplayName = (memUser?.businessName || memUser?.fullName || req.body.senderName || 'Rentilly User').trim();
+
       const fincraRes = await FincraService.initiatePayout({
         amount: numAmount,
         reference: txRef,
@@ -346,6 +348,10 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
           accountNumber: accountNumber.toString(),
           bankCode: cbnBankCode,
           type: 'individual'
+        },
+        sender: {
+          name: `${senderDisplayName} / Rentilly`,
+          email: cleanEmail
         }
       });
 

@@ -1745,6 +1745,23 @@ class _WalletScreenState extends State<WalletScreen> {
                                     subtitle,
                                     style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary),
                                   ),
+                                  if ((tx['description'] ?? tx['remark'] ?? tx['reason']) != null &&
+                                      (tx['description'] ?? tx['remark'] ?? tx['reason']).toString().trim().isNotEmpty &&
+                                      !(tx['description'] ?? tx['remark'] ?? tx['reason']).toString().trim().toLowerCase().contains('rentilly payout'))
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 2),
+                                      child: Text(
+                                        '“${(tx['description'] ?? tx['remark'] ?? tx['reason']).toString().trim()}”',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: GoogleFonts.plusJakartaSans(
+                                          fontSize: 9.5,
+                                          fontStyle: FontStyle.italic,
+                                          color: AppColors.primary,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
                                 ],
                               ),
                             ),
