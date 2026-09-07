@@ -177,14 +177,20 @@ export class TransactionStore {
               const mAcc = rawNarration.match(/\b(\d{10})\b/);
               if (mAcc) txRecipientAccount = mAcc[1];
             }
+          const matchRemark = rawNarration.match(/^\[(.*?)\]\s*(.*)$/);
+          let txTitle = rawNarration;
+          let txDesc: string | undefined = row.description || undefined;
+          if (matchRemark) {
+            txDesc = matchRemark[1].trim();
+            txTitle = matchRemark[2].trim();
           }
 
           const mapped: WalletTransaction = {
             id: row.id,
             userId: row.user_id,
             email: (row.email || '').toLowerCase().trim(),
-            title: rawNarration || (isCredit ? 'Inbound Bank Deposit' : 'Outbound Bank Transfer'),
-            description: row.description || undefined,
+            title: txTitle || (isCredit ? 'Inbound Bank Deposit' : 'Outbound Bank Transfer'),
+            description: txDesc,
             type: rawType || (isCredit ? 'credit' : 'debit'),
             category,
             amount: amt,
@@ -444,6 +450,10 @@ export class TransactionStore {
 
         // Store in wallet_transactions (the true single source of truth for user ledger)
         const cleanRef = tx.reference || `TX_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+        const finalNarration = tx.description && !tx.description.toLowerCase().includes('rentilly payout')
+          ? `[${tx.description}] ${tx.title || (tx.isCredit ? 'Inbound Bank Deposit' : 'Outbound Bank Transfer')}`
+          : (tx.title || (tx.isCredit ? 'Inbound Bank Deposit' : 'Outbound Bank Transfer'));
+
         const { error } = await supabase.from('wallet_transactions').upsert({
           user_id: validUserId,
           email: tx.email.toLowerCase().trim(),
@@ -452,8 +462,7 @@ export class TransactionStore {
           status: (tx.status === 'SUCCESSFUL' || tx.status === 'COMPLETED') ? 'completed' : 'pending',
           flw_ref: cleanRef,
           tx_ref: cleanRef,
-          narration: tx.title || (tx.isCredit ? 'Inbound Bank Deposit' : 'Outbound Bank Transfer'),
-          description: tx.description || null,
+          narration: finalNarration,
           created_at: tx.date || new Date().toISOString()
         }, { onConflict: 'flw_ref' });
 

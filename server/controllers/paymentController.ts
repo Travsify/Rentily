@@ -415,6 +415,7 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
             .update({ wallet_balance: newBal, updated_at: new Date().toISOString() })
             .eq('id', targetUserId);
 
+          const remarkPart = cleanReason && cleanReason !== 'Rentilly Payout' ? `[${cleanReason}] ` : '';
           await supabase.from('wallet_transactions').upsert({
             user_id: targetUserId,
             email: cleanEmail,
@@ -423,9 +424,7 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
             status: 'completed',
             flw_ref: finalTxRef,
             tx_ref: finalTxRef,
-            // narration: full details; description: the user's own remark/narration
-            narration: `Payout to ${accountName || 'Bank Account'} (${accountNumber}) • Incl. ₦${withdrawalFee} Fee`,
-            description: cleanReason && cleanReason !== 'Rentilly Payout' ? cleanReason : null,
+            narration: `${remarkPart}Payout to ${accountName || 'Bank Account'} (${accountNumber}) • Incl. ₦${withdrawalFee} Fee`,
             created_at: new Date().toISOString()
           }, { onConflict: 'flw_ref' });
         } catch (e: any) {
