@@ -1988,16 +1988,71 @@ export async function provisionCommercialAccount(req: Request, res: Response) {
     }
 
     if (!fincraData) {
-      fincraData = {
-        accountNumber: '7943388851',
-        bankName: 'Wema Bank (Rentilly)',
-        bankCode: '035',
-        accountName: 'FIN-patrick Achua',
-        provider: 'fincra',
-        tier: 'Commercial Institutional Tier',
-        singleLimit: '₦100,000,000+',
-        dailyLimit: 'Unlimited / Corporate RTGS'
-      };
+      if (cleanEmail === 'patrickachua3@gmail.com') {
+        fincraData = {
+          accountNumber: '7943388851',
+          bankName: 'Wema Bank (Rentilly)',
+          bankCode: '035',
+          accountName: 'FIN-patrick Achua',
+          provider: 'fincra',
+          tier: 'Commercial Institutional Tier',
+          singleLimit: '₦100,000,000+',
+          dailyLimit: 'Unlimited / Corporate RTGS'
+        };
+      } else {
+        let prof: any = null;
+        if (supabase) {
+          const { data } = await supabase.from('profiles').select('id, full_name, bvn').eq('email', cleanEmail).maybeSingle();
+          prof = data;
+        }
+        if (FincraService.isConfigured() && prof?.bvn) {
+          try {
+            const nameParts = (prof.full_name || cleanEmail.split('@')[0]).split(' ');
+            const fincraRes = await FincraService.createVirtualAccount({
+              accountType: 'individual',
+              channel: 'wema',
+              KYCInformation: {
+                firstName: nameParts[0] || 'Rentilly',
+                lastName: nameParts.slice(1).join(' ') || 'User',
+                email: cleanEmail,
+                bvn: prof.bvn
+              }
+            });
+            if (fincraRes.status && fincraRes.data?.accountNumber) {
+              fincraData = {
+                accountNumber: fincraRes.data.accountNumber,
+                bankName: 'Wema Bank (Rentilly)',
+                bankCode: '035',
+                accountName: fincraRes.data.accountName || prof.full_name,
+                provider: 'fincra',
+                tier: 'Commercial Institutional Tier',
+                singleLimit: '₦100,000,000+',
+                dailyLimit: 'Unlimited / Corporate RTGS'
+              };
+              if (supabase) {
+                await supabase.from('system_configs').upsert({
+                  id: `fincra_va_${cleanEmail}`,
+                  data: fincraData,
+                  updated_at: new Date().toISOString()
+                });
+                await supabase.from('profiles').update({
+                  account_number: fincraData.accountNumber,
+                  bank_name: fincraData.bankName
+                }).eq('email', cleanEmail);
+              }
+            }
+          } catch (e: any) {
+            console.warn('[provisionCommercialAccount] Dynamic creation warning:', e.message);
+          }
+        }
+      }
+    }
+
+    if (!fincraData) {
+      return res.status(400).json({
+        success: false,
+        error: 'Please complete BVN/KYC verification first to generate your dedicated bank account.'
+      });
     }
 
     return res.json({
@@ -3229,7 +3284,7 @@ export async function getWalletBalance(req: Request, res: Response) {
       commercialAccountNumber,
       commercialBankName,
       user: {
-        id: dbUser?.id || memUser?.id || userId || (cleanEmail === 'tonerocool1@gmail.com' ? 'c0000000-0000-0000-0000-000000000001' : 'b0000000-0000-0000-0000-000000000001'),
+        id: dbUser?.id || memUser?.id || userId || `usr_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`,
         fullName: dbUser?.full_name || memUser?.fullName || (cleanEmail === 'tonerocool1@gmail.com' ? 'Ehomes Global Inclusive Limited' : 'Rentilly User'),
         businessName: dbUser?.business_name || memUser?.businessName || (cleanEmail === 'tonerocool1@gmail.com' ? 'Ehomes Global Inclusive Limited' : null),
         email: cleanEmail,

@@ -99,25 +99,122 @@ export async function releaseEscrowPayout(req: Request, res: Response) {
       } catch (_) {}
     }
 
+    // 3. Credit Landlord Wallet Balance
+    let creditedOwner: any = null;
+    let netLandlordAmount = 0;
+    const propertyId = txn?.property_id;
+    const property = propertyId ? AdminDataStore.getProperties().find(p => p.id === propertyId) : null;
+    const rawOwnerId = txn?.owner_id || property?.owner_id || property?.ownerId;
+
+    let ownerProfile: any = null;
+    if (supabase && rawOwnerId) {
+      const { data: p } = await supabase
+        .from('profiles')
+        .select('*')
+        .or(`id.eq.${rawOwnerId},email.eq.${rawOwnerId}`)
+        .maybeSingle();
+      if (p) ownerProfile = p;
+    }
+    if (!ownerProfile && property?.ownerPhone && supabase) {
+      const { data: p } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('phone_number', property.ownerPhone)
+        .maybeSingle();
+      if (p) ownerProfile = p;
+    }
+    if (!ownerProfile && rawOwnerId) {
+      const allUsers = await UserStore.getAllUsers();
+      ownerProfile = allUsers.find(u => u.id === rawOwnerId || u.email === rawOwnerId || (property?.ownerPhone && u.phoneNumber === property.ownerPhone));
+    }
+
+    const baseAmount = Number(txn?.base_amount || txn?.base_price || txn?.total_amount || property?.basePrice || 0);
+    netLandlordAmount = baseAmount > 0 ? baseAmount : Number(txn?.total_amount || 0);
+
+    if (ownerProfile && netLandlordAmount > 0) {
+      const currentOwnerBal = Number(ownerProfile.wallet_balance ?? (ownerProfile as any).walletBalance ?? 0);
+      const newOwnerBal = currentOwnerBal + netLandlordAmount;
+
+      if (supabase && ownerProfile.id) {
+        try {
+          await supabase
+            .from('profiles')
+            .update({ wallet_balance: newOwnerBal, updated_at: payoutReleasedAt })
+            .eq('id', ownerProfile.id);
+
+          await supabase.from('wallet_transactions').insert({
+            user_id: ownerProfile.id,
+            user_email: ownerProfile.email,
+            email: ownerProfile.email,
+            amount: netLandlordAmount,
+            type: 'CREDIT',
+            category: 'escrow_payout',
+            title: `Escrow Released: ${property?.title || 'Property Payout'}`,
+            reference: payoutReference,
+            flw_ref: payoutReference,
+            narration: `Escrow rent payout released for ${property?.title || 'property'}. Reference: ${payoutReference}`,
+            created_at: payoutReleasedAt
+          });
+        } catch (e: any) {
+          console.warn('[releaseEscrowPayout] Supabase owner credit warning:', e.message);
+        }
+      }
+
+      // Update in UserStore
+      const memOwner = await UserStore.findByEmail(ownerProfile.email);
+      if (memOwner) {
+        await UserStore.upsertUser({
+          ...memOwner,
+          walletBalance: newOwnerBal,
+          updatedAt: payoutReleasedAt
+        });
+      }
+
+      // Record in TransactionStore
+      await TransactionStore.addTransaction({
+        id: `TX-OWNER-${Date.now()}`,
+        userId: ownerProfile.id,
+        email: ownerProfile.email,
+        title: `Escrow Payout: ${property?.title || 'Rent Settlement'}`,
+        type: 'Electronic Bank Inbound Deposit',
+        category: 'deposit',
+        amount: netLandlordAmount,
+        isCredit: true,
+        reference: payoutReference,
+        sender: 'Rentilly Escrow Protocol',
+        beneficiary: ownerProfile.full_name || ownerProfile.fullName || ownerProfile.email,
+        recipientAccount: ownerProfile.account_number || ownerProfile.accountNumber || '',
+        recipientBank: ownerProfile.bank_name || ownerProfile.bankName || 'Wema Bank',
+        status: 'SUCCESSFUL',
+        date: payoutReleasedAt
+      });
+
+      creditedOwner = {
+        id: ownerProfile.id,
+        email: ownerProfile.email,
+        name: ownerProfile.full_name || ownerProfile.fullName,
+        amount: netLandlordAmount,
+        newBalance: newOwnerBal
+      };
+    }
+
     // Dispatch payout release alert to landlord
-    const targetOwnerEmail = txn?.owner_name || `${id}@myrentilly.com`;
+    const targetOwnerEmail = ownerProfile?.email || txn?.owner_name || `${id}@myrentilly.com`;
     NotificationDispatcher.dispatch({
-      userId: txn?.owner_id || id,
+      userId: ownerProfile?.id || txn?.owner_id || id,
       email: targetOwnerEmail.includes('@') ? targetOwnerEmail : 'owner@myrentilly.com',
-      userName: txn?.owner_name || 'Property Owner',
+      userName: ownerProfile?.full_name || ownerProfile?.fullName || txn?.owner_name || 'Property Owner',
       title: `Move-In Escrow Payout Released 💰`,
       category: 'escrow',
-      message: `Your property funds have been released from Rentilly escrow to your settlement bank account. Payout Reference: ${payoutReference}.`,
+      message: `₦${netLandlordAmount.toLocaleString()} has been released from Rentilly escrow directly into your wallet balance. Reference: ${payoutReference}.`,
       metadata: {
         payoutReference,
         transactionId: id,
-        amount: txn?.total_amount
+        amount: netLandlordAmount
       }
     });
 
-    // 3. Automated Accredited Partner Commission Payout Credit
-    const propertyId = txn?.property_id;
-    const property = propertyId ? AdminDataStore.getProperties().find(p => p.id === propertyId) : null;
+    // 4. Automated Accredited Partner Commission Payout Credit
     let partnerCommissionAmount = 0;
     let creditedPartner: any = null;
 
@@ -193,6 +290,8 @@ export async function releaseEscrowPayout(req: Request, res: Response) {
       transaction: txn, 
       payoutReference, 
       payoutReleasedAt,
+      landlordCredited: creditedOwner != null,
+      creditedOwner,
       partnerCommissionCredited: partnerCommissionAmount > 0,
       creditedPartner
     });
@@ -346,7 +445,39 @@ export async function payRentEscrow(req: Request, res: Response) {
     const escrowRef = `ESCROW_${isRent ? 'RENT' : 'SALE'}_${Date.now()}`;
     const now = new Date().toISOString();
 
-    // 3. Debit Tenant Wallet in TransactionStore
+    // 3. Debit Tenant Wallet in Supabase profiles, TransactionStore & UserStore
+    let newTenantBal = Math.max(0, currentBal - totalPayable);
+    if (supabase) {
+      try {
+        const { data: tenantProf } = await supabase
+          .from('profiles')
+          .select('id, wallet_balance')
+          .eq('email', cleanEmail)
+          .maybeSingle();
+
+        if (tenantProf) {
+          const dbBal = Number(tenantProf.wallet_balance || 0);
+          newTenantBal = Math.max(0, dbBal - totalPayable);
+          await supabase
+            .from('profiles')
+            .update({ wallet_balance: newTenantBal, updated_at: now })
+            .eq('id', tenantProf.id);
+        }
+      } catch (e: any) {
+        console.warn('[payRentEscrow] Supabase wallet balance debit warning:', e.message);
+      }
+    }
+
+    // Update in-memory UserStore
+    const memTenant = await UserStore.findByEmail(cleanEmail);
+    if (memTenant) {
+      await UserStore.upsertUser({
+        ...memTenant,
+        walletBalance: newTenantBal,
+        updatedAt: now
+      });
+    }
+
     TransactionStore.recordTransaction({
       id: escrowRef,
       email: cleanEmail,
