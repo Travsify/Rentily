@@ -2006,7 +2006,6 @@ export async function getVaultAccounts(req: Request, res: Response) {
     console.error('[getVaultAccounts] Error:', err.message);
     return res.status(500).json({ error: err.message });
   }
-  }
 }
 
 // 4i. Initialize High-Value Rent/Escrow Payment via Fincra Commercial Rail (with fallback to Korapay)
