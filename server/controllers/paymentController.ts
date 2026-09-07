@@ -378,11 +378,13 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
       const targetUserId = userId || memUser?.id || (cleanEmail === 'tonerocool1@gmail.com' ? 'c0000000-0000-0000-0000-000000000001' : 'b0000000-0000-0000-0000-000000000001');
 
       // Record single consolidated withdrawal in TransactionStore (amount + fee unified)
+      // Use finalTxRef in id so subsequent syncs deduplicate correctly (not Date.now() which is always unique)
       await TransactionStore.addTransaction({
-        id: `TX_WD_${Date.now()}`,
+        id: `TX_WD_${finalTxRef}`,
         userId: targetUserId,
         email: cleanEmail,
-        title: cleanReason && cleanReason !== 'Rentilly Payout' ? cleanReason : `Bank Transfer Payout to ${accountName || 'Bank Account'}`,
+        title: `Bank Transfer Payout to ${accountName || 'Bank Account'}`,
+        description: cleanReason && cleanReason !== 'Rentilly Payout' ? cleanReason : undefined,
         type: 'Instant Direct Bank Payout',
         category: 'withdrawal',
         amount: totalDebit,
@@ -393,7 +395,7 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
         recipientAccount: accountNumber.toString(),
         recipientBank: 'Direct Bank Transfer',
         status: 'SUCCESSFUL',
-        createdAt: new Date().toISOString()
+        date: new Date().toISOString()
       });
 
       // Update in-memory user cache
@@ -413,17 +415,19 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
             .update({ wallet_balance: newBal, updated_at: new Date().toISOString() })
             .eq('id', targetUserId);
 
-          await supabase.from('wallet_transactions').insert({
+          await supabase.from('wallet_transactions').upsert({
             user_id: targetUserId,
             email: cleanEmail,
             amount: totalDebit,
             type: 'debit',
             status: 'completed',
-            flw_ref: txRef,
-            tx_ref: txRef,
-            narration: `${cleanReason && cleanReason !== 'Rentilly Payout' ? `[${cleanReason}] ` : ''}Payout to ${accountName || 'Bank Account'} (${accountNumber}) • Incl. ₦${withdrawalFee} Fee`,
+            flw_ref: finalTxRef,
+            tx_ref: finalTxRef,
+            // narration: full details; description: the user's own remark/narration
+            narration: `Payout to ${accountName || 'Bank Account'} (${accountNumber}) • Incl. ₦${withdrawalFee} Fee`,
+            description: cleanReason && cleanReason !== 'Rentilly Payout' ? cleanReason : null,
             created_at: new Date().toISOString()
-          });
+          }, { onConflict: 'flw_ref' });
         } catch (e: any) {
           console.warn('[Withdrawal] Supabase profiles update warning:', e?.message);
         }

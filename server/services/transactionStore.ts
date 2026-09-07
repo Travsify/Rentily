@@ -184,6 +184,7 @@ export class TransactionStore {
             userId: row.user_id,
             email: (row.email || '').toLowerCase().trim(),
             title: rawNarration || (isCredit ? 'Inbound Bank Deposit' : 'Outbound Bank Transfer'),
+            description: row.description || undefined,
             type: rawType || (isCredit ? 'credit' : 'debit'),
             category,
             amount: amt,
@@ -203,10 +204,15 @@ export class TransactionStore {
         }
       }
 
-      // Ingest transactions table (for property escrow or historical items not in wallet_transactions)
+      // Ingest transactions table (for property escrow or genuine leases, NOT synthetic wallet ledger mirrors)
       if (propertyData && Array.isArray(propertyData)) {
         const users = UserStore.getAllUsers();
         for (const row of propertyData) {
+          // Strictly skip synthetic vault mirrors created by legacy addTransaction
+          if (row.property_id === VAULT_PROPERTY_ID) {
+            continue;
+          }
+
           const txRef = (row.payment_reference || row.id || '').toString().trim();
           const title = (row.owner_payout_reference || row.property_title || '').toString();
           const amt = Number(row.total_amount || row.amount || 0);
@@ -225,8 +231,12 @@ export class TransactionStore {
             continue;
           }
 
-          const user = users.find(u => u.id === row.payer_id || u.id === row.owner_id);
-          const email = (user?.email || row.payer_name || 'user@myrentilly.com').toLowerCase().trim();
+          // Only match on payer_id (the person who actually performed/initiated this tx).
+          // Never match on owner_id alone — that is the recipient (landlord/owner), not the sender.
+          const user = users.find(u => u.id === row.payer_id);
+          // If we can't identify the payer user, skip — don't guess by owner
+          if (!user) continue;
+          const email = user.email.toLowerCase().trim();
 
           const isDebit = row.transaction_type === 'withdrawal' || 
             row.transaction_type === 'utility' ||
@@ -329,10 +339,82 @@ export class TransactionStore {
     // Ensure fresh sync from Supabase
     await this.syncFromSupabase();
     const all = this.getAllTransactions();
-    const filtered = all.filter(t => 
-      t.email.toLowerCase() === cleanEmail && !TransactionStore.isTreasuryTransaction(t)
-    );
-    return filtered.sort((a, b) => new Date(b.date || b.createdAt || 0).getTime() - new Date(a.date || a.createdAt || 0).getTime());
+    const user = await UserStore.findByEmail(cleanEmail);
+    const userFullName = (user?.fullName || '').toLowerCase().trim();
+    const userBusinessName = (user?.businessName || '').toLowerCase().trim();
+
+    // 1. Strict user-only filter: only include transactions that strictly belong to THIS user
+    const filtered = all.filter(t => {
+      if ((t.email || '').toLowerCase().trim() !== cleanEmail) return false;
+      if (TransactionStore.isTreasuryTransaction(t)) return false;
+
+      // Filter out collections performed by other unrelated users that were erroneously stamped
+      const titleLower = (t.title || '').toLowerCase();
+      if (titleLower.startsWith('virtual account collection -') || titleLower.startsWith('account funding -')) {
+        // Extract the name if present (e.g. "Virtual Account Collection - TOMISIN OLAMIPO KOLAWOLE - 8026990956")
+        const parts = titleLower.split(' - ');
+        if (parts.length >= 2) {
+          const senderInTitle = parts[1].trim();
+          if (userFullName && senderInTitle && !senderInTitle.includes(userFullName) && !userFullName.includes(senderInTitle)) {
+            // Also check first or last name
+            const userWords = userFullName.split(/\s+/).filter(w => w.length > 2);
+            const matchesUser = userWords.some(w => senderInTitle.includes(w));
+            if (!matchesUser && (!userBusinessName || !senderInTitle.includes(userBusinessName))) {
+              return false;
+            }
+          }
+        }
+      }
+
+      return true;
+    });
+
+    // 2. Strict Deduplication: capture once, never repeat
+    const seenRefs = new Set<string>();
+    const seenSignatures = new Set<string>();
+    const withdrawalSignatures = new Set<string>(); // Tracks withdrawals: amt + timeMinute
+    const deduped: WalletTransaction[] = [];
+
+    // First pass: identify real withdrawals to block any mirror ghost deposits
+    for (const t of filtered) {
+      if (!t.isCredit) {
+        const timeMs = new Date(t.date || t.createdAt || 0).getTime();
+        const timeMinute = Math.floor(timeMs / 60000);
+        if (timeMinute > 0) {
+          withdrawalSignatures.add(`${t.amount}_${timeMinute}`);
+          withdrawalSignatures.add(`${t.amount}_${timeMinute - 1}`);
+          withdrawalSignatures.add(`${t.amount}_${timeMinute + 1}`);
+        }
+      }
+    }
+
+    for (const t of filtered) {
+      const ref = (t.reference || t.id || '').trim();
+      if (ref && seenRefs.has(ref)) continue;
+
+      const timeMs = new Date(t.date || t.createdAt || 0).getTime();
+      const timeMinute = Math.floor(timeMs / 60000);
+
+      // Block ghost deposit that mirrors an identical withdrawal at the same time
+      if (t.isCredit && timeMinute > 0 && withdrawalSignatures.has(`${t.amount}_${timeMinute}`)) {
+        const titleLower = (t.title || '').toLowerCase();
+        if (titleLower.includes('payout') || titleLower.includes('withdrawal') || t.category === 'rent') {
+          continue; // Suppress duplicate ghost deposit record
+        }
+      }
+
+      // Deduplicate identical transactions occurring in the same minute
+      const sig = `${t.isCredit ? 'CR' : 'DR'}_${t.amount}_${timeMinute}_${t.title?.substring(0, 15)}`;
+      if (timeMinute > 0 && seenSignatures.has(sig)) {
+        continue;
+      }
+
+      if (ref) seenRefs.add(ref);
+      if (timeMinute > 0) seenSignatures.add(sig);
+      deduped.push(t);
+    }
+
+    return deduped.sort((a, b) => new Date(b.date || b.createdAt || 0).getTime() - new Date(a.date || a.createdAt || 0).getTime());
   }
 
   static async addTransaction(tx: WalletTransaction): Promise<WalletTransaction> {
@@ -360,32 +442,25 @@ export class TransactionStore {
           'b0000000-0000-0000-0000-000000000001')
         );
 
-        // Postgres enum constraints in Supabase:
-        // transaction_type: enum 'property_purpose' ('rent', 'sale', 'shortlet') -> use 'rent'
-        // payment_gateway: enum 'payment_gateway' ('flutterwave', 'paystack') -> use 'flutterwave' or 'paystack'
-        // escrow_status: enum 'escrow_status' ('held_in_escrow', 'released_to_owner', 'refunded', 'disputed')
-        const gateway = (tx.category === 'withdrawal' ? 'paystack' : 'flutterwave');
-        const escrowStatus = (tx.category === 'utility' || tx.category === 'withdrawal' || !tx.isCredit) ? 'released_to_owner' : 'released_to_owner';
-
-        const { error } = await supabase.from('transactions').upsert({
-          property_id: VAULT_PROPERTY_ID,
-          payer_id: validUserId,
-          owner_id: validUserId,
-          transaction_type: 'rent',
-          payment_reference: tx.reference || `REF_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-          payment_gateway: gateway,
-          base_amount: Number(tx.amount || 0),
-          rentilly_legal_fee: 0,
-          total_amount: Number(tx.amount || 0),
-          escrow_status: escrowStatus,
-          owner_payout_reference: tx.title || (tx.category === 'utility' ? 'Utility Bill Payment' : (tx.category === 'withdrawal' ? 'Bank Withdrawal' : 'Platform Transaction')),
+        // Store in wallet_transactions (the true single source of truth for user ledger)
+        const cleanRef = tx.reference || `TX_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+        const { error } = await supabase.from('wallet_transactions').upsert({
+          user_id: validUserId,
+          email: tx.email.toLowerCase().trim(),
+          amount: Number(tx.amount || 0),
+          type: tx.isCredit ? 'credit' : 'debit',
+          status: (tx.status === 'SUCCESSFUL' || tx.status === 'COMPLETED') ? 'completed' : 'pending',
+          flw_ref: cleanRef,
+          tx_ref: cleanRef,
+          narration: tx.title || (tx.isCredit ? 'Inbound Bank Deposit' : 'Outbound Bank Transfer'),
+          description: tx.description || null,
           created_at: tx.date || new Date().toISOString()
-        }, { onConflict: 'payment_reference' });
+        }, { onConflict: 'flw_ref' });
 
         if (error) {
-          console.error('[TransactionStore] Supabase transaction write error:', error.message);
+          console.error('[TransactionStore] Supabase wallet_transactions write error:', error.message);
         } else {
-          console.log(`[TransactionStore] Successfully recorded ₦${tx.amount} (${tx.reference}) in Supabase cloud! ☁️`);
+          console.log(`[TransactionStore] Successfully recorded ₦${tx.amount} (${cleanRef}) in Supabase wallet_transactions! ☁️`);
         }
       } catch (err) {
         console.error('[TransactionStore] Supabase transaction network error:', err);

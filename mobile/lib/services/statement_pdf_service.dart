@@ -246,6 +246,13 @@ class StatementPdfService {
                 _buildPdfDetailRow('Settlement Status', status == 'SUCCESS' ? 'SETTLED / COMPLETED' : status),
               ] else ...[
                 _buildPdfDetailRow('Transaction Description', title),
+                if ((transaction['description'] ?? transaction['remark'] ?? transaction['reason']) != null &&
+                    (transaction['description'] ?? transaction['remark'] ?? transaction['reason']).toString().trim().isNotEmpty &&
+                    !(transaction['description'] ?? transaction['remark'] ?? transaction['reason']).toString().trim().toLowerCase().contains('rentilly payout'))
+                  _buildPdfDetailRow(
+                    'Remark / Narration',
+                    _sanitizePdfText((transaction['description'] ?? transaction['remark'] ?? transaction['reason']).toString().trim())
+                  ),
                 _buildPdfDetailRow('Transaction Reference', txRef),
                 _buildPdfDetailRow('Transaction Nature', isCredit ? 'CREDIT (+) - Inbound Bank Settlement' : 'DEBIT (-) - Outbound Bank Transfer Payout'),
                 _buildPdfDetailRow('Transaction Category', type),

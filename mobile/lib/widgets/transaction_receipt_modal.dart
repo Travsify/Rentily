@@ -312,6 +312,12 @@ class _TransactionReceiptModalState extends State<TransactionReceiptModal> {
                   _buildRow('Security Protocol', '3D Secure 2.0 Dynamic OTP Verified'),
                 ] else ...[
                   _buildRow('Description', cleanTitle.isNotEmpty ? cleanTitle : rawTitle),
+                  if ((tx['description'] ?? tx['remark'] ?? tx['reason']) != null &&
+                      (tx['description'] ?? tx['remark'] ?? tx['reason']).toString().trim().isNotEmpty &&
+                      !(tx['description'] ?? tx['remark'] ?? tx['reason']).toString().trim().toLowerCase().contains('rentilly payout')) ...[
+                    const Divider(height: 16, color: Color(0xFFE2E8F0)),
+                    _buildRow('Remark / Narration', (tx['description'] ?? tx['remark'] ?? tx['reason']).toString().trim()),
+                  ],
                   const Divider(height: 16, color: Color(0xFFE2E8F0)),
                   _buildCopyableRow('Reference ID', ref),
                   const Divider(height: 16, color: Color(0xFFE2E8F0)),

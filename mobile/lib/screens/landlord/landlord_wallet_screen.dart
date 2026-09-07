@@ -200,11 +200,19 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
             'subtitle': subtitle,
             'amount': signedAmount,
             'type': isCredit ? 'inflow' : 'outflow',
+            'isCredit': isCredit,
             'status': status,
             'date': t['date'] != null ? DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.tryParse(t['date']) ?? DateTime.now()) : 'Today',
             'reference': t['reference'] ?? t['id'] ?? 'REF-${DateTime.now().millisecondsSinceEpoch}',
             'channel': t['category'] == 'utility' ? 'Utility Bills Service' : '9PSB Core Settlement',
             'session': 'SES-${t['reference'] ?? DateTime.now().millisecondsSinceEpoch}',
+            'description': t['description'],
+            'narration': t['narration'],
+            'beneficiary': t['beneficiary'],
+            'recipientAccount': t['recipientAccount'],
+            'recipientBank': t['recipientBank'],
+            'currency': t['currency'] ?? 'NGN',
+            'fee': t['fee'],
           });
         }
         if (parsedLive.isNotEmpty) {
