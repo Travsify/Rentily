@@ -335,6 +335,8 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
       console.log(`[Withdrawal] 🚀 Executing exclusive Fincra payout for ₦${numAmount} to ${accountNumber} (Bank code: ${cbnBankCode})...`);
       const rawReason = (reason || req.body.narration || req.body.remark || '').toString().trim();
       const senderDisplayName = (memUser?.businessName || memUser?.fullName || req.body.senderName || 'Rentilly User').trim();
+      const recipientName = (accountName || memUser?.fullName || 'Rentilly User').trim();
+      const nameParts = recipientName.split(' ');
 
       const fincraRes = await FincraService.initiatePayout({
         amount: numAmount,
@@ -344,7 +346,7 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
         beneficiary: {
           firstName: nameParts[0] || 'Rentilly',
           lastName: nameParts.slice(1).join(' ') || 'User',
-          accountHolderName: accountName || memUser?.fullName || 'Rentilly User',
+          accountHolderName: recipientName,
           accountNumber: accountNumber.toString(),
           bankCode: cbnBankCode,
           type: 'individual'
@@ -1558,27 +1560,6 @@ export async function paystackWebhook(req: Request, res: Response) {
         targetUser = prof;
       }
 
-      if (!targetUser && dedicatedAcc && supabase) {
-        // Try matching by dedicated account in system_configs
-        const { data: configs } = await supabase
-          .from('system_configs')
-          .select('id, data')
-          .like('id', 'commercial_wema_%');
-
-        if (configs && configs.length > 0) {
-          const matched = configs.find(c => c.data?.accountNumber === dedicatedAcc);
-          if (matched) {
-            const matchEmail = matched.id.replace('commercial_wema_', '');
-            const { data: prof } = await supabase
-              .from('profiles')
-              .select('id, email, full_name, wallet_balance')
-              .eq('email', matchEmail)
-              .maybeSingle();
-            targetUser = prof;
-          }
-        }
-      }
-
       if (targetUser) {
         const creditRes = await AtomicLedgerService.creditWalletAtomic({
           userId: targetUser.id,
@@ -1586,7 +1567,7 @@ export async function paystackWebhook(req: Request, res: Response) {
           amount: amountPaid,
           flwRef: ref,
           txRef: ref,
-          narration: `Commercial Escrow Inflow (Wema Bank • ${dedicatedAcc || 'Dedicated Account'}) from ${senderName}`
+          narration: `Paystack Inflow from ${senderName}`
         });
 
         console.log(`[Paystack Webhook] ✅ Credited ₦${amountPaid.toLocaleString()} to ${targetUser.email}`);
@@ -1600,12 +1581,12 @@ export async function paystackWebhook(req: Request, res: Response) {
             email: targetUser.email,
             userName: targetUser.full_name || 'Valued User',
             category: 'wallet',
-            title: `High-Value Escrow Alert: ₦${amountPaid.toLocaleString()} Received`,
-            message: `Your Rentilly High-Value Escrow Vault received ₦${amountPaid.toLocaleString()} via ${bankName}. New Balance: ₦${newBal.toLocaleString()}.`,
+            title: `Payment Received: ₦${amountPaid.toLocaleString()}`,
+            message: `Your Rentilly wallet received ₦${amountPaid.toLocaleString()} via Paystack. New Balance: ₦${newBal.toLocaleString()}.`,
             metadata: {
               amount: amountPaid,
               reference: ref,
-              bankName: bankName,
+              bankName: bankName || 'Paystack',
               sender: senderName,
               date: new Date().toISOString()
             }
@@ -2798,23 +2779,11 @@ async function syncMapleradTransactionsForUser(cleanEmail: string) {
   }
 }
 
-// 2c. Sync Paystack Inbound Collections (Commercial Wema Bank DVA & Bank Transfers)
+// 2c. Sync Paystack Inbound Collections (Standard Inflows & Card Payments)
 async function syncPaystackInboundTransactionsForUser(cleanEmail: string) {
   try {
     const key = process.env.PAYSTACK_SECRET_KEY || '';
     const baseUrl = process.env.PAYSTACK_BASE_URL || 'https://api.paystack.co';
-
-    let dedicatedAcc: string | null = null;
-    if (supabase) {
-      const { data: cfg } = await supabase
-        .from('system_configs')
-        .select('data')
-        .eq('id', `commercial_wema_${cleanEmail}`)
-        .maybeSingle();
-      if (cfg?.data?.accountNumber) {
-        dedicatedAcc = cfg.data.accountNumber;
-      }
-    }
 
     const res = await fetch(`${baseUrl}/transaction?perPage=50`, {
       headers: { 'Authorization': `Bearer ${key}`, 'Accept': 'application/json' }
@@ -2830,11 +2799,7 @@ async function syncPaystackInboundTransactionsForUser(cleanEmail: string) {
     for (const tx of resData.data) {
       if (tx.status !== 'success') continue;
       const txEmail = (tx.customer?.email || '').toLowerCase().trim();
-      const txAcc = tx.dedicated_account?.account_number;
-
-      const isMatch = (txEmail && txEmail === cleanEmail) ||
-                      (dedicatedAcc && txAcc && txAcc === dedicatedAcc);
-      if (!isMatch) continue;
+      if (!txEmail || txEmail !== cleanEmail) continue;
 
       const amount = Number(tx.amount || 0) / 100; // kobo to NGN
       if (amount <= 0) continue;
@@ -2842,7 +2807,7 @@ async function syncPaystackInboundTransactionsForUser(cleanEmail: string) {
       const ref = String(tx.reference || tx.id);
       const exists = existing.some(e => e.reference === ref || e.id === `PST_IN_${tx.id}`);
 
-      const narration = `Commercial Escrow Inflow (Wema Bank • ${txAcc || dedicatedAcc || '9816975551'}) from ${tx.authorization?.sender_name || (tx.customer?.first_name ? `${tx.customer?.first_name || ''} ${tx.customer?.last_name || ''}`.trim() : 'Inbound Bank Transfer')}`;
+      const narration = `Paystack Online Inflow from ${tx.authorization?.sender_name || (tx.customer?.first_name ? `${tx.customer?.first_name || ''} ${tx.customer?.last_name || ''}`.trim() : 'Customer')}`;
 
       if (!exists) {
         await TransactionStore.addTransaction({
@@ -2855,10 +2820,10 @@ async function syncPaystackInboundTransactionsForUser(cleanEmail: string) {
           amount,
           isCredit: true,
           reference: ref,
-          sender: tx.authorization?.sender_name || 'Inbound Bank Transfer',
+          sender: tx.authorization?.sender_name || 'Paystack Inflow',
           beneficiary: user?.businessName || user?.fullName || cleanEmail,
-          recipientAccount: txAcc || dedicatedAcc || '',
-          recipientBank: 'Wema Bank Commercial Rail',
+          recipientAccount: '',
+          recipientBank: 'Paystack',
           status: 'SUCCESSFUL',
           date: tx.paid_at || tx.createdAt || new Date().toISOString()
         });
@@ -2911,12 +2876,12 @@ async function syncPaystackInboundTransactionsForUser(cleanEmail: string) {
               email: cleanEmail,
               userName: user?.fullName || 'Valued User',
               category: 'wallet',
-              title: `High-Value Escrow Alert: ₦${amount.toLocaleString()} Received`,
-              message: `Your Rentilly wallet has been credited with ₦${amount.toLocaleString()} via Commercial Wema Bank Escrow Rail. New Balance: ₦${(creditRes.newBalance ?? amount).toLocaleString()}.`,
+              title: `Payment Received: ₦${amount.toLocaleString()}`,
+              message: `Your Rentilly wallet has been credited with ₦${amount.toLocaleString()} via Paystack. New Balance: ₦${(creditRes.newBalance ?? amount).toLocaleString()}.`,
               metadata: {
                 amount,
                 reference: ref,
-                bankName: 'Wema Bank Commercial Rail',
+                bankName: 'Paystack',
                 date: tx.paid_at || tx.createdAt || new Date().toISOString()
               }
             }).catch(e => console.warn('[syncPaystackInboundTransactionsForUser] Notification error:', e.message));
