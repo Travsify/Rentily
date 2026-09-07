@@ -14,8 +14,9 @@ class StatementPdfService {
   static final DateFormat _dateFormat = DateFormat('dd MMM yyyy, hh:mm a');
 
   // Helper to sanitize any string from unsupported PDF unicode glyphs
-  static String _sanitizePdfText(String text) {
-    return text
+  static String _sanitizePdfText(dynamic text) {
+    if (text == null) return '';
+    return text.toString()
         .replaceAll('₦', 'NGN ')
         .replaceAll('\$', 'USD ')
         .replaceAll('£', 'GBP ')
@@ -103,7 +104,13 @@ class StatementPdfService {
     final status = _sanitizePdfText((transaction['status'] ?? 'SUCCESSFUL').toString().toUpperCase());
     final beneficiary = _sanitizePdfText(transaction['beneficiary'] ?? user.fullName);
     final sender = _sanitizePdfText(transaction['sender'] ?? 'Electronic Banking Settlement');
-    final bankName = _sanitizePdfText(user.bankName ?? 'Flutterwave MFB');
+    final displayBank = _sanitizePdfText(
+      transaction['recipientBank'] ??
+      transaction['bankName'] ??
+      user.bankName ??
+      (isCredit ? 'Wema Bank (Rentilly)' : 'Commercial Settlement Rail')
+    );
+    final displayAccount = _sanitizePdfText(transaction['recipientAccount'] ?? user.accountNumber ?? '');
 
     pdf.addPage(
       pw.Page(
@@ -240,13 +247,21 @@ class StatementPdfService {
               ] else ...[
                 _buildPdfDetailRow('Transaction Description', title),
                 _buildPdfDetailRow('Transaction Reference', txRef),
-                _buildPdfDetailRow('Channel / Category', type),
-                _buildPdfDetailRow('Sender / Source', sender),
-                _buildPdfDetailRow('Beneficiary Account Name', beneficiary),
-                _buildPdfDetailRow('Dedicated Account Number', user.accountNumber ?? 'Pending 9PSB'),
-                _buildPdfDetailRow('Settlement Partner Bank', bankName),
+                _buildPdfDetailRow('Transaction Nature', isCredit ? 'CREDIT (+) - Inbound Bank Settlement' : 'DEBIT (-) - Outbound Bank Transfer Payout'),
+                _buildPdfDetailRow('Transaction Category', type),
+                _buildPdfDetailRow('Channel / Rail', isCredit ? 'Wema Bank (Fincra Instant Settlement Rail)' : 'Fincra High-Value Instant Disbursement Rail'),
+                _buildPdfDetailRow(isCredit ? 'Sender / Source' : 'Originating Account', isCredit ? sender : '${user.fullName} (Rentilly Escrow Vault)'),
+                _buildPdfDetailRow(isCredit ? 'Beneficiary Name' : 'Recipient Beneficiary', beneficiary),
+                if (displayAccount.isNotEmpty)
+                  _buildPdfDetailRow(isCredit ? 'Receiving Virtual Account' : 'Destination Account Number', displayAccount),
+                _buildPdfDetailRow(isCredit ? 'Receiving Partner Bank' : 'Destination Bank', displayBank),
+                if (feeAmount > 0) ...[
+                  _buildPdfDetailRow('Principal Transfer Amount', '$currPrefix${_currencyFormat.format(amount)}'),
+                  _buildPdfDetailRow('Processing Fee', '$currPrefix${_currencyFormat.format(feeAmount)}'),
+                  _buildPdfDetailRow('Total Settlement Debited', '$currPrefix${_currencyFormat.format(rawAmount)}'),
+                ],
                 _buildPdfDetailRow('Settlement Category', 'Rentilly Escrow Protected'),
-                _buildPdfDetailRow('Payer Email', user.email),
+                _buildPdfDetailRow('Account Holder Email', user.email),
                 _buildPdfDetailRow('Timestamp (UTC+1)', date),
                 _buildPdfDetailRow('Corporate Issuer', 'Product of E-Homes Global Inclusive Limited'),
               ],
@@ -899,10 +914,23 @@ class StatementPdfService {
     String currency = 'NGN',
   }) async {
     final pdfBytes = await generateReceiptPdf(transaction: transaction, user: user, currency: currency);
-    await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) async => pdfBytes,
-      name: 'Rentilly_Receipt_${transaction['reference'] ?? DateTime.now().millisecondsSinceEpoch}.pdf',
-    );
+    final rawRef = (transaction['reference'] ?? transaction['id'] ?? DateTime.now().millisecondsSinceEpoch).toString();
+    final safeName = 'Rentilly_Receipt_${rawRef.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_')}.pdf';
+    try {
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) async => pdfBytes,
+        name: safeName,
+      );
+    } catch (printErr) {
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/$safeName');
+      await file.writeAsBytes(pdfBytes);
+      await Share.shareXFiles(
+        [XFile(file.path, mimeType: 'application/pdf')],
+        text: 'Rentilly Transaction Receipt ($rawRef)',
+        subject: 'Rentilly Transaction Receipt',
+      );
+    }
   }
 
   static Future<void> downloadOrPrintStatement(

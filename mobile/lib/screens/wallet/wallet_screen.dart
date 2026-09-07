@@ -90,7 +90,7 @@ class _WalletScreenState extends State<WalletScreen> {
     if (u == null || !mounted) return;
     try {
       final url = Uri.parse('${AppConstants.apiBaseUrl}/wallet/balance?userId=${u.id}&email=${u.email}');
-      final res = await http.get(url).timeout(const Duration(seconds: 5));
+      final res = await http.get(url).timeout(const Duration(seconds: 15));
       if (res.statusCode == 200 && mounted) {
         final data = json.decode(res.body);
         if (data['status'] == true && data['walletBalance'] != null) {
@@ -105,18 +105,19 @@ class _WalletScreenState extends State<WalletScreen> {
             await AuthService.updateUser(updated);
             if (mounted) {
               setState(() => _user = updated);
-              _fetchTransactionsSilently(updated);
             }
           }
         }
       }
+      // Always keep transaction history current
+      await _fetchTransactionsSilently(u);
     } catch (_) {}
   }
 
   Future<void> _fetchTransactionsSilently(UserProfile u) async {
     try {
       final txUrl = Uri.parse('${AppConstants.apiBaseUrl}/payments/transactions?email=${u.email}');
-      final txRes = await http.get(txUrl).timeout(const Duration(seconds: 5));
+      final txRes = await http.get(txUrl).timeout(const Duration(seconds: 15));
       if (txRes.statusCode == 200 && mounted) {
         final txJson = json.decode(txRes.body);
         if (txJson['status'] == true && txJson['data'] is List) {
@@ -186,7 +187,7 @@ class _WalletScreenState extends State<WalletScreen> {
         () async {
           try {
             final url = Uri.parse('${AppConstants.apiBaseUrl}/wallet/balance?userId=${u.id}&email=${u.email}');
-            final res = await http.get(url).timeout(const Duration(seconds: 8));
+            final res = await http.get(url).timeout(const Duration(seconds: 15));
             if (res.statusCode == 200) {
               final data = json.decode(res.body);
               if (data['status'] == true && data['walletBalance'] != null) {
@@ -219,7 +220,7 @@ class _WalletScreenState extends State<WalletScreen> {
         () async {
           try {
             final txUrl = Uri.parse('${AppConstants.apiBaseUrl}/payments/transactions?email=${u.email}');
-            final txRes = await http.get(txUrl).timeout(const Duration(seconds: 8));
+            final txRes = await http.get(txUrl).timeout(const Duration(seconds: 15));
             if (txRes.statusCode == 200) {
               final txJson = json.decode(txRes.body);
               if (txJson['status'] == true && txJson['data'] is List) {
@@ -1627,9 +1628,9 @@ class _WalletScreenState extends State<WalletScreen> {
                       color: AppColors.textSecondary,
                     ),
                   ),
-                  if (_user != null && _user!.walletBalance > 0)
+                  if (_transactions.isNotEmpty)
                     Text(
-                      'Tap item to download PDF receipt',
+                      'Tap item to view & print receipt 📄',
                       style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.primary, fontWeight: FontWeight.bold),
                     ),
                 ],

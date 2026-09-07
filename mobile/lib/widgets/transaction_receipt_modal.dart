@@ -316,6 +316,14 @@ class _TransactionReceiptModalState extends State<TransactionReceiptModal> {
                   _buildCopyableRow('Reference ID', ref),
                   const Divider(height: 16, color: Color(0xFFE2E8F0)),
                   _buildRow('Timestamp', dateStr),
+                  if (!isCredit && tx['beneficiary'] != null) ...[
+                    const Divider(height: 16, color: Color(0xFFE2E8F0)),
+                    _buildRow('Recipient Beneficiary', tx['beneficiary'].toString()),
+                  ],
+                  if (!isCredit && tx['recipientAccount'] != null) ...[
+                    const Divider(height: 16, color: Color(0xFFE2E8F0)),
+                    _buildCopyableRow('Destination Account', tx['recipientAccount'].toString()),
+                  ],
                   if (feeAmount > 0) ...[
                     const Divider(height: 16, color: Color(0xFFE2E8F0)),
                     _buildRow('Transaction Fee', '$sym${_currencyFormat.format(feeAmount)} (In-app only)'),
@@ -323,7 +331,7 @@ class _TransactionReceiptModalState extends State<TransactionReceiptModal> {
                     _buildRow('Total Account Debit', '$sym${_currencyFormat.format(rawAmount)}'),
                   ],
                   const Divider(height: 16, color: Color(0xFFE2E8F0)),
-                  _buildRow('Currency / Account', '${widget.currency} Wallet (${widget.user.bankName ?? "Flutterwave MFB"})'),
+                  _buildRow('Currency / Account', '${widget.currency} Vault (${tx['recipientBank'] ?? tx['bankName'] ?? widget.user.bankName ?? "Wema Bank"})'),
                   const Divider(height: 16, color: Color(0xFFE2E8F0)),
                   _buildRow('Protection Level', 'Escrow Guarded (E-Homes Global)'),
                 ],
@@ -332,7 +340,7 @@ class _TransactionReceiptModalState extends State<TransactionReceiptModal> {
           ),
           const SizedBox(height: 20),
 
-          // Action Buttons: Download PDF & Share
+          // Action Buttons: Print / Save & Share
           Row(
             children: [
               Expanded(
@@ -364,9 +372,9 @@ class _TransactionReceiptModalState extends State<TransactionReceiptModal> {
                   ),
                   icon: _isExporting
                       ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Icon(Icons.download_rounded, size: 18),
+                      : const Icon(Icons.print_rounded, size: 18),
                   label: Text(
-                    'Download PDF',
+                    'Print Receipt',
                     style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold),
                   ),
                 ),
