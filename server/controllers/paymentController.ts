@@ -1675,9 +1675,9 @@ export async function fincraWebhook(req: Request, res: Response) {
     console.log(`[Fincra Webhook] Received Event: ${event}, Reference: ${ref}`);
 
     // AUTO-FETCH FROM FINCRA:
-    // Query Fincra API directly to auto-fetch and verify the exact transaction record
+    // Query Fincra API directly to auto-fetch and verify the exact transaction record (for checkout events)
     let verifiedData = data;
-    if (ref && FincraService.isConfigured()) {
+    if (ref && FincraService.isConfigured() && event !== 'collection.successful') {
       try {
         console.log(`[Fincra Webhook] 🔄 Auto-fetching verified transaction from Fincra for reference: ${ref}...`);
         const fetchRes = await FincraService.verifyPayment(ref);
@@ -1754,13 +1754,33 @@ export async function fincraWebhook(req: Request, res: Response) {
         }
 
         if (targetUser) {
+          const narration = `High-Value Escrow Deposit (Fincra Commercial Rail) from ${senderName}`;
           const creditRes = await AtomicLedgerService.creditWalletAtomic({
             userId: targetUser.id,
             email: targetUser.email,
             amount: amountPaid,
             flwRef: ref,
             txRef: ref,
-            narration: `High-Value Escrow Deposit (Fincra Commercial Rail - Auto-Fetched) from ${senderName}`
+            narration
+          });
+
+          // Ensure transaction is immediately visible on user's dashboard and transaction ledger
+          await TransactionStore.addTransaction({
+            id: `FINCRA_TX_${ref}`,
+            userId: targetUser.id,
+            email: targetUser.email,
+            title: `Wema Bank Inbound Deposit (${senderName})`,
+            type: 'Electronic Bank Inbound Deposit',
+            category: 'deposit',
+            amount: amountPaid,
+            isCredit: true,
+            reference: ref,
+            sender: senderName,
+            beneficiary: targetUser.full_name || targetUser.email,
+            recipientAccount: incomingAccNo,
+            recipientBank: 'Wema Bank Commercial Rail',
+            status: 'SUCCESSFUL',
+            date: new Date().toISOString()
           });
 
           console.log(`[Fincra Webhook] ✅ Credited ₦${amountPaid.toLocaleString()} to ${targetUser.email}`);
@@ -2930,7 +2950,64 @@ async function syncPaystackInboundTransactionsForUser(cleanEmail: string) {
   }
 }
 
-// 6. Get User Transaction Ledger (with real-time Flutterwave, Maplerad & Paystack sync)
+// 5d. Sync Inbound Fincra / Commercial Wema Bank Transactions for User
+export async function syncFincraTransactionsForUser(cleanEmail: string) {
+  try {
+    if (!supabase || !cleanEmail) return;
+
+    // Check wallet_transactions in Supabase for any recorded Fincra credits
+    const { data: records } = await supabase
+      .from('wallet_transactions')
+      .select('*')
+      .eq('email', cleanEmail)
+      .order('created_at', { ascending: false });
+
+    if (!records || records.length === 0) return;
+
+    const existing = TransactionStore.getAllTransactions();
+    const user = await UserStore.findByEmail(cleanEmail);
+
+    for (const r of records) {
+      const narration = (r.narration || '').toString();
+      const ref = (r.flw_ref || r.tx_ref || r.id || '').toString().trim();
+      const isFincra = narration.toLowerCase().includes('fincra') || 
+                       narration.toLowerCase().includes('wema') ||
+                       ref.includes('775f02df') ||
+                       (r.type === 'credit' && narration.toLowerCase().includes('commercial rail'));
+
+      if (!isFincra) continue;
+
+      const exists = existing.some(e => 
+        e.reference === ref || 
+        e.id === `FINCRA_TX_${ref}` || 
+        (ref && e.reference && e.reference.includes(ref))
+      );
+
+      if (!exists) {
+        const amount = Number(r.amount || 0);
+        await TransactionStore.addTransaction({
+          id: `FINCRA_TX_${ref}`,
+          userId: r.user_id || user?.id || `usr_${cleanEmail}`,
+          email: cleanEmail,
+          title: narration || 'High-Value Escrow Deposit (Wema Bank)',
+          type: 'Electronic Bank Inbound Deposit',
+          category: 'deposit',
+          amount,
+          isCredit: true,
+          reference: ref,
+          beneficiary: user?.fullName || cleanEmail,
+          recipientBank: 'Wema Bank Commercial Rail',
+          status: (r.status || 'SUCCESSFUL').toUpperCase() === 'COMPLETED' ? 'SUCCESSFUL' : 'SUCCESSFUL',
+          date: r.created_at || new Date().toISOString()
+        });
+      }
+    }
+  } catch (e: any) {
+    console.warn('[syncFincraTransactionsForUser] Notice:', e?.message || e);
+  }
+}
+
+// 6. Get User Transaction Ledger (with real-time Flutterwave, Maplerad, Paystack & Fincra sync)
 export async function getUserTransactions(req: Request, res: Response) {
   try {
     const { email } = req.query;
@@ -2944,6 +3021,7 @@ export async function getUserTransactions(req: Request, res: Response) {
     await syncFlutterwaveTransactionsForUser(cleanEmail);
     await syncMapleradTransactionsForUser(cleanEmail);
     await syncPaystackInboundTransactionsForUser(cleanEmail);
+    await syncFincraTransactionsForUser(cleanEmail);
 
     const transactions = await TransactionStore.getTransactionsByEmail(cleanEmail);
     res.json({
@@ -2955,7 +3033,7 @@ export async function getUserTransactions(req: Request, res: Response) {
   }
 }
 
-// 7. Instant Wallet Balance Sync API (with real-time Supabase Cloud & Flutterwave sync)
+// 7. Instant Wallet Balance Sync API (with real-time Supabase Cloud & Multi-Rail sync)
 export async function getWalletBalance(req: Request, res: Response) {
   try {
     const { userId, email } = req.query;
@@ -2979,10 +3057,11 @@ export async function getWalletBalance(req: Request, res: Response) {
       }
     }
 
-    // 2. Auto-sync from Flutterwave, Maplerad & Paystack
+    // 2. Auto-sync from Flutterwave, Maplerad, Paystack & Fincra
     await syncFlutterwaveTransactionsForUser(cleanEmail);
     await syncMapleradTransactionsForUser(cleanEmail);
     await syncPaystackInboundTransactionsForUser(cleanEmail);
+    await syncFincraTransactionsForUser(cleanEmail);
 
     // Refresh live profile directly from Supabase Cloud after provider sync
     if (supabase) {
