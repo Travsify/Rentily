@@ -2963,19 +2963,30 @@ export async function getUserTransactions(req: Request, res: Response) {
       return res.status(400).json({ error: 'Email is required' });
     }
 
-    // Auto-sync from all providers concurrently
-    await Promise.allSettled([
-      syncFincraTransactionsForUser(cleanEmail),
-      syncFlutterwaveTransactionsForUser(cleanEmail),
-      syncMapleradTransactionsForUser(cleanEmail),
-      syncPaystackInboundTransactionsForUser(cleanEmail),
-    ]);
+    // 1. Fast Fincra live collection sync (primary active provider) capped at 2.0s
+    if (FincraService.isConfigured() && supabase) {
+      try {
+        await Promise.race([
+          syncFincraTransactionsForUser(cleanEmail),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Fincra timeout')), 2000))
+        ]);
+      } catch (_) {}
+    }
 
+    // 2. Fetch authoritative transactions directly from TransactionStore (which syncs with Supabase)
     const transactions = await TransactionStore.getTransactionsByEmail(cleanEmail);
     res.json({
       status: true,
       data: transactions
     });
+
+    // 3. Background asynchronous sync for secondary legacy providers (never blocks HTTP response)
+    Promise.allSettled([
+      syncFlutterwaveTransactionsForUser(cleanEmail),
+      syncMapleradTransactionsForUser(cleanEmail),
+      syncPaystackInboundTransactionsForUser(cleanEmail),
+    ]).catch(() => {});
+    return;
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -3005,13 +3016,22 @@ export async function getWalletBalance(req: Request, res: Response) {
       }
     }
 
-    // 2. Auto-sync from Flutterwave, Maplerad, Paystack & Fincra concurrently
-    await Promise.allSettled([
-      syncFincraTransactionsForUser(cleanEmail),
+    // 2. Fast Fincra live collection sync capped at 2.0s
+    if (FincraService.isConfigured() && supabase) {
+      try {
+        await Promise.race([
+          syncFincraTransactionsForUser(cleanEmail),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Fincra timeout')), 2000))
+        ]);
+      } catch (_) {}
+    }
+
+    // Background asynchronous sync for secondary legacy providers
+    Promise.allSettled([
       syncFlutterwaveTransactionsForUser(cleanEmail),
       syncMapleradTransactionsForUser(cleanEmail),
       syncPaystackInboundTransactionsForUser(cleanEmail),
-    ]);
+    ]).catch(() => {});
 
     // Refresh live profile directly from Supabase Cloud after provider sync
     if (supabase) {
