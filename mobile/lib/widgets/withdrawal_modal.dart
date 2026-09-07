@@ -727,6 +727,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
           'email': currentUser.email,
           'accountNumber': accNum,
           'bankCode': _selectedBankCode,
+          'bankName': _selectedBankName,
           'accountName': confirmedRecipient,
           'amount': totalNgnRequired,
           'sourceCurrency': _withdrawalMode,
