@@ -181,9 +181,9 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
     await syncMapleradTransactionsForUser(cleanEmail);
     await syncPaystackInboundTransactionsForUser(cleanEmail);
 
-    // Apply Platform Fee Settings (₦50 bank withdrawal fee)
+    // Apply Platform Fee Settings (Standard bank withdrawal fee)
     const platformFees = getStoredFees();
-    const withdrawalFee = Number(platformFees.withdrawalFee ?? 50);
+    const withdrawalFee = Number(platformFees.withdrawalFee ?? 65);
     const totalDebit = numAmount + withdrawalFee;
 
     // Check user true net balance from TransactionStore

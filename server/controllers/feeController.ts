@@ -2,7 +2,15 @@ import type { Request, Response } from 'express';
 import { supabase } from '../supabaseClient';
 
 export interface PlatformFeeConfig {
-  withdrawalFee: number;            // ₦ flat fee on bank withdrawals (default 50)
+  withdrawalFee: number;            // ₦ flat fee on bank withdrawals (default 65)
+  corporatePayoutFee: number;       // ₦ flat fee on corporate/B2B disbursements (default 100)
+  inflowFeePct: number;             // % fee on inbound collections (default 0.75%)
+  inflowFeeCap: number;             // ₦ max cap on inbound collections (default 750)
+  inflowFlatFeeHighTicket: number;  // ₦ flat fee for high-ticket rent over threshold (default 600)
+  highTicketThreshold: number;      // ₦ threshold for high-ticket flat fee (default 100000)
+  inflowPricingMode: 'percentage_capped' | 'tiered_flat' | 'hybrid'; // Default 'percentage_capped'
+  fincraBaseInflowCost: number;     // ₦ base cost from Fincra for inbound collections (default 300)
+  fincraBaseOutflowCost: number;    // ₦ base cost from Fincra for payouts (default 50)
   usdtWithdrawalFeePct: number;     // % fee on USDT withdrawals (default 2.0)
   electricityFee: number;           // ₦ convenience fee on Disco tokens (default 100)
   airtimeDataMarginPct: number;     // % margin on airtime/data (default 2.5)
@@ -17,7 +25,15 @@ export interface PlatformFeeConfig {
 }
 
 const DEFAULT_FEES: PlatformFeeConfig = {
-  withdrawalFee: 50,
+  withdrawalFee: 65,
+  corporatePayoutFee: 100,
+  inflowFeePct: 0.75,
+  inflowFeeCap: 750,
+  inflowFlatFeeHighTicket: 600,
+  highTicketThreshold: 100000,
+  inflowPricingMode: 'percentage_capped',
+  fincraBaseInflowCost: 300,
+  fincraBaseOutflowCost: 50,
   usdtWithdrawalFeePct: 2.0,
   electricityFee: 100,
   airtimeDataMarginPct: 2.5,
