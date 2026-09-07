@@ -148,6 +148,9 @@ apiRouter.get('/verify/credential', verificationController.verifyPublicCredentia
 // 7. Flutterwave Virtual Bank Accounts & Utility Bills
 apiRouter.post('/payments/create-virtual-account', paymentController.createVirtualAccount);
 apiRouter.post('/bills/validate-meter', paymentController.validateDiscoMeter);
+apiRouter.post('/payments/validate-meter', paymentController.validateDiscoMeter);
+apiRouter.post('/bills/electricity/validate', paymentController.validateDiscoMeter);
+apiRouter.get('/bills/electricity/discos', paymentController.getSupportedDiscos);
 apiRouter.post('/bills/purchase-electricity', paymentController.purchaseElectricityToken);
 apiRouter.post('/payments/pay-bill', paymentController.payBill);
 apiRouter.get('/payments/transactions', paymentController.getUserTransactions);

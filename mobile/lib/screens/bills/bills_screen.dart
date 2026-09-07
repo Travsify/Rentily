@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -5,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import '../../constants/app_colors.dart';
 import '../../constants/app_constants.dart';
+import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/payment_security_service.dart';
@@ -30,8 +32,15 @@ class _BillsScreenState extends State<BillsScreen> {
   String? _successMessage;
   String? _tokenOutput;
 
-  // Electricity
-  String _selectedDisco = 'EKEDC (Eko Electricity)';
+  // Electricity validation & verification
+  String _selectedDisco = 'EKEDC (Eko Electricity - Lagos)';
+  String _selectedMeterType = 'prepaid';
+  bool _isValidatingMeter = false;
+  bool _isMeterVerified = false;
+  String? _verifiedCustomerName;
+  String? _verifiedAddress;
+  String? _meterValidationError;
+  Timer? _meterDebounceTimer;
   final List<String> _discos = [
     'EKEDC (Eko Electricity - Lagos)',
     'IKEDC (Ikeja Electric - Lagos)',
@@ -312,6 +321,65 @@ class _BillsScreenState extends State<BillsScreen> {
     super.initState();
     _selectedCategory = widget.initialCategory;
     _phoneController.addListener(_onPhoneChanged);
+    _customerController.addListener(_onCustomerChanged);
+  }
+
+  void _onCustomerChanged() {
+    if (_selectedCategory == 'electricity') {
+      _triggerMeterValidation();
+    }
+  }
+
+  void _triggerMeterValidation() {
+    _meterDebounceTimer?.cancel();
+    final cleanMeter = _customerController.text.replaceAll(RegExp(r'[^0-9]'), '').trim();
+    if (cleanMeter.length < 8) {
+      if (_isMeterVerified || _meterValidationError != null || _isValidatingMeter) {
+        setState(() {
+          _isMeterVerified = false;
+          _verifiedCustomerName = null;
+          _verifiedAddress = null;
+          _meterValidationError = null;
+          _isValidatingMeter = false;
+        });
+      }
+      return;
+    }
+
+    setState(() {
+      _isValidatingMeter = true;
+      _meterValidationError = null;
+    });
+
+    _meterDebounceTimer = Timer(const Duration(milliseconds: 600), () async {
+      final discoCode = _selectedDisco.split(' ')[0].trim();
+      final res = await ApiService.validateMeter(
+        disco: discoCode,
+        meterNumber: cleanMeter,
+        meterType: _selectedMeterType,
+      );
+
+      if (!mounted) return;
+
+      if (res['status'] == true && res['data'] != null) {
+        final data = res['data'] as Map<String, dynamic>;
+        setState(() {
+          _isValidatingMeter = false;
+          _isMeterVerified = true;
+          _verifiedCustomerName = data['customerName']?.toString() ?? 'Verified Customer';
+          _verifiedAddress = data['address']?.toString();
+          _meterValidationError = null;
+        });
+      } else {
+        setState(() {
+          _isValidatingMeter = false;
+          _isMeterVerified = false;
+          _verifiedCustomerName = null;
+          _verifiedAddress = null;
+          _meterValidationError = res['message']?.toString() ?? 'Invalid meter number for selected DisCo.';
+        });
+      }
+    });
   }
 
   void _onPhoneChanged() {
@@ -362,7 +430,9 @@ class _BillsScreenState extends State<BillsScreen> {
 
   @override
   void dispose() {
+    _meterDebounceTimer?.cancel();
     _phoneController.removeListener(_onPhoneChanged);
+    _customerController.removeListener(_onCustomerChanged);
     _customerController.dispose();
     _phoneController.dispose();
     _amountController.dispose();
@@ -400,6 +470,15 @@ class _BillsScreenState extends State<BillsScreen> {
     if (_selectedCategory == 'electricity') {
       if (customer.isEmpty || amount.isEmpty) {
         _showToast('Please enter your meter number and amount.');
+        return;
+      }
+      final numAmt = double.tryParse(amount) ?? 0;
+      if (numAmt < 500) {
+        _showToast('Minimum electricity purchase is ₦500.');
+        return;
+      }
+      if (!_isMeterVerified) {
+        _showToast('Please enter a valid meter number and wait for DisCo verification.');
         return;
       }
     } else if (_selectedCategory == 'airtime') {
@@ -479,12 +558,13 @@ class _BillsScreenState extends State<BillsScreen> {
           'email': user?.email ?? '',
           'category': _selectedCategory,
           'operator': _selectedCategory == 'electricity'
-              ? _selectedDisco.split(' ')[0]
+              ? _selectedDisco.split(' ')[0].trim()
               : (_selectedCategory == 'cable'
                   ? _selectedCable
                   : (_selectedCategory == 'internet'
                       ? _selectedBroadband
                       : _selectedTelco)),
+          'meterType': _selectedMeterType,
           'plan': _selectedCategory == 'data'
               ? _selectedDataPlan
               : (_selectedCategory == 'cable'
@@ -493,7 +573,7 @@ class _BillsScreenState extends State<BillsScreen> {
           'customerNumber': _selectedCategory == 'airtime' || _selectedCategory == 'data' ? phone : customer,
           'amount': numAmount,
         }),
-      ).timeout(const Duration(seconds: 25));
+      ).timeout(const Duration(seconds: 35));
 
       final data = json.decode(res.body);
       setState(() => _isProcessing = false);
@@ -505,16 +585,22 @@ class _BillsScreenState extends State<BillsScreen> {
         }
 
         if (_selectedCategory == 'electricity') {
-          final t = data['token']?.toString() ?? data['data']?['token']?.toString() ?? _generateStandardToken();
+          final t = data['token']?.toString() ?? data['data']?['token']?.toString();
           setState(() {
             _tokenOutput = t;
-            _successMessage = 'Electricity token generated successfully!';
+            _successMessage = (t != null && t.isNotEmpty)
+                ? 'Prepaid electricity token generated successfully!'
+                : 'Electricity bill payment completed successfully!';
           });
           NotificationService.addNotification(
-            title: 'Prepaid Electricity Token Generated ⚡',
-            message: 'Token $t generated for meter ${_customerController.text} ($_selectedDisco) • Amount: ₦${_amountController.text}',
+            title: (t != null && t.isNotEmpty)
+                ? 'Prepaid Electricity Token Generated ⚡'
+                : 'Electricity Payment Confirmed ⚡',
+            message: (t != null && t.isNotEmpty)
+                ? 'Token $t generated for ${_verifiedCustomerName ?? "meter"} ($customer) • Amount: ₦${_amountController.text}'
+                : 'Electricity payment of ₦${_amountController.text} processed for ${_verifiedCustomerName ?? "meter"} ($customer).',
             category: 'transaction',
-            metadata: {'token': t, 'meter': _customerController.text, 'amount': '₦${_amountController.text}'},
+            metadata: {'token': t ?? '', 'meter': customer, 'customerName': _verifiedCustomerName ?? '', 'amount': '₦${_amountController.text}'},
           );
         } else {
           setState(() {
@@ -536,22 +622,13 @@ class _BillsScreenState extends State<BillsScreen> {
           ),
         );
       } else {
-        final err = data['error'] ?? 'Payment could not be processed. Please check your balance.';
+        final err = data['error'] ?? data['message'] ?? 'Payment could not be processed. Please check your balance.';
         _showToast(err);
       }
     } catch (e) {
       setState(() => _isProcessing = false);
       _showToast('Network connection timeout. Please check your connection.');
     }
-  }
-
-  String _generateStandardToken() {
-    final p1 = (1000 + (DateTime.now().millisecondsSinceEpoch % 8999)).toString();
-    final p2 = (2000 + ((DateTime.now().millisecondsSinceEpoch ~/ 3) % 7999)).toString();
-    final p3 = (3000 + ((DateTime.now().millisecondsSinceEpoch ~/ 7) % 6999)).toString();
-    final p4 = (4000 + ((DateTime.now().millisecondsSinceEpoch ~/ 11) % 5999)).toString();
-    final p5 = (5000 + ((DateTime.now().millisecondsSinceEpoch ~/ 13) % 4999)).toString();
-    return '$p1 $p2 $p3 $p4 $p5';
   }
 
   void _showToast(String msg) {
@@ -938,6 +1015,64 @@ class _BillsScreenState extends State<BillsScreen> {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _buildLabel('METER ACCOUNT TYPE'),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() => _selectedMeterType = 'prepaid');
+                      _triggerMeterValidation();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: _selectedMeterType == 'prepaid' ? AppColors.primary : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: _selectedMeterType == 'prepaid' ? AppColors.primary : AppColors.borderDark),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        'Prepaid (STS Token)',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: _selectedMeterType == 'prepaid' ? Colors.white : AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() => _selectedMeterType = 'postpaid');
+                      _triggerMeterValidation();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      decoration: BoxDecoration(
+                        color: _selectedMeterType == 'postpaid' ? AppColors.primary : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: _selectedMeterType == 'postpaid' ? AppColors.primary : AppColors.borderDark),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        'Postpaid (Bill Credit)',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: _selectedMeterType == 'postpaid' ? Colors.white : AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
             _buildLabel('DISTRIBUTION COMPANY (DISCO)'),
             const SizedBox(height: 6),
             DropdownButtonFormField<String>(
@@ -946,19 +1081,129 @@ class _BillsScreenState extends State<BillsScreen> {
               style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
               decoration: _buildInputDeco(),
               items: _discos.map((d) => DropdownMenuItem(value: d, child: Text(d))).toList(),
-              onChanged: (v) => setState(() => _selectedDisco = v!),
+              onChanged: (v) {
+                if (v != null) {
+                  setState(() => _selectedDisco = v);
+                  _triggerMeterValidation();
+                }
+              },
             ),
             const SizedBox(height: 14),
-            _buildLabel('PREPAID / POSTPAID METER NUMBER'),
+            _buildLabel('METER NUMBER'),
             const SizedBox(height: 6),
             TextField(
               controller: _customerController,
               keyboardType: TextInputType.number,
               style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-              decoration: _buildInputDeco(hint: 'e.g. 0428 1928 472'),
+              decoration: _buildInputDeco(
+                hint: 'e.g. 0159000973960',
+                suffixIcon: _isValidatingMeter
+                    ? const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                        ),
+                      )
+                    : (_isMeterVerified
+                        ? const Icon(Icons.check_circle_rounded, color: Color(0xFF10B981), size: 20)
+                        : null),
+              ),
             ),
+            if (_isValidatingMeter) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  const SizedBox(
+                    width: 12,
+                    height: 12,
+                    child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFF0284C7)),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Querying live DisCo database for meter records...',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 11, color: const Color(0xFF0284C7), fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+            ],
+            if (_isMeterVerified && _verifiedCustomerName != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFECFDF5),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.4)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.verified_rounded, size: 16, color: Color(0xFF059669)),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Verified Account Name',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF065F46),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _verifiedCustomerName!,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: const Color(0xFF064E3B),
+                      ),
+                    ),
+                    if (_verifiedAddress != null && _verifiedAddress!.trim().isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        _verifiedAddress!,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 10.5,
+                          color: const Color(0xFF047857),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+            if (_meterValidationError != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF2F2),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFF87171).withValues(alpha: 0.4)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline_rounded, size: 16, color: Color(0xFFDC2626)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _meterValidationError!,
+                        style: GoogleFonts.plusJakartaSans(fontSize: 11, color: const Color(0xFF991B1B)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 14),
-            _buildLabel('AMOUNT (₦)'),
+            _buildLabel('AMOUNT (₦) • MIN ₦500'),
             const SizedBox(height: 6),
             TextField(
               controller: _amountController,
@@ -1482,13 +1727,14 @@ class _BillsScreenState extends State<BillsScreen> {
     );
   }
 
-  InputDecoration _buildInputDeco({String? hint}) {
+  InputDecoration _buildInputDeco({String? hint, Widget? suffixIcon}) {
     return InputDecoration(
       filled: true,
       fillColor: const Color(0xFFF9FAFB),
       hintText: hint,
       hintStyle: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textMuted),
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      suffixIcon: suffixIcon,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: AppColors.borderDark),

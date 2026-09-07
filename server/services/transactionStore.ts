@@ -228,21 +228,61 @@ export class TransactionStore {
           const user = users.find(u => u.id === row.payer_id || u.id === row.owner_id);
           const email = (user?.email || row.payer_name || 'user@myrentilly.com').toLowerCase().trim();
 
-          const isWithdrawal = row.transaction_type === 'withdrawal' || 
-            (typeof txRef === 'string' && (txRef.startsWith('WD_') || txRef.startsWith('RENTILLY_WD_')));
+          const isDebit = row.transaction_type === 'withdrawal' || 
+            row.transaction_type === 'utility' ||
+            row.transaction_type === 'debit' ||
+            row.escrow_status === 'bill_paid' ||
+            row.payment_gateway === 'flutterwave_bills' ||
+            (typeof row.owner_payout_reference === 'string' && (
+              row.owner_payout_reference.toLowerCase().includes('utility') ||
+              row.owner_payout_reference.toLowerCase().includes('bill') ||
+              row.owner_payout_reference.toLowerCase().includes('airtime') ||
+              row.owner_payout_reference.toLowerCase().includes('electricity') ||
+              row.owner_payout_reference.toLowerCase().includes('token')
+            )) ||
+            (typeof txRef === 'string' && (
+              txRef.startsWith('WD_') || 
+              txRef.startsWith('RENTILLY_WD_') ||
+              txRef.startsWith('RNT_PWR_') ||
+              txRef.startsWith('RNT_AIR_') ||
+              txRef.startsWith('RNT_DAT_') ||
+              txRef.startsWith('RNT_CBL_') ||
+              txRef.startsWith('UTIL_')
+            ));
+
+          const isUtility = row.transaction_type === 'utility' ||
+            row.escrow_status === 'bill_paid' ||
+            row.payment_gateway === 'flutterwave_bills' ||
+            (typeof row.owner_payout_reference === 'string' && (
+              row.owner_payout_reference.toLowerCase().includes('utility') ||
+              row.owner_payout_reference.toLowerCase().includes('bill') ||
+              row.owner_payout_reference.toLowerCase().includes('airtime') ||
+              row.owner_payout_reference.toLowerCase().includes('electricity') ||
+              row.owner_payout_reference.toLowerCase().includes('token')
+            )) ||
+            (typeof txRef === 'string' && (
+              txRef.startsWith('RNT_PWR_') ||
+              txRef.startsWith('RNT_AIR_') ||
+              txRef.startsWith('RNT_DAT_') ||
+              txRef.startsWith('RNT_CBL_') ||
+              txRef.startsWith('UTIL_')
+            ));
+
+          const mappedCategory = isUtility ? 'utility' : (isDebit ? 'withdrawal' : 'deposit');
+          const isCredit = !isDebit;
 
           const mapped: WalletTransaction = {
             id: row.id,
             userId: row.payer_id || row.user_id,
             email,
-            title: title || (isWithdrawal ? 'Outbound Bank Transfer' : (row.escrow_status === 'released_to_owner' ? 'Inbound Bank Deposit' : 'Property Escrow Payment')),
-            type: isWithdrawal ? 'withdrawal' : (row.transaction_type || 'rent'),
-            category: isWithdrawal ? 'withdrawal' : (row.payment_gateway === 'flutterwave' ? 'deposit' : 'deposit'),
+            title: title || (isUtility ? 'Utility Bill Payment' : (isDebit ? 'Outbound Bank Transfer' : (row.escrow_status === 'released_to_owner' ? 'Inbound Bank Deposit' : 'Property Escrow Payment'))),
+            type: isUtility ? 'Utility Payment' : (isDebit ? 'withdrawal' : (row.transaction_type || 'rent')),
+            category: mappedCategory,
             amount: amt,
             currency: row.currency || 'NGN',
-            isCredit: !isWithdrawal,
+            isCredit: isCredit,
             reference: txRef,
-            status: (row.escrow_status === 'released_to_owner' || row.status === 'SUCCESSFUL' || isWithdrawal) ? 'SUCCESSFUL' : 'PENDING',
+            status: (row.escrow_status === 'released_to_owner' || row.escrow_status === 'bill_paid' || row.status === 'SUCCESSFUL' || isDebit) ? 'SUCCESSFUL' : 'PENDING',
             escrowStatus: row.escrow_status,
             date: row.created_at || new Date().toISOString()
           };
@@ -320,8 +360,12 @@ export class TransactionStore {
           'b0000000-0000-0000-0000-000000000001')
         );
 
-        const gateway = (tx.category === 'withdrawal' ? 'paystack' : 'flutterwave') as any;
-        const escrowStatus = tx.isCredit ? 'released_to_owner' : 'held_in_escrow';
+        // Postgres enum constraints in Supabase:
+        // transaction_type: enum 'property_purpose' ('rent', 'sale', 'shortlet') -> use 'rent'
+        // payment_gateway: enum 'payment_gateway' ('flutterwave', 'paystack') -> use 'flutterwave' or 'paystack'
+        // escrow_status: enum 'escrow_status' ('held_in_escrow', 'released_to_owner', 'refunded', 'disputed')
+        const gateway = (tx.category === 'withdrawal' ? 'paystack' : 'flutterwave');
+        const escrowStatus = (tx.category === 'utility' || tx.category === 'withdrawal' || !tx.isCredit) ? 'released_to_owner' : 'released_to_owner';
 
         const { error } = await supabase.from('transactions').upsert({
           property_id: VAULT_PROPERTY_ID,
@@ -334,7 +378,7 @@ export class TransactionStore {
           rentilly_legal_fee: 0,
           total_amount: Number(tx.amount || 0),
           escrow_status: escrowStatus,
-          owner_payout_reference: tx.title || tx.category || 'Platform Transaction',
+          owner_payout_reference: tx.title || (tx.category === 'utility' ? 'Utility Bill Payment' : (tx.category === 'withdrawal' ? 'Bank Withdrawal' : 'Platform Transaction')),
           created_at: tx.date || new Date().toISOString()
         }, { onConflict: 'payment_reference' });
 

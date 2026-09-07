@@ -506,6 +506,40 @@ class ApiService {
     return [];
   }
 
+  /// Live Validate a Prepaid or Postpaid Electricity Meter with Nigerian DisCo
+  static Future<Map<String, dynamic>> validateMeter({
+    required String disco,
+    required String meterNumber,
+    String meterType = 'prepaid',
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/payments/validate-meter'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'disco': disco,
+          'meterNumber': meterNumber,
+          'meterType': meterType,
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body) as Map<String, dynamic>;
+      } else {
+        final err = json.decode(response.body);
+        return {
+          'status': false,
+          'message': err['message'] ?? err['error'] ?? 'Could not verify meter details with DisCo.',
+        };
+      }
+    } catch (e) {
+      return {
+        'status': false,
+        'message': 'Unable to connect to DisCo meter verification server.',
+      };
+    }
+  }
+
   /// Fetches digital legal agreements / leases for a tenant or landlord
   static Future<List<Map<String, dynamic>>> fetchLegalAgreements({String? email, String? landlordId}) async {
     try {

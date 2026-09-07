@@ -789,25 +789,47 @@ export async function executeCurrencySwap(req: Request, res: Response) {
 
 // ==================== LIVE UTILITY BILLS & AIRTIME ====================
 
-// 4. Validate Prepaid Electricity Meter Number
+// 4. Validate Prepaid / Postpaid Electricity Meter Number with DisCo
 export async function validateDiscoMeter(req: Request, res: Response) {
   try {
-    const { itemCode, billerCode, customerNumber } = req.body;
-    if (!customerNumber) {
-      return res.status(400).json({ error: 'Meter number is required' });
+    const { itemCode, billerCode, customerNumber, meterNumber, disco, meterType } = req.body;
+    const targetMeter = (customerNumber || meterNumber || '').toString().trim();
+    if (!targetMeter) {
+      return res.status(400).json({ status: false, error: 'Meter number is required' });
     }
 
     const result = await FlutterwaveBillsService.validateMeter({
-      itemCode: itemCode || 'UB159',
-      billerCode: billerCode || 'BIL112',
-      customerNumber: customerNumber.toString()
+      disco: disco || 'IKEDC',
+      meterType: (meterType || 'prepaid') as 'prepaid' | 'postpaid',
+      itemCode,
+      billerCode,
+      customerNumber: targetMeter
     });
 
     res.json(result);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ status: false, error: err.message });
   }
 }
+
+// 4a. Get all supported Nigerian DisCos
+export async function getSupportedDiscos(_req: Request, res: Response) {
+  const discos = [
+    { code: 'IBEDC', name: 'Ibadan Electricity (IBEDC)', billerCode: 'BIL114' },
+    { code: 'IKEDC', name: 'Ikeja Electric (IKEDC)', billerCode: 'BIL113' },
+    { code: 'EKEDC', name: 'Eko Electricity (EKEDC)', billerCode: 'BIL112' },
+    { code: 'AEDC', name: 'Abuja Electricity (AEDC)', billerCode: 'BIL204' },
+    { code: 'EEDC', name: 'Enugu Electricity (EEDC)', billerCode: 'BIL115' },
+    { code: 'PHED', name: 'Port Harcourt Electricity (PHED)', billerCode: 'BIL116' },
+    { code: 'BEDC', name: 'Benin Electricity (BEDC)', billerCode: 'BIL117' },
+    { code: 'KEDCO', name: 'Kano Electricity (KEDCO)', billerCode: 'BIL120' },
+    { code: 'JED', name: 'Jos Electricity (JED)', billerCode: 'BIL215' },
+    { code: 'KAEDCO', name: 'Kaduna Electricity (KAEDCO)', billerCode: 'BIL119' },
+    { code: 'YEDC', name: 'Yola Electricity (YEDC)', billerCode: 'BIL118' },
+  ];
+  res.json({ status: true, data: discos });
+}
+
 
 // 4b. Vend Electricity Prepaid Token Direct Endpoint
 export async function purchaseElectricityToken(req: Request, res: Response) {
@@ -829,6 +851,7 @@ export async function purchaseElectricityToken(req: Request, res: Response) {
       if (supabase && userId) {
         await supabase.from('transactions').insert({
           user_id: userId,
+          transaction_type: 'utility',
           total_amount: Number(amount),
           escrow_status: 'bill_paid',
           payment_gateway: 'flutterwave_bills',
@@ -2140,12 +2163,15 @@ export async function payBill(req: Request, res: Response) {
         email: cleanEmail,
       });
     } else if (category === 'electricity') {
-      title = `${operator || 'EKEDC'} Prepaid Electricity Token`;
-      type = 'Prepaid Electricity Token';
+      const meterType = (req.body.meterType || (plan || '').toLowerCase().includes('postpaid') ? 'postpaid' : 'prepaid') as 'prepaid' | 'postpaid';
+      const isPostpaid = meterType === 'postpaid';
+      title = `${operator || 'DisCo'} ${isPostpaid ? 'Postpaid Electricity Settlement' : 'Prepaid Electricity Token'}`;
+      type = isPostpaid ? 'Postpaid Electricity Payment' : 'Prepaid Electricity Token';
       serviceResult = await FlutterwaveBillsService.purchaseElectricity({
-        disco: operator || 'EKEDC',
+        disco: operator || 'IKEDC',
         meterNumber: customerNumber,
         amount: numAmount,
+        meterType,
         email: cleanEmail,
       });
       tokenOutput = serviceResult.data?.token;
