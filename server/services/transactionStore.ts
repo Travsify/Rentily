@@ -171,12 +171,9 @@ export class TransactionStore {
             if (m1) {
               txBeneficiary = m1[1].trim();
               txRecipientAccount = m1[2].trim();
-            } else {
-              const m2 = rawNarration.match(/Payout to ([A-Za-z\s]+?)(?:[•\(\-\[]|$)/i);
-              if (m2) txBeneficiary = m2[1].trim();
-              const mAcc = rawNarration.match(/\b(\d{10})\b/);
-              if (mAcc) txRecipientAccount = mAcc[1];
             }
+          }
+
           const matchRemark = rawNarration.match(/^\[(.*?)\]\s*(.*)$/);
           let txTitle = rawNarration;
           let txDesc: string | undefined = row.description || undefined;
