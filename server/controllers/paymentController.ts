@@ -2963,11 +2963,13 @@ export async function getUserTransactions(req: Request, res: Response) {
       return res.status(400).json({ error: 'Email is required' });
     }
 
-    // Auto-sync from all providers
-    await syncFlutterwaveTransactionsForUser(cleanEmail);
-    await syncMapleradTransactionsForUser(cleanEmail);
-    await syncPaystackInboundTransactionsForUser(cleanEmail);
-    await syncFincraTransactionsForUser(cleanEmail);
+    // Auto-sync from all providers concurrently
+    await Promise.allSettled([
+      syncFincraTransactionsForUser(cleanEmail),
+      syncFlutterwaveTransactionsForUser(cleanEmail),
+      syncMapleradTransactionsForUser(cleanEmail),
+      syncPaystackInboundTransactionsForUser(cleanEmail),
+    ]);
 
     const transactions = await TransactionStore.getTransactionsByEmail(cleanEmail);
     res.json({
@@ -3003,11 +3005,13 @@ export async function getWalletBalance(req: Request, res: Response) {
       }
     }
 
-    // 2. Auto-sync from Flutterwave, Maplerad, Paystack & Fincra
-    await syncFlutterwaveTransactionsForUser(cleanEmail);
-    await syncMapleradTransactionsForUser(cleanEmail);
-    await syncPaystackInboundTransactionsForUser(cleanEmail);
-    await syncFincraTransactionsForUser(cleanEmail);
+    // 2. Auto-sync from Flutterwave, Maplerad, Paystack & Fincra concurrently
+    await Promise.allSettled([
+      syncFincraTransactionsForUser(cleanEmail),
+      syncFlutterwaveTransactionsForUser(cleanEmail),
+      syncMapleradTransactionsForUser(cleanEmail),
+      syncPaystackInboundTransactionsForUser(cleanEmail),
+    ]);
 
     // Refresh live profile directly from Supabase Cloud after provider sync
     if (supabase) {
