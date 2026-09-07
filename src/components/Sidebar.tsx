@@ -239,6 +239,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           badgeColor: enableVirtualCards ? 'text-emerald-400 border-emerald-800' : 'text-slate-500 border-slate-800'
         },
         {
+          id: 'fincra',
+          label: 'Fincra Master Ledger',
+          icon: Landmark,
+          badge: 'Wema 035',
+          badgeColor: 'bg-blue-500/20 text-blue-400 border-blue-500/30'
+        },
+        {
           id: 'maplerad',
           label: 'Maplerad Treasury',
           icon: Landmark,

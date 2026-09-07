@@ -349,3 +349,13 @@ apiRouter.get('/admin/maplerad/transactions', mapleradAdminController.getMaplera
 apiRouter.post('/admin/maplerad/transfer-to-spend', mapleradAdminController.transferTreasuryToSpend);
 apiRouter.post('/admin/maplerad/fx/quote', mapleradAdminController.getFxQuote);
 apiRouter.post('/admin/maplerad/fx/exchange', mapleradAdminController.executeFxExchange);
+
+// 30. Fincra Master Ledger & Commercial Treasury Operations Desk
+import * as fincraAdminController from '../controllers/fincraAdminController';
+apiRouter.get('/admin/fincra/overview', fincraAdminController.getFincraOverview);
+apiRouter.get('/admin/fincra/wallets', fincraAdminController.getFincraOverview);
+apiRouter.get('/admin/fincra/virtual-accounts', fincraAdminController.getFincraVirtualAccounts);
+apiRouter.post('/admin/fincra/virtual-accounts/create', fincraAdminController.createAdminVirtualAccount);
+apiRouter.get('/admin/fincra/payouts', fincraAdminController.getFincraPayouts);
+apiRouter.post('/admin/fincra/payouts/disburse', fincraAdminController.disburseAdminPayout);
+

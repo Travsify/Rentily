@@ -212,6 +212,7 @@ export type AdminTab =
   | 'reconciliation'
   | 'global_cards'
   | 'maplerad'
+  | 'fincra'
   | 'fraud_blacklist'
   | 'support_tickets'
   | 'live_support'
