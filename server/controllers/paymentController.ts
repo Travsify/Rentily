@@ -205,7 +205,7 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
     let failureReason = '';
 
     const rawBankCode = bankCode.toString().trim();
-    const cbnBankCode = MAPLERAD_TO_CBN_BANK_CODES[rawBankCode] || rawBankCode;
+    const cbnBankCode = FincraService.mapToFincraBankCode(MAPLERAD_TO_CBN_BANK_CODES[rawBankCode] || rawBankCode);
 
     if (!FincraService.isConfigured()) {
       return res.status(503).json({

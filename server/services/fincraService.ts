@@ -161,6 +161,141 @@ export class FincraService {
   }
 
   /**
+   * Map input bank code (Paystack, Maplerad, CBN, NIBSS) to Fincra Native Bank Code
+   */
+  static mapToFincraBankCode(inputCode: string): string {
+    const clean = (inputCode || '').toString().trim();
+    const FINCRA_BANK_MAPPING: Record<string, string> = {
+      // OPay (Paycom): Paystack 999992, Maplerad 710, NIBSS 100004 -> Fincra 305
+      '999992': '305',
+      '710': '305',
+      '100004': '305',
+      '305': '305',
+
+      // PalmPay: Paystack 999991, Maplerad 311, NIBSS 100033 -> Fincra 100033
+      '999991': '100033',
+      '311': '100033',
+      '100033': '100033',
+
+      // Moniepoint MFB: Paystack 50515, Maplerad 868, NIBSS 090405 -> Fincra 50515
+      '50515': '50515',
+      '868': '50515',
+      '090405': '50515',
+
+      // Kuda Bank: Paystack 50211, Maplerad 137, NIBSS 090267 -> Fincra 50211
+      '50211': '50211',
+      '137': '50211',
+      '090267': '50211',
+
+      // VFD MFB: Paystack 566, Maplerad 1897, NIBSS 090110 -> Fincra 566
+      '566': '566',
+      '1897': '566',
+      '090110': '566',
+
+      // Carbon: Paystack 100026 / 565 -> Fincra 100026
+      '100026': '100026',
+      '565': '100026',
+
+      // Fairmoney MFB: 090551 -> Fincra 090551
+      '090551': '090551',
+      '551': '090551',
+
+      // TAJ Bank: Paystack 302, Maplerad 143, NIBSS 000026 -> Fincra 000026
+      '302': '000026',
+      '143': '000026',
+      '000026': '000026',
+
+      // Jaiz Bank: Paystack 301, Maplerad 132 -> Fincra 301
+      '301': '301',
+      '132': '301',
+
+      // Providus Bank: Paystack 101, Maplerad 130 -> Fincra 101
+      '101': '101',
+      '130': '101',
+
+      // GTBank: Paystack 058, Maplerad 120 -> Fincra 058
+      '058': '058',
+      '120': '058',
+
+      // Access Bank: Paystack 044, Maplerad 114 -> Fincra 044
+      '044': '044',
+      '114': '044',
+
+      // Zenith Bank: Paystack 057, Maplerad 107 -> Fincra 057
+      '057': '057',
+      '107': '057',
+
+      // First Bank: Paystack 011, Maplerad 105 -> Fincra 011
+      '011': '011',
+      '105': '011',
+
+      // UBA: Paystack 033, Maplerad 125 -> Fincra 033
+      '033': '033',
+      '125': '033',
+
+      // Wema Bank: Paystack 035, Maplerad 127 -> Fincra 035
+      '035': '035',
+      '127': '035',
+
+      // Fidelity Bank: Paystack 070, Maplerad 119 -> Fincra 070
+      '070': '070',
+      '119': '070',
+
+      // FCMB: Paystack 214, Maplerad 118 -> Fincra 214
+      '214': '214',
+      '118': '214',
+
+      // Sterling Bank: Paystack 232, Maplerad 124 -> Fincra 232
+      '232': '232',
+      '124': '232',
+
+      // Stanbic IBTC: Paystack 221, Maplerad 122 -> Fincra 221
+      '221': '221',
+      '122': '221',
+
+      // Union Bank: Paystack 032, Maplerad 126 -> Fincra 032
+      '032': '032',
+      '126': '032',
+
+      // Ecobank: Paystack 050, Maplerad 116 -> Fincra 050
+      '050': '050',
+      '116': '050',
+
+      // Polaris Bank: Paystack 076, Maplerad 121 -> Fincra 076
+      '076': '076',
+      '121': '076',
+
+      // Keystone Bank: Paystack 082, Maplerad 128 -> Fincra 082
+      '082': '082',
+      '128': '082',
+
+      // Titan Trust / Paystack-Titan: Paystack 102 / 110006 -> Fincra 102
+      '102': '102',
+      '110006': '102',
+    };
+
+    return FINCRA_BANK_MAPPING[clean] || clean;
+  }
+
+  /**
+   * Fetch Nigerian Banks directly from Fincra
+   */
+  static async getBanks(country: string = 'NG', currency: string = 'NGN'): Promise<any[]> {
+    try {
+      const res = await fetch(`${this.BASE_URL}/core/banks?country=${country}&currency=${currency}`, {
+        headers: this.getHeaders()
+      });
+      const json: any = await res.json().catch(() => null);
+      if (json && (json.success || json.status) && Array.isArray(json.data)) {
+        return json.data;
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  }
+
+  /**
    * Initiate High-Value Payout / Disbursement to Beneficiary Bank Account
    */
   static async initiatePayout(params: {
@@ -175,6 +310,7 @@ export class FincraService {
     message?: string;
   }> {
     try {
+      const fincraBankCode = this.mapToFincraBankCode(params.beneficiary.bankCode);
       const payload = {
         business: this.BUSINESS_ID,
         sourceCurrency: params.currency || 'NGN',
@@ -188,7 +324,7 @@ export class FincraService {
           lastName: params.beneficiary.lastName,
           accountHolderName: params.beneficiary.accountHolderName,
           accountNumber: params.beneficiary.accountNumber,
-          bankCode: params.beneficiary.bankCode,
+          bankCode: fincraBankCode,
           type: params.beneficiary.type || 'individual'
         }
       };
