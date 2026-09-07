@@ -195,10 +195,7 @@ export class FincraService {
 
       const res = await fetch(`${this.BASE_URL}/disbursements/payouts`, {
         method: 'POST',
-        headers: {
-          'api-key': this.SECRET_KEY,
-          'Content-Type': 'application/json'
-        },
+        headers: this.getHeaders(),
         body: JSON.stringify(payload)
       });
 

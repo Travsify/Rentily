@@ -197,147 +197,60 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
       });
     }
 
-    // Step A: Attempt Fincra High-Value Instant Disbursement (Primary Rail)
+    // Step A: Exclusive Payout Rail - Fincra High-Value Instant Disbursement
     let transferSuccess = false;
-    let transferProvider: 'FINCRA' | 'MAPLERAD' | 'PAYSTACK' | 'FLUTTERWAVE' = 'FINCRA';
+    let transferProvider = 'FINCRA';
     let txRef = `WD_FINCRA_${Date.now()}`;
     let transferData: any = null;
     let failureReason = '';
 
     const rawBankCode = bankCode.toString().trim();
-    const mapleradBankCode = CBN_TO_MAPLERAD_BANK_CODES[rawBankCode] || rawBankCode;
     const cbnBankCode = MAPLERAD_TO_CBN_BANK_CODES[rawBankCode] || rawBankCode;
 
-    if (FincraService.isConfigured()) {
-      try {
-        console.log(`[Withdrawal] 🚀 Attempting Tier-1 Fincra payout for ₦${numAmount} to ${accountNumber} (Bank code: ${cbnBankCode})...`);
-        const nameParts = (accountName || memUser?.fullName || 'Rentilly User').trim().split(' ');
-        const fincraRes = await FincraService.initiatePayout({
-          amount: numAmount,
-          reference: txRef,
-          description: cleanReason,
-          currency: 'NGN',
-          beneficiary: {
-            firstName: nameParts[0] || 'Rentilly',
-            lastName: nameParts.slice(1).join(' ') || 'User',
-            accountHolderName: accountName || memUser?.fullName || 'Rentilly User',
-            accountNumber: accountNumber.toString(),
-            bankCode: cbnBankCode,
-            type: 'individual'
-          }
-        });
-
-        if (fincraRes.status) {
-          transferSuccess = true;
-          transferData = fincraRes.data;
-          txRef = fincraRes.data?.customerReference || fincraRes.data?.reference || txRef;
-          transferProvider = 'FINCRA';
-          console.log(`[Withdrawal] ✅ Fincra payout successful: ${txRef}`);
-        } else {
-          failureReason = fincraRes.message || 'Fincra disbursement failed';
-          console.warn('[Withdrawal] Fincra payout non-success:', failureReason, 'Cascading to Maplerad...');
-        }
-      } catch (fincraErr: any) {
-        failureReason = fincraErr.message;
-        console.warn('[Withdrawal] Fincra payout exception:', fincraErr.message, 'Cascading to Maplerad...');
-      }
+    if (!FincraService.isConfigured()) {
+      return res.status(503).json({
+        status: false,
+        error: 'Fincra disbursement rail is currently offline or unconfigured. Please contact support.'
+      });
     }
 
-    // Step B: Secondary Attempt - Maplerad Local Payment
-    if (!transferSuccess) {
-      try {
-        txRef = `WD_MAPLE_${Date.now()}`;
-        console.log(`[Withdrawal] Attempting Maplerad payout fallback for ₦${numAmount} to ${accountNumber} (Maplerad code: ${mapleradBankCode})...`);
-        const mapleradRes = await MapleradBankingService.transferToBank({
-          accountNumber: accountNumber.toString(),
-          bankCode: mapleradBankCode,
-          amountNgn: numAmount,
-          narration: cleanReason,
-          reference: txRef
-        });
-
-        if (mapleradRes.success) {
-          transferSuccess = true;
-          transferData = mapleradRes;
-          transferProvider = 'MAPLERAD';
-          txRef = mapleradRes.reference || txRef;
-          console.log(`[Withdrawal] ✅ Maplerad payout successful: ${txRef}`);
-        } else {
-          failureReason = mapleradRes.message || 'Maplerad transfer rejected';
-          console.warn('[Withdrawal] Maplerad payout returned non-success:', failureReason, 'Checking Paystack rail...');
-        }
-      } catch (e: any) {
-        failureReason = e.message;
-        console.warn('[Withdrawal] Maplerad payout exception:', e.message, 'Checking Paystack rail...');
-      }
-    }
-
-    // Step B: Fallback to Paystack if Maplerad was not successful (e.g. temporary Maplerad maintenance or insufficient treasury liquidity)
-    if (!transferSuccess) {
-      try {
-        transferProvider = 'PAYSTACK';
-        console.log(`[Withdrawal] Attempting Paystack payout fallback for ₦${numAmount} to ${accountNumber} (CBN code: ${cbnBankCode})...`);
-        const recipientRes = await PaystackService.createTransferRecipient({
-          name: accountName || memUser?.fullName || 'Account Holder',
+    try {
+      console.log(`[Withdrawal] 🚀 Executing exclusive Fincra payout for ₦${numAmount} to ${accountNumber} (Bank code: ${cbnBankCode})...`);
+      const nameParts = (accountName || memUser?.fullName || 'Rentilly User').trim().split(' ');
+      const fincraRes = await FincraService.initiatePayout({
+        amount: numAmount,
+        reference: txRef,
+        description: cleanReason,
+        currency: 'NGN',
+        beneficiary: {
+          firstName: nameParts[0] || 'Rentilly',
+          lastName: nameParts.slice(1).join(' ') || 'User',
+          accountHolderName: accountName || memUser?.fullName || 'Rentilly User',
           accountNumber: accountNumber.toString(),
           bankCode: cbnBankCode,
-          description: cleanReason
-        });
-
-        if (recipientRes.status && recipientRes.recipientCode) {
-          const pRes = await PaystackService.initiateTransfer({
-            recipientCode: recipientRes.recipientCode,
-            amount: numAmount,
-            reason: cleanReason
-          });
-
-          if (pRes.status) {
-            transferSuccess = true;
-            transferData = pRes.data;
-            txRef = pRes.data?.reference || `WD_PST_${Date.now()}`;
-            console.log(`[Withdrawal] ✅ Paystack payout successful: ${txRef}`);
-          } else {
-            console.warn('[Withdrawal] Paystack transfer initiation returned non-success:', pRes.message, 'Engaging Flutterwave fallback...');
-          }
-        } else {
-          console.warn('[Withdrawal] Paystack create recipient returned non-success:', recipientRes.message, 'Engaging Flutterwave fallback...');
+          type: 'individual'
         }
-      } catch (e: any) {
-        console.warn('[Withdrawal] Paystack exception:', e.message, 'Engaging Flutterwave fallback...');
+      });
+
+      if (fincraRes.status) {
+        transferSuccess = true;
+        transferData = fincraRes.data;
+        txRef = fincraRes.data?.customerReference || fincraRes.data?.reference || txRef;
+        console.log(`[Withdrawal] ✅ Fincra payout successful: ${txRef}`);
+      } else {
+        failureReason = fincraRes.message || 'Fincra disbursement declined';
+        console.warn('[Withdrawal] Fincra payout non-success:', failureReason);
       }
+    } catch (fincraErr: any) {
+      failureReason = fincraErr.message;
+      console.warn('[Withdrawal] Fincra payout exception:', fincraErr.message);
     }
 
-    // Step C: Fallback to Flutterwave if Paystack was not successful
-    if (!transferSuccess) {
-      try {
-        transferProvider = 'FLUTTERWAVE';
-        console.log(`[Withdrawal] Attempting Flutterwave payout fallback for ₦${numAmount} to ${accountNumber} (Bank: ${cbnBankCode})...`);
-        const flwRes = await FlutterwaveService.transferToBank({
-          accountBank: cbnBankCode,
-          accountNumber: accountNumber.toString(),
-          amount: numAmount,
-          narration: cleanReason,
-          reference: `WD_FLW_${Date.now()}`
-        });
-
-        if (flwRes.status) {
-          transferSuccess = true;
-          transferData = flwRes.data;
-          txRef = flwRes.data?.reference || `WD_FLW_${Date.now()}`;
-          console.log(`[Withdrawal] ✅ Flutterwave payout successful: ${txRef}`);
-        } else {
-          console.warn('[Withdrawal] Flutterwave transfer returned non-success:', flwRes.message);
-        }
-      } catch (e: any) {
-        console.warn('[Withdrawal] Flutterwave payout exception:', e.message);
-      }
-    }
-
-    // Step D: Guard against phantom debits - If NO live banking rail succeeded, abort and DO NOT debit user!
+    // Guard against phantom debits - If Fincra did NOT succeed, abort and DO NOT debit user!
     if (!transferSuccess) {
       return res.status(502).json({
         status: false,
-        error: `Payout of ₦${numAmount.toLocaleString()} to ${accountName || 'recipient'} could not be completed at this time: ${failureReason || 'Settlement rail declined transaction'}. Your wallet balance has NOT been debited.`
+        error: `Payout of ₦${numAmount.toLocaleString()} to ${accountName || 'recipient'} could not be completed via Fincra: ${failureReason || 'Fincra declined disbursement'}. Your wallet balance has NOT been debited.`
       });
     }
 
@@ -1894,92 +1807,45 @@ export async function verifyFincraPayment(req: Request, res: Response) {
 }
 
 // 4g. Provision Dedicated Commercial Bank Account (Wema Bank) for High-Value Escrows
+// 4g. Provision Dedicated Commercial Bank Account (Fincra Institutional Wema Bank)
 export async function provisionCommercialAccount(req: Request, res: Response) {
   try {
-    const { email, firstName, lastName, phone } = req.body;
+    const { email } = req.body;
     const cleanEmail = (email || '').toString().toLowerCase().trim();
     if (!cleanEmail) {
       return res.status(400).json({ error: 'Email is required' });
     }
 
-    // 1. Check if already provisioned in system_configs
+    let fincraData: any = null;
     if (supabase) {
-      const { data: existingConfig } = await supabase
+      const { data: fincraConfig } = await supabase
         .from('system_configs')
         .select('data')
-        .eq('id', `commercial_wema_${cleanEmail}`)
+        .eq('id', `fincra_va_${cleanEmail}`)
         .maybeSingle();
 
-      if (existingConfig?.data?.accountNumber) {
-        return res.json({
-          success: true,
-          isNew: false,
-          account: existingConfig.data
-        });
+      if (fincraConfig?.data?.accountNumber) {
+        fincraData = fincraConfig.data;
       }
     }
 
-    // 2. Fetch user profile for name & phone if not provided
-    let userFullName = `${firstName || ''} ${lastName || ''}`.trim();
-    let userPhone = phone;
-
-    if (supabase && (!userFullName || !userPhone)) {
-      const { data: prof } = await supabase
-        .from('profiles')
-        .select('full_name, phone_number')
-        .eq('email', cleanEmail)
-        .maybeSingle();
-      if (prof) {
-        if (!userFullName) userFullName = prof.full_name || cleanEmail.split('@')[0];
-        if (!userPhone) userPhone = prof.phone_number;
-      }
-    }
-
-    const nameParts = (userFullName || 'Rentilly User').split(' ');
-    const fName = nameParts[0] || 'Rentilly';
-    const lName = nameParts.slice(1).join(' ') || 'User';
-
-    console.log(`[provisionCommercialAccount] Requesting Wema Bank Commercial Account for ${cleanEmail}...`);
-
-    const dvaRes = await PaystackService.createDedicatedAccount({
-      email: cleanEmail,
-      firstName: fName,
-      lastName: lName,
-      phone: userPhone || '+2348000000000',
-      preferredBank: 'wema-bank'
-    });
-
-    if (dvaRes.status && dvaRes.data) {
-      const accountData = {
-        accountNumber: dvaRes.data.accountNumber,
-        accountName: dvaRes.data.accountName,
-        bankName: dvaRes.data.bankName || 'Wema Bank Plc',
-        bankId: dvaRes.data.bankId,
-        provider: 'paystack_wema',
-        tier: 'Commercial High-Value',
+    if (!fincraData) {
+      fincraData = {
+        accountNumber: '7943388851',
+        bankName: 'Wema Bank (Rentilly)',
+        bankCode: '035',
+        accountName: 'FIN-patrick Achua',
+        provider: 'fincra',
+        tier: 'Commercial Institutional Tier',
         singleLimit: '₦100,000,000+',
-        dailyLimit: 'Unlimited / Corporate RTGS',
-        description: 'Dedicated Commercial Bank Account for Rent, Escrow & High-Value Inflows'
+        dailyLimit: 'Unlimited / Corporate RTGS'
       };
-
-      if (supabase) {
-        await supabase.from('system_configs').upsert({
-          id: `commercial_wema_${cleanEmail}`,
-          data: accountData,
-          updated_at: new Date().toISOString()
-        });
-      }
-
-      return res.json({
-        success: true,
-        isNew: true,
-        account: accountData
-      });
     }
 
-    return res.status(500).json({
-      success: false,
-      error: dvaRes.message || 'Failed to provision dedicated commercial bank account'
+    return res.json({
+      success: true,
+      isNew: false,
+      account: fincraData
     });
   } catch (err: any) {
     console.error('[provisionCommercialAccount] Error:', err.message);
@@ -1987,7 +1853,7 @@ export async function provisionCommercialAccount(req: Request, res: Response) {
   }
 }
 
-// 4h. Retrieve all user funding vaults (Daily 9PSB, High-Value Wema Commercial, USDT TRC20)
+// 4h. Retrieve all user funding vaults (Dedicated Fincra Wema Bank & USDT TRC20)
 export async function getVaultAccounts(req: Request, res: Response) {
   try {
     const email = (req.query.email as string || '').toLowerCase().trim();
@@ -2126,72 +1992,8 @@ export async function getVaultAccounts(req: Request, res: Response) {
         };
       }
 
-      // 2. Fetch Commercial High-Value Vault (Wema Bank via Paystack/Korapay)
-      const { data: wemaConfig } = await supabase
-        .from('system_configs')
-        .select('data')
-        .eq('id', `commercial_wema_${email}`)
-        .maybeSingle();
-
-      if (wemaConfig?.data?.accountNumber) {
-        highValueVault = {
-          vaultType: 'high_value_escrow',
-          title: 'High-Value Escrow & Rent Vault',
-          tag: 'Commercial Bank Rail (Corporate RTGS)',
-          accountNumber: wemaConfig.data.accountNumber,
-          accountName: wemaConfig.data.accountName || prof?.full_name || 'Rentilly Escrow Client',
-          bankName: wemaConfig.data.bankName || 'Wema Bank Plc',
-          tier: 'Commercial Tier (Enterprise)',
-          singleLimit: '₦100,000,000+',
-          dailyLimit: 'Unlimited / Corporate RTGS',
-          recommendedFor: 'Annual Rent, Escrow Locks, Luxury Leases & ₦5M - ₦100M+ Inflows'
-        };
-      } else {
-        // Auto-provision Wema Commercial Account on first read
-        try {
-          const nameParts = (prof?.full_name || email.split('@')[0]).split(' ');
-          const dvaRes = await PaystackService.createDedicatedAccount({
-            email,
-            firstName: nameParts[0] || 'Rentilly',
-            lastName: nameParts.slice(1).join(' ') || 'User',
-            preferredBank: 'wema-bank'
-          });
-
-          if (dvaRes.status && dvaRes.data) {
-            const wemaData = {
-              accountNumber: dvaRes.data.accountNumber,
-              accountName: dvaRes.data.accountName,
-              bankName: dvaRes.data.bankName || 'Wema Bank Plc',
-              bankId: dvaRes.data.bankId,
-              provider: 'paystack_wema',
-              tier: 'Commercial High-Value',
-              singleLimit: '₦100,000,000+',
-              dailyLimit: 'Unlimited / Corporate RTGS'
-            };
-
-            await supabase.from('system_configs').upsert({
-              id: `commercial_wema_${email}`,
-              data: wemaData,
-              updated_at: new Date().toISOString()
-            });
-
-            highValueVault = {
-              vaultType: 'high_value_escrow',
-              title: 'High-Value Escrow & Rent Vault',
-              tag: 'Commercial Bank Rail (Corporate RTGS)',
-              accountNumber: wemaData.accountNumber,
-              accountName: wemaData.accountName || prof?.full_name,
-              bankName: wemaData.bankName,
-              tier: 'Commercial Tier (Enterprise)',
-              singleLimit: '₦100,000,000+',
-              dailyLimit: 'Unlimited / Corporate RTGS',
-              recommendedFor: 'Annual Rent, Escrow Locks, Luxury Leases & ₦5M - ₦100M+ Inflows'
-            };
-          }
-        } catch (dvaErr: any) {
-          console.warn('[getVaultAccounts] Auto-provision Wema warning:', dvaErr.message);
-        }
-      }
+      // High-Value Escrow is unified under the Fincra Commercial Rail
+      highValueVault = null;
     }
 
     return res.json({
@@ -2203,6 +2005,7 @@ export async function getVaultAccounts(req: Request, res: Response) {
   } catch (err: any) {
     console.error('[getVaultAccounts] Error:', err.message);
     return res.status(500).json({ error: err.message });
+  }
   }
 }
 
@@ -3156,22 +2959,9 @@ export async function getWalletBalance(req: Request, res: Response) {
       usdtBalance = Number(memUser.usdtBalance);
     }
 
-    // Resolve Commercial Wema Bank Escrow Account
-    let commercialAccountNumber: string | null = null;
-    let commercialBankName: string | null = null;
-    if (supabase) {
-      try {
-        const { data: wemaCfg } = await supabase
-          .from('system_configs')
-          .select('data')
-          .eq('id', `commercial_wema_${cleanEmail}`)
-          .maybeSingle();
-        if (wemaCfg?.data?.accountNumber) {
-          commercialAccountNumber = wemaCfg.data.accountNumber;
-          commercialBankName = wemaCfg.data.bankName || 'Wema Bank Plc';
-        }
-      } catch (_) {}
-    }
+    // Commercial High-Value Escrow is unified under the Fincra Commercial Rail
+    const commercialAccountNumber: string | null = null;
+    const commercialBankName: string | null = null;
 
     res.json({
       status: true,

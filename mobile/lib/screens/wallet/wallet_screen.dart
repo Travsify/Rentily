@@ -47,7 +47,7 @@ class _WalletScreenState extends State<WalletScreen> {
   double _fxUsdToEur = 0.91;
   double _cardIssuanceFeeUsd = 3.00;
   String? _usdtTronAddress;
-  String _activeAccountTab = 'DAILY'; // 'DAILY' | 'HIGH_VALUE' | 'USDT'
+  String _activeAccountTab = 'DAILY'; // 'DAILY' (Fincra NGN) | 'USDT' (TRC20)
   Map<String, dynamic>? _vaultAccounts;
   bool _isProvisioningCommercial = false;
   Timer? _liveBalanceSyncTimer;
@@ -1003,7 +1003,7 @@ class _WalletScreenState extends State<WalletScreen> {
                       ),
                       child: Row(
                         children: [
-                          // Tab 1: Daily & Cards Vault (9PSB)
+                          // Tab 1: Fincra NGN Escrow Vault (Wema Bank)
                           Expanded(
                             child: GestureDetector(
                               onTap: () {
@@ -1024,15 +1024,15 @@ class _WalletScreenState extends State<WalletScreen> {
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Icon(
-                                      Icons.credit_card_rounded,
-                                      size: 12,
+                                      Icons.account_balance_rounded,
+                                      size: 13,
                                       color: _activeAccountTab == 'DAILY' ? AppColors.primary : Colors.white.withValues(alpha: 0.8),
                                     ),
-                                    const SizedBox(width: 3),
+                                    const SizedBox(width: 4),
                                     Text(
-                                      'Daily & Cards',
+                                      'NGN Vault (Fincra)',
                                       style: GoogleFonts.plusJakartaSans(
-                                        fontSize: 10,
+                                        fontSize: 10.5,
                                         fontWeight: FontWeight.bold,
                                         color: _activeAccountTab == 'DAILY' ? AppColors.primary : Colors.white.withValues(alpha: 0.8),
                                       ),
@@ -1042,46 +1042,7 @@ class _WalletScreenState extends State<WalletScreen> {
                               ),
                             ),
                           ),
-                          // Tab 2: High-Value Escrow Vault (Wema Bank Commercial)
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () {
-                                HapticFeedback.selectionClick();
-                                setState(() => _activeAccountTab = 'HIGH_VALUE');
-                              },
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 200),
-                                padding: const EdgeInsets.symmetric(vertical: 6.5),
-                                decoration: BoxDecoration(
-                                  color: _activeAccountTab == 'HIGH_VALUE' ? const Color(0xFFFBBF24) : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(9),
-                                  boxShadow: _activeAccountTab == 'HIGH_VALUE'
-                                      ? [BoxShadow(color: const Color(0xFFFBBF24).withValues(alpha: 0.3), blurRadius: 6, offset: const Offset(0, 1))]
-                                      : null,
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.account_balance_rounded,
-                                      size: 12,
-                                      color: _activeAccountTab == 'HIGH_VALUE' ? const Color(0xFF78350F) : Colors.white.withValues(alpha: 0.8),
-                                    ),
-                                    const SizedBox(width: 3),
-                                    Text(
-                                      'High-Value',
-                                      style: GoogleFonts.plusJakartaSans(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.w900,
-                                        color: _activeAccountTab == 'HIGH_VALUE' ? const Color(0xFF78350F) : Colors.white.withValues(alpha: 0.8),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          // Tab 3: USDT TRC20 Crypto
+                          // Tab 2: USDT TRC20 Crypto
                           Expanded(
                             child: GestureDetector(
                               onTap: () {
@@ -1106,11 +1067,11 @@ class _WalletScreenState extends State<WalletScreen> {
                                       size: 13,
                                       color: _activeAccountTab == 'USDT' ? const Color(0xFF07382B) : Colors.white.withValues(alpha: 0.8),
                                     ),
-                                    const SizedBox(width: 3),
+                                    const SizedBox(width: 4),
                                     Text(
-                                      'USDT',
+                                      'USDT Vault',
                                       style: GoogleFonts.plusJakartaSans(
-                                        fontSize: 10,
+                                        fontSize: 10.5,
                                         fontWeight: FontWeight.w900,
                                         color: _activeAccountTab == 'USDT' ? const Color(0xFF07382B) : Colors.white.withValues(alpha: 0.8),
                                       ),
@@ -1127,7 +1088,7 @@ class _WalletScreenState extends State<WalletScreen> {
 
                     // Display View Based on Active Tab
                     if (_activeAccountTab == 'DAILY') ...[
-                      // 1. Daily & Cards Vault (9PSB)
+                      // 1. Dedicated Fincra Wema Bank Vault
                       if (accNum != null)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -1149,7 +1110,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                         Row(
                                           children: [
                                             Text(
-                                              'DAILY & CARDS VAULT',
+                                              'FINCRA ESCROW & DAILY VAULT',
                                               style: GoogleFonts.plusJakartaSans(
                                                 fontSize: 7.5,
                                                 fontWeight: FontWeight.bold,
@@ -1164,7 +1125,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                                 borderRadius: BorderRadius.circular(4),
                                               ),
                                               child: Text(
-                                                _vaultAccounts?['dailyVault']?['tier'] ?? 'Tier 1',
+                                                'Commercial Rail (Unlimited)',
                                                 style: GoogleFonts.plusJakartaSans(fontSize: 7, fontWeight: FontWeight.bold, color: Colors.white),
                                               ),
                                             ),
@@ -1192,7 +1153,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                       ScaffoldMessenger.of(context).showSnackBar(
                                         SnackBar(
                                           content: Text(
-                                            'Daily Vault Account Copied: $accNum',
+                                            'Fincra Vault Account Copied: $accNum',
                                             style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
                                           ),
                                           backgroundColor: AppColors.primary,
@@ -1221,7 +1182,7 @@ class _WalletScreenState extends State<WalletScreen> {
                               ),
                               const SizedBox(height: 6),
                               Text(
-                                '💳 Ideal for Virtual Dollar Cards, Bills & Daily Transfers (Up to ${_vaultAccounts?['dailyVault']?['dailyLimit'] ?? '₦5M/day'})',
+                                '🏛️ Commercial Bank Rail (Zero ₦50k Limits • Instant Deposits & RTGS Escrow)',
                                 style: GoogleFonts.plusJakartaSans(fontSize: 8.5, color: Colors.white.withValues(alpha: 0.65)),
                               ),
                             ],
@@ -1292,208 +1253,6 @@ class _WalletScreenState extends State<WalletScreen> {
                             ),
                           ),
                         ),
-                    ] else if (_activeAccountTab == 'HIGH_VALUE') ...[
-                      // 2. High-Value Escrow Vault (Wema Bank Commercial)
-                      Builder(
-                        builder: (context) {
-                          final highVal = _vaultAccounts?['highValueVault'];
-                          final String? wemaAcc = highVal?['accountNumber'] ?? _user?.commercialAccountNumber;
-                          final String wemaBank = highVal?['bankName'] ?? _user?.commercialBankName ?? 'Wema Bank Plc';
-
-                          if (wemaAcc != null && wemaAcc.isNotEmpty) {
-                            return Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF1E293B).withValues(alpha: 0.85),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: const Color(0xFFFBBF24).withValues(alpha: 0.4)),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Expanded(
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Row(
-                                              children: [
-                                                Text(
-                                                  'HIGH-VALUE ESCROW VAULT',
-                                                  style: GoogleFonts.plusJakartaSans(
-                                                    fontSize: 7.5,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: const Color(0xFFFBBF24),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 6),
-                                                Container(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
-                                                  decoration: BoxDecoration(
-                                                    color: const Color(0xFFFBBF24).withValues(alpha: 0.2),
-                                                    borderRadius: BorderRadius.circular(4),
-                                                  ),
-                                                  child: Text(
-                                                    'Commercial Rail',
-                                                    style: GoogleFonts.plusJakartaSans(
-                                                      fontSize: 7,
-                                                      fontWeight: FontWeight.bold,
-                                                      color: const Color(0xFFFBBF24),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            const SizedBox(height: 2),
-                                            Text(
-                                              '$wemaAcc • $wemaBank',
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: GoogleFonts.plusJakartaSans(
-                                                fontSize: 11.5,
-                                                fontWeight: FontWeight.w700,
-                                                color: Colors.white,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      GestureDetector(
-                                        onTap: () {
-                                          Clipboard.setData(ClipboardData(text: wemaAcc));
-                                          HapticFeedback.lightImpact();
-                                          ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(
-                                              content: Text(
-                                                'Commercial Escrow Account Copied: $wemaAcc',
-                                                style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
-                                              ),
-                                              backgroundColor: const Color(0xFFD97706),
-                                              behavior: SnackBarBehavior.floating,
-                                              duration: const Duration(seconds: 2),
-                                            ),
-                                          );
-                                        },
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFFF59E0B),
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                          child: Text(
-                                            'Copy',
-                                            style: GoogleFonts.plusJakartaSans(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.black,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    '🏛️ Commercial Bank Rail (₦100M+ Corporate RTGS, Rent & Escrow)',
-                                    style: GoogleFonts.plusJakartaSans(fontSize: 8.5, color: const Color(0xFFFDE68A)),
-                                  ),
-                                ],
-                              ),
-                            );
-                          } else if (_vaultAccounts == null) {
-                            return Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF1E293B).withValues(alpha: 0.85),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: const Color(0xFFFBBF24).withValues(alpha: 0.3)),
-                              ),
-                              child: Row(
-                                children: [
-                                  const SizedBox(
-                                    width: 14,
-                                    height: 14,
-                                    child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFFBBF24)),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Text(
-                                    'Loading Commercial Vault...',
-                                    style: GoogleFonts.plusJakartaSans(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: const Color(0xFFFBBF24),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          } else {
-                            return GestureDetector(
-                              onTap: _isProvisioningCommercial ? null : _provisionCommercialAccount,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF1E293B).withValues(alpha: 0.85),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: const Color(0xFFFBBF24).withValues(alpha: 0.4)),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'HIGH-VALUE ESCROW VAULT',
-                                            style: GoogleFonts.plusJakartaSans(
-                                              fontSize: 8,
-                                              fontWeight: FontWeight.bold,
-                                              color: const Color(0xFFFBBF24),
-                                            ),
-                                          ),
-                                          Text(
-                                            'Wema Bank Commercial Rail',
-                                            style: GoogleFonts.plusJakartaSans(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w600,
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFF59E0B),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: _isProvisioningCommercial
-                                          ? const SizedBox(
-                                              width: 14,
-                                              height: 14,
-                                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
-                                            )
-                                          : Text(
-                                              'Activate Vault',
-                                              style: GoogleFonts.plusJakartaSans(
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.black,
-                                              ),
-                                            ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          }
-                        },
-                      ),
                     ] else ...[
                       // USDT TRC20 Card with Full Options
                       Container(
