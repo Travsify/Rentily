@@ -100,27 +100,46 @@ const MAPLERAD_TO_CBN_BANK_CODES: Record<string, string> = {
   '1897': '566',  // VFD
   '132': '301',   // Jaiz Bank
   '143': '302',   // TAJ Bank
+  '1975': '050002', // Fewchore Finance Company Limited
 };
 
-// 1. Fetch Nigerian Banks List (Maplerad / Paystack Unified)
+// 1. Fetch Nigerian Banks List (Direct from Fincra 650+ NIBSS Official Bank Directory)
 export async function getPaystackBanks(_req: Request, res: Response) {
   try {
-    const mapleBanks = await MapleradBankingService.getInstitutions();
-    if (mapleBanks && mapleBanks.length > 0) {
+    const fincraBanks = await FincraService.getBanks('NG', 'NGN');
+    if (fincraBanks && fincraBanks.length > 0) {
+      const formatted = fincraBanks.map((b: any) => ({
+        name: b.name,
+        code: b.code,
+        nibssCode: b.nibssCode || b.code
+      }));
+
+      // Sort alphabetically for clean mobile UX
+      formatted.sort((a, b) => a.name.localeCompare(b.name));
+
       return res.json({
         status: true,
         message: 'Banks retrieved successfully',
-        data: mapleBanks
+        data: formatted,
+        count: formatted.length
       });
     }
+
+    // Fallback to Paystack if Fincra unavailable
     const result = await PaystackService.getBanks();
-    res.json(result);
+    return res.json(result);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    console.error('[getPaystackBanks] Error, falling back to Paystack:', err.message);
+    try {
+      const result = await PaystackService.getBanks();
+      return res.json(result);
+    } catch {
+      return res.status(500).json({ error: err.message });
+    }
   }
 }
 
-// 2. Resolve Beneficiary Account Number via Maplerad / Paystack
+// 2. Resolve Beneficiary Account Number via Paystack / Flutterwave / NIBSS
 export async function resolvePaystackAccount(req: Request, res: Response) {
   try {
     const { accountNumber, bankCode } = req.query;
@@ -129,28 +148,122 @@ export async function resolvePaystackAccount(req: Request, res: Response) {
     }
 
     const rawBankCode = bankCode.toString().trim();
-    const mapleradCode = CBN_TO_MAPLERAD_BANK_CODES[rawBankCode] || rawBankCode;
+    const accNum = accountNumber.toString().trim();
 
-    // Try Maplerad first with translated code
-    const mapleRes = await MapleradBankingService.resolveBankAccount({
-      accountNumber: accountNumber.toString(),
-      bankCode: mapleradCode
-    });
+    // Map 1975 (Flutterwave ID) to Fewchore 050002
+    const normalizedCode = rawBankCode === '1975' ? '050002' : rawBankCode;
 
-    if (mapleRes.success && mapleRes.accountName) {
-      return res.json({
-        status: true,
-        data: {
-          account_number: accountNumber.toString(),
-          account_name: mapleRes.accountName,
-          bank_id: rawBankCode
-        }
-      });
+    // Translation map for Paystack resolution codes
+    const FINCRA_TO_PAYSTACK_CODES: Record<string, string> = {
+      '305': '999992',     // OPay
+      '100004': '999992',  // OPay NIBSS
+      '710': '999992',     // OPay Maplerad
+      '100033': '999991',  // PalmPay
+      '311': '999991',     // PalmPay Maplerad
+      '000026': '302',     // TAJ Bank
+      '143': '302',        // TAJ Bank Maplerad
+      '132': '301',        // Jaiz Bank Maplerad
+      '1897': '566',       // VFD Maplerad
+      '868': '50515',      // Moniepoint Maplerad
+      '137': '50211',      // Kuda Maplerad
+      '130': '101',        // Providus Maplerad
+      '120': '058',        // GTBank Maplerad
+      '114': '044',        // Access Bank Maplerad
+      '107': '057',        // Zenith Bank Maplerad
+      '105': '011',        // First Bank Maplerad
+      '125': '033',        // UBA Maplerad
+      '1975': '050002',    // Fewchore
+    };
+
+    const fincraBanks = await FincraService.getBanks('NG', 'NGN');
+    const matchedBank = fincraBanks.find((b: any) =>
+      b.code === normalizedCode ||
+      b.nibssCode === normalizedCode ||
+      b.id === normalizedCode
+    );
+
+    const paystackCode = FINCRA_TO_PAYSTACK_CODES[normalizedCode] ||
+                         FINCRA_TO_PAYSTACK_CODES[matchedBank?.code] ||
+                         matchedBank?.code ||
+                         normalizedCode;
+
+    const nibssCode = matchedBank?.nibssCode || normalizedCode;
+
+    // Attempt 1: Try Paystack account resolution
+    try {
+      const pRes = await PaystackService.resolveAccount(accNum, paystackCode);
+      if (pRes.status && (pRes.data as any)?.accountName) {
+        const resolvedName = (pRes.data as any).accountName;
+        return res.json({
+          status: true,
+          message: 'Account number resolved successfully',
+          data: {
+            accountNumber: accNum,
+            account_number: accNum,
+            accountName: resolvedName,
+            account_name: resolvedName,
+            bank_id: rawBankCode,
+            bankCode: rawBankCode
+          }
+        });
+      }
+    } catch (pErr: any) {
+      console.warn('[resolvePaystackAccount] Paystack resolution note:', pErr.message);
     }
 
-    // Fallback to Paystack
-    const result = await PaystackService.resolveAccount(accountNumber.toString(), rawBankCode);
-    res.json(result);
+    // Attempt 2: Try Flutterwave account resolution (supports all 650 NIBSS MFBs, Finance Houses, etc.)
+    try {
+      if (FlutterwaveService.isConfigured()) {
+        const flwCodes = [nibssCode, normalizedCode, paystackCode].filter(Boolean);
+        for (const codeToTry of flwCodes) {
+          const flwRes = await FlutterwaveService.resolveAccount(accNum, codeToTry);
+          if (flwRes.status && flwRes.data?.account_name) {
+            return res.json({
+              status: true,
+              message: 'Account number resolved successfully',
+              data: {
+                accountNumber: accNum,
+                account_number: accNum,
+                accountName: flwRes.data.account_name,
+                account_name: flwRes.data.account_name,
+                bank_id: rawBankCode,
+                bankCode: rawBankCode
+              }
+            });
+          }
+        }
+      }
+    } catch (flwErr: any) {
+      console.warn('[resolvePaystackAccount] Flutterwave resolution note:', flwErr.message);
+    }
+
+    // Attempt 3: Try Maplerad if configured
+    try {
+      const mapleCode = CBN_TO_MAPLERAD_BANK_CODES[rawBankCode] || rawBankCode;
+      const mapleRes = await MapleradBankingService.resolveBankAccount({
+        accountNumber: accNum,
+        bankCode: mapleCode
+      });
+      if (mapleRes.success && mapleRes.accountName) {
+        return res.json({
+          status: true,
+          message: 'Account number resolved successfully',
+          data: {
+            accountNumber: accNum,
+            account_number: accNum,
+            accountName: mapleRes.accountName,
+            account_name: mapleRes.accountName,
+            bank_id: rawBankCode,
+            bankCode: rawBankCode
+          }
+        });
+      }
+    } catch (_) {}
+
+    return res.status(404).json({
+      status: false,
+      message: 'Could not resolve account details. Please check the account number and bank.'
+    });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -159,7 +272,7 @@ export async function resolvePaystackAccount(req: Request, res: Response) {
 // 3. Execute Bank Transfer Payout (Maplerad Primary, Paystack Fallback, Flutterwave Fallback)
 export async function withdrawWithPaystack(req: Request, res: Response) {
   try {
-    const { userId, email, accountNumber, bankCode, accountName, amount, reason, sourceCurrency, usdtAmount, fxRate } = req.body;
+    const { userId, email, accountNumber, bankCode, bankName, accountName, amount, reason, sourceCurrency, usdtAmount, fxRate } = req.body;
     const cleanEmail = (email || '').toString().toLowerCase().trim();
 
     if (!accountNumber || !bankCode || !amount || Number(amount) <= 0) {
@@ -205,7 +318,11 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
     let failureReason = '';
 
     const rawBankCode = bankCode.toString().trim();
-    const cbnBankCode = FincraService.mapToFincraBankCode(MAPLERAD_TO_CBN_BANK_CODES[rawBankCode] || rawBankCode);
+    // Map any legacy/Flutterwave/Maplerad code to Fincra's official bank code (with name-based fallback)
+    const cbnBankCode = FincraService.mapToFincraBankCode(
+      MAPLERAD_TO_CBN_BANK_CODES[rawBankCode] || rawBankCode,
+      bankName?.toString()
+    );
 
     if (!FincraService.isConfigured()) {
       return res.status(503).json({

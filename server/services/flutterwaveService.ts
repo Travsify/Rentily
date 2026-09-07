@@ -239,6 +239,47 @@ export class FlutterwaveService {
 
   static transferToBank = FlutterwaveService.transferToLandlord;
 
+  // 2b. Resolve Bank Account via Flutterwave / NIBSS
+  static async resolveAccount(accountNumber: string, bankCode: string): Promise<{
+    status: boolean;
+    data?: { account_number: string; account_name: string };
+    message?: string;
+  }> {
+    try {
+      const response = await fetch(`${FLW_BASE_URL}/accounts/resolve`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({
+          account_number: accountNumber.trim(),
+          account_bank: bankCode.trim()
+        })
+      });
+
+      const resJson: any = await response.json();
+      if (response.ok && resJson.status === 'success' && resJson.data?.account_name) {
+        return {
+          status: true,
+          data: {
+            account_number: resJson.data.account_number,
+            account_name: resJson.data.account_name
+          },
+          message: 'Account resolved successfully'
+        };
+      }
+
+      return {
+        status: false,
+        message: resJson.message || 'Could not resolve account details'
+      };
+    } catch (error: any) {
+      console.error('[Flutterwave] resolveAccount error:', error.message);
+      return {
+        status: false,
+        message: error.message || 'Error communicating with Flutterwave account resolution'
+      };
+    }
+  }
+
   // 3. Fetch list of supported Nigerian banks
   static async getNigerianBanks(): Promise<Array<{ code: string; name: string }>> {
     try {

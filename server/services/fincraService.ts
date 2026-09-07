@@ -160,12 +160,22 @@ export class FincraService {
     }
   }
 
+  private static _cachedBanks: any[] = [];
+  private static _lastBanksFetch: number = 0;
+  private static readonly BANKS_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
+
   /**
-   * Map input bank code (Paystack, Maplerad, CBN, NIBSS) to Fincra Native Bank Code
+   * Map input bank code (Paystack, Maplerad, CBN, NIBSS, Flutterwave) to Fincra Native Bank Code
    */
-  static mapToFincraBankCode(inputCode: string): string {
+  static mapToFincraBankCode(inputCode: string, bankName?: string): string {
     const clean = (inputCode || '').toString().trim();
+    if (!clean) return clean;
+
     const FINCRA_BANK_MAPPING: Record<string, string> = {
+      // 1975 -> Fewchore Finance Company Limited (NIBSS / Fincra code: 050002)
+      '1975': '050002',
+      '050002': '050002',
+
       // OPay (Paycom): Paystack 999992, Maplerad 710, NIBSS 100004 -> Fincra 305
       '999992': '305',
       '710': '305',
@@ -216,30 +226,37 @@ export class FincraService {
       // GTBank: Paystack 058, Maplerad 120 -> Fincra 058
       '058': '058',
       '120': '058',
+      '58': '058',
 
       // Access Bank: Paystack 044, Maplerad 114 -> Fincra 044
       '044': '044',
       '114': '044',
+      '44': '044',
 
       // Zenith Bank: Paystack 057, Maplerad 107 -> Fincra 057
       '057': '057',
       '107': '057',
+      '57': '057',
 
       // First Bank: Paystack 011, Maplerad 105 -> Fincra 011
       '011': '011',
       '105': '011',
+      '11': '011',
 
       // UBA: Paystack 033, Maplerad 125 -> Fincra 033
       '033': '033',
       '125': '033',
+      '33': '033',
 
       // Wema Bank: Paystack 035, Maplerad 127 -> Fincra 035
       '035': '035',
       '127': '035',
+      '35': '035',
 
       // Fidelity Bank: Paystack 070, Maplerad 119 -> Fincra 070
       '070': '070',
       '119': '070',
+      '70': '070',
 
       // FCMB: Paystack 214, Maplerad 118 -> Fincra 214
       '214': '214',
@@ -256,43 +273,84 @@ export class FincraService {
       // Union Bank: Paystack 032, Maplerad 126 -> Fincra 032
       '032': '032',
       '126': '032',
+      '32': '032',
 
       // Ecobank: Paystack 050, Maplerad 116 -> Fincra 050
       '050': '050',
       '116': '050',
+      '50': '050',
 
       // Polaris Bank: Paystack 076, Maplerad 121 -> Fincra 076
       '076': '076',
       '121': '076',
+      '76': '076',
 
       // Keystone Bank: Paystack 082, Maplerad 128 -> Fincra 082
       '082': '082',
       '128': '082',
+      '82': '082',
 
       // Titan Trust / Paystack-Titan: Paystack 102 / 110006 -> Fincra 102
       '102': '102',
       '110006': '102',
     };
 
-    return FINCRA_BANK_MAPPING[clean] || clean;
+    if (FINCRA_BANK_MAPPING[clean]) {
+      return FINCRA_BANK_MAPPING[clean];
+    }
+
+    // Dynamic search across all 650 cached Fincra NIBSS banks
+    if (this._cachedBanks && this._cachedBanks.length > 0) {
+      const match = this._cachedBanks.find((b: any) =>
+        b.code === clean ||
+        b.nibssCode === clean ||
+        b.id === clean ||
+        (clean.length <= 3 && b.code === clean.padStart(3, '0')) ||
+        (clean.length <= 6 && b.nibssCode === clean.padStart(6, '0'))
+      );
+      if (match && match.code) return match.code;
+    }
+
+    // Name-based fallback lookup if bankName was provided
+    if (bankName && this._cachedBanks && this._cachedBanks.length > 0) {
+      const nameClean = bankName.toLowerCase().replace(/bank|microfinance|mfb|plc|limited|ltd|\(.*?\)/g, '').trim();
+      if (nameClean.length >= 3) {
+        const nameMatch = this._cachedBanks.find((b: any) => {
+          const bName = (b.name || '').toLowerCase();
+          return bName.includes(nameClean) || nameClean.includes(bName);
+        });
+        if (nameMatch && nameMatch.code) return nameMatch.code;
+      }
+    }
+
+    return clean;
   }
 
   /**
-   * Fetch Nigerian Banks directly from Fincra
+   * Fetch all 650+ Nigerian Banks directly from Fincra (Cached for 24 hours)
    */
   static async getBanks(country: string = 'NG', currency: string = 'NGN'): Promise<any[]> {
+    const now = Date.now();
+    if (this._cachedBanks.length > 0 && (now - this._lastBanksFetch) < this.BANKS_CACHE_TTL) {
+      return this._cachedBanks;
+    }
+
     try {
       const res = await fetch(`${this.BASE_URL}/core/banks?country=${country}&currency=${currency}`, {
         headers: this.getHeaders()
       });
       const json: any = await res.json().catch(() => null);
-      if (json && (json.success || json.status) && Array.isArray(json.data)) {
-        return json.data;
+      if (json && (json.success || json.status) && Array.isArray(json.data) && json.data.length > 0) {
+        this._cachedBanks = json.data;
+        this._lastBanksFetch = now;
+        console.log(`[FincraService] Hydrated ${this._cachedBanks.length} NIBSS banks from Fincra.`);
+        return this._cachedBanks;
       }
-      return [];
-    } catch {
-      return [];
+    } catch (err: any) {
+      console.error('[FincraService] getBanks error:', err.message);
     }
+
+    return this._cachedBanks;
   }
 
   /**
