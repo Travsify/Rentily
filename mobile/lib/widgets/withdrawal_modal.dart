@@ -42,6 +42,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _cryptoAddressController = TextEditingController();
   final TextEditingController _beneficiarySearchController = TextEditingController();
+  final TextEditingController _narrationController = TextEditingController();
   final FocusNode _amountFocusNode = FocusNode();
 
   String _withdrawalMode = 'NGN'; // 'NGN' or 'USDT'
@@ -126,6 +127,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
     _accountController.dispose();
     _amountController.dispose();
     _cryptoAddressController.dispose();
+    _narrationController.dispose();
     super.dispose();
   }
 
@@ -730,9 +732,11 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
           'sourceCurrency': _withdrawalMode,
           'usdtAmount': _withdrawalMode == 'USDT' ? entered : null,
           'fxRate': _withdrawalMode == 'USDT' ? _fxUsdtToNgn : null,
-          'reason': _withdrawalMode == 'USDT' 
-              ? 'USDT Payout Converted to NGN' 
-              : 'Rentilly Payout'
+          'reason': _narrationController.text.trim().isNotEmpty
+              ? _narrationController.text.trim()
+              : (_withdrawalMode == 'USDT' 
+                  ? 'USDT Payout Converted to NGN' 
+                  : 'Rentilly Payout')
         }),
       ).timeout(const Duration(seconds: 30));
 
@@ -1489,7 +1493,39 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
               const SizedBox(height: 14),
             ],
 
+            // Narration / Remark Field
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'NARRATION / REMARK (OPTIONAL)',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                ),
+                Text(
+                  'Appears on statement & receipt 📄',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 8.5, color: AppColors.primary, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
             const SizedBox(height: 6),
+            TextField(
+              controller: _narrationController,
+              maxLength: 60,
+              style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                counterText: '',
+                hintText: 'e.g. Rent settlement for Flat 4B, Salary, Repairs...',
+                hintStyle: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: AppColors.textMuted),
+                filled: true,
+                fillColor: const Color(0xFFF9FAFB),
+                prefixIcon: const Icon(Icons.description_outlined, size: 18, color: AppColors.textSecondary),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.borderDark)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.borderDark)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+              ),
+            ),
+            const SizedBox(height: 14),
 
             // Action Button
             SizedBox(

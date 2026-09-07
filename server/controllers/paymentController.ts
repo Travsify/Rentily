@@ -265,7 +265,7 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
         id: `TX_WD_${Date.now()}`,
         userId: targetUserId,
         email: cleanEmail,
-        title: `Bank Transfer Payout to ${accountName || 'Bank Account'}`,
+        title: cleanReason && cleanReason !== 'Rentilly Payout' ? cleanReason : `Bank Transfer Payout to ${accountName || 'Bank Account'}`,
         type: 'Instant Direct Bank Payout',
         category: 'withdrawal',
         amount: totalDebit,
@@ -304,7 +304,7 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
             status: 'completed',
             flw_ref: txRef,
             tx_ref: txRef,
-            narration: `Payout to ${accountName || 'Bank Account'} (${accountNumber}) • Incl. ₦${withdrawalFee} Fee`,
+            narration: `${cleanReason && cleanReason !== 'Rentilly Payout' ? `[${cleanReason}] ` : ''}Payout to ${accountName || 'Bank Account'} (${accountNumber}) • Incl. ₦${withdrawalFee} Fee`,
             created_at: new Date().toISOString()
           });
         } catch (e: any) {
