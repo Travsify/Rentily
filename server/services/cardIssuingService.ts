@@ -203,16 +203,7 @@ export class CardIssuingService {
     // 1. Query Supabase directly
     if (supabase) {
       try {
-        const isPatrick = cleanEmail === 'patrickachua3@gmail.com' ||
-          cleanEmail === 'info@myrentilly.com' ||
-          cleanEmail === 'pickpadigroup@gmail.com';
-
-        let query = supabase.from('virtual_cards').select('*');
-        if (isPatrick) {
-          query = query.in('email', ['patrickachua3@gmail.com', 'info@myrentilly.com', 'pickpadigroup@gmail.com']);
-        } else {
-          query = query.eq('email', cleanEmail);
-        }
+        let query = supabase.from('virtual_cards').select('*').eq('email', cleanEmail);
 
         const { data, error } = await query;
 
@@ -368,30 +359,37 @@ export class CardIssuingService {
                 .maybeSingle();
 
               if (!existing) {
-                // Find user by name or default
-                const cleanName = (mprCard.name || '').toLowerCase();
-                let userEmail = 'patrickachua3@gmail.com';
-                if (cleanName.includes('tonero') || cleanName.includes('ehomes')) {
-                  userEmail = 'tonerocool1@gmail.com';
+                // Try to find user by cardholder name in Supabase profiles
+                const cleanName = (mprCard.name || '').toLowerCase().trim();
+                let resolvedEmail: string | null = null;
+                if (cleanName && supabase) {
+                  const { data: matchedProfile } = await supabase
+                    .from('profiles')
+                    .select('email')
+                    .ilike('full_name', `%${cleanName.split(' ')[0]}%`)
+                    .maybeSingle();
+                  resolvedEmail = matchedProfile?.email || null;
                 }
-
-                await supabase.from('virtual_cards').insert({
-                  id: cardId,
-                  card_id: cardId,
-                  email: userEmail,
-                  cardholder_name: (mprCard.name || 'PATRICK ACHUA').toUpperCase(),
-                  masked_pan: masked,
-                  expiry_month: expM,
-                  expiry_year: expY,
-                  cvv: mprCard.cvv || '226',
-                  brand: mprCard.issuer || 'VISA',
-                  currency: mprCard.currency || 'USD',
-                  balance: (mprCard.balance || 0) / 100,
-                  is_frozen: false,
-                  status: 'ACTIVE',
-                  created_at: mprCard.created_at || new Date().toISOString(),
-                  updated_at: new Date().toISOString()
-                });
+                // Only insert if we can associate the card to a known user
+                if (resolvedEmail) {
+                  await supabase.from('virtual_cards').insert({
+                    id: cardId,
+                    card_id: cardId,
+                    email: resolvedEmail,
+                    cardholder_name: (mprCard.name || resolvedEmail.split('@')[0]).toUpperCase(),
+                    masked_pan: masked,
+                    expiry_month: expM,
+                    expiry_year: expY,
+                    cvv: mprCard.cvv || undefined,
+                    brand: mprCard.issuer || 'VISA',
+                    currency: mprCard.currency || 'USD',
+                    balance: (mprCard.balance || 0) / 100,
+                    is_frozen: false,
+                    status: 'ACTIVE',
+                    created_at: mprCard.created_at || new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                  });
+                }
               } else {
                 // Update live balance and details
                 await supabase.from('virtual_cards').update({

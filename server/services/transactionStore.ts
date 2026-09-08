@@ -442,11 +442,11 @@ export class TransactionStore {
           targetUser = users.find(u => u.id === tx.userId);
         }
 
-        const validUserId = targetUser ? targetUser.id : (
-          tx.email.toLowerCase() === 'tonerocool1@gmail.com' ? 'c0000000-0000-0000-0000-000000000001' :
-          (tx.email.toLowerCase() === 'admin@myrentilly.com' ? 'a0000000-0000-0000-0000-000000000001' :
-          'b0000000-0000-0000-0000-000000000001')
-        );
+        const validUserId = targetUser?.id || tx.userId || null;
+        if (!validUserId) {
+          console.warn('[TransactionStore] Cannot persist tx — no userId found for email:', tx.email);
+          return;
+        }
 
         // Store in wallet_transactions (the true single source of truth for user ledger)
         const cleanRef = tx.reference || `TX_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;

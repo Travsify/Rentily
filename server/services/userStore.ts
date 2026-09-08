@@ -81,6 +81,7 @@ function shouldPersistToSupabase(email: string, force = false): boolean {
 }
 
 // Initial deterministic seeds with RFC4122 compliant UUIDs
+// NOTE: These are offline fallback stubs only. Live data is always synced from Supabase on startup.
 function seedKnownUsers(): StoredUser[] {
   const now = new Date().toISOString();
   return [
@@ -96,7 +97,7 @@ function seedKnownUsers(): StoredUser[] {
       accountNumber: undefined,
       bankName: undefined,
       state: 'Lagos',
-      walletBalance: 3935,
+      walletBalance: 0,
       createdAt: now,
       updatedAt: now,
     },
@@ -116,7 +117,7 @@ function seedKnownUsers(): StoredUser[] {
       accountNumber: undefined,
       bankName: undefined,
       state: 'Lagos',
-      walletBalance: 8256,
+      walletBalance: 0,
       createdAt: now,
       updatedAt: now,
     },
