@@ -41,6 +41,24 @@ class _PartnerLandlordOnboardModalState extends State<PartnerLandlordOnboardModa
   }
 
   Future<void> _loadOnboardedLandlords() async {
+    // 1. Fetch live onboarded landlords from database
+    final liveLandlords = await ApiService.fetchPartnerOnboardedLandlords(
+      partnerId: widget.user.id,
+      email: widget.user.email,
+      firmName: widget.user.businessName,
+    );
+
+    if (liveLandlords.isNotEmpty) {
+      if (mounted) {
+        setState(() {
+          _onboardedLandlords = liveLandlords;
+          _isLoadingLandlords = false;
+        });
+      }
+      return;
+    }
+
+    // 2. Fallback to properties grouping
     final allProps = await ApiService.fetchProperties();
     final partnerProps = allProps.where((p) =>
       (p.partnerId != null && p.partnerId == widget.user.id) ||
@@ -315,7 +333,7 @@ class _PartnerLandlordOnboardModalState extends State<PartnerLandlordOnboardModa
                       child: Text(
                         _isLoadingLandlords
                             ? 'Scanning...'
-                            : '${_onboardedLandlords.length} Active Client${_onboardedLandlords.length == 1 ? '' : 's'}',
+                            : '${_onboardedLandlords.length} Onboarded Landlord${_onboardedLandlords.length == 1 ? '' : 's'}',
                         style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.primary),
                       ),
                     ),
@@ -348,7 +366,7 @@ class _PartnerLandlordOnboardModalState extends State<PartnerLandlordOnboardModa
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Share your unique link with your landlord network. Once they register, their listings appear here and your commissions are locked.',
+                          'Share your unique link with your landlord network. Once they register, they appear here and their listings are locked under your mandate.',
                           textAlign: TextAlign.center,
                           style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary, height: 1.35),
                         ),
@@ -357,9 +375,9 @@ class _PartnerLandlordOnboardModalState extends State<PartnerLandlordOnboardModa
                   ),
                 ] else ...[
                   ..._onboardedLandlords.map((client) {
-                    final name = client['name']?.toString() ?? 'Verified Owner';
+                    final name = client['name']?.toString() ?? 'Verified Landlord';
                     final phone = client['phone']?.toString() ?? '';
-                    final units = client['unitCount'] as int? ?? 1;
+                    final units = client['unitCount'] as int? ?? 0;
                     final comm = (client['lockedCommission'] as num?)?.toDouble() ?? 0.0;
 
                     return Container(
@@ -430,18 +448,28 @@ class _PartnerLandlordOnboardModalState extends State<PartnerLandlordOnboardModa
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  phone.isNotEmpty ? '$phone • $units Units Listed' : '$units Units Under Mandate',
+                                  phone.isNotEmpty ? '$phone • $units Units Listed' : (units > 0 ? '$units Units Under Mandate' : 'Registered Landlord'),
                                   style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary),
                                 ),
                                 const SizedBox(height: 4),
-                                Text(
-                                  'Locked Commission: ₦${_currencyFormat.format(comm)}',
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w800,
-                                    color: const Color(0xFF16A34A),
+                                if (comm > 0)
+                                  Text(
+                                    'Locked Commission: ₦${_currencyFormat.format(comm)}',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w800,
+                                      color: const Color(0xFF16A34A),
+                                    ),
+                                  )
+                                else
+                                  Text(
+                                    'Awaiting First Listing 🏠',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: const Color(0xFFD97706),
+                                    ),
                                   ),
-                                ),
                               ],
                             ),
                           ),

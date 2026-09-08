@@ -1,24 +1,68 @@
 import type { Request, Response } from 'express';
+import crypto from 'crypto';
 import { UserStore } from '../services/userStore';
+import { NotificationDispatcher } from '../services/notificationDispatcher';
 import { supabase } from '../supabaseClient';
 
 export async function renderPartnerVerificationPage(req: Request, res: Response) {
-  const { id } = req.query;
-  const partnerIdStr = String(id || '').trim();
+  const partnerIdStr = String(req.params.id || req.query.id || req.query.partner_id || '').trim();
+
+  const formatOpsId = (uid: string) => `RNT-${uid.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 3)}`;
+  const cleanCode = partnerIdStr.replace(/^RNT-?(PRT|PTR|LLD|P|L)?-?/i, '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
 
   const allUsers = await UserStore.getAllUsers();
-  const formatOpsId = (uid: string) => `RNT-${uid.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 3)}`;
-  const user = allUsers.find(u => 
-    u.id === partnerIdStr || 
-    formatOpsId(u.id) === partnerIdStr ||
-    `RNT-PTR-${u.id.replace(/[^0-9]/g, '').padStart(4, '0').slice(0, 4)}` === partnerIdStr ||
-    u.id.includes(partnerIdStr)
-  );
+  let user = allUsers.find(u => {
+    const uId = (u.id || '').toLowerCase();
+    const uOps = formatOpsId(u.id || '');
+    const uClean = (u.id || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+    const uEmail = (u.email || '').toLowerCase();
+    return (
+      uId === partnerIdStr.toLowerCase() ||
+      uOps.toLowerCase() === partnerIdStr.toLowerCase() ||
+      uEmail === partnerIdStr.toLowerCase() ||
+      (cleanCode.length >= 2 && uClean.startsWith(cleanCode)) ||
+      (cleanCode.length >= 2 && uId.startsWith(cleanCode))
+    );
+  });
+
+  if (!user && supabase) {
+    try {
+      const { data: profiles } = await supabase.from('profiles').select('*');
+      if (profiles && profiles.length > 0) {
+        const p = profiles.find((prof: any) => {
+          const pId = (prof.id || '').toLowerCase();
+          const pOps = formatOpsId(prof.id || '');
+          const pClean = (prof.id || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+          const pEmail = (prof.email || '').toLowerCase();
+          return (
+            pId === partnerIdStr.toLowerCase() ||
+            pOps.toLowerCase() === partnerIdStr.toLowerCase() ||
+            pEmail === partnerIdStr.toLowerCase() ||
+            (cleanCode.length >= 2 && pClean.startsWith(cleanCode)) ||
+            (cleanCode.length >= 2 && pId.startsWith(cleanCode))
+          );
+        });
+        if (p) {
+          user = {
+            id: p.id,
+            email: p.email,
+            fullName: p.full_name || '',
+            role: p.role || 'partner',
+            isVerified: p.is_verified ?? true,
+            businessName: p.business_name || '',
+            cacNumber: p.cac_number || '',
+            state: p.state || 'Lagos',
+            createdAt: p.created_at
+          } as any;
+        }
+      }
+    } catch (_) {}
+  }
 
   const businessName = user?.businessName || user?.fullName || 'Accredited Corporate Partner';
-  const repName = user?.fullName || 'Principal Broker';
-  const cacNumber = user?.cacNumber || 'Verified Entity (CAC)';
-  const partnerCode = partnerIdStr || (user?.id ? formatOpsId(user.id) : 'RNT-P01');
+  const repName = user?.fullName || businessName || 'Principal Broker';
+  const cacNumber = user?.cacNumber ? `RC: ${user.cacNumber}` : 'Verified Corporate Mandate';
+  const partnerCode = user?.id ? formatOpsId(user.id) : (partnerIdStr || 'RNT-P01');
   const isVerified = user?.isVerified ?? true;
   const state = user?.state || 'Lagos';
 
@@ -94,8 +138,8 @@ export async function renderPartnerVerificationPage(req: Request, res: Response)
 
 export function renderLandlordInvitePage(req: Request, res: Response) {
   const { partner_id, firm } = req.query;
-  const partnerCode = String(partner_id || 'RNT-P01');
-  const firmName = String(firm || 'Accredited Corporate Partner');
+  const partnerCode = String(partner_id || '').trim();
+  const firmName = String(firm || 'Accredited Managing Partner').trim();
 
   res.send(`
     <!DOCTYPE html>
@@ -103,65 +147,445 @@ export function renderLandlordInvitePage(req: Request, res: Response) {
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Landlord Invitation | Rentilly Living</title>
-      <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+      <title>Landlord Onboarding | Rentilly Living</title>
+      <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
       <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; background: #030712; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
-        .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 28px; max-width: 520px; width: 100%; padding: 36px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); text-align: center; }
-        .logo { font-size: 24px; font-weight: 900; color: #10b981; letter-spacing: -0.5px; margin-bottom: 24px; }
-        .partner-pill { display: inline-flex; align-items: center; gap: 6px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: 800; color: #34d399; margin-bottom: 20px; }
-        h1 { font-size: 22px; font-weight: 900; color: #ffffff; margin-bottom: 10px; line-height: 1.3; }
-        p.subtitle { font-size: 13px; color: #94a3b8; line-height: 1.5; margin-bottom: 28px; }
-        .features { background: #020617; border: 1px solid #1e293b; border-radius: 20px; padding: 22px; text-align: left; margin-bottom: 28px; }
-        .feature-item { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; font-size: 12px; }
+        .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 28px; max-width: 520px; width: 100%; padding: 36px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+        .logo { font-size: 26px; font-weight: 900; color: #10b981; letter-spacing: -0.5px; margin-bottom: 20px; text-align: center; }
+        .partner-pill { display: flex; align-items: center; justify-content: center; gap: 6px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 8px 16px; border-radius: 20px; font-size: 11.5px; font-weight: 800; color: #34d399; margin-bottom: 20px; text-align: center; }
+        h1 { font-size: 22px; font-weight: 900; color: #ffffff; margin-bottom: 8px; line-height: 1.3; text-align: center; }
+        p.subtitle { font-size: 13px; color: #94a3b8; line-height: 1.5; margin-bottom: 24px; text-align: center; }
+        
+        .form-group { margin-bottom: 14px; text-align: left; }
+        label { display: block; font-size: 10.5px; font-weight: 800; letter-spacing: 0.6px; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px; }
+        input, select { width: 100%; background: #020617; border: 1px solid #1e293b; border-radius: 12px; padding: 13px 14px; color: #f8fafc; font-family: inherit; font-size: 13px; font-weight: 600; outline: none; transition: border-color 0.2s; }
+        input:focus, select:focus { border-color: #10b981; }
+        
+        .btn-submit { display: block; width: 100%; background: #10b981; color: #ffffff; font-weight: 800; font-size: 14px; padding: 16px; border-radius: 14px; border: none; cursor: pointer; text-align: center; transition: background 0.2s, transform 0.1s; margin-top: 20px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4); }
+        .btn-submit:hover { background: #059669; transform: translateY(-1px); }
+        .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        
+        .features { background: #020617; border: 1px solid #1e293b; border-radius: 18px; padding: 18px; text-align: left; margin-top: 24px; }
+        .feature-item { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px; font-size: 11.5px; }
         .feature-item:last-child { margin-bottom: 0; }
-        .feature-icon { font-size: 18px; flex-shrink: 0; }
+        .feature-icon { font-size: 16px; flex-shrink: 0; }
         .feature-title { font-weight: 800; color: #ffffff; margin-bottom: 2px; }
-        .feature-desc { color: #94a3b8; line-height: 1.4; }
-        .btn-primary { display: block; width: 100%; background: #10b981; color: #ffffff; font-weight: 800; font-size: 14px; padding: 16px; border-radius: 14px; text-decoration: none; text-align: center; margin-bottom: 12px; transition: background 0.2s; }
-        .btn-primary:hover { background: #059669; }
-        .footer-note { font-size: 11px; color: #64748b; }
+        .feature-desc { color: #94a3b8; line-height: 1.35; }
+        
+        .alert { display: none; padding: 12px 14px; border-radius: 12px; font-size: 12px; margin-bottom: 16px; font-weight: 600; text-align: center; }
+        .alert-error { background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #fca5a5; }
+        
+        /* Success Screen */
+        .success-box { display: none; text-align: center; }
+        .success-icon { font-size: 54px; margin-bottom: 14px; }
+        .qr-container { background: #ffffff; padding: 12px; border-radius: 18px; display: inline-block; margin: 18px 0; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        .qr-image { width: 180px; height: 180px; display: block; }
+        .btn-download { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; background: #10b981; color: #ffffff; font-weight: 800; font-size: 14px; padding: 16px; border-radius: 14px; text-decoration: none; text-align: center; margin-top: 8px; transition: background 0.2s; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4); }
+        .btn-download:hover { background: #059669; }
+        .steps-card { background: #020617; border: 1px solid #1e293b; border-radius: 16px; padding: 16px; text-align: left; margin-top: 20px; font-size: 12px; line-height: 1.5; color: #94a3b8; }
+        .steps-card strong { color: #f8fafc; }
+        .footer-note { font-size: 11px; color: #64748b; margin-top: 20px; text-align: center; }
       </style>
     </head>
     <body>
       <div class="card">
         <div class="logo">Rentilly 🛡️</div>
-        <div class="partner-pill">🤝 Mandate Partner: ${firmName} (${partnerCode})</div>
-        <h1>List Direct. Get Paid in Escrow. Zero Agency Extortion.</h1>
-        <p class="subtitle">You have been invited by <strong>${firmName}</strong> to list your properties on Rentilly, Nigeria's premier zero-middleman real estate rail.</p>
-
-        <div class="features">
-          <div class="feature-item">
-            <span class="feature-icon">💰</span>
-            <div>
-              <div class="feature-title">Direct Escrow Payouts</div>
-              <div class="feature-desc">Receive full annual rent directly into your bank account with automatic digital receipting.</div>
+        
+        <!-- STEP 1: Registration Form -->
+        <div id="formSection">
+          <div class="partner-pill">🤝 Managing Partner: ${firmName} ${partnerCode ? '(' + partnerCode + ')' : ''}</div>
+          <h1>Landlord Onboarding</h1>
+          <p class="subtitle">Register to list your properties under <strong>${firmName}</strong> with direct rent escrow payouts.</p>
+          
+          <div id="errorAlert" class="alert alert-error"></div>
+          
+          <form id="onboardForm" onsubmit="handleRegister(event)">
+            <input type="hidden" id="partnerId" value="${partnerCode}">
+            <input type="hidden" id="firmName" value="${firmName}">
+            
+            <div class="form-group">
+              <label for="fullName">Full Name</label>
+              <input type="text" id="fullName" placeholder="e.g. Chief Adebayo Adeleke" required>
             </div>
-          </div>
-          <div class="feature-item">
-            <span class="feature-icon">📜</span>
-            <div>
-              <div class="feature-title">Audited Digital Tenancy Agreements</div>
-              <div class="feature-desc">State tenancy law compliant digital contracts enforceable under Nigerian law.</div>
+            
+            <div class="form-group">
+              <label for="phoneNumber">Phone Number</label>
+              <input type="tel" id="phoneNumber" placeholder="e.g. 08031234567" required>
             </div>
-          </div>
-          <div class="feature-item">
-            <span class="feature-icon">🛡️</span>
-            <div>
-              <div class="feature-title">Dedicated Accredited Representation</div>
-              <div class="feature-desc">${firmName} handles physical field inspections and tenant screening on your behalf.</div>
+            
+            <div class="form-group">
+              <label for="email">Email Address</label>
+              <input type="email" id="email" placeholder="e.g. landlord@gmail.com" required>
+            </div>
+            
+            <div class="form-group">
+              <label for="state">State / Region</label>
+              <select id="state">
+                <option value="Lagos" selected>Lagos</option>
+                <option value="Abuja (FCT)">Abuja (FCT)</option>
+                <option value="Rivers">Rivers (Port Harcourt)</option>
+                <option value="Ogun">Ogun</option>
+                <option value="Oyo">Oyo (Ibadan)</option>
+                <option value="Enugu">Enugu</option>
+                <option value="Delta">Delta</option>
+                <option value="Edo">Edo</option>
+                <option value="Anambra">Anambra</option>
+                <option value="Kano">Kano</option>
+                <option value="Kaduna">Kaduna</option>
+                <option value="Akwa Ibom">Akwa Ibom</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label for="password">Create Account Password</label>
+              <input type="password" id="password" placeholder="Minimum 6 characters" minlength="6" required>
+            </div>
+            
+            <button type="submit" id="submitBtn" class="btn-submit">Complete Registration & Get App 🚀</button>
+          </form>
+          
+          <div class="features">
+            <div class="feature-item">
+              <span class="feature-icon">💰</span>
+              <div>
+                <div class="feature-title">Direct Escrow Settlements</div>
+                <div class="feature-desc">Full annual rent paid directly to your verified bank account upon tenant check-in.</div>
+              </div>
+            </div>
+            <div class="feature-item">
+              <span class="feature-icon">📜</span>
+              <div>
+                <div class="feature-title">Audited Digital Agreements</div>
+                <div class="feature-desc">State tenancy law compliant digital contracts legally binding in Nigeria.</div>
+              </div>
+            </div>
+            <div class="feature-item">
+              <span class="feature-icon">🛡️</span>
+              <div>
+                <div class="feature-title">Accredited Mandate Management</div>
+                <div class="feature-desc">${firmName} handles tenant verification, physical inspections, and key handover.</div>
+              </div>
             </div>
           </div>
         </div>
-
-        <a href="https://myrentilly.com" class="btn-primary">Get Started on Rentilly</a>
-        <p class="footer-note">Accredited Mandate Code: ${partnerCode} • Protected by Rentilly Escrow</p>
+        
+        <!-- STEP 2: Success & Download Screen -->
+        <div id="successSection" class="success-box">
+          <div class="success-icon">🎉</div>
+          <h1 id="successName">Congratulations!</h1>
+          <p class="subtitle" id="successMsg">You have successfully registered as a verified Landlord on Rentilly.</p>
+          
+          <div class="qr-container">
+            <img class="qr-image" src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://api.myrentilly.com/Rentily.apk" alt="Scan to Download Rentilly App">
+          </div>
+          <p style="font-size: 11px; color: #94a3b8; margin-bottom: 12px;">Scan with your phone camera to download the Android App</p>
+          
+          <a href="https://api.myrentilly.com/Rentily.apk" class="btn-download">
+            <span>📲 Download Rentilly App (Android APK)</span>
+          </a>
+          
+          <div class="steps-card">
+            <strong>Next steps to start managing your properties:</strong><br/>
+            1. Install the downloaded <strong>Rentily.apk</strong> on your device.<br/>
+            2. Open the app and log in with your <strong>Email or Phone</strong> and password.<br/>
+            3. Tap <strong>List New Property</strong> to add your units with instant escrow coverage.
+          </div>
+        </div>
+        
+        <p class="footer-note">Rentilly Escrow Network • Secure Real Estate Rail</p>
       </div>
+      
+      <script>
+        async function handleRegister(e) {
+          e.preventDefault();
+          const btn = document.getElementById('submitBtn');
+          const errorAlert = document.getElementById('errorAlert');
+          
+          errorAlert.style.display = 'none';
+          btn.disabled = true;
+          btn.innerText = 'Creating Account... ⏳';
+          
+          const payload = {
+            fullName: document.getElementById('fullName').value.trim(),
+            phoneNumber: document.getElementById('phoneNumber').value.trim(),
+            email: document.getElementById('email').value.trim(),
+            state: document.getElementById('state').value,
+            password: document.getElementById('password').value,
+            partnerId: document.getElementById('partnerId').value.trim(),
+            firmName: document.getElementById('firmName').value.trim()
+          };
+          
+          try {
+            const res = await fetch('/api/public/landlord-register', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            
+            const data = await res.json();
+            if (res.ok && (data.success || data.status)) {
+              document.getElementById('formSection').style.display = 'none';
+              document.getElementById('successSection').style.display = 'block';
+              document.getElementById('successName').innerText = 'Congratulations, ' + payload.fullName.split(' ')[0] + '!';
+              document.getElementById('successMsg').innerHTML = 'You have successfully registered as a verified Landlord under <strong>' + payload.firmName + '</strong>.';
+            } else {
+              errorAlert.innerText = data.error || data.message || 'Registration failed. Please check your details.';
+              errorAlert.style.display = 'block';
+              btn.disabled = false;
+              btn.innerText = 'Complete Registration & Get App 🚀';
+            }
+          } catch (err) {
+            errorAlert.innerText = 'Network error. Please try again.';
+            errorAlert.style.display = 'block';
+            btn.disabled = false;
+            btn.innerText = 'Complete Registration & Get App 🚀';
+          }
+        }
+      </script>
     </body>
     </html>
   `);
 }
+
+/**
+ * Handle Public Landlord Registration from Unique Onboarding Link
+ * Registers landlord, permanently binds managing partner, and notifies partner
+ */
+export async function handlePublicLandlordRegister(req: Request, res: Response) {
+  try {
+    const { fullName, email, phoneNumber, state, password, partnerId, firmName } = req.body;
+    
+    if (!fullName || !email || !phoneNumber || !password) {
+      return res.status(400).json({ error: 'Full Name, Email, Phone Number, and Password are required.' });
+    }
+
+    const cleanEmail = email.toString().trim().toLowerCase();
+    const cleanPhone = phoneNumber.toString().trim();
+    const cleanName = fullName.toString().trim();
+    const cleanState = (state || 'Lagos').toString().trim();
+    const cleanPartnerId = (partnerId || '').toString().trim();
+    const cleanFirmName = (firmName || '').toString().trim();
+
+    // Check if user already exists
+    let existing = await UserStore.findByEmail(cleanEmail);
+    if (!existing && supabase) {
+      const { data } = await supabase.from('profiles').select('*').eq('email', cleanEmail).maybeSingle();
+      if (data) existing = data as any;
+    }
+
+    if (existing) {
+      // Update partner mandate if not already assigned
+      if (supabase) {
+        await supabase.from('profiles').update({
+          full_name: cleanName,
+          phone_number: cleanPhone,
+          state: cleanState,
+          role: 'owner',
+          managing_partner_id: cleanPartnerId || (existing as any).managing_partner_id || null,
+          managing_partner_name: cleanFirmName || (existing as any).managing_partner_name || null,
+          updated_at: new Date().toISOString()
+        }).eq('email', cleanEmail);
+      }
+      return res.json({
+        success: true,
+        message: 'Landlord profile linked to accredited managing partner.',
+        user: { email: cleanEmail, fullName: cleanName, role: 'owner' }
+      });
+    }
+
+    // Create new landlord profile
+    const newUserId = crypto.randomUUID ? crypto.randomUUID() : `usr_${Date.now()}`;
+    const newUser = {
+      id: newUserId,
+      fullName: cleanName,
+      email: cleanEmail,
+      phoneNumber: cleanPhone,
+      password: password,
+      role: 'owner' as const,
+      state: cleanState,
+      isVerified: false,
+      walletBalance: 0,
+      usdtBalance: 0,
+      managingPartnerId: cleanPartnerId || undefined,
+      managingPartnerName: cleanFirmName || undefined,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    UserStore.upsertUserForced(newUser as any);
+
+    if (supabase) {
+      try {
+        await supabase.from('profiles').upsert({
+          id: newUserId,
+          full_name: cleanName,
+          email: cleanEmail,
+          phone_number: cleanPhone,
+          role: 'owner',
+          state: cleanState,
+          is_verified: false,
+          wallet_balance: 0,
+          managing_partner_id: cleanPartnerId || null,
+          managing_partner_name: cleanFirmName || null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'email' });
+      } catch (dbErr: any) {
+        console.warn('[handlePublicLandlordRegister] Supabase upsert warning:', dbErr.message);
+      }
+    }
+
+    // Dispatch Push & Email Alert to the Partner
+    if (cleanPartnerId || cleanFirmName) {
+      try {
+        const allUsers = await UserStore.getAllUsers();
+        const partner = allUsers.find(u => 
+          u.id === cleanPartnerId ||
+          (u.businessName && u.businessName.toLowerCase() === cleanFirmName.toLowerCase()) ||
+          u.email.toLowerCase() === cleanPartnerId.toLowerCase()
+        );
+
+        if (partner) {
+          NotificationDispatcher.dispatch({
+            userId: partner.id,
+            email: partner.email,
+            userName: partner.fullName || partner.businessName || 'Partner',
+            category: 'system',
+            title: '🎉 New Landlord Onboarded Under Your Mandate!',
+            message: `${cleanName} (${cleanPhone}) has registered as a landlord via your unique link. All their property listings and commissions are permanently mapped to your firm.`
+          }).catch(() => {});
+        }
+      } catch (_) {}
+    }
+
+    return res.json({
+      success: true,
+      message: 'Landlord registered successfully under managing partner.',
+      user: {
+        id: newUserId,
+        email: cleanEmail,
+        fullName: cleanName,
+        role: 'owner'
+      }
+    });
+  } catch (err: any) {
+    console.error('handlePublicLandlordRegister error:', err);
+    return res.status(500).json({ error: err.message || 'Internal server error' });
+  }
+}
+
+/**
+ * Get Onboarded Landlords for a Partner
+ * Live query from profiles (managing_partner_id) and properties (partner_id)
+ */
+export async function getPartnerOnboardedLandlords(req: Request, res: Response) {
+  try {
+    const partnerId = String(req.query.partnerId || '').trim();
+    const partnerEmail = String(req.query.partnerEmail || req.query.email || '').trim().toLowerCase();
+    const firmName = String(req.query.firmName || req.query.firm || '').trim();
+
+    if (!partnerId && !partnerEmail && !firmName) {
+      return res.status(400).json({ error: 'partnerId, partnerEmail, or firmName is required' });
+    }
+
+    let onboardedLandlords: any[] = [];
+
+    if (supabase) {
+      // 1. Fetch landlords directly registered under partner
+      let query = supabase.from('profiles').select('*').eq('role', 'owner');
+      
+      const filters = [];
+      if (partnerId) filters.push(`managing_partner_id.eq.${partnerId}`);
+      if (firmName) filters.push(`managing_partner_name.ilike.%${firmName}%`);
+      
+      if (filters.length > 0) {
+        query = query.or(filters.join(','));
+      }
+
+      const { data: landlordProfiles } = await query;
+
+      // 2. Fetch properties linked to this partner
+      let propQuery = supabase.from('properties').select('*');
+      if (partnerId) {
+        propQuery = propQuery.or(`partner_id.eq.${partnerId},owner_id.eq.${partnerId}`);
+      }
+      const { data: partnerProps } = await propQuery;
+
+      const propsByOwner: Record<string, any[]> = {};
+      for (const p of partnerProps || []) {
+        const key = (p.owner_id || p.owner_name || p.owner_phone || 'unknown').toString();
+        if (!propsByOwner[key]) propsByOwner[key] = [];
+        propsByOwner[key].push(p);
+      }
+
+      // Merge landlords
+      const seenEmails = new Set<string>();
+
+      for (const l of landlordProfiles || []) {
+        if (seenEmails.has(l.email)) continue;
+        seenEmails.add(l.email);
+
+        const lProps = propsByOwner[l.id] || propsByOwner[l.email] || propsByOwner[l.full_name] || [];
+        let totalCommission = 0;
+        for (const p of lProps) {
+          const price = Number(p.price || p.base_price || 0);
+          const rate = p.purpose === 'sale' ? 0.02 : 0.025;
+          totalCommission += price * rate;
+        }
+
+        onboardedLandlords.push({
+          id: l.id,
+          name: l.full_name || 'Verified Landlord',
+          email: l.email,
+          phone: l.phone_number || '',
+          state: l.state || 'Lagos',
+          isVerified: l.is_verified || false,
+          unitCount: lProps.length,
+          lockedCommission: totalCommission,
+          registeredAt: l.created_at
+        });
+      }
+
+      // Also include owners from properties whose profiles might not have explicit managing_partner_id
+      for (const [ownerKey, props] of Object.entries(propsByOwner)) {
+        const firstProp = props[0];
+        const ownerEmail = firstProp.owner_email || '';
+        if (ownerEmail && seenEmails.has(ownerEmail)) continue;
+
+        let totalCommission = 0;
+        for (const p of props) {
+          const price = Number(p.price || p.base_price || 0);
+          const rate = p.purpose === 'sale' ? 0.02 : 0.025;
+          totalCommission += price * rate;
+        }
+
+        onboardedLandlords.push({
+          id: firstProp.owner_id || ownerKey,
+          name: firstProp.owner_name || 'Property Owner',
+          email: ownerEmail || '',
+          phone: firstProp.owner_phone || '',
+          state: firstProp.state || 'Lagos',
+          isVerified: true,
+          unitCount: props.length,
+          lockedCommission: totalCommission,
+          registeredAt: firstProp.created_at
+        });
+      }
+    }
+
+    return res.json({
+      success: true,
+      total: onboardedLandlords.length,
+      landlords: onboardedLandlords
+    });
+  } catch (err: any) {
+    console.error('getPartnerOnboardedLandlords error:', err);
+    return res.status(500).json({ error: err.message });
+  }
+}
+
 
 // 3. User Self-Service Re-KYC / Date of Birth Addition Web Portal
 export async function renderReKycPage(req: Request, res: Response) {

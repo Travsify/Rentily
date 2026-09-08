@@ -21,6 +21,7 @@ import * as legalNoticesController from '../controllers/legalNoticesController';
 import * as renewalController from '../controllers/renewalController';
 import * as reconciliationController from '../controllers/reconciliationController';
 import * as featureFlagController from '../controllers/featureFlagController';
+import { getPartnerOnboardedLandlords } from '../controllers/publicPartnerPages';
 import { isSupabaseConfigured, reconfigureSupabase, supabase } from '../supabaseClient';
 import { IdentitypassService } from '../services/identitypassService';
 import { FlutterwaveService } from '../services/flutterwaveService';
@@ -209,6 +210,7 @@ apiRouter.get('/inspections/verify-pass', inspectionController.verifyGatePass);
 // 10. Escrow & Transactions
 apiRouter.get('/escrow/transactions', escrowController.getTransactions);
 apiRouter.get('/escrow/partner-commissions', escrowController.getPartnerCommissions);
+apiRouter.get('/partners/onboarded-landlords', getPartnerOnboardedLandlords);
 apiRouter.post('/escrow/:id/release-payout', escrowController.releaseEscrowPayout);
 apiRouter.post('/escrow/pay', escrowController.payRentEscrow);
 apiRouter.get('/escrow/landlord-summary', escrowController.getLandlordEscrowSummary);

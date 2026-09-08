@@ -82,8 +82,7 @@ class UserProfile {
   bool get isPartner =>
       role.toLowerCase() == 'partner' ||
       (businessName != null && businessName!.trim().isNotEmpty && businessName!.trim().toLowerCase() != 'null') ||
-      (cacNumber != null && cacNumber!.trim().isNotEmpty) ||
-      email.toLowerCase().trim() == 'tonerocool1@gmail.com';
+      (cacNumber != null && cacNumber!.trim().isNotEmpty);
 
   bool get isLandlord => !isPartner && (role.toLowerCase() == 'owner' || role.toLowerCase() == 'landlord');
 
@@ -123,13 +122,11 @@ class UserProfile {
 
     final rawRole = json['role']?.toString() ?? 'renter';
     final businessName = json['businessName']?.toString() ?? json['business_name']?.toString();
-    final cleanEmail = rawEmail.trim().toLowerCase();
 
     // Corporate Partner check:
-    // If user has a corporate business name, or is explicitly role 'partner', or email is tonerocool1@gmail.com
+    // If user has a corporate business name, or is explicitly role 'partner'
     final bool isCorporatePartner = rawRole == 'partner' ||
-        (businessName != null && businessName.trim().isNotEmpty && businessName.trim().toLowerCase() != 'null') ||
-        cleanEmail == 'tonerocool1@gmail.com';
+        (businessName != null && businessName.trim().isNotEmpty && businessName.trim().toLowerCase() != 'null');
 
     final effectiveRole = isCorporatePartner ? 'partner' : rawRole;
 

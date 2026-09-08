@@ -57,6 +57,30 @@ class ApiService {
     return [];
   }
 
+  // 1a1b. Fetch Onboarded Landlords for Partner
+  static Future<List<Map<String, dynamic>>> fetchPartnerOnboardedLandlords({
+    required String partnerId,
+    required String email,
+    String? firmName,
+  }) async {
+    try {
+      final queryParams = <String, String>{
+        'partnerId': partnerId,
+        'email': email,
+        if (firmName != null && firmName.isNotEmpty) 'firmName': firmName,
+      };
+      final uri = Uri.parse('$baseUrl/partners/onboarded-landlords').replace(queryParameters: queryParams);
+      final response = await http.get(uri).timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['landlords'] is List) {
+          return List<Map<String, dynamic>>.from(data['landlords']);
+        }
+      }
+    } catch (_) {}
+    return [];
+  }
+
   // 1a2. Fetch Real Landlord Escrow Balances & Held Deposits
   static Future<Map<String, dynamic>> fetchLandlordEscrowSummary({
     required String email,

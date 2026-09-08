@@ -425,7 +425,7 @@ class AuthService {
         if (users.isNotEmpty) {
           final uData = users[0];
           final rawRole = (uData['role'] ?? current.role).toString().toLowerCase();
-          final isPartner = current.isPartner || rawRole == 'partner' || cleanEmail == 'tonerocool1@gmail.com' || (uData['business_name'] != null && uData['business_name'].toString().isNotEmpty);
+          final isPartner = current.isPartner || rawRole == 'partner' || (uData['business_name'] != null && uData['business_name'].toString().isNotEmpty);
           final effectiveRole = isPartner ? 'partner' : (current.isLandlord ? 'owner' : rawRole);
 
           final newBal = (uData['wallet_balance'] is num) ? (uData['wallet_balance'] as num).toDouble() : current.walletBalance;
@@ -674,7 +674,6 @@ class AuthService {
 
     final isKnownPartner = rawRole == 'partner' ||
         email.contains('partner') ||
-        email == 'tonerocool1@gmail.com' ||
         hasBusiness ||
         hasCac;
 

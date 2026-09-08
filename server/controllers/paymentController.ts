@@ -413,7 +413,7 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
 
     if (transferSuccess) {
       const finalTxRef = transferData?.reference || transferData?.data?.reference || txRef || `WD_${Date.now()}`;
-      const targetUserId = userId || memUser?.id || (cleanEmail === 'tonerocool1@gmail.com' ? 'c0000000-0000-0000-0000-000000000001' : 'b0000000-0000-0000-0000-000000000001');
+      const targetUserId = userId || memUser?.id || `usr_${Date.now()}`;
 
       let newNgnBal = currentBal;
       let newUsdtBal = currentBalUsdt;
@@ -579,7 +579,7 @@ export async function withdrawCrypto(req: Request, res: Response) {
     }
 
     const txRef = `WD_CRYPTO_${Date.now()}`;
-    const targetUserId = userId || memUser?.id || (cleanEmail === 'tonerocool1@gmail.com' ? 'c0000000-0000-0000-0000-000000000001' : 'b0000000-0000-0000-0000-000000000001');
+    const targetUserId = userId || memUser?.id || `usr_${Date.now()}`;
 
     // Call Maplerad withdrawCrypto with netUsdtToSend
     const cryptoRes = await MapleradBankingService.withdrawCrypto({
@@ -2477,7 +2477,7 @@ export async function payBill(req: Request, res: Response) {
       // Record in TransactionStore
       const newTx = await TransactionStore.addTransaction({
         id: `TX_${Date.now()}`,
-        userId: memUser?.id || (cleanEmail === 'tonerocool1@gmail.com' ? 'c0000000-0000-0000-0000-000000000001' : 'b0000000-0000-0000-0000-000000000001'),
+        userId: memUser?.id || `usr_${Date.now()}`,
         email: cleanEmail,
         title: title,
         type: type,
@@ -3350,8 +3350,8 @@ export async function getWalletBalance(req: Request, res: Response) {
       commercialBankName,
       user: {
         id: dbUser?.id || memUser?.id || userId || `usr_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`,
-        fullName: dbUser?.full_name || memUser?.fullName || (cleanEmail === 'tonerocool1@gmail.com' ? 'Ehomes Global Inclusive Limited' : 'Rentilly User'),
-        businessName: dbUser?.business_name || memUser?.businessName || (cleanEmail === 'tonerocool1@gmail.com' ? 'Ehomes Global Inclusive Limited' : null),
+        fullName: dbUser?.full_name || memUser?.fullName || 'Rentilly User',
+        businessName: dbUser?.business_name || memUser?.businessName || null,
         email: cleanEmail,
         accountNumber,
         bankName,
@@ -3699,7 +3699,10 @@ export async function adminReconcileBalance(req: Request, res: Response) {
 export async function getMultiCurrencyAccounts(req: Request, res: Response) {
   try {
     const { email } = req.query;
-    const cleanEmail = (email || 'tonerocool1@gmail.com').toString().trim().toLowerCase();
+    if (!email) {
+      return res.status(400).json({ error: 'Email parameter is required' });
+    }
+    const cleanEmail = email.toString().trim().toLowerCase();
     const user = await UserStore.findByEmail(cleanEmail);
     const fullName = user?.fullName || user?.businessName || 'Valued Partner';
 
@@ -3730,15 +3733,19 @@ export async function getMultiCurrencyAccounts(req: Request, res: Response) {
 export async function convertVaultCurrency(req: Request, res: Response) {
   try {
     const { fromCurrency, toCurrency, amount, email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
     if (!fromCurrency || !toCurrency || !amount || Number(amount) <= 0) {
       return res.status(400).json({ error: 'Valid fromCurrency, toCurrency, and amount are required' });
     }
 
+    const cleanEmail = email.toString().trim().toLowerCase();
     const conversion = MultiCurrencyService.convert(fromCurrency, toCurrency, Number(amount));
     
     // Dispatch in-app / email alert
     NotificationDispatcher.dispatch({
-      email: email || 'tonerocool1@gmail.com',
+      email: cleanEmail,
       userName: 'Valued Partner',
       category: 'wallet',
       title: `Currency Converted: ${fromCurrency} → ${toCurrency}`,
@@ -3805,7 +3812,10 @@ export async function getAllCardsHandler(_req: Request, res: Response) {
 export async function issueVirtualCard(req: Request, res: Response) {
   try {
     const { email, cardholderName, currency, brand, initialFunding, paymentSource } = req.body;
-    const cleanEmail = (email || 'tonerocool1@gmail.com').toString().trim().toLowerCase();
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+    const cleanEmail = email.toString().trim().toLowerCase();
     const user = await UserStore.findByEmail(cleanEmail);
     const name = cardholderName || user?.fullName || user?.businessName || 'Valued Partner';
 
@@ -3961,12 +3971,15 @@ export async function issueVirtualCard(req: Request, res: Response) {
 export async function fundVirtualCard(req: Request, res: Response) {
   try {
     const { cardId, amount, email, paymentSource } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
     const amountUsd = Number(amount || 0);
     if (!cardId || isNaN(amountUsd) || amountUsd < 1.00) {
       return res.status(400).json({ error: 'Valid cardId and minimum funding amount of $1.00 USD are required.' });
     }
 
-    const cleanEmail = (email || 'tonerocool1@gmail.com').toString().trim().toLowerCase();
+    const cleanEmail = email.toString().trim().toLowerCase();
     const source = (paymentSource || 'NGN').toString().toUpperCase(); // 'NGN' or 'USDT'
     const fxRate = MultiCurrencyService.getFxRates().USD_NGN || 1420.0;
     const debitAmountNgn = Number((amountUsd * fxRate).toFixed(2));
@@ -4093,12 +4106,15 @@ export async function fundVirtualCard(req: Request, res: Response) {
 export async function withdrawVirtualCard(req: Request, res: Response) {
   try {
     const { cardId, amountUsd, email, destination } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
     const amount = Number(amountUsd || 0);
     if (!cardId || isNaN(amount) || amount < 1.00) {
       return res.status(400).json({ error: 'Valid cardId and minimum withdrawal amount of $1.00 USD are required.' });
     }
 
-    const cleanEmail = (email || 'tonerocool1@gmail.com').toString().trim().toLowerCase();
+    const cleanEmail = email.toString().trim().toLowerCase();
     const dest = (destination || 'NGN').toString().toUpperCase() as 'NGN' | 'USDT';
 
     const result = await CardIssuingService.withdrawFromCard({

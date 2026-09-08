@@ -239,7 +239,7 @@ export async function login(req: Request, res: Response) {
         }
       }).catch(err => console.error('[Security Alert] Login email dispatch failed:', err.message));
 
-      const isPartnerUser = user.role === 'partner' || cleanEmail === 'tonerocool1@gmail.com' || Boolean(user.businessName && user.businessName.trim().length > 0);
+      const isPartnerUser = user.role === 'partner' || Boolean(user.businessName && user.businessName.trim().length > 0);
       const effectiveRole = isPartnerUser ? 'partner' : user.role;
 
       return res.json({
@@ -739,7 +739,7 @@ export async function loginWithOtp(req: Request, res: Response) {
       });
     }
 
-    const isPartnerUser = user.role === 'partner' || cleanEmail === 'tonerocool1@gmail.com' || Boolean(user.businessName && user.businessName.trim().length > 0);
+    const isPartnerUser = user.role === 'partner' || Boolean(user.businessName && user.businessName.trim().length > 0);
     const effectiveRole = isPartnerUser ? 'partner' : user.role;
     const token = `rentilly_jwt_${user.id}_${Date.now()}`;
 

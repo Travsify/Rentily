@@ -706,13 +706,14 @@ class PartnerIdCardModal extends StatelessWidget {
                               ),
                               InkWell(
                                 onTap: () {
+                                  final verifyUrl = 'https://myrentilly.com/verify/credential/$digitalId';
                                   Share.share(
                                     '🛡️ OFFICIAL RENTILLY DIGITAL CREDENTIAL AUDIT\n\n'
                                     'Accredited Member: ${holderName.toUpperCase()}\n'
                                     'Credential ID: $digitalId\n'
                                     'Role: $designation\n'
                                     'Escrow Status: ${isVerified ? "Class-A Verified Owner / Partner" : "Pending Audit"}\n\n'
-                                    'Verify Live Cryptographic Authenticity: https://api.myrentilly.com/verify/credential/$digitalId',
+                                    'Verify Live Cryptographic Authenticity: $verifyUrl',
                                   );
                                 },
                                 child: Container(

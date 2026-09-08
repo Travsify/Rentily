@@ -13,6 +13,8 @@ class Inspection {
   final String scheduledTimeSlot;
   final String inspectionPassCode;
   final String status;
+  final String? prospectEmail;
+  final String? ownerEmail;
   final String? prospectNotes;
   final String? ownerNotes;
   final String createdAt;
@@ -25,9 +27,11 @@ class Inspection {
     required this.prospectId,
     required this.prospectName,
     required this.prospectPhone,
+    this.prospectEmail,
     required this.ownerId,
     required this.ownerName,
     required this.ownerPhone,
+    this.ownerEmail,
     required this.scheduledDate,
     required this.scheduledTimeSlot,
     required this.inspectionPassCode,
@@ -46,9 +50,11 @@ class Inspection {
       prospectId: json['prospectId']?.toString() ?? json['prospect_id']?.toString() ?? '',
       prospectName: json['prospectName']?.toString() ?? json['prospect_name']?.toString() ?? 'Prospective Renter',
       prospectPhone: json['prospectPhone']?.toString() ?? json['prospect_phone']?.toString() ?? '',
+      prospectEmail: json['prospectEmail']?.toString() ?? json['prospect_email']?.toString() ?? json['renter_email']?.toString(),
       ownerId: json['ownerId']?.toString() ?? json['owner_id']?.toString() ?? '',
       ownerName: json['ownerName']?.toString() ?? json['owner_name']?.toString() ?? 'Direct Owner',
       ownerPhone: json['ownerPhone']?.toString() ?? json['owner_phone']?.toString() ?? '',
+      ownerEmail: json['ownerEmail']?.toString() ?? json['owner_email']?.toString(),
       scheduledDate: json['scheduledDate']?.toString() ?? json['scheduled_date']?.toString() ?? '',
       scheduledTimeSlot: json['scheduledTimeSlot']?.toString() ?? json['scheduled_time_slot']?.toString() ?? '11:00 AM - 12:00 PM',
       inspectionPassCode: json['inspectionPassCode']?.toString() ?? json['inspection_pass_code']?.toString() ?? '749201',

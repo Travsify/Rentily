@@ -5,7 +5,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 import { apiRouter } from './routes/apiRouter';
-import { renderPartnerVerificationPage, renderLandlordInvitePage, renderReKycPage, renderGatePassPage, renderCredentialVerificationPage } from './controllers/publicPartnerPages';
+import { renderPartnerVerificationPage, renderLandlordInvitePage, renderReKycPage, renderGatePassPage, renderCredentialVerificationPage, handlePublicLandlordRegister } from './controllers/publicPartnerPages';
 import { isSupabaseConfigured } from './supabaseClient';
 import { AutoReconciliationWorker } from './services/autoReconciliationWorker';
 import { MultiCurrencyService } from './services/multiCurrencyService';
@@ -66,7 +66,9 @@ app.use(express.json({ limit: '10mb' }));
 
 // 1. Mount Public Partner Verification, Credential Audit & Gate Check-in Endpoints
 app.get('/verify/partner', renderPartnerVerificationPage);
+app.get('/verify/partner/:id', renderPartnerVerificationPage);
 app.get('/invite/landlord', renderLandlordInvitePage);
+app.post('/api/public/landlord-register', handlePublicLandlordRegister);
 app.get('/verify/rekyc', renderReKycPage);
 app.get('/verify/re-kyc', renderReKycPage);
 app.get('/re-verify', renderReKycPage);
@@ -74,6 +76,8 @@ app.get('/gate/:code', renderGatePassPage);
 app.get('/gate', renderGatePassPage);
 app.get('/verify/credential/:id', renderCredentialVerificationPage);
 app.get('/verify/credential', renderCredentialVerificationPage);
+app.get('/verify/:id', renderCredentialVerificationPage);
+app.get('/verify', renderCredentialVerificationPage);
 
 // 2. Mount API Router under /api
 app.use('/api', apiRouter);

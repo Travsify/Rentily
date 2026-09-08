@@ -4,7 +4,10 @@ import 'package:intl/intl.dart';
 import '../constants/app_colors.dart';
 import '../models/user_profile.dart';
 import '../services/api_service.dart';
+import '../services/direct_message_service.dart';
 import '../screens/inspections/inspections_screen.dart';
+import '../screens/messages/direct_chat_detail_screen.dart';
+import 'partner_landlord_onboard_modal.dart';
 
 class PartnerLeadPipelineModal extends StatefulWidget {
   final UserProfile user;
@@ -40,6 +43,9 @@ class _PartnerLeadPipelineModalState extends State<PartnerLeadPipelineModal> {
     setState(() => _isLoading = true);
 
     try {
+      final List<Map<String, dynamic>> items = [];
+
+      // 1. Fetch live inspections from database
       final inspections = await ApiService.fetchInspections(
         userId: widget.user.id,
       );
@@ -51,14 +57,12 @@ class _PartnerLeadPipelineModalState extends State<PartnerLeadPipelineModal> {
         (p.ownerPhone.isNotEmpty && p.ownerPhone == widget.user.phoneNumber)
       ).toList();
 
-      final List<Map<String, dynamic>> items = [];
-
       for (final insp in inspections) {
         final propId = insp.propertyId;
         final matchingProp = partnerProps.where((p) => p.id == propId).firstOrNull;
 
-        final isClosed = insp.status == 'completed' || insp.status == 'verified';
-        final isEscrow = insp.status == 'escrow_initiated' || insp.status == 'approved';
+        final isClosed = insp.status == 'completed' || insp.status == 'verified' || insp.status == 'settled';
+        final isEscrow = insp.status == 'escrow_initiated' || insp.status == 'in_escrow' || insp.status == 'approved' || insp.status == 'funded';
         final stage = isClosed ? 'closed' : (isEscrow ? 'escrow' : 'inspection');
 
         final price = matchingProp?.basePrice ?? 0.0;
@@ -66,11 +70,12 @@ class _PartnerLeadPipelineModalState extends State<PartnerLeadPipelineModal> {
         final commission = price > 0 ? (price * (isRent ? 0.025 : 0.02)) : 0.0;
 
         items.add({
-          'id': insp.id.isNotEmpty ? insp.id : 'lead_${DateTime.now().millisecondsSinceEpoch}',
+          'id': insp.id,
+          'type': 'inspection',
           'prospectName': insp.prospectName.isNotEmpty ? insp.prospectName : 'Prospective Client',
           'prospectPhone': insp.prospectPhone,
-          'prospectEmail': '',
-          'propertyTitle': insp.propertyTitle.isNotEmpty ? insp.propertyTitle : (matchingProp?.title ?? 'Mandate Listing'),
+          'prospectEmail': insp.prospectEmail ?? '',
+          'propertyTitle': insp.propertyTitle.isNotEmpty ? insp.propertyTitle : (matchingProp?.title ?? 'Partner Mandate Listing'),
           'propertyAddress': insp.propertyAddress.isNotEmpty ? insp.propertyAddress : (matchingProp?.address ?? ''),
           'scheduledDate': insp.scheduledDate,
           'scheduledTime': insp.scheduledTimeSlot,
@@ -78,29 +83,76 @@ class _PartnerLeadPipelineModalState extends State<PartnerLeadPipelineModal> {
           'status': insp.status.isNotEmpty ? insp.status : 'pending',
           'stage': stage,
           'projectedCommission': commission,
+          'rawData': insp,
         });
       }
 
-      if (items.isEmpty && partnerProps.isNotEmpty) {
-        for (final p in partnerProps) {
-          final isRent = p.purpose == 'rent';
-          final commission = p.basePrice * (isRent ? 0.025 : 0.02);
-          items.add({
-            'id': 'mandate_${p.id}',
-            'prospectName': 'Open for Inquiries',
-            'prospectPhone': '',
-            'prospectEmail': '',
-            'propertyTitle': p.title,
-            'propertyAddress': '${p.neighborhood}, ${p.state}',
-            'scheduledDate': 'Active Listing',
-            'scheduledTime': 'Available for Booking',
-            'gatePass': 'ON-DEMAND',
-            'status': p.status,
-            'stage': 'inspection',
-            'projectedCommission': commission,
-          });
+      // 2. Fetch live tenant direct inquiry leads from Supabase
+      try {
+        final directConvos = await DirectMessageService.getOwnerConversations(widget.user.id);
+        for (final convo in directConvos) {
+          final propId = convo['property_id']?.toString() ?? '';
+          final matchingProp = partnerProps.where((p) => p.id == propId).firstOrNull;
+          final price = matchingProp?.basePrice ?? 0.0;
+          final isRent = matchingProp?.purpose == 'rent';
+          final commission = price > 0 ? (price * (isRent ? 0.025 : 0.02)) : 0.0;
+
+          // Check if this inquiry already has a scheduled inspection in the list
+          final hasInspection = items.any((i) => i['propertyTitle'] == convo['property_title'] && (i['prospectName'] == convo['tenant_name'] || i['prospectEmail'] == convo['tenant_email']));
+
+          if (!hasInspection) {
+            items.add({
+              'id': convo['id']?.toString() ?? 'convo_${DateTime.now().millisecondsSinceEpoch}',
+              'type': 'inquiry',
+              'prospectName': convo['tenant_name']?.toString() ?? 'Prospective Client',
+              'prospectPhone': '',
+              'prospectEmail': convo['tenant_email']?.toString() ?? '',
+              'propertyTitle': convo['property_title']?.toString() ?? (matchingProp?.title ?? 'Property Inquiry'),
+              'propertyAddress': convo['property_address']?.toString() ?? (matchingProp?.address ?? ''),
+              'scheduledDate': 'Direct Inquiry',
+              'scheduledTime': convo['last_message']?.toString() ?? 'Chat active',
+              'gatePass': '',
+              'status': convo['status']?.toString() ?? 'active',
+              'stage': 'inspection',
+              'projectedCommission': commission,
+              'convo': convo,
+            });
+          }
         }
-      }
+      } catch (_) {}
+
+      // 3. Fetch live Escrow transactions for closed & in-escrow deals
+      try {
+        final commData = await ApiService.fetchPartnerCommissions(widget.user.id, widget.user.email);
+        final txns = (commData['transactions'] as List<dynamic>?) ?? [];
+        for (final tx in txns) {
+          if (tx is Map<String, dynamic>) {
+            final isSettled = tx['status'] == 'completed' || tx['status'] == 'settled';
+            final stage = isSettled ? 'closed' : 'escrow';
+            final amt = (tx['amount'] as num?)?.toDouble() ?? 0.0;
+
+            final alreadyInList = items.any((i) => i['id'] == tx['id'] || i['id'] == tx['reference']);
+            if (!alreadyInList && amt > 0) {
+              items.add({
+                'id': tx['id']?.toString() ?? tx['reference']?.toString() ?? 'esc_${DateTime.now().millisecondsSinceEpoch}',
+                'type': 'escrow_deal',
+                'prospectName': tx['tenantName']?.toString() ?? tx['narration']?.toString() ?? 'Escrow Client',
+                'prospectPhone': '',
+                'prospectEmail': tx['tenantEmail']?.toString() ?? '',
+                'propertyTitle': tx['propertyTitle']?.toString() ?? 'Escrow Settlement',
+                'propertyAddress': tx['propertyAddress']?.toString() ?? 'Secured Escrow Vault',
+                'scheduledDate': tx['createdAt']?.toString() ?? 'Escrow Funded',
+                'scheduledTime': isSettled ? 'Disbursed to Vault' : 'Locked in Escrow',
+                'gatePass': tx['reference']?.toString() ?? '',
+                'status': tx['status']?.toString() ?? 'in_escrow',
+                'stage': stage,
+                'projectedCommission': amt,
+                'rawData': tx,
+              });
+            }
+          }
+        }
+      } catch (_) {}
 
       if (mounted) {
         setState(() {
@@ -121,13 +173,14 @@ class _PartnerLeadPipelineModalState extends State<PartnerLeadPipelineModal> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: MediaQuery.of(context).size.height * 0.88,
+      height: MediaQuery.of(context).size.height * 0.90,
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(
         children: [
+          // Header Bar
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             decoration: const BoxDecoration(
@@ -169,6 +222,8 @@ class _PartnerLeadPipelineModalState extends State<PartnerLeadPipelineModal> {
               ],
             ),
           ),
+
+          // Horizontal Stage Filter Tabs
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: const BoxDecoration(
@@ -180,29 +235,20 @@ class _PartnerLeadPipelineModalState extends State<PartnerLeadPipelineModal> {
               child: Row(
                 children: [
                   _buildFilterChip('all', 'All Deals (${_pipelineItems.length})'),
-                  _buildFilterChip('inspection', '1. Walkthroughs'),
-                  _buildFilterChip('escrow', '2. In Escrow 🔒'),
-                  _buildFilterChip('closed', '3. Closed / Settled 🎉'),
+                  _buildFilterChip('inspection', '1. Walkthroughs & Leads (${_pipelineItems.where((i) => i['stage'] == 'inspection').length})'),
+                  _buildFilterChip('escrow', '2. In Escrow 🔒 (${_pipelineItems.where((i) => i['stage'] == 'escrow').length})'),
+                  _buildFilterChip('closed', '3. Closed & Settled 🎉 (${_pipelineItems.where((i) => i['stage'] == 'closed').length})'),
                 ],
               ),
             ),
           ),
+
+          // Main List / Empty State
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
                 : _filteredItems.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.assignment_outlined, size: 40, color: AppColors.textMuted),
-                            const SizedBox(height: 10),
-                            Text('No active deals in this stage', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 4),
-                            Text('When prospects book walkthroughs or fund escrows, they appear here.', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary)),
-                          ],
-                        ),
-                      )
+                    ? _buildEmptyState()
                     : ListView.builder(
                         padding: const EdgeInsets.all(16),
                         itemCount: _filteredItems.length,
@@ -210,6 +256,7 @@ class _PartnerLeadPipelineModalState extends State<PartnerLeadPipelineModal> {
                           final deal = _filteredItems[index];
                           final stage = deal['stage'] as String;
                           final comm = (deal['projectedCommission'] as num?)?.toDouble() ?? 0.0;
+                          final isChat = deal['type'] == 'inquiry';
 
                           Color stageColor;
                           String stageLabel;
@@ -220,8 +267,8 @@ class _PartnerLeadPipelineModalState extends State<PartnerLeadPipelineModal> {
                             stageColor = const Color(0xFF0284C7);
                             stageLabel = 'HELD IN ESCROW';
                           } else {
-                            stageColor = const Color(0xFFD97706);
-                            stageLabel = 'WALKTHROUGH STAGE';
+                            stageColor = isChat ? const Color(0xFF0D9488) : const Color(0xFFD97706);
+                            stageLabel = isChat ? 'DIRECT INQUIRY LEAD' : 'WALKTHROUGH STAGE';
                           }
 
                           return Container(
@@ -259,7 +306,9 @@ class _PartnerLeadPipelineModalState extends State<PartnerLeadPipelineModal> {
                                     ),
                                     if (comm > 0)
                                       Text(
-                                        'Yield: ₦${_currencyFormat.format(comm)}',
+                                        stage == 'closed'
+                                            ? 'Earned: ₦${_currencyFormat.format(comm)}'
+                                            : 'Est. Yield: ₦${_currencyFormat.format(comm)}',
                                         style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w900, color: const Color(0xFF16A34A)),
                                       ),
                                   ],
@@ -271,13 +320,15 @@ class _PartnerLeadPipelineModalState extends State<PartnerLeadPipelineModal> {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  deal['propertyAddress'],
-                                  style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                                if (deal['propertyAddress'].toString().isNotEmpty) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    deal['propertyAddress'],
+                                    style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
                                 const SizedBox(height: 8),
                                 Container(
                                   padding: const EdgeInsets.all(10),
@@ -288,16 +339,25 @@ class _PartnerLeadPipelineModalState extends State<PartnerLeadPipelineModal> {
                                   child: Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text('PROSPECTIVE CLIENT', style: GoogleFonts.plusJakartaSans(fontSize: 7.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
-                                          const SizedBox(height: 1),
-                                          Text(
-                                            deal['prospectName'],
-                                            style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                                          ),
-                                        ],
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text('PROSPECTIVE CLIENT', style: GoogleFonts.plusJakartaSans(fontSize: 7.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                                            const SizedBox(height: 1),
+                                            Text(
+                                              deal['prospectName'],
+                                              style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            if (deal['prospectPhone'].toString().isNotEmpty)
+                                              Text(
+                                                deal['prospectPhone'],
+                                                style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textSecondary),
+                                              ),
+                                          ],
+                                        ),
                                       ),
                                       if (deal['gatePass'].toString().isNotEmpty)
                                         Column(
@@ -307,7 +367,7 @@ class _PartnerLeadPipelineModalState extends State<PartnerLeadPipelineModal> {
                                             const SizedBox(height: 1),
                                             Text(
                                               deal['gatePass'],
-                                              style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w900, color: const Color(0xFF064E3B)),
+                                              style: GoogleFonts.sourceCodePro(fontSize: 11, fontWeight: FontWeight.w900, color: const Color(0xFF064E3B)),
                                             ),
                                           ],
                                         ),
@@ -318,13 +378,27 @@ class _PartnerLeadPipelineModalState extends State<PartnerLeadPipelineModal> {
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.end,
                                   children: [
-                                    TextButton.icon(
-                                      onPressed: () {
-                                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const InspectionsScreen()));
-                                      },
-                                      icon: const Icon(Icons.qr_code_rounded, size: 14, color: AppColors.primary),
-                                      label: Text('Open Inspection Desk', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppColors.primary)),
-                                    ),
+                                    if (isChat && deal['convo'] != null)
+                                      TextButton.icon(
+                                        onPressed: () {
+                                          Navigator.of(context).push(MaterialPageRoute(
+                                            builder: (_) => DirectChatDetailScreen(
+                                              conversation: deal['convo'],
+                                              currentUser: widget.user,
+                                            ),
+                                          ));
+                                        },
+                                        icon: const Icon(Icons.chat_rounded, size: 14, color: AppColors.primary),
+                                        label: Text('Open Chat', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                                      )
+                                    else
+                                      TextButton.icon(
+                                        onPressed: () {
+                                          Navigator.of(context).push(MaterialPageRoute(builder: (_) => const InspectionsScreen()));
+                                        },
+                                        icon: const Icon(Icons.qr_code_rounded, size: 14, color: AppColors.primary),
+                                        label: Text('Open Inspection Desk', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                                      ),
                                   ],
                                 ),
                               ],
@@ -334,6 +408,69 @@ class _PartnerLeadPipelineModalState extends State<PartnerLeadPipelineModal> {
                       ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    String title = 'No Active Deals in this Stage';
+    String desc = 'When prospects book walkthroughs or fund escrows, they appear here in real-time.';
+    if (_selectedStage == 'inspection') {
+      title = 'No Walkthroughs Scheduled';
+      desc = 'When tenants or buyers request an inspection on your listings, their 6-digit gate passes and contact details appear here.';
+    } else if (_selectedStage == 'escrow') {
+      title = 'No Funds in Escrow';
+      desc = 'When a client pays rent or a property purchase deposit into the Escrow Vault, your protected commission is tracked here.';
+    } else if (_selectedStage == 'closed') {
+      title = 'No Settled Deals Yet';
+      desc = 'When an inspection is verified and the digital lease is signed, your commission is disbursed to your Commissions Vault.';
+    }
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: Color(0xFFF1F5F9),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.hub_outlined, size: 36, color: AppColors.textMuted),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              title,
+              style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              desc,
+              style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary, height: 1.4),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.of(context).pop();
+                PartnerLandlordOnboardModal.show(context, user: widget.user);
+              },
+              icon: const Icon(Icons.share_rounded, size: 16, color: Colors.white),
+              label: Text(
+                'Share Mandate Invite Link',
+                style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF064E3B),
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
