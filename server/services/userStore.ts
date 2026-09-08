@@ -137,6 +137,10 @@ function seedKnownUsers(): StoredUser[] {
 }
 
 export class UserStore {
+  static getUsers(): StoredUser[] {
+    return this.getAllUsers();
+  }
+
   /**
    * Loads all users: syncs with Supabase PostgreSQL cloud profiles
    * and falls back to cached/seed users if network is offline.
