@@ -1029,7 +1029,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
-                                      'NGN Vault (Fincra)',
+                                      'NGN Escrow Vault',
                                       style: GoogleFonts.plusJakartaSans(
                                         fontSize: 10.5,
                                         fontWeight: FontWeight.bold,
@@ -1109,7 +1109,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                         Row(
                                           children: [
                                             Text(
-                                              'FINCRA ESCROW & DAILY VAULT',
+                                              'ESCROW & DAILY SETTLEMENT VAULT',
                                               style: GoogleFonts.plusJakartaSans(
                                                 fontSize: 7.5,
                                                 fontWeight: FontWeight.bold,
@@ -1124,7 +1124,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                                 borderRadius: BorderRadius.circular(4),
                                               ),
                                               child: Text(
-                                                'Commercial Rail (Unlimited)',
+                                                'Dedicated Bank Account',
                                                 style: GoogleFonts.plusJakartaSans(fontSize: 7, fontWeight: FontWeight.bold, color: Colors.white),
                                               ),
                                             ),
@@ -1152,7 +1152,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                       ScaffoldMessenger.of(context).showSnackBar(
                                         SnackBar(
                                           content: Text(
-                                            'Fincra Vault Account Copied: $accNum',
+                                            'Vault Account Copied: $accNum',
                                             style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
                                           ),
                                           backgroundColor: AppColors.primary,

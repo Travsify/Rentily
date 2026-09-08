@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
@@ -55,6 +56,49 @@ class StatementPdfService {
       default:
         return 'NGN ';
     }
+  }
+
+  // Security Authentication Watermark - Diagonally dispersed faint RENTILLY watermark across the PDF
+  static pw.Widget _buildWatermarkBackground() {
+    return pw.FullPage(
+      ignoreMargins: true,
+      child: pw.Center(
+        child: pw.Transform.rotate(
+          angle: -math.pi / 6,
+          child: pw.Column(
+            mainAxisSize: pw.MainAxisSize.min,
+            crossAxisAlignment: pw.CrossAxisAlignment.center,
+            children: List.generate(18, (rowIndex) {
+              final isOffset = rowIndex % 2 == 1;
+              return pw.Padding(
+                padding: const pw.EdgeInsets.symmetric(vertical: 22),
+                child: pw.Row(
+                  mainAxisSize: pw.MainAxisSize.min,
+                  mainAxisAlignment: pw.MainAxisAlignment.center,
+                  children: [
+                    if (isOffset) pw.SizedBox(width: 48),
+                    ...List.generate(6, (colIndex) {
+                      return pw.Padding(
+                        padding: const pw.EdgeInsets.symmetric(horizontal: 24),
+                        child: pw.Text(
+                          'RENTILLY',
+                          style: pw.TextStyle(
+                            fontSize: 15,
+                            fontWeight: pw.FontWeight.bold,
+                            letterSpacing: 4.5,
+                            color: const PdfColor(0.92, 0.94, 0.97),
+                          ),
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              );
+            }),
+          ),
+        ),
+      ),
+    );
   }
 
   // 1. Generate Certified Single Transaction Receipt PDF
@@ -129,8 +173,11 @@ class StatementPdfService {
 
     pdf.addPage(
       pw.Page(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(36),
+        pageTheme: pw.PageTheme(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(36),
+          buildBackground: (pw.Context context) => _buildWatermarkBackground(),
+        ),
         build: (pw.Context context) {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -268,7 +315,6 @@ class StatementPdfService {
                 _buildPdfDetailRow('Transaction Purpose', title),
                 _buildPdfDetailRow('Card Rail / Issuer', 'Rentilly Platinum Virtual USD Card (Visa)'),
                 _buildPdfDetailRow('Cardholder Name', user.fullName),
-                _buildPdfDetailRow('Cardholder Email', user.email),
                 _buildPdfDetailRow('Billing Country & City', 'San Francisco, CA 94104, USA'),
                 _buildPdfDetailRow('Billing Street Address', '1 Sansome St, San Francisco, CA'),
                 _buildPdfDetailRow('Authorization Reference', txRef),
@@ -285,22 +331,20 @@ class StatementPdfService {
                     'Remark / Narration',
                     _sanitizePdfText((transaction['description'] ?? transaction['remark'] ?? transaction['reason']).toString().trim())
                   ),
-                _buildPdfDetailRow('Transaction Reference', txRef),
+                _buildPdfDetailRow('Transaction Reference', txRef.replaceAll('FINCRA_', 'RTLY_').replaceAll('fincra_', 'rtly_')),
                 _buildPdfDetailRow('Transaction Nature', isCredit ? 'CREDIT (+) - Inbound Bank Settlement' : 'DEBIT (-) - Outbound Bank Transfer Payout'),
                 _buildPdfDetailRow('Transaction Category', type),
-                _buildPdfDetailRow('Channel / Rail', isCredit ? 'Wema Bank (Fincra Instant Settlement Rail)' : 'Fincra High-Value Instant Disbursement Rail'),
                 _buildPdfDetailRow(isCredit ? 'Sender / Source' : 'Originating Account', isCredit ? sender : '${user.fullName} (Rentilly Escrow Vault)'),
                 _buildPdfDetailRow(isCredit ? 'Beneficiary Name' : 'Recipient Beneficiary', beneficiary),
                 if (displayAccount.isNotEmpty)
                   _buildPdfDetailRow(isCredit ? 'Receiving Virtual Account' : 'Destination Account Number', displayAccount),
-                _buildPdfDetailRow(isCredit ? 'Receiving Partner Bank' : 'Destination Bank', displayBank),
+                _buildPdfDetailRow(isCredit ? 'Receiving Partner Bank' : 'Destination Bank', displayBank.replaceAll(RegExp(r'\(?fincra[^)]*\)?', caseSensitive: false), '').trim()),
                 if (feeAmount > 0) ...[
                   _buildPdfDetailRow('Principal Transfer Amount', '$currPrefix${_currencyFormat.format(amount)}'),
                   _buildPdfDetailRow('Processing Fee', '$currPrefix${_currencyFormat.format(feeAmount)}'),
                   _buildPdfDetailRow('Total Settlement Debited', '$currPrefix${_currencyFormat.format(rawAmount)}'),
                 ],
                 _buildPdfDetailRow('Settlement Category', 'Rentilly Escrow Protected'),
-                _buildPdfDetailRow('Account Holder Email', user.email),
                 _buildPdfDetailRow('Timestamp (UTC+1)', date),
                 _buildPdfDetailRow('Corporate Issuer', 'Product of E-Homes Global Inclusive Limited'),
               ],
@@ -404,8 +448,11 @@ class StatementPdfService {
 
     pdf.addPage(
       pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(32),
+        pageTheme: pw.PageTheme(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(32),
+          buildBackground: (pw.Context context) => _buildWatermarkBackground(),
+        ),
         header: (pw.Context context) {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -698,8 +745,11 @@ class StatementPdfService {
 
     pdf.addPage(
       pw.MultiPage(
-        pageFormat: PdfPageFormat.a4,
-        margin: const pw.EdgeInsets.all(32),
+        pageTheme: pw.PageTheme(
+          pageFormat: PdfPageFormat.a4,
+          margin: const pw.EdgeInsets.all(32),
+          buildBackground: (pw.Context context) => _buildWatermarkBackground(),
+        ),
         header: (pw.Context context) {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,

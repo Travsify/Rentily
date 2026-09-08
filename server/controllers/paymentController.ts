@@ -313,7 +313,7 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
     // Step A: Exclusive Payout Rail - Fincra High-Value Instant Disbursement
     let transferSuccess = false;
     let transferProvider = 'FINCRA';
-    let txRef = `WD_FINCRA_${Date.now()}`;
+    let txRef = `WD_RTLY_${Date.now()}`;
     let transferData: any = null;
     let failureReason = '';
 
