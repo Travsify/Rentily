@@ -11,6 +11,7 @@ import '../../widgets/partner_bottom_bar.dart';
 import '../../widgets/verification_modal.dart';
 import '../../widgets/partner_listing_modal.dart';
 import '../../widgets/partner_id_card_modal.dart';
+import '../../widgets/partner_landlord_onboard_modal.dart';
 import '../../widgets/quick_utilities_modal.dart';
 import '../../widgets/add_money_modal.dart';
 import '../../widgets/withdrawal_modal.dart';
@@ -735,6 +736,18 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
                       badge: 'LEGAL',
                       color: const Color(0xFF1E3A8A),
                       onTap: () => PartnerLegalModal.showExclusiveMandate(context),
+                    ),
+                    _buildGridCard(
+                      icon: Icons.link_rounded,
+                      title: 'Onboard Landlord',
+                      subtitle: 'Auto-Lock Commissions 🔗',
+                      badge: 'MANDATE',
+                      color: const Color(0xFF16A34A),
+                      onTap: () {
+                        if (_user != null) {
+                          PartnerLandlordOnboardModal.show(context, user: _user!);
+                        }
+                      },
                     ),
                     _buildGridCard(
                       icon: Icons.add_home_work_rounded,
