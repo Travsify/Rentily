@@ -492,16 +492,11 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
     }
 
     final isVerified = _user?.isVerified ?? false;
-    final String effectiveCurrency = ApiService.featureFlags.enableMultiCurrencyVault ? _selectedCurrency : 'NGN';
-    final String symbol = effectiveCurrency == 'USD' ? '\$' : effectiveCurrency == 'GBP' ? '£' : effectiveCurrency == 'EUR' ? '€' : '₦';
-    final double operationalBalance = effectiveCurrency == 'NGN' 
-        ? (_user?.walletBalance ?? 0.0) 
-        : effectiveCurrency == 'USD' 
-        ? _usdBalance 
-        : effectiveCurrency == 'GBP' 
-        ? _gbpBalance 
-        : _eurBalance;
-    final escrowCommission = effectiveCurrency == 'NGN' ? _escrowCommission : 0.00;
+    // Foreign currencies (USD/GBP/EUR) are hidden until enabled in the future.
+    const String effectiveCurrency = 'NGN';
+    final String symbol = '₦';
+    final double operationalBalance = _user?.walletBalance ?? 0.00;
+    final escrowCommission = _escrowCommission;
     final accountNumber = _user?.accountNumber ?? 'Pending KYC';
     final bankName = _user?.bankName ?? '9PSB (Rentilly)';
 
@@ -538,17 +533,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
           child: ListView(
             padding: const EdgeInsets.all(18),
             children: [
-              // Multi-Currency Vault Switcher Tabs (Only when Multi-Currency feature is enabled)
-              if (ApiService.featureFlags.enableMultiCurrencyVault) ...[
-                CurrencySelectorWidget(
-                  selectedCurrency: effectiveCurrency,
-                  onCurrencySelected: (curr) {
-                    HapticFeedback.selectionClick();
-                    setState(() => _selectedCurrency = curr);
-                  },
-                ),
-                const SizedBox(height: 14),
-              ],
+
 
               // Dual Balance Card (Operational Balance vs Escrow Commission Balance)
               Container(
@@ -1132,7 +1117,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                     ),
                   ],
                 ],
-              ] else if (ApiService.featureFlags.enableMultiCurrencyVault) ...[
+              ] else if (false && ApiService.featureFlags.enableMultiCurrencyVault) ...[
                 // Foreign Currency Account Card (USD / GBP / EUR) — Pure On-Demand
                 if (!_virtualAccounts.containsKey(effectiveCurrency)) ...[
                   // Not Requested Yet State with 'Get Account' Button

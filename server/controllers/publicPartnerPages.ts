@@ -1150,6 +1150,31 @@ export async function renderMandateVerificationPage(req: Request, res: Response)
   const displayRef = mandateRef || 'RNT-MND-2026-ACTIVE';
   const displayHash = hash || crypto.createHash('sha256').update(displayRef + firmName).digest('hex').toUpperCase();
 
+  // Look up bound property by mandate_ref
+  let boundProp: any = null;
+  if (supabase && mandateRef) {
+    try {
+      const { data: propRows } = await supabase
+        .from('properties')
+        .select('title, address, state, status, electricity_bill_url')
+        .eq('mandate_ref', mandateRef)
+        .maybeSingle();
+      if (propRows) boundProp = propRows;
+    } catch (_) {}
+  }
+
+  const propSection = boundProp
+    ? `
+        <div class="section-title">BOUND PROPERTY</div>
+        <div class="info-box" style="border-color: #0ea5e9; margin-bottom: 18px;">
+          <div class="row"><span class="lbl">Property Title</span><span class="val" style="color: #38bdf8;">${boundProp.title || 'Unnamed Property'}</span></div>
+          <div class="row"><span class="lbl">Address</span><span class="val">${boundProp.address || 'Address on file'}</span></div>
+          <div class="row"><span class="lbl">State</span><span class="val">${boundProp.state || state} State, Nigeria</span></div>
+          <div class="row"><span class="lbl">Mandate Status</span><span class="val" style="color: #4ade80;">✅ ACTIVATED &amp; BOUND</span></div>
+          ${boundProp.electricity_bill_url ? `<div class="row"><span class="lbl">Utility Bill</span><span class="val" style="color: #4ade80;">Verified &amp; Annexed</span></div>` : ''}
+        </div>`
+    : (mandateRef ? `<div class="info-box" style="border-color: #f59e0b; margin-bottom: 18px; text-align:center; font-size:11px; color: #fbbf24;">⏳ MANDATE ISSUED — Listing Not Yet Activated<br><span style="font-size:9.5px;color:#94a3b8;">Property upload pending from partner.</span></div>` : '');
+
   res.send(`
     <!DOCTYPE html>
     <html lang="en">
@@ -1162,12 +1187,13 @@ export async function renderMandateVerificationPage(req: Request, res: Response)
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; background: #030712; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 16px; }
         .card { background: #0f172a; border: 1.5px solid #059669; border-radius: 24px; max-width: 500px; width: 100%; padding: 28px 24px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6); text-align: center; }
-        .live-ticker { background: rgba(16,185,129,0.15); border-bottom: 1px solid rgba(16,185,129,0.3); padding: 8px 12px; font-size: 10px; font-weight: 800; color: #34d399; letter-spacing: 0.5px; margin: -28px -24px 20px -24px; display: flex; align-items: center; justify-content: center; gap: 6px; }
+        .live-ticker { background: rgba(16,185,129,0.15); border-bottom: 1px solid rgba(16,185,129,0.3); padding: 8px 12px; font-size: 10px; font-weight: 800; color: #34d399; letter-spacing: 0.5px; margin: -28px -24px 20px -24px; display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 24px 24px 0 0; }
         .pulse-dot { width: 8px; height: 8px; border-radius: 50%; background: #10b981; animation: pulse 1.5s infinite; }
         @keyframes pulse { 0% { transform: scale(0.9); opacity: 0.8; } 50% { transform: scale(1.3); opacity: 1; } 100% { transform: scale(0.9); opacity: 0.8; } }
         .badge-icon { width: 68px; height: 68px; background: rgba(16, 185, 129, 0.15); border: 2px solid #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-size: 30px; }
         h1 { font-size: 19px; font-weight: 900; color: #ffffff; margin-bottom: 3px; }
         .sub { font-size: 10.5px; color: #34d399; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 18px; }
+        .section-title { font-size: 9.5px; font-weight: 900; color: #64748b; text-transform: uppercase; letter-spacing: 1px; text-align: left; margin-bottom: 6px; }
         .info-box { background: #020617; border: 1px solid #1e293b; border-radius: 18px; padding: 18px; text-align: left; margin-bottom: 18px; }
         .row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 12px; }
         .row:last-child { margin-bottom: 0; }
@@ -1190,14 +1216,17 @@ export async function renderMandateVerificationPage(req: Request, res: Response)
         <h1>MANDATE AUTHENTICATED</h1>
         <div class="sub">Rentilly Exclusive Partner Representation</div>
 
+        <div class="section-title">PARTNER DETAILS</div>
         <div class="info-box">
           <div class="row"><span class="lbl">Mandate Reference</span><span class="val" style="font-family: monospace; color: #34d399;">${displayRef}</span></div>
           <div class="row"><span class="lbl">Accredited Firm</span><span class="val">${firmName}</span></div>
           <div class="row"><span class="lbl">Corporate Registration</span><span class="val" style="color: #fbbf24;">RC: ${cacNumber}</span></div>
           <div class="row"><span class="lbl">Remuneration Rate</span><span class="val" style="color: #34d399;">2.5% Lease / 2.0% Sale (Fixed)</span></div>
           <div class="row"><span class="lbl">Territory</span><span class="val">${state} State, Nigeria</span></div>
-          <div class="row"><span class="lbl">Statutory Arbitration</span><span class="val">Arbitration & Mediation Act 2023</span></div>
+          <div class="row"><span class="lbl">Statutory Arbitration</span><span class="val">Arbitration &amp; Mediation Act 2023</span></div>
         </div>
+
+        ${propSection}
 
         <div class="warning-box">
           <div class="warning-title">🚨 MANDATORY ESCROW SETTLEMENT NOTICE</div>

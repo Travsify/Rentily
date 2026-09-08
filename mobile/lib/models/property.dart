@@ -40,6 +40,8 @@ class Property {
   final Map<String, double>? serviceChargeBreakdown;
   final bool serviceChargeConfirmedByTenant;
   final String? propertyAddressHash;
+  final String? mandateRef; // Physical Exclusive Mandate Reference Code
+  final String? electricityBillUrl; // Verified Physical Meter / Utility Bill Document
 
   Property({
     required this.id,
@@ -81,6 +83,8 @@ class Property {
     this.serviceChargeBreakdown,
     this.serviceChargeConfirmedByTenant = false,
     this.propertyAddressHash,
+    this.mandateRef,
+    this.electricityBillUrl,
   });
 
   // Calculate traditional agent fee that Nigerians usually get charged (20% on rent, 10% on sales)
@@ -162,6 +166,8 @@ class Property {
       inspectionFee: inspection > 5000.0 ? 5000.0 : inspection, // Capped strictly at ₦5,000
       serviceChargeConfirmedByTenant: json['serviceChargeConfirmedByTenant'] ?? false,
       propertyAddressHash: json['propertyAddressHash']?.toString(),
+      mandateRef: json['mandateRef']?.toString() ?? json['mandate_ref']?.toString(),
+      electricityBillUrl: json['electricityBillUrl']?.toString() ?? json['electricity_bill_url']?.toString() ?? json['meterBillUrl']?.toString(),
     );
   }
 
@@ -205,6 +211,10 @@ class Property {
       'inspectionFee': inspectionFee,
       'serviceChargeConfirmedByTenant': serviceChargeConfirmedByTenant,
       'propertyAddressHash': propertyAddressHash,
+      'mandateRef': mandateRef,
+      'mandate_ref': mandateRef,
+      'electricityBillUrl': electricityBillUrl,
+      'electricity_bill_url': electricityBillUrl,
     };
   }
 }

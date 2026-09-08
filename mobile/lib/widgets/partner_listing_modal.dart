@@ -111,6 +111,11 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
   String? _powerOfAttorneyName;
   bool _isSubmitting = false;
 
+  // Priority #1: Mandate Reference Binding (RNT-MND-...) + Utility Bill
+  final TextEditingController _mandateRefController = TextEditingController();
+  String? _partnerMeterBillPath;
+  String? _partnerMeterBillName;
+
   final NumberFormat _currencyFormat = NumberFormat('#,###');
 
   void _pickTitleDocument() async {
@@ -223,6 +228,7 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
     _inspectionFeeController.dispose();
     _addressController.dispose();
     _descController.dispose();
+    _mandateRefController.dispose();
     super.dispose();
   }
 
@@ -482,6 +488,8 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
       powerOfAttorneyUrl: _powerOfAttorneyPath,
       inspectionFee: inspection,
       propertyAddressHash: addressHash,
+      mandateRef: _isDirectLandlord ? null : (_mandateRefController.text.trim().isNotEmpty ? _mandateRefController.text.trim() : null),
+      electricityBillUrl: _meterBillFilePath ?? _partnerMeterBillPath,
     );
 
     // Publish to Live Server Database
@@ -1813,6 +1821,71 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
             ),
           ),
         ],
+        const SizedBox(height: 10),
+
+        // ─── Mandate Reference Binding ─────────────────────────────────────────
+        if (!_isDirectLandlord) Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFFBEB),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFF59E0B), width: 1.2),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.qr_code_2_rounded, size: 15, color: Color(0xFFB45309)),
+                  const SizedBox(width: 6),
+                  Text(
+                    'BIND MANDATE REFERENCE CODE',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w900,
+                      color: const Color(0xFFB45309),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Enter the serial from the signed mandate PDF (e.g. RNT-MND-2026-...). This permanently locks this listing to that agreement.',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 9.5,
+                  color: const Color(0xFF92400E),
+                  height: 1.35,
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _mandateRefController,
+                style: GoogleFonts.jetBrainsMono(fontSize: 12, color: const Color(0xFF1C1917)),
+                textCapitalization: TextCapitalization.characters,
+                decoration: InputDecoration(
+                  hintText: 'RNT-MND-2026-RNT-CXXX-XXXXXX',
+                  hintStyle: GoogleFonts.jetBrainsMono(fontSize: 11, color: Colors.grey.shade400),
+                  prefixIcon: const Icon(Icons.tag_rounded, size: 18, color: Color(0xFFB45309)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Color(0xFFF59E0B)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Color(0xFFFCD34D)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Color(0xFFB45309), width: 1.5),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: 18),
 
         // Review Summary Card (Overflow Proof)

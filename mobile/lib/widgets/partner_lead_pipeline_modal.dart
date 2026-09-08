@@ -170,6 +170,133 @@ class _PartnerLeadPipelineModalState extends State<PartnerLeadPipelineModal> {
     return _pipelineItems.where((i) => i['stage'] == _selectedStage).toList();
   }
 
+  void _showAddOfflineLeadDialog(BuildContext context) {
+    final nameCtrl = TextEditingController();
+    final phoneCtrl = TextEditingController();
+    final propertyCtrl = TextEditingController();
+    bool isSaving = false;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF064E3B).withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.person_add_rounded, size: 18, color: Color(0xFF064E3B)),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'Log Offline Lead',
+                style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Record a prospect you met physically or via phone. They will appear in your Walkthroughs & Leads stage.',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 11, color: Colors.grey.shade600, height: 1.4),
+                ),
+                const SizedBox(height: 14),
+                TextField(
+                  controller: nameCtrl,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: InputDecoration(
+                    labelText: 'Prospect Full Name *',
+                    prefixIcon: const Icon(Icons.person_outline_rounded, size: 18),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: phoneCtrl,
+                  keyboardType: TextInputType.phone,
+                  decoration: InputDecoration(
+                    labelText: 'Phone Number *',
+                    prefixIcon: const Icon(Icons.phone_outlined, size: 18),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: propertyCtrl,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: InputDecoration(
+                    labelText: 'Property of Interest',
+                    hintText: 'e.g. 3-Bed Duplex at Lekki Phase 1',
+                    prefixIcon: const Icon(Icons.home_outlined, size: 18),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSaving ? null : () => Navigator.of(ctx).pop(),
+              child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: Colors.grey.shade600)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF064E3B),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: isSaving
+                  ? null
+                  : () async {
+                      if (nameCtrl.text.trim().isEmpty || phoneCtrl.text.trim().isEmpty) {
+                        ScaffoldMessenger.of(ctx).showSnackBar(
+                          const SnackBar(content: Text('Please enter prospect name and phone.')),
+                        );
+                        return;
+                      }
+                      setDlgState(() => isSaving = true);
+                      try {
+                        await ApiService.bookInspection(
+                          propertyId: 'offline_lead_${DateTime.now().millisecondsSinceEpoch}',
+                          propertyTitle: propertyCtrl.text.trim().isNotEmpty ? propertyCtrl.text.trim() : 'Offline Lead',
+                          propertyAddress: '',
+                          prospectName: nameCtrl.text.trim(),
+                          prospectPhone: phoneCtrl.text.trim(),
+                          scheduledDate: DateTime.now().toIso8601String(),
+                          scheduledTimeSlot: 'TBD – Offline',
+                          ownerId: widget.user.id,
+                          ownerName: widget.user.fullName,
+                        );
+                        if (ctx.mounted) Navigator.of(ctx).pop();
+                        _loadPipelineData(); // refresh
+                      } catch (_) {
+                        setDlgState(() => isSaving = false);
+                        if (ctx.mounted) {
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            const SnackBar(content: Text('Could not save lead. Please try again.')),
+                          );
+                        }
+                      }
+                    },
+              child: isSaving
+                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : Text('Save Lead', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -214,6 +341,11 @@ class _PartnerLeadPipelineModalState extends State<PartnerLeadPipelineModal> {
                       ],
                     ),
                   ],
+                ),
+                IconButton(
+                  icon: const Icon(Icons.person_add_rounded, size: 22, color: Color(0xFF064E3B)),
+                  tooltip: 'Log Offline Lead',
+                  onPressed: () => _showAddOfflineLeadDialog(context),
                 ),
                 IconButton(
                   icon: const Icon(Icons.close_rounded, size: 22, color: AppColors.textPrimary),
