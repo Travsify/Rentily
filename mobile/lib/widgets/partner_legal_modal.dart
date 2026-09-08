@@ -23,6 +23,8 @@ class PartnerLegalModal extends StatelessWidget {
   });
 
   // 1. Partner Legal Desk Modal
+  static void showExclusiveMandate(BuildContext context) => showLegalDesk(context);
+
   static void showLegalDesk(BuildContext context) {
     showModalBottomSheet(
       context: context,
