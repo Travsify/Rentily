@@ -19,6 +19,7 @@ import '../auth/register_screen.dart';
 import '../main_navigation_screen.dart';
 import '../agreements/tenancy_agreements_screen.dart';
 import '../support/support_chat_screen.dart';
+import '../../widgets/partner_legal_modal.dart';
 import '../../services/api_service.dart';
 import '../../constants/nigerian_states_cities.dart';
 
@@ -933,7 +934,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 },
               ),
 
-              if (_currentUser?.isPartner == true)
+              if (_currentUser?.isPartner == true) ...[
                 _buildMenuTile(
                   Icons.business_rounded,
                   'Corporate KYP Partner Verification',
@@ -960,6 +961,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     });
                   },
                 ),
+                _buildMenuTile(
+                  Icons.picture_as_pdf_rounded,
+                  'Generate Exclusive Mandate (PDF) 📄',
+                  'Print official partner mandate with red escrow warning & utility annexure',
+                  trailing: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0FDF4),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFF86EFAC)),
+                    ),
+                    child: Text(
+                      'Print PDF',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: const Color(0xFF16A34A)),
+                    ),
+                  ),
+                  onTap: () => PartnerLegalModal.generateMandateAgreementPdf(context),
+                ),
+              ],
               const SizedBox(height: 16),
 
               // 3. LEGAL, DISPUTES & DOCUMENTS
@@ -968,6 +988,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: AppColors.textSecondary),
               ),
               const SizedBox(height: 10),
+
+              if (_currentUser?.isPartner == true)
+                _buildMenuTile(
+                  Icons.gavel_rounded,
+                  'Partner Legal Desk & Mandates ⚖️',
+                  'Exclusive mandates, arbitration terms & dispute resolutions',
+                  onTap: () => PartnerLegalModal.showExclusiveMandate(context),
+                ),
 
               _buildMenuTile(
                 Icons.description_outlined,

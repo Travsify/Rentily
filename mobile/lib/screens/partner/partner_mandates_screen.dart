@@ -8,6 +8,7 @@ import '../../models/user_profile.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/partner_listing_modal.dart';
+import '../../widgets/partner_legal_modal.dart';
 import '../home/property_detail_screen.dart';
 
 class PartnerMandatesScreen extends StatefulWidget {
@@ -156,6 +157,11 @@ class _PartnerMandatesScreenState extends State<PartnerMandatesScreen>
         elevation: 0,
         actions: [
           IconButton(
+            tooltip: 'Print Mandate PDF',
+            icon: const Icon(Icons.picture_as_pdf_rounded, color: AppColors.primary, size: 21),
+            onPressed: () => PartnerLegalModal.generateMandateAgreementPdf(context),
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh_rounded, color: AppColors.textPrimary, size: 22),
             onPressed: () {
               setState(() {
@@ -216,6 +222,83 @@ class _PartnerMandatesScreenState extends State<PartnerMandatesScreen>
       child: ListView(
         padding: const EdgeInsets.all(18),
         children: [
+          // Official Mandate PDF Generation Banner
+          Container(
+            margin: const EdgeInsets.only(bottom: 14),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF064E3B), Color(0xFF047857)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF047857).withValues(alpha: 0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(9),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.picture_as_pdf_rounded, color: Colors.white, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Exclusive Partner Mandate (PDF) 📄',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Print nationwide exclusive mandate with red escrow notice & utility annexure.',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 9.5,
+                          color: Colors.white.withValues(alpha: 0.85),
+                          height: 1.25,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  onPressed: () => PartnerLegalModal.generateMandateAgreementPdf(context),
+                  icon: const Icon(Icons.print_rounded, size: 13, color: Color(0xFF064E3B)),
+                  label: Text(
+                    'Print PDF',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF064E3B),
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    elevation: 0,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
           // KPI Header
           Row(
             children: [

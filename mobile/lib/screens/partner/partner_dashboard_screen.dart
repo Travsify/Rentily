@@ -28,6 +28,7 @@ import '../shared/notification_center_screen.dart';
 import '../shared/chat_inbox_screen.dart';
 import '../../widgets/biometric_prompt_modal.dart';
 import '../../widgets/partner_lead_pipeline_modal.dart';
+import '../../widgets/partner_legal_modal.dart';
 
 class PartnerDashboardScreen extends StatefulWidget {
   final VoidCallback? onSwitchToTenant;
@@ -705,9 +706,9 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
                 ],
                 const SizedBox(height: 22),
 
-                // 4. Partner Brokerage Suite Grid Layout
+                // 4. Partner Escrow Suite Grid Layout
                 Text(
-                  'PARTNER BROKERAGE SUITE (GRID)',
+                  'PARTNER ESCROW SUITE (GRID)',
                   style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: 12),
@@ -720,6 +721,22 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
                   mainAxisSpacing: 12,
                   childAspectRatio: 1.25,
                   children: [
+                    _buildGridCard(
+                      icon: Icons.picture_as_pdf_rounded,
+                      title: 'Print Mandate (PDF)',
+                      subtitle: 'Exclusive Agreement 📄',
+                      badge: 'PRINT',
+                      color: const Color(0xFF047857),
+                      onTap: () => PartnerLegalModal.generateMandateAgreementPdf(context),
+                    ),
+                    _buildGridCard(
+                      icon: Icons.gavel_rounded,
+                      title: 'Partner Legal Desk',
+                      subtitle: 'Arbitration Terms ⚖️',
+                      badge: 'LEGAL',
+                      color: const Color(0xFF1E3A8A),
+                      onTap: () => PartnerLegalModal.showExclusiveMandate(context),
+                    ),
                     _buildGridCard(
                       icon: Icons.link_rounded,
                       title: 'Onboard Landlord',

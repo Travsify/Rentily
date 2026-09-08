@@ -14,6 +14,7 @@ import '../services/api_service.dart';
 import '../services/notification_service.dart';
 import '../services/security_telemetry_service.dart';
 import '../widgets/verification_modal.dart';
+import '../widgets/partner_legal_modal.dart';
 
 class PartnerListingModal extends StatefulWidget {
   final UserProfile user;
@@ -1749,6 +1750,64 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 10),
+
+                // Quick Helper to Generate & Print Mandate PDF
+                InkWell(
+                  onTap: () => PartnerLegalModal.generateMandateAgreementPdf(context),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFF93C5FD)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.picture_as_pdf_rounded, size: 16, color: Color(0xFF1D4ED8)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Need a blank mandate for the landlord? 📄',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: const Color(0xFF1D4ED8),
+                                ),
+                              ),
+                              Text(
+                                'Tap to generate & print nationwide mandate with red escrow notice & utility annexure.',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 8.5,
+                                  color: const Color(0xFF2563EB),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1D4ED8),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'Print PDF',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
