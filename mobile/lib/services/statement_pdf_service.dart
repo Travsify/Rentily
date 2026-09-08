@@ -58,13 +58,13 @@ class StatementPdfService {
     }
   }
 
-  // Security Authentication Watermark - Diagonally dispersed faint RENTILLY watermark across the PDF
+  // Security Authentication Watermark - Diagonally dispersed faint RENTILLY watermark across the PDF (upward facing)
   static pw.Widget _buildWatermarkBackground() {
     return pw.FullPage(
       ignoreMargins: true,
       child: pw.Center(
         child: pw.Transform.rotate(
-          angle: -math.pi / 6,
+          angle: math.pi / 6,
           child: pw.Column(
             mainAxisSize: pw.MainAxisSize.min,
             crossAxisAlignment: pw.CrossAxisAlignment.center,
