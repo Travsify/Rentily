@@ -40,30 +40,38 @@ class PartnerDashboardScreen extends StatefulWidget {
 
 class _PartnerDashboardScreenState extends State<PartnerDashboardScreen> {
   int _currentIndex = 0;
+  final Set<int> _loadedTabs = {0};
+
+  void _onTabTapped(int index) {
+    setState(() {
+      _currentIndex = index;
+      _loadedTabs.add(index);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final screens = [
-      _PartnerHubTab(
-        onSwitchToTenant: widget.onSwitchToTenant,
-        onGoToWallet: () => setState(() => _currentIndex = 2),
-        onGoToMandates: () => setState(() => _currentIndex = 1),
-      ),
-      const PartnerMandatesScreen(),
-      const PartnerWalletScreen(),
-      const InspectionsScreen(),
-      PartnerProfileScreen(onSwitchToTenant: widget.onSwitchToTenant),
-    ];
-
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
       body: IndexedStack(
         index: _currentIndex,
-        children: screens,
+        children: [
+          _loadedTabs.contains(0)
+              ? _PartnerHubTab(
+                  onSwitchToTenant: widget.onSwitchToTenant,
+                  onGoToWallet: () => _onTabTapped(2),
+                  onGoToMandates: () => _onTabTapped(1),
+                )
+              : const SizedBox.shrink(),
+          _loadedTabs.contains(1) ? const PartnerMandatesScreen() : const SizedBox.shrink(),
+          _loadedTabs.contains(2) ? const PartnerWalletScreen() : const SizedBox.shrink(),
+          _loadedTabs.contains(3) ? const InspectionsScreen() : const SizedBox.shrink(),
+          _loadedTabs.contains(4) ? PartnerProfileScreen(onSwitchToTenant: widget.onSwitchToTenant) : const SizedBox.shrink(),
+        ],
       ),
       bottomNavigationBar: PartnerBottomBar(
         currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
+        onTap: _onTabTapped,
       ),
     );
   }
@@ -96,6 +104,8 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
   @override
   void initState() {
     super.initState();
+    _user = AuthService.currentUserNotifier.value;
+    _isLoading = _user == null;
     _loadPartnerData();
     AuthService.currentUserNotifier.addListener(_onUserChanged);
   }
@@ -116,40 +126,50 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
   }
 
   void _loadPartnerData() async {
-    final user = await AuthService.getCurrentUser();
-    final allProps = await ApiService.fetchProperties();
-    double escBal = 0.0;
-    UserProfile? effectiveUser = user;
-
-    if (user != null) {
-      final comm = await ApiService.fetchPartnerCommissions(user.id, user.email);
-      escBal = (comm['escrowBalance'] as num?)?.toDouble() ?? 0.0;
-
-      final live = await ApiService.fetchLiveBalance(user.email);
-      if (live != null) {
-        final serverBal = (live['walletBalance'] as num?)?.toDouble() ?? user.walletBalance;
-        final serverAcc = live['accountNumber']?.toString();
-        final serverBank = live['bankName']?.toString();
-        effectiveUser = user.copyWith(
-          walletBalance: serverBal,
-          accountNumber: (serverAcc != null && serverAcc.isNotEmpty) ? serverAcc : user.accountNumber,
-          bankName: (serverBank != null && serverBank.isNotEmpty) ? serverBank : user.bankName,
-        );
-        await AuthService.updateUser(effectiveUser);
-      }
+    final user = _user ?? await AuthService.getCurrentUser();
+    if (user != null && _user == null && mounted) {
+      setState(() {
+        _user = user;
+        _isLoading = false;
+      });
     }
 
-    try {
-      await ApiService.fetchFeatureFlags();
-    } catch (_) {}
+    final futureProps = ApiService.fetchProperties();
+    final futureComm = user != null
+        ? ApiService.fetchPartnerCommissions(user.id, user.email)
+        : Future.value(<String, dynamic>{});
+    final futureLive = user != null
+        ? ApiService.fetchLiveBalance(user.email)
+        : Future.value(null);
+
+    final results = await Future.wait([futureProps, futureComm, futureLive]);
+    final allProps = results[0] as List<Property>;
+    final comm = results[1] as Map<String, dynamic>;
+    final live = results[2] as Map<String, dynamic>?;
+
+    final escBal = (comm['escrowBalance'] as num?)?.toDouble() ?? 0.0;
+    UserProfile? effectiveUser = user;
+
+    if (user != null && live != null) {
+      final serverBal = (live['walletBalance'] as num?)?.toDouble() ?? user.walletBalance;
+      final serverAcc = live['accountNumber']?.toString();
+      final serverBank = live['bankName']?.toString();
+      effectiveUser = user.copyWith(
+        walletBalance: serverBal,
+        accountNumber: (serverAcc != null && serverAcc.isNotEmpty) ? serverAcc : user.accountNumber,
+        bankName: (serverBank != null && serverBank.isNotEmpty) ? serverBank : user.bankName,
+      );
+      AuthService.updateUser(effectiveUser);
+    }
 
     if (mounted) {
       setState(() {
-        _user = effectiveUser;
+        _user = effectiveUser ?? _user;
         _escrowCommission = escBal;
         _mandateProperties = allProps.where((p) {
-          if (effectiveUser == null) return false;
-          return (p.partnerId == effectiveUser.id || p.ownerId == effectiveUser.id || p.ownerPhone == effectiveUser.phoneNumber) &&
+          final u = effectiveUser ?? _user;
+          if (u == null) return false;
+          return (p.partnerId == u.id || p.ownerId == u.id || p.ownerPhone == u.phoneNumber) &&
               p.listedByRole == 'verified_partner';
         }).toList();
         _isLoading = false;

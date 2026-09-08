@@ -37,33 +37,37 @@ class LandlordDashboardScreen extends StatefulWidget {
 
 class _LandlordDashboardScreenState extends State<LandlordDashboardScreen> {
   int _currentIndex = 0;
+  final Set<int> _loadedTabs = {0};
 
   void switchTab(int index) {
-    setState(() => _currentIndex = index);
+    setState(() {
+      _currentIndex = index;
+      _loadedTabs.add(index);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final screens = [
-      _LandlordPortfolioTab(
-        onSwitchToTenant: widget.onSwitchToTenant,
-        onNavigateToTab: (index) => setState(() => _currentIndex = index),
-      ),
-      const LandlordPropertiesScreen(),
-      const LandlordWalletScreen(),
-      const InspectionsScreen(),
-      LandlordProfileScreen(onSwitchToTenant: widget.onSwitchToTenant),
-    ];
-
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
       body: IndexedStack(
         index: _currentIndex,
-        children: screens,
+        children: [
+          _loadedTabs.contains(0)
+              ? _LandlordPortfolioTab(
+                  onSwitchToTenant: widget.onSwitchToTenant,
+                  onNavigateToTab: switchTab,
+                )
+              : const SizedBox.shrink(),
+          _loadedTabs.contains(1) ? const LandlordPropertiesScreen() : const SizedBox.shrink(),
+          _loadedTabs.contains(2) ? const LandlordWalletScreen() : const SizedBox.shrink(),
+          _loadedTabs.contains(3) ? const InspectionsScreen() : const SizedBox.shrink(),
+          _loadedTabs.contains(4) ? LandlordProfileScreen(onSwitchToTenant: widget.onSwitchToTenant) : const SizedBox.shrink(),
+        ],
       ),
       bottomNavigationBar: LandlordBottomBar(
         currentIndex: _currentIndex,
-        onTap: (index) => setState(() => _currentIndex = index),
+        onTap: switchTab,
       ),
     );
   }
@@ -95,6 +99,8 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
   @override
   void initState() {
     super.initState();
+    _user = AuthService.currentUserNotifier.value;
+    _isLoading = _user == null;
     _loadData();
     AuthService.currentUserNotifier.addListener(_onUserUpdated);
   }
@@ -114,36 +120,38 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
   }
 
   void _loadData() async {
-    final user = await AuthService.getCurrentUser();
-    List<Property> myProps = [];
-    double liveEscrow = 0.0;
+    final user = _user ?? await AuthService.getCurrentUser();
+    if (user != null && _user == null && mounted) {
+      setState(() {
+        _user = user;
+        _isLoading = false;
+      });
+    }
 
     if (user != null) {
       final results = await Future.wait([
         ApiService.fetchProperties(ownerId: user.id),
         ApiService.fetchLandlordEscrowSummary(email: user.email, ownerId: user.id),
       ]);
-      myProps = results[0] as List<Property>;
+      final myProps = results[0] as List<Property>;
       final summary = results[1] as Map<String, dynamic>;
-      liveEscrow = (summary['totalEscrowVolume'] as num?)?.toDouble() ??
+      final liveEscrow = (summary['totalEscrowVolume'] as num?)?.toDouble() ??
                    (summary['activeEscrowBalance'] as num?)?.toDouble() ?? 0.0;
-    }
 
-    try {
-      await ApiService.fetchFeatureFlags();
-    } catch (_) {}
+      if (mounted) {
+        setState(() {
+          _user = user;
+          _properties = myProps;
+          _escrowBalance = liveEscrow;
+          _isLoading = false;
+        });
 
-    if (mounted) {
-      setState(() {
-        _user = user;
-        _properties = myProps;
-        _escrowBalance = liveEscrow;
-        _isLoading = false;
-      });
-
-      Future.delayed(const Duration(milliseconds: 600), () {
-        if (mounted) BiometricPromptModal.checkAndPrompt(context);
-      });
+        Future.delayed(const Duration(milliseconds: 600), () {
+          if (mounted) BiometricPromptModal.checkAndPrompt(context);
+        });
+      }
+    } else {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

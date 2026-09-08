@@ -47,10 +47,13 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
   @override
   void initState() {
     super.initState();
+    _user = AuthService.currentUserNotifier.value;
+    _isLoading = _user == null;
+    _lastKnownBalance = _user?.walletBalance ?? 0;
     _loadUserAndTransactions();
     AuthService.currentUserNotifier.addListener(_onUserUpdated);
     // Start polling after first load settles
-    Future.delayed(const Duration(seconds: 3), _startBalancePolling);
+    Future.delayed(const Duration(seconds: 5), _startBalancePolling);
   }
 
   @override
@@ -62,8 +65,8 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
 
   void _startBalancePolling() {
     _balancePoller?.cancel();
-    _balancePoller = Timer.periodic(const Duration(seconds: 8), (_) async {
-      await _syncLiveBalance();
+    _balancePoller = Timer.periodic(const Duration(seconds: 20), (_) async {
+      if (mounted) await _syncLiveBalance();
     });
   }
 

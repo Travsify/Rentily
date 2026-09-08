@@ -57,6 +57,8 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
   @override
   void initState() {
     super.initState();
+    _user = AuthService.currentUserNotifier.value;
+    _isLoading = _user == null;
     _loadUser();
     AuthService.currentUserNotifier.addListener(_onUserChanged);
     _startBalancePolling();
@@ -64,8 +66,8 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
 
   void _startBalancePolling() {
     _balancePoller?.cancel();
-    _balancePoller = Timer.periodic(const Duration(seconds: 6), (_) async {
-      await _syncLiveBalance();
+    _balancePoller = Timer.periodic(const Duration(seconds: 20), (_) async {
+      if (mounted) await _syncLiveBalance();
     });
   }
 

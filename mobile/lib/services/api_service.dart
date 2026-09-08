@@ -9,6 +9,8 @@ import 'auth_service.dart';
 class ApiService {
   static const String baseUrl = AppConstants.apiBaseUrl;
 
+  static final Map<String, (DateTime, List<Property>)> _propertiesMemoryCache = {};
+
   // 1. Fetch Properties Feed with optional purpose/search/ownerId/status/state/lga/type filters from live API
   static Future<List<Property>> fetchProperties({
     String? purpose,
@@ -24,7 +26,16 @@ class ApiService {
     String? furnishing,
     String? listedByRole,
     String? sortBy,
+    bool forceRefresh = false,
   }) async {
+    final cacheKey = '$purpose|$search|$ownerId|$status|$state|$lga|$propertyType|$bedrooms|$minPrice|$maxPrice|$furnishing|$listedByRole|$sortBy';
+    if (!forceRefresh && _propertiesMemoryCache.containsKey(cacheKey)) {
+      final entry = _propertiesMemoryCache[cacheKey]!;
+      if (DateTime.now().difference(entry.$1).inSeconds < 45) {
+        return entry.$2;
+      }
+    }
+
     try {
       final queryParams = <String, String>{};
       if (purpose != null && purpose != 'all') queryParams['purpose'] = purpose;
@@ -51,9 +62,16 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
-        return data.map((json) => Property.fromJson(json)).toList();
+        final list = data.map((json) => Property.fromJson(json)).toList();
+        _propertiesMemoryCache[cacheKey] = (DateTime.now(), list);
+        return list;
       }
     } catch (e) {}
+
+    // If fetch failed but we have cached data, return it
+    if (_propertiesMemoryCache.containsKey(cacheKey)) {
+      return _propertiesMemoryCache[cacheKey]!.$2;
+    }
     return [];
   }
 
@@ -1177,34 +1195,21 @@ class ApiService {
   // --- REMOTE FEATURE FLAGS ENGINE ---
   static FeatureFlags _cachedFeatureFlags = const FeatureFlags();
   static FeatureFlags get featureFlags => _cachedFeatureFlags;
+  static DateTime? _lastFlagsFetch;
 
-  /// Fetches remote feature flags from server with Supabase fallback
+  /// Fetches remote feature flags from server with fast in-memory cache
   static Future<FeatureFlags> fetchFeatureFlags() async {
-    // 1. Direct Supabase Cloud REST
-    try {
-      final sbRes = await http.get(
-        Uri.parse('https://zuxvxuqxomsxgiljykzj.supabase.co/rest/v1/system_configs?id=eq.app_feature_flags&select=data'),
-        headers: {
-          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp1eHZ4dXF4b21zeGdpbGp5a3pqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwODAzNTMsImV4cCI6MjEwMzY1NjM1M30.4g6-vT5q7Oa6kQ-3_M76Zk-r8S26u_gM69W4G_7w6A8',
-        },
-      ).timeout(const Duration(seconds: 4));
+    if (_lastFlagsFetch != null && DateTime.now().difference(_lastFlagsFetch!).inSeconds < 120) {
+      return _cachedFeatureFlags;
+    }
 
-      if (sbRes.statusCode == 200) {
-        final List<dynamic> list = json.decode(sbRes.body);
-        if (list.isNotEmpty && list[0]['data'] != null) {
-          _cachedFeatureFlags = FeatureFlags.fromJson(Map<String, dynamic>.from(list[0]['data']));
-          return _cachedFeatureFlags;
-        }
-      }
-    } catch (_) {}
-
-    // 2. Render Core Backend Fallback
     try {
-      final res = await http.get(Uri.parse('$baseUrl/config/features')).timeout(const Duration(seconds: 6));
+      final res = await http.get(Uri.parse('$baseUrl/config/features')).timeout(const Duration(seconds: 4));
       if (res.statusCode == 200) {
         final data = json.decode(res.body);
         if (data['success'] == true && data['flags'] != null) {
           _cachedFeatureFlags = FeatureFlags.fromJson(Map<String, dynamic>.from(data['flags']));
+          _lastFlagsFetch = DateTime.now();
           return _cachedFeatureFlags;
         }
       }

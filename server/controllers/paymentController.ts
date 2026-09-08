@@ -3141,25 +3141,16 @@ export async function getUserTransactions(req: Request, res: Response) {
       return res.status(400).json({ error: 'Email is required' });
     }
 
-    // 1. Fast Fincra live collection sync (primary active provider) capped at 2.0s
-    if (FincraService.isConfigured() && supabase) {
-      try {
-        await Promise.race([
-          syncFincraTransactionsForUser(cleanEmail),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Fincra timeout')), 2000))
-        ]);
-      } catch (_) {}
-    }
-
-    // 2. Fetch authoritative transactions directly from TransactionStore (which syncs with Supabase)
+    // 1. Fetch authoritative transactions directly from TransactionStore (which syncs with Supabase)
     const transactions = await TransactionStore.getTransactionsByEmail(cleanEmail);
     res.json({
       status: true,
       data: transactions
     });
 
-    // 3. Background asynchronous sync for secondary legacy providers (never blocks HTTP response)
+    // 2. Background asynchronous sync for all providers (never blocks HTTP response)
     Promise.allSettled([
+      ...(FincraService.isConfigured() && supabase ? [syncFincraTransactionsForUser(cleanEmail)] : []),
       syncFlutterwaveTransactionsForUser(cleanEmail),
       syncMapleradTransactionsForUser(cleanEmail),
       syncPaystackInboundTransactionsForUser(cleanEmail),
@@ -3194,35 +3185,13 @@ export async function getWalletBalance(req: Request, res: Response) {
       }
     }
 
-    // 2. Fast Fincra live collection sync capped at 2.0s
-    if (FincraService.isConfigured() && supabase) {
-      try {
-        await Promise.race([
-          syncFincraTransactionsForUser(cleanEmail),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Fincra timeout')), 2000))
-        ]);
-      } catch (_) {}
-    }
-
-    // Background asynchronous sync for secondary legacy providers
+    // Background asynchronous sync for all providers (never blocks HTTP response)
     Promise.allSettled([
+      ...(FincraService.isConfigured() && supabase ? [syncFincraTransactionsForUser(cleanEmail)] : []),
       syncFlutterwaveTransactionsForUser(cleanEmail),
       syncMapleradTransactionsForUser(cleanEmail),
       syncPaystackInboundTransactionsForUser(cleanEmail),
     ]).catch(() => {});
-
-    // Refresh live profile directly from Supabase Cloud after provider sync
-    if (supabase) {
-      try {
-        const { data, error } = await supabase.from('profiles').select('*').eq('email', cleanEmail).limit(1);
-        if (!error && data && data.length > 0) {
-          dbUser = data[0];
-          liveDbBalance = Number(dbUser.wallet_balance ?? 0);
-        }
-      } catch (e: any) {
-        console.warn('[getWalletBalance] Supabase profile re-read warning:', e?.message);
-      }
-    }
 
     const memUser = await UserStore.findByEmail(cleanEmail);
     const userTxs = await TransactionStore.getTransactionsByEmail(cleanEmail);
