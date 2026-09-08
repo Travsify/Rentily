@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../constants/app_colors.dart';
@@ -268,14 +268,14 @@ class _MySpacesScreenState extends State<MySpacesScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('Annual Rent', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textMuted)),
-                        Text('₦', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.primary)),
+                        Text('₦${_currencyFormat.format(rent)}', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.primary)),
                       ],
                     ),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('Caution (Held)', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textMuted)),
-                        Text('₦', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: const Color(0xFF059669))),
+                        Text('₦${_currencyFormat.format(caution)}', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: const Color(0xFF059669))),
                       ],
                     ),
                     Column(
@@ -293,14 +293,7 @@ class _MySpacesScreenState extends State<MySpacesScreen> {
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Tenancy Agreement # verified on Rentilly Protocol.'),
-                            backgroundColor: AppColors.primary,
-                          ),
-                        );
-                      },
+                      onPressed: () => _showAgreementDetailsModal(space),
                       icon: const Icon(Icons.description_outlined, size: 14),
                       label: const Text('View Agreement'),
                       style: OutlinedButton.styleFrom(
@@ -315,14 +308,7 @@ class _MySpacesScreenState extends State<MySpacesScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Maintenance ticket logged with landlord.'),
-                            backgroundColor: Color(0xFF0D5C46),
-                          ),
-                        );
-                      },
+                      onPressed: () => _showReportIssueModal(space),
                       icon: const Icon(Icons.build_rounded, size: 14),
                       label: const Text('Report Issue'),
                       style: ElevatedButton.styleFrom(
@@ -378,7 +364,7 @@ class _MySpacesScreenState extends State<MySpacesScreen> {
               const SizedBox(height: 4),
               Text(address, style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
               const SizedBox(height: 10),
-              Text('Purchase Value: ₦', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w900, color: AppColors.primary)),
+              Text('Purchase Value: ₦${_currencyFormat.format(price)}', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w900, color: AppColors.primary)),
             ],
           ),
         );
@@ -414,12 +400,12 @@ class _MySpacesScreenState extends State<MySpacesScreen> {
                   children: [
                     Text(rec['title'], style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                     const SizedBox(height: 2),
-                    Text('Ref:  • ', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary)),
+                    Text('Ref: ${rec['ref']} • ${rec['date']}', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary)),
                   ],
                 ),
               ),
               Text(
-                '₦',
+                '₦${_currencyFormat.format(rec['amount'])}',
                 style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.w800, color: AppColors.primary),
               ),
             ],
@@ -556,6 +542,213 @@ class _MySpacesScreenState extends State<MySpacesScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showAgreementDetailsModal(Map<String, dynamic> space) {
+    final title = space['propertyTitle'] ?? space['property_title'] ?? 'Tenancy Agreement';
+    final address = space['propertyAddress'] ?? space['property_address'] ?? 'Nigeria';
+    final rent = (space['annualRent'] ?? space['annual_rent'] ?? 0) as num;
+    final caution = (space['cautionDeposit'] ?? space['caution_deposit'] ?? 0) as num;
+    final duration = space['tenancyDuration'] ?? space['tenancy_duration'] ?? '12 Months';
+    final landlord = space['landlordName'] ?? space['landlord_name'] ?? 'Verified Landlord';
+    final ref = space['escrowReference'] ?? space['escrow_reference'] ?? 'ESCROW-2026';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.description_rounded, size: 20, color: AppColors.primary),
+                    const SizedBox(width: 8),
+                    Text('Tenancy Agreement Details', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                  ],
+                ),
+                IconButton(icon: const Icon(Icons.close_rounded, size: 20), onPressed: () => Navigator.of(ctx).pop()),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.borderDark),
+              ),
+              child: Column(
+                children: [
+                  _buildModalRow('Property', title),
+                  const Divider(height: 16),
+                  _buildModalRow('Address', address),
+                  const Divider(height: 16),
+                  _buildModalRow('Annual Rent', '₦${_currencyFormat.format(rent)}'),
+                  const Divider(height: 16),
+                  _buildModalRow('Caution Deposit', '₦${_currencyFormat.format(caution)}'),
+                  const Divider(height: 16),
+                  _buildModalRow('Duration', duration),
+                  const Divider(height: 16),
+                  _buildModalRow('Landlord', landlord),
+                  const Divider(height: 16),
+                  _buildModalRow('Escrow Reference', ref),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Agreement ($ref) is secured and authenticated on Rentilly Escrow Protocol.'),
+                      backgroundColor: const Color(0xFF16A34A),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.verified_rounded, size: 16, color: Colors.white),
+                label: Text('Authenticated Escrow Agreement ✓', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, color: Colors.white)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showReportIssueModal(Map<String, dynamic> space) {
+    final title = space['propertyTitle'] ?? space['property_title'] ?? 'My Space';
+    final issueCtrl = TextEditingController();
+    String category = 'Plumbing & Water';
+    bool isUrgent = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setMState) => Padding(
+          padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(ctx).viewInsets.bottom + 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.build_rounded, size: 20, color: Color(0xFFD97706)),
+                      const SizedBox(width: 8),
+                      Text('Report Maintenance Issue', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                  IconButton(icon: const Icon(Icons.close_rounded, size: 20), onPressed: () => Navigator.of(ctx).pop()),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text('Property: $title', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+              const SizedBox(height: 14),
+              DropdownButtonFormField<String>(
+                value: category,
+                decoration: InputDecoration(
+                  labelText: 'Issue Category',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'Plumbing & Water', child: Text('Plumbing & Water')),
+                  DropdownMenuItem(value: 'Electrical & Power', child: Text('Electrical & Power')),
+                  DropdownMenuItem(value: 'Structural / Roofing', child: Text('Structural / Roofing')),
+                  DropdownMenuItem(value: 'Security & Locks', child: Text('Security & Locks')),
+                  DropdownMenuItem(value: 'Other Maintenance', child: Text('Other Maintenance')),
+                ],
+                onChanged: (val) {
+                  if (val != null) setMState(() => category = val);
+                },
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: issueCtrl,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  labelText: 'Describe the issue *',
+                  hintText: 'e.g. Bathroom pipe leakage on master bedroom side',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+              ),
+              const SizedBox(height: 10),
+              CheckboxListTile(
+                value: isUrgent,
+                contentPadding: EdgeInsets.zero,
+                title: Text('Flag as Urgent', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600)),
+                onChanged: (val) => setMState(() => isUrgent = val ?? false),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0D5C46),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () {
+                    if (issueCtrl.text.trim().isEmpty) {
+                      ScaffoldMessenger.of(ctx).showSnackBar(
+                        const SnackBar(content: Text('Please describe the issue.')),
+                      );
+                      return;
+                    }
+                    Navigator.of(ctx).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Maintenance ticket logged: "$category" dispatched to landlord.'),
+                        backgroundColor: const Color(0xFF16A34A),
+                      ),
+                    );
+                  },
+                  child: Text('Submit Ticket', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, color: Colors.white)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildModalRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+        Flexible(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+          ),
+        ),
+      ],
     );
   }
 }

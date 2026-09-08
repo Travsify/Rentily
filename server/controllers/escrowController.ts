@@ -431,8 +431,28 @@ export async function payRentEscrow(req: Request, res: Response) {
     const numServiceCharge = Number(serviceCharge || property?.service_charge || 0);
     const totalPayable = numBase + numCaution + numServiceCharge + rentillyLegalFee;
 
-    // 2. Check user's available wallet balance
-    const currentBal = TransactionStore.computeNetBalance(cleanEmail);
+    // 2. Check user's available wallet balance from Supabase profiles first, then fallback
+    let currentBal = 0;
+    let tenantProfId: string | null = null;
+    if (supabase) {
+      try {
+        const { data: tenantProf } = await supabase
+          .from('profiles')
+          .select('id, wallet_balance')
+          .eq('email', cleanEmail)
+          .maybeSingle();
+        if (tenantProf) {
+          currentBal = Number(tenantProf.wallet_balance || 0);
+          tenantProfId = tenantProf.id;
+        }
+      } catch (_) {}
+    }
+    if (currentBal <= 0) {
+      const storeBal = TransactionStore.computeNetBalance(cleanEmail);
+      const memUser = await UserStore.findByEmail(cleanEmail);
+      currentBal = Math.max(storeBal, Number(memUser?.walletBalance || 0));
+    }
+
     if (currentBal < totalPayable) {
       return res.status(400).json({
         error: `Insufficient wallet balance. Total required for escrow is ₦${totalPayable.toLocaleString()} (Rent: ₦${numBase.toLocaleString()}, Caution: ₦${numCaution.toLocaleString()}, Service: ₦${numServiceCharge.toLocaleString()}, Legal: ₦${rentillyLegalFee.toLocaleString()}). Your available balance is ₦${currentBal.toLocaleString()}. Please top up your wallet.`,
@@ -446,23 +466,31 @@ export async function payRentEscrow(req: Request, res: Response) {
     const now = new Date().toISOString();
 
     // 3. Debit Tenant Wallet in Supabase profiles, TransactionStore & UserStore
-    let newTenantBal = Math.max(0, currentBal - totalPayable);
+    const newTenantBal = Math.max(0, currentBal - totalPayable);
     if (supabase) {
       try {
-        const { data: tenantProf } = await supabase
-          .from('profiles')
-          .select('id, wallet_balance')
-          .eq('email', cleanEmail)
-          .maybeSingle();
-
-        if (tenantProf) {
-          const dbBal = Number(tenantProf.wallet_balance || 0);
-          newTenantBal = Math.max(0, dbBal - totalPayable);
+        if (tenantProfId) {
           await supabase
             .from('profiles')
             .update({ wallet_balance: newTenantBal, updated_at: now })
-            .eq('id', tenantProf.id);
+            .eq('id', tenantProfId);
+        } else {
+          await supabase
+            .from('profiles')
+            .update({ wallet_balance: newTenantBal, updated_at: now })
+            .eq('email', cleanEmail);
         }
+
+        // Record in wallet_transactions for live tenant ledger
+        await supabase.from('wallet_transactions').insert({
+          user_id: tenantProfId || cleanEmail,
+          email: cleanEmail,
+          amount: totalPayable,
+          type: 'DEBIT',
+          flw_ref: escrowRef,
+          narration: `Escrow Lock: ${propTitle} (${isRent ? '12 Months Tenancy' : 'Outright Purchase'})`,
+          created_at: now,
+        });
       } catch (e: any) {
         console.warn('[payRentEscrow] Supabase wallet balance debit warning:', e.message);
       }

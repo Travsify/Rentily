@@ -1689,12 +1689,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  SizedBox(
+                    SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
-                      onPressed: () {
+                      onPressed: () async {
                         final address = addressCtrl.text.trim();
                         final details = detailsCtrl.text.trim();
+                        final party = partyCtrl.text.trim();
+                        final amount = amountCtrl.text.trim();
                         if (address.isEmpty || details.isEmpty) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('Please provide the property address and incident details.'), backgroundColor: AppColors.error),
@@ -1703,8 +1705,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         }
 
                         Navigator.of(ctx).pop();
-                        final caseId = 'DISP-${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}';
 
+                        // Submit to live backend & Supabase Legal Desk
+                        final res = await ApiService.submitSupportTicket(
+                          userEmail: _currentUser?.email ?? 'user@myrentilly.com',
+                          userId: _currentUser?.id,
+                          userName: _currentUser?.fullName,
+                          businessName: _currentUser?.businessName,
+                          category: 'Legal Dispute / Arbitration',
+                          subject: '$disputeCategory — $propertyType at $address',
+                          message: 'Property: $address\nOpposing Party: ${party.isNotEmpty ? party : "Not specified"}\nDisputed Amount: ${amount.isNotEmpty ? "₦$amount" : "N/A"}\nDetails: $details\nEmergency Status: ${isEmergency ? "YES (24-Hour SLA)" : "Standard (48-Hour SLA)"}',
+                          urgency: isEmergency ? 'critical' : 'urgent',
+                        );
+
+                        final caseId = res['ticketId'] ?? 'DISP-${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}';
+
+                        if (!context.mounted) return;
                         showDialog(
                           context: context,
                           builder: (c) => AlertDialog(

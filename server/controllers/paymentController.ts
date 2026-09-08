@@ -2356,12 +2356,27 @@ export async function payBill(req: Request, res: Response) {
       return res.status(400).json({ error: 'Please specify a valid payment amount.' });
     }
 
-    // Auto-sync real inbound transactions from Flutterwave Cloud API
-    await syncFlutterwaveTransactionsForUser(cleanEmail);
-
-    // Check user true net balance from TransactionStore
-    const currentBal = TransactionStore.computeNetBalance(cleanEmail);
-    const memUser = await UserStore.findByEmail(cleanEmail);
+    // Check user true balance from Supabase profiles first, then fallback
+    let currentBal = 0;
+    let profUser: any = null;
+    if (supabase) {
+      try {
+        const { data: pData } = await supabase
+          .from('profiles')
+          .select('id, email, full_name, business_name, wallet_balance')
+          .eq('email', cleanEmail)
+          .maybeSingle();
+        if (pData) {
+          profUser = pData;
+          currentBal = Number(pData.wallet_balance || 0);
+        }
+      } catch (_) {}
+    }
+    if (currentBal <= 0) {
+      const storeBal = TransactionStore.computeNetBalance(cleanEmail);
+      const memUser = await UserStore.findByEmail(cleanEmail);
+      currentBal = Math.max(storeBal, Number(memUser?.walletBalance || 0));
+    }
 
     if (currentBal < numAmount) {
       return res.status(400).json({
@@ -2476,7 +2491,36 @@ export async function payBill(req: Request, res: Response) {
         }
       });
 
-      // Update UserStore and Supabase
+      // Update Supabase profiles and ledger
+      if (supabase) {
+        try {
+          if (profUser?.id) {
+            await supabase
+              .from('profiles')
+              .update({ wallet_balance: newBal, updated_at: new Date().toISOString() })
+              .eq('id', profUser.id);
+          } else {
+            await supabase
+              .from('profiles')
+              .update({ wallet_balance: newBal, updated_at: new Date().toISOString() })
+              .eq('email', cleanEmail);
+          }
+
+          await supabase.from('wallet_transactions').insert({
+            user_id: profUser?.id || cleanEmail,
+            email: cleanEmail,
+            amount: numAmount,
+            type: 'DEBIT',
+            flw_ref: txRef,
+            narration: `${title} (${customerNumber})`,
+            created_at: new Date().toISOString(),
+          });
+        } catch (sbErr: any) {
+          console.warn('[payBill] Supabase update warning:', sbErr.message);
+        }
+      }
+
+      // Update UserStore
       if (memUser) {
         await UserStore.upsertUserForced({
           ...memUser,

@@ -87,7 +87,7 @@ class _LandlordDigitalLeasesScreenState extends State<LandlordDigitalLeasesScree
                   ),
                   pw.BarcodeWidget(
                     barcode: pw.Barcode.qrCode(),
-                    data: 'https://myrentilly.com/verify/lease/${lease['id']}',
+                    data: 'https://api.myrentilly.com/verify/lease/${lease['id']}',
                     width: 44,
                     height: 44,
                   ),

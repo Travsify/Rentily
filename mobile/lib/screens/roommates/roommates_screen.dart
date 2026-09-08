@@ -12,6 +12,8 @@ import '../../services/roommate_service.dart';
 import '../../widgets/post_roommate_modal.dart';
 import '../../widgets/split_escrow_modal.dart';
 import '../../widgets/verification_modal.dart';
+import '../../services/direct_message_service.dart';
+import '../messages/direct_chat_detail_screen.dart';
 import '../messages/messages_screen.dart';
 
 class RoommatesScreen extends StatefulWidget {
@@ -81,53 +83,37 @@ class _RoommatesScreenState extends State<RoommatesScreen> {
       return;
     }
 
-    final threadId = 'THREAD_${post.id}_${_user!.id}';
-    final existingThread = {
-      'id': threadId,
-      'name': post.userName,
-      'avatar': post.userAvatar,
-      'propertyTitle': 'Co-Living (${post.splitCount}-Person Split): ${post.bedroomType}',
-      'time': 'Just now',
-      'lastMessage': 'Hi ${post.userName}, I saw your Split-the-Scroll request for ${post.bedroomType} and would like to connect!',
-      'unread': 0,
-      'messages': [
-        {
-          'sender': _user!.fullName.isNotEmpty ? _user!.fullName : 'Me',
-          'isMe': true,
-          'text': 'Hi ${post.userName}! I saw your verified ${post.splitCount}-person request on Split-the-Scroll for ${post.bedroomType} in ${post.location}. Are you still looking for a flatmate?',
-          'time': DateFormat('hh:mm a').format(DateTime.now()),
-        }
-      ],
-    };
+    try {
+      final convo = await DirectMessageService.createOrGetConversation(
+        tenantId: _user!.id,
+        tenantEmail: _user!.email,
+        tenantName: _user!.fullName.isNotEmpty ? _user!.fullName : _user!.email.split('@')[0],
+        ownerId: post.userId,
+        ownerName: post.userName,
+        ownerRole: 'renter',
+        propertyId: 'roommate_${post.id}',
+        propertyTitle: 'Co-Living (${post.splitCount}-Person Split): ${post.bedroomType}',
+        propertyAddress: post.location,
+      );
 
-    final prefs = await SharedPreferences.getInstance();
-    final saved = prefs.getString('rentilly_chat_threads');
-    List<Map<String, dynamic>> threads = [];
-    if (saved != null) {
-      try {
-        final List<dynamic> decoded = json.decode(saved);
-        threads = decoded.map((e) => Map<String, dynamic>.from(e)).toList();
-      } catch (_) {}
-    }
-
-    final idx = threads.indexWhere((t) => t['id'] == threadId);
-    if (idx >= 0) {
-      threads[idx] = existingThread;
-    } else {
-      threads.insert(0, existingThread);
-    }
-    await prefs.setString('rentilly_chat_threads', json.encode(threads));
-
-    if (!mounted) return;
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => ChatDetailScreen(
-          thread: existingThread,
-          currentUser: _user,
-          onMessageSent: (_) {},
+      if (!mounted) return;
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => DirectChatDetailScreen(
+            conversation: convo,
+            currentUser: _user!,
+          ),
         ),
-      ),
-    );
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not start chat. Please check your connection.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   void _openSplitEscrow(RoommatePost post) {

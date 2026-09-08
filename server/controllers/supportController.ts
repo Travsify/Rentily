@@ -1,5 +1,6 @@
 import type { Request, Response } from 'express';
 import { NotificationDispatcher } from '../services/notificationDispatcher';
+import { supabase } from '../supabaseClient';
 
 export interface SupportTicket {
   id: string;
@@ -43,6 +44,27 @@ export async function submitTicket(req: Request, res: Response) {
     };
 
     _tickets.unshift(newTicket);
+
+    // Save to Supabase support_conversations table if available
+    if (supabase) {
+      try {
+        await supabase.from('support_conversations').insert({
+          user_id: newTicket.userId,
+          user_email: newTicket.userEmail,
+          user_name: newTicket.userName,
+          user_role: newTicket.role,
+          subject: `[${newTicket.category.toUpperCase()}] ${newTicket.subject}`,
+          priority: newTicket.urgency === 'critical' ? 'critical' : (newTicket.urgency === 'urgent' ? 'urgent' : 'medium'),
+          status: 'open',
+          last_message: newTicket.message,
+          last_message_at: newTicket.createdAt,
+          unread_by_agent: 1,
+          unread_by_user: 0,
+        });
+      } catch (sbErr: any) {
+        console.warn('[submitTicket] Supabase save warning:', sbErr.message);
+      }
+    }
 
     // Dispatch confirmation to user
     NotificationDispatcher.dispatch({

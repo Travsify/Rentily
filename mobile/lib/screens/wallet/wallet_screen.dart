@@ -785,34 +785,27 @@ class _WalletScreenState extends State<WalletScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final String effectiveCurrency = ApiService.featureFlags.enableMultiCurrencyVault ? _selectedCurrency : 'NGN';
-    final String symbol = effectiveCurrency == 'USD' ? '\$' : effectiveCurrency == 'GBP' ? '£' : effectiveCurrency == 'EUR' ? '€' : '₦';
-    final double balance = effectiveCurrency == 'NGN' ? (_user?.walletBalance ?? 0.00) : 0.00;
-    final String bank = effectiveCurrency == 'USD' 
-        ? 'Lead Bank (USA)' 
-        : effectiveCurrency == 'GBP' 
-        ? 'ClearBank (UK)' 
-        : effectiveCurrency == 'EUR' 
-        ? 'Banque Internationale (EU)' 
-        : (_user?.bankName ?? '9PSB (Rentilly)');
-    final String? accNum = effectiveCurrency == 'NGN' ? _user?.accountNumber : null;
-    final String accountLabel = effectiveCurrency == 'USD' 
-        ? 'US CHECKING (ACH / ROUTING: 101000019)' 
-        : effectiveCurrency == 'GBP' 
-        ? 'UK ACCOUNT (SORT CODE: 04-00-04)' 
-        : effectiveCurrency == 'EUR' 
-        ? 'EUROPEAN IBAN (SEPA INSTANT)' 
-        : 'DEDICATED NUBAN ACCOUNT';
+    const String effectiveCurrency = 'NGN';
+    final String symbol = '₦';
+    final double balance = _user?.walletBalance ?? 0.00;
+    final String bank = _user?.bankName ?? '9PSB (Rentilly)';
+    final String? accNum = _user?.accountNumber;
+    const String accountLabel = 'DEDICATED NUBAN ACCOUNT';
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
       appBar: AppBar(
         title: Text(
           'Rentilly Living Wallet',
-          style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: AppColors.textPrimary,
+          ),
         ),
         backgroundColor: Colors.white,
         elevation: 0,
+        centerTitle: false,
         leading: Navigator.of(context).canPop()
             ? IconButton(
                 icon: const Icon(Icons.arrow_back_rounded, size: 22, color: AppColors.textPrimary),
@@ -834,6 +827,14 @@ class _WalletScreenState extends State<WalletScreen> {
               }
             },
           ),
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, size: 20, color: AppColors.textPrimary),
+            onPressed: () {
+              HapticFeedback.lightImpact();
+              _loadData();
+              _syncBalanceAndTransactionsSilently();
+            },
+          ),
         ],
       ),
       bottomNavigationBar: const RentillyBottomBar(currentIndex: 3),
@@ -847,8 +848,8 @@ class _WalletScreenState extends State<WalletScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Multi-Currency Vault Switcher Tabs (Only when Multi-Currency feature is enabled)
-              if (ApiService.featureFlags.enableMultiCurrencyVault) ...[
+              // Multi-Currency Vault Switcher Tabs (Hidden per spec)
+              if (false && ApiService.featureFlags.enableMultiCurrencyVault) ...[
                 CurrencySelectorWidget(
                   selectedCurrency: effectiveCurrency,
                   onCurrencySelected: (curr) {

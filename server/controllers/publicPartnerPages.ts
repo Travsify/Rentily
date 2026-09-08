@@ -1245,4 +1245,97 @@ export async function renderMandateVerificationPage(req: Request, res: Response)
   `);
 }
 
+export async function renderInspectionSafetyPage(req: Request, res: Response) {
+  const inspectionId = (req.params.id || req.query.id || '').toString().trim();
+
+  let insp: any = null;
+  if (supabase && inspectionId) {
+    try {
+      const { data } = await supabase
+        .from('inspections')
+        .select('*')
+        .eq('id', inspectionId)
+        .maybeSingle();
+      if (data) insp = data;
+    } catch (_) {}
+  }
+
+  const propTitle = insp?.property_title || insp?.propertyTitle || 'Rentilly Verified Property';
+  const propAddress = insp?.property_address || insp?.propertyAddress || 'Location on file';
+  const visitorName = insp?.prospect_name || insp?.prospectName || 'Verified Visitor';
+  const visitorPhone = insp?.prospect_phone || insp?.prospectPhone || 'On file';
+  const passCode = insp?.inspection_pass_code || insp?.inspectionPassCode || insp?.gate_pass || 'ACTIVE';
+  const scheduledDate = insp?.scheduled_date || insp?.scheduledDate || 'Scheduled';
+  const hostName = insp?.owner_name || insp?.ownerName || 'Verified Property Host';
+  const status = insp?.status || 'approved';
+
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Inspection Safety Verification | Rentilly Security</title>
+      <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+      <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; background: #030712; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 16px; }
+        .card { background: #0f172a; border: 1.5px solid #0284c7; border-radius: 24px; max-width: 500px; width: 100%; padding: 28px 24px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6); text-align: center; }
+        .live-ticker { background: rgba(2,132,199,0.15); border-bottom: 1px solid rgba(2,132,199,0.3); padding: 8px 12px; font-size: 10px; font-weight: 800; color: #38bdf8; letter-spacing: 0.5px; margin: -28px -24px 20px -24px; display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 24px 24px 0 0; }
+        .pulse-dot { width: 8px; height: 8px; border-radius: 50%; background: #0284c7; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { transform: scale(0.9); opacity: 0.8; } 50% { transform: scale(1.3); opacity: 1; } 100% { transform: scale(0.9); opacity: 0.8; } }
+        .badge-icon { width: 68px; height: 68px; background: rgba(2, 132, 199, 0.15); border: 2px solid #0284c7; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-size: 30px; }
+        h1 { font-size: 19px; font-weight: 900; color: #ffffff; margin-bottom: 3px; }
+        .sub { font-size: 10.5px; color: #38bdf8; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 18px; }
+        .gate-code-box { background: rgba(16, 185, 129, 0.12); border: 2px dashed #10b981; border-radius: 16px; padding: 14px; margin-bottom: 18px; }
+        .gate-code-lbl { font-size: 10px; font-weight: 800; color: #34d399; letter-spacing: 1px; text-transform: uppercase; }
+        .gate-code-val { font-size: 26px; font-weight: 900; color: #10b981; font-family: monospace; letter-spacing: 4px; margin-top: 2px; }
+        .info-box { background: #020617; border: 1px solid #1e293b; border-radius: 18px; padding: 18px; text-align: left; margin-bottom: 18px; }
+        .row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 12px; }
+        .row:last-child { margin-bottom: 0; }
+        .lbl { color: #94a3b8; font-weight: 600; }
+        .val { color: #f8fafc; font-weight: 800; }
+        .warning-box { background: rgba(220, 38, 38, 0.1); border: 1.2px solid #dc2626; border-radius: 14px; padding: 12px 14px; text-align: left; margin-bottom: 18px; }
+        .warning-title { font-size: 11px; font-weight: 900; color: #f87171; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+        .warning-text { font-size: 10px; color: #fca5a5; line-height: 1.45; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <div class="live-ticker">
+          <span class="pulse-dot"></span>
+          REAL-TIME INSPECTION SAFETY TRACKING • ${status.toUpperCase()}
+        </div>
+
+        <div class="badge-icon">🛡️</div>
+        <h1>SAFETY ITINERARY VERIFIED</h1>
+        <div class="sub">Rentilly Zero-Ghost Field Escort</div>
+
+        <div class="gate-code-box">
+          <div class="gate-code-lbl">ESTATE GATE PASS CODE</div>
+          <div class="gate-code-val">${passCode}</div>
+        </div>
+
+        <div class="info-box">
+          <div class="row"><span class="lbl">Property</span><span class="val" style="color: #38bdf8;">${propTitle}</span></div>
+          <div class="row"><span class="lbl">Address</span><span class="val">${propAddress}</span></div>
+          <div class="row"><span class="lbl">Scheduled Date</span><span class="val">${scheduledDate}</span></div>
+          <div class="row"><span class="lbl">Visitor Name</span><span class="val">${visitorName}</span></div>
+          <div class="row"><span class="lbl">Visitor Phone</span><span class="val">${visitorPhone}</span></div>
+          <div class="row"><span class="lbl">Accredited Host</span><span class="val" style="color: #4ade80;">${hostName}</span></div>
+          <div class="row"><span class="lbl">Verification ID</span><span class="val" style="font-family: monospace;">${inspectionId || 'LIVE'}</span></div>
+        </div>
+
+        <div class="warning-box">
+          <div class="warning-title">🚨 FIELD SAFETY PROTOCOL</div>
+          <p class="warning-text">
+            For personal safety, never enter any property without demanding that the host shows their matching Rentilly Digital ID card. All financial commitments and caution deposits must remain strictly within Rentilly Escrow.
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `);
+}
+
 

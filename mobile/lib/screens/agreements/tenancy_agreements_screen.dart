@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import '../../constants/app_colors.dart';
 import '../../services/auth_service.dart';
 import '../../services/api_service.dart';
@@ -53,16 +56,95 @@ class _TenancyAgreementsScreenState extends State<TenancyAgreementsScreen> {
     }
   }
 
-  void _downloadAgreement(Map<String, dynamic> agreement) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Downloading "${agreement['title']}" as PDF...',
-          style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: AppColors.primary,
-        behavior: SnackBarBehavior.floating,
+  void _downloadAgreement(Map<String, dynamic> agreement) async {
+    final doc = pw.Document();
+    final ref = agreement['ref'] ?? 'RENT-ESCROW';
+    final title = agreement['title'] ?? 'Tenancy Agreement';
+    final landlord = agreement['landlord'] ?? 'Verified Landlord';
+    final tenant = agreement['tenant'] ?? 'Tenant';
+    final rent = agreement['rent'] ?? '0.00';
+    final caution = agreement['caution'] ?? '0.00';
+    final address = agreement['address'] ?? 'Nigeria';
+    final startDate = agreement['startDate'] ?? '2026';
+
+    doc.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(36),
+        build: (pw.Context ctx) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text('RENTILLY DIGITAL LEASE AGREEMENT', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold)),
+                      pw.Text('Under the Tenancy Laws of the Federal Republic of Nigeria', style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
+                      pw.Text('Reference: $ref', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColors.green800)),
+                    ],
+                  ),
+                  pw.BarcodeWidget(
+                    barcode: pw.Barcode.qrCode(),
+                    data: 'https://api.myrentilly.com/verify/credential/$ref',
+                    width: 44,
+                    height: 44,
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 12),
+              pw.Divider(thickness: 1),
+              pw.SizedBox(height: 10),
+              pw.Text('PARTIES TO THIS AGREEMENT:', style: pw.TextStyle(fontSize: 10.5, fontWeight: pw.FontWeight.bold)),
+              pw.SizedBox(height: 4),
+              pw.Text('• LANDLORD / PROPERTY OWNER: $landlord', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+              pw.Text('• TENANT: $tenant', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+              pw.SizedBox(height: 12),
+              pw.Text('1. DEMISED PREMISES', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
+              pw.Text('The Landlord lets and the Tenant takes the property described as: $title situated at $address.', style: const pw.TextStyle(fontSize: 10, lineSpacing: 1.4)),
+              pw.SizedBox(height: 12),
+              pw.Text('2. FINANCIAL CONSIDERATION & ESCROW', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
+              pw.Text('• Agreed Annual Rent: NGN $rent (Escrow Secured)', style: const pw.TextStyle(fontSize: 10)),
+              pw.Text('• Caution Deposit (Held): NGN $caution (Refundable under Rentilly Protocol)', style: const pw.TextStyle(fontSize: 10)),
+              pw.Text('• Tenancy Term: 12 Calendar Months commencing from $startDate', style: const pw.TextStyle(fontSize: 10)),
+              pw.SizedBox(height: 12),
+              pw.Text('3. STATUTORY COVENANTS', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
+              pw.Text('All payments are audited and secured through the Rentilly Escrow System. Disputes are subject to the Arbitration & Mediation Act 2023.', style: const pw.TextStyle(fontSize: 10, lineSpacing: 1.4)),
+              pw.Spacer(),
+              pw.Divider(thickness: 1),
+              pw.SizedBox(height: 8),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text('Digitally Executed by Landlord:', style: const pw.TextStyle(fontSize: 9)),
+                      pw.Text(landlord, style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                      pw.Text('Status: Certified & Bound', style: const pw.TextStyle(fontSize: 8, color: PdfColors.green800)),
+                    ],
+                  ),
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text('Digitally Executed by Tenant:', style: const pw.TextStyle(fontSize: 9)),
+                      pw.Text(tenant, style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                      pw.Text('Escrow Ref: $ref', style: const pw.TextStyle(fontSize: 8, color: PdfColors.blue800)),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
       ),
+    );
+
+    await Printing.sharePdf(
+      bytes: await doc.save(),
+      filename: 'Rentilly-Lease-$ref.pdf',
     );
   }
 
