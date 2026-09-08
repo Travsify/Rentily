@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../constants/app_colors.dart';
 import '../../services/auth_service.dart';
 import '../../services/api_service.dart';
@@ -17,6 +19,7 @@ class TenancyAgreementsScreen extends StatefulWidget {
 
 class _TenancyAgreementsScreenState extends State<TenancyAgreementsScreen> {
   final List<Map<String, dynamic>> _userAgreements = [];
+  final List<Map<String, dynamic>> _userDispatches = [];
   bool _isLoading = false;
 
   @override
@@ -30,9 +33,12 @@ class _TenancyAgreementsScreenState extends State<TenancyAgreementsScreen> {
     try {
       final user = await AuthService.getCurrentUser();
       final list = await ApiService.fetchLegalAgreements(email: user?.email);
+      final dispatches = await ApiService.fetchLegalDispatches(email: user?.email);
       if (mounted) {
         setState(() {
           _userAgreements.clear();
+          _userDispatches.clear();
+          _userDispatches.addAll(dispatches);
           for (final item in list) {
             _userAgreements.add({
               'id': item['id'],
@@ -238,6 +244,339 @@ class _TenancyAgreementsScreenState extends State<TenancyAgreementsScreen> {
     );
   }
 
+  void _confirmReceipt(Map<String, dynamic> dispatch) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Text(
+          'Confirm Document Receipt',
+          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 15),
+        ),
+        content: Text(
+          'Do you confirm that you have physically received your original, stamped, and sealed legal agreements for ${dispatch['propertyTitle'] ?? 'this property'} via ${dispatch['courierPartner'] ?? 'Courier'}?',
+          style: GoogleFonts.plusJakartaSans(fontSize: 12, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: AppColors.textSecondary, fontWeight: FontWeight.bold)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF16A34A),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: Text('Yes, Received', style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      final res = await ApiService.confirmLegalDispatchReceipt(dispatch['id']);
+      if (res['success'] == true) {
+        if (mounted) {
+          setState(() {
+            dispatch['recipientConfirmed'] = true;
+            dispatch['status'] = 'delivered';
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              backgroundColor: Color(0xFF16A34A),
+              content: Text('✓ Document receipt confirmed! Updated in Rentilly Legal Ledger.'),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  void _showDeliveryTrackerModal(Map<String, dynamic> dispatch) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          final courier = dispatch['courierPartner'] ?? 'GIG Logistics';
+          final waybill = dispatch['waybillNumber'] ?? '';
+          final status = dispatch['status'] ?? 'drafting';
+          final isDiaspora = dispatch['isDiaspora'] == true;
+          final docusign = dispatch['docusignStatus'] ?? 'not_applicable';
+          final isConfirmed = dispatch['recipientConfirmed'] == true;
+
+          int currentStep = 0;
+          if (status == 'delivered' || isConfirmed) {
+            currentStep = 4;
+          } else if (status == 'in_transit' || status == 'dispatched') {
+            currentStep = 3;
+          } else if (status == 'stamped_and_sealed') {
+            currentStep = 2;
+          } else if (status == 'signed' || docusign == 'signed' || docusign == 'completed') {
+            currentStep = 1;
+          } else {
+            currentStep = 0;
+          }
+
+          return Container(
+            padding: const EdgeInsets.fromLTRB(22, 16, 22, 32),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 44,
+                    height: 4.5,
+                    decoration: BoxDecoration(
+                      color: AppColors.borderDark,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: isDiaspora ? const Color(0xFFFAF5FF) : const Color(0xFFECFDF5),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: isDiaspora ? const Color(0xFFC084FC) : const Color(0xFF86EFAC)),
+                          ),
+                          child: Icon(
+                            isDiaspora ? Icons.public_rounded : Icons.local_shipping_rounded,
+                            size: 20,
+                            color: isDiaspora ? const Color(0xFF7E22CE) : const Color(0xFF16A34A),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              isDiaspora ? 'Diaspora Courier Conveyance' : 'Domestic Courier Conveyance',
+                              style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                            ),
+                            Text(
+                              courier,
+                              style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, size: 20, color: AppColors.textMuted),
+                      onPressed: () => Navigator.of(ctx).pop(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                // Waybill & Info Box
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.borderDark),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('WAYBILL / TRACKING REF', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, color: AppColors.textMuted)),
+                              const SizedBox(height: 2),
+                              Text(
+                                waybill.isEmpty ? 'Pending Courier Assignment' : waybill,
+                                style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.w900, color: AppColors.textPrimary, letterSpacing: 0.5),
+                              ),
+                            ],
+                          ),
+                          if (waybill.isNotEmpty)
+                            Row(
+                              children: [
+                                IconButton(
+                                  tooltip: 'Copy Waybill',
+                                  icon: const Icon(Icons.copy_rounded, size: 16, color: AppColors.primary),
+                                  onPressed: () {
+                                    Clipboard.setData(ClipboardData(text: waybill));
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Waybill number copied to clipboard!')),
+                                    );
+                                  },
+                                ),
+                                IconButton(
+                                  tooltip: 'Share Tracking',
+                                  icon: const Icon(Icons.share_rounded, size: 16, color: AppColors.primary),
+                                  onPressed: () {
+                                    Share.share(
+                                      '📦 RENTILLY LEGAL DOSSIER SHIPMENT TRACKING\n\n'
+                                      'Property: ${dispatch['propertyTitle']}\n'
+                                      'Courier: $courier\n'
+                                      'Waybill: $waybill\n'
+                                      'Tracking Link: ${dispatch['trackingUrl'] ?? ''}',
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                      const Divider(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Destination:', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+                          Text(
+                            '${dispatch['deliveryCity'] ?? ''}, ${dispatch['deliveryCountry'] ?? 'Nigeria'}',
+                            style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                          ),
+                        ],
+                      ),
+                      if (docusign != 'not_applicable') ...[
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('DocuSign Digital Lock:', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFAF5FF),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: const Color(0xFFC084FC)),
+                              ),
+                              child: Text(
+                                docusign == 'signed' || docusign == 'completed' ? '✓ Digitally Executed' : 'Envelope Sent',
+                                style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.bold, color: const Color(0xFF7E22CE)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text('LEGAL CONVEYANCE PROGRESS', style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w800, color: AppColors.textMuted, letterSpacing: 0.8)),
+                const SizedBox(height: 10),
+                // 5-step Stepper
+                _buildTrackingStep(1, 'Prepared & Vetted by Legal', 'Lease & title covenants customized for property jurisdiction', currentStep >= 0),
+                _buildTrackingStep(2, 'Digital Execution', isDiaspora ? 'DocuSign envelope executed across borders' : 'Landlord counter-signature registered', currentStep >= 1),
+                _buildTrackingStep(3, 'Corporate Seal & Stamped', 'Physical hard copy embossed with Rentilly Corporate Seal', currentStep >= 2),
+                _buildTrackingStep(4, 'Dispatched & In Transit', 'Handed over to $courier with door-to-door waybill', currentStep >= 3),
+                _buildTrackingStep(5, 'Delivered & Received', isConfirmed ? 'Confirmed received by recipient' : 'Awaiting physical delivery confirmation', currentStep >= 4, isLast: true),
+                const SizedBox(height: 20),
+                // Action Button
+                if (!isConfirmed)
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.of(ctx).pop();
+                        _confirmReceipt(dispatch);
+                      },
+                      icon: const Icon(Icons.check_circle_rounded, size: 16, color: Colors.white),
+                      label: Text('I Have Received My Hard Copy Agreement', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF16A34A),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
+                    ),
+                  )
+                else
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFECFDF5),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFF86EFAC)),
+                    ),
+                    child: Center(
+                      child: Text(
+                        '✓ Physical Document Receipt Confirmed & Ledgered',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold, color: const Color(0xFF16A34A)),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildTrackingStep(int stepNum, String title, String subtitle, bool isCompleted, {bool isLast = false}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Column(
+          children: [
+            Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                color: isCompleted ? const Color(0xFF16A34A) : const Color(0xFFE2E8F0),
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: isCompleted
+                    ? const Icon(Icons.check_rounded, size: 13, color: Colors.white)
+                    : Text('$stepNum', style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+              ),
+            ),
+            if (!isLast)
+              Container(
+                width: 2,
+                height: 26,
+                color: isCompleted ? const Color(0xFF86EFAC) : const Color(0xFFE2E8F0),
+              ),
+          ],
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    fontWeight: isCompleted ? FontWeight.bold : FontWeight.w600,
+                    color: isCompleted ? AppColors.textPrimary : AppColors.textSecondary,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textMuted),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -338,6 +677,10 @@ class _TenancyAgreementsScreenState extends State<TenancyAgreementsScreen> {
       itemCount: _userAgreements.length,
       itemBuilder: (context, index) {
         final agreement = _userAgreements[index];
+        final matchingDispatch = _userDispatches.firstWhere(
+          (d) => d['agreementId'] == agreement['id'] || (d['propertyTitle'] ?? '').toString().toLowerCase() == (agreement['title'] ?? '').toString().toLowerCase(),
+          orElse: () => _userDispatches.isNotEmpty ? _userDispatches.first : <String, dynamic>{},
+        );
         return Container(
           margin: const EdgeInsets.only(bottom: 14),
           padding: const EdgeInsets.all(16),
@@ -401,6 +744,59 @@ class _TenancyAgreementsScreenState extends State<TenancyAgreementsScreen> {
                   color: AppColors.textSecondary,
                 ),
               ),
+              // Physical Hard Copy Courier Dispatch Section
+              if (matchingDispatch.isNotEmpty) ...[
+                Container(
+                  margin: const EdgeInsets.only(top: 10, bottom: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.borderDark),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Row(
+                          children: [
+                            Icon(
+                              matchingDispatch['isDiaspora'] == true ? Icons.public_rounded : Icons.local_shipping_outlined,
+                              size: 15,
+                              color: AppColors.primary,
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                '${matchingDispatch['courierPartner'] ?? 'Courier'} • ${((matchingDispatch['status'] ?? 'drafting') as String).toUpperCase().replaceAll('_', ' ')}',
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      InkWell(
+                        onTap: () => _showDeliveryTrackerModal(matchingDispatch),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                'Track 📦',
+                                style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppColors.primary),
+                              ),
+                              const Icon(Icons.arrow_forward_ios_rounded, size: 9, color: AppColors.primary),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const Divider(height: 20),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,

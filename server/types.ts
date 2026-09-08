@@ -199,3 +199,32 @@ export interface LegalAgreement {
   signedByOwnerAt?: string;
   updatedAt?: string;
 }
+
+export interface LegalDispatch {
+  id: string;
+  agreementId: string;
+  propertyTitle: string;
+  propertyAddress: string;
+  recipientName: string;
+  recipientEmail: string;
+  recipientPhone: string;
+  deliveryAddress: string;
+  deliveryCity: string;
+  deliveryState: string;
+  deliveryCountry: string;
+  isDiaspora: boolean;
+  docusignStatus: 'not_applicable' | 'sent' | 'signed' | 'completed';
+  docusignEnvelopeUrl?: string;
+  courierPartner: 'DHL Express' | 'FedEx' | 'GIG Logistics' | 'Red Star Express' | 'UPS' | 'Internal Dispatch';
+  waybillNumber: string;
+  trackingUrl: string;
+  status: 'drafting' | 'docusign_pending' | 'signed' | 'stamped_and_sealed' | 'dispatched' | 'in_transit' | 'delivered';
+  estimatedDeliveryDate: string;
+  dispatchedAt?: string;
+  deliveredAt?: string;
+  recipientConfirmed: boolean;
+  recipientConfirmedAt?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}

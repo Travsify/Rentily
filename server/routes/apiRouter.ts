@@ -216,9 +216,13 @@ apiRouter.post('/escrow/pay', escrowController.payRentEscrow);
 apiRouter.get('/escrow/landlord-summary', escrowController.getLandlordEscrowSummary);
 apiRouter.post('/escrow/claims', escrowController.submitEscrowClaim);
 
-// 11. Legal Agreements
+// 11. Legal Agreements & Physical Conveyance Dispatches
 apiRouter.get('/legal/agreements', legalController.getLegalAgreements);
 apiRouter.post('/legal/generate-agreement', legalController.generateAgreement);
+apiRouter.get('/legal/dispatches', legalController.getDispatches);
+apiRouter.post('/legal/dispatches', legalController.createOrUpdateDispatch);
+apiRouter.patch('/legal/dispatches/:id', legalController.createOrUpdateDispatch);
+apiRouter.post('/legal/dispatches/:id/confirm-receipt', legalController.confirmDispatchReceipt);
 
 // 12. Partner & User Support / Dispute Tickets (legacy one-way tickets)
 apiRouter.post('/support/tickets', supportController.submitTicket);

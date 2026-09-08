@@ -600,6 +600,38 @@ class ApiService {
     return [];
   }
 
+  /// Fetches physical courier & DocuSign dispatches for a user or agreement
+  static Future<List<Map<String, dynamic>>> fetchLegalDispatches({String? email, String? agreementId}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/legal/dispatches').replace(
+        queryParameters: {
+          if (email != null && email.isNotEmpty) 'email': email.trim(),
+          if (agreementId != null && agreementId.isNotEmpty) 'agreementId': agreementId.trim(),
+        },
+      );
+      final response = await http.get(uri).timeout(const Duration(seconds: 8));
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return List<Map<String, dynamic>>.from(data);
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  /// Confirms that tenant/buyer has received the physical hard copy documents
+  static Future<Map<String, dynamic>> confirmLegalDispatchReceipt(String dispatchId) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/legal/dispatches/$dispatchId/confirm-receipt'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      }
+    } catch (_) {}
+    return {'success': false};
+  }
+
   /// Submits formal support inquiry or arbitration dispute to Legal Desk
   static Future<Map<String, dynamic>> submitSupportTicket({
     required String userEmail,

@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { supabase } from '../supabaseClient';
-import type { LegalAgreement } from '../types';
+import type { LegalAgreement, LegalDispatch } from '../types';
 import { AdminDataStore } from '../services/adminDataStore';
 
 export async function getLegalAgreements(req: Request, res: Response) {
@@ -173,5 +173,242 @@ export async function generateAgreement(req: Request, res: Response) {
     res.status(201).json({ agreement: newAgreement, agreementTitle });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
+  }
+}
+
+// --- Legal Conveyance & Courier Dispatch Desk ---
+
+let _inMemoryDispatches: LegalDispatch[] = [
+  {
+    id: 'dsp_default_01',
+    agreementId: 'legal_default_01',
+    propertyTitle: '3-Bedroom Luxury Terrace — Lekki Phase 1, Lagos',
+    propertyAddress: '14 Admiralty Way, Lekki Phase 1, Lagos State',
+    recipientName: 'Patrick Achua',
+    recipientEmail: 'patrickachua3@gmail.com',
+    recipientPhone: '+2348031234567',
+    deliveryAddress: 'Plot 12, Block 4B, Admiralty Way, Lekki Phase 1',
+    deliveryCity: 'Lekki',
+    deliveryState: 'Lagos',
+    deliveryCountry: 'Nigeria',
+    isDiaspora: false,
+    docusignStatus: 'not_applicable',
+    courierPartner: 'GIG Logistics',
+    waybillNumber: 'GIG-983210452',
+    trackingUrl: 'https://giglogistics.com/tracking/?track_id=GIG-983210452',
+    status: 'in_transit',
+    estimatedDeliveryDate: '2-3 Business Days',
+    dispatchedAt: new Date(Date.now() - 86400000).toISOString(),
+    recipientConfirmed: false,
+    notes: 'Hard copy Tenancy Agreement with Corporate Seal & Caution Deposit Escrow Rider.',
+    createdAt: new Date(Date.now() - 86400000).toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'dsp_default_02',
+    agreementId: 'legal_default_02',
+    propertyTitle: '4-Bedroom Detached Duplex with BQ — Guzape, Abuja',
+    propertyAddress: 'Guzape Hills District, Abuja FCT',
+    recipientName: 'Chidi Okafor',
+    recipientEmail: 'chidi.okafor@ukinvest.co.uk',
+    recipientPhone: '+447911123456',
+    deliveryAddress: '22 Canary Wharf Way, London E14 5AB',
+    deliveryCity: 'London',
+    deliveryState: 'Greater London',
+    deliveryCountry: 'United Kingdom',
+    isDiaspora: true,
+    docusignStatus: 'signed',
+    docusignEnvelopeUrl: 'https://app.docusign.com/documents/details/94a82-live',
+    courierPartner: 'DHL Express',
+    waybillNumber: 'DHL-4920194829',
+    trackingUrl: 'https://www.dhl.com/en/express/tracking.html?AWB=DHL-4920194829&brand=DHL',
+    status: 'dispatched',
+    estimatedDeliveryDate: '3-5 Business Days',
+    dispatchedAt: new Date().toISOString(),
+    recipientConfirmed: false,
+    notes: 'Contract of Sale executed via DocuSign; original wet-ink counterpart dispatched to London via DHL Express.',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }
+];
+
+export function generateCourierTrackingUrl(courier: string, waybill: string): string {
+  if (!waybill) return '';
+  const clean = waybill.trim();
+  switch (courier) {
+    case 'DHL Express':
+      return `https://www.dhl.com/en/express/tracking.html?AWB=${encodeURIComponent(clean)}&brand=DHL`;
+    case 'FedEx':
+      return `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(clean)}`;
+    case 'GIG Logistics':
+      return `https://giglogistics.com/tracking/?track_id=${encodeURIComponent(clean)}`;
+    case 'UPS':
+      return `https://www.ups.com/track?tracknum=${encodeURIComponent(clean)}`;
+    case 'Red Star Express':
+      return `https://redstarplc.com/track/?waybill=${encodeURIComponent(clean)}`;
+    default:
+      return `https://www.google.com/search?q=${encodeURIComponent(`${courier} tracking ${clean}`)}`;
+  }
+}
+
+export async function getDispatches(req: Request, res: Response) {
+  try {
+    const { email, agreementId } = req.query;
+    const cleanEmail = email ? String(email).toLowerCase().trim() : '';
+    let list: LegalDispatch[] = [..._inMemoryDispatches];
+
+    // Try sync with Supabase
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('system_configs')
+          .select('data')
+          .eq('id', 'global_courier_dispatches')
+          .single();
+        if (!error && data?.data && Array.isArray(data.data)) {
+          const cloudList: LegalDispatch[] = data.data;
+          const map = new Map<string, LegalDispatch>();
+          list.forEach(item => map.set(item.id, item));
+          cloudList.forEach(item => map.set(item.id, item));
+          list = Array.from(map.values());
+          _inMemoryDispatches = list;
+        }
+      } catch (_) {}
+    }
+
+    if (agreementId) {
+      list = list.filter(d => d.agreementId === agreementId);
+    } else if (cleanEmail) {
+      list = list.filter(d => 
+        (d.recipientEmail || '').toLowerCase() === cleanEmail ||
+        (d.recipientName || '').toLowerCase().includes(cleanEmail)
+      );
+    }
+
+    // Sort newest first
+    list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    return res.json(list);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+
+export async function createOrUpdateDispatch(req: Request, res: Response) {
+  try {
+    const {
+      id,
+      agreementId,
+      propertyTitle,
+      propertyAddress,
+      recipientName,
+      recipientEmail,
+      recipientPhone,
+      deliveryAddress,
+      deliveryCity,
+      deliveryState,
+      deliveryCountry = 'Nigeria',
+      isDiaspora,
+      docusignStatus = 'not_applicable',
+      docusignEnvelopeUrl,
+      courierPartner = 'GIG Logistics',
+      waybillNumber,
+      status = 'drafting',
+      estimatedDeliveryDate = '3-5 Business Days',
+      notes,
+    } = req.body;
+
+    const dispatchId = id || `dsp_${Date.now()}`;
+    const trackingUrl = generateCourierTrackingUrl(courierPartner, waybillNumber || '');
+    const now = new Date().toISOString();
+
+    const existingIndex = _inMemoryDispatches.findIndex(d => d.id === dispatchId);
+    const existing = existingIndex >= 0 ? _inMemoryDispatches[existingIndex] : null;
+
+    const dispatchRecord: LegalDispatch = {
+      id: dispatchId,
+      agreementId: agreementId || existing?.agreementId || 'legal_general',
+      propertyTitle: propertyTitle || existing?.propertyTitle || 'Rentilly Property',
+      propertyAddress: propertyAddress || existing?.propertyAddress || '',
+      recipientName: recipientName || existing?.recipientName || 'Buyer/Tenant',
+      recipientEmail: (recipientEmail || existing?.recipientEmail || '').toLowerCase().trim(),
+      recipientPhone: recipientPhone || existing?.recipientPhone || '',
+      deliveryAddress: deliveryAddress || existing?.deliveryAddress || '',
+      deliveryCity: deliveryCity || existing?.deliveryCity || '',
+      deliveryState: deliveryState || existing?.deliveryState || 'Lagos',
+      deliveryCountry: deliveryCountry || existing?.deliveryCountry || 'Nigeria',
+      isDiaspora: isDiaspora !== undefined ? Boolean(isDiaspora) : (deliveryCountry.toLowerCase() !== 'nigeria'),
+      docusignStatus: docusignStatus || existing?.docusignStatus || 'not_applicable',
+      docusignEnvelopeUrl: docusignEnvelopeUrl || existing?.docusignEnvelopeUrl,
+      courierPartner: courierPartner || existing?.courierPartner || 'GIG Logistics',
+      waybillNumber: waybillNumber || existing?.waybillNumber || '',
+      trackingUrl: trackingUrl || existing?.trackingUrl || '',
+      status: status || existing?.status || 'drafting',
+      estimatedDeliveryDate: estimatedDeliveryDate || existing?.estimatedDeliveryDate || '3-5 Business Days',
+      dispatchedAt: (status === 'dispatched' || status === 'in_transit') && !existing?.dispatchedAt ? now : existing?.dispatchedAt,
+      deliveredAt: status === 'delivered' && !existing?.deliveredAt ? now : existing?.deliveredAt,
+      recipientConfirmed: existing?.recipientConfirmed || false,
+      recipientConfirmedAt: existing?.recipientConfirmedAt,
+      notes: notes !== undefined ? notes : existing?.notes,
+      createdAt: existing?.createdAt || now,
+      updatedAt: now,
+    };
+
+    if (existingIndex >= 0) {
+      _inMemoryDispatches[existingIndex] = dispatchRecord;
+    } else {
+      _inMemoryDispatches.unshift(dispatchRecord);
+    }
+
+    // Persist to Supabase system_configs
+    if (supabase) {
+      try {
+        await supabase
+          .from('system_configs')
+          .upsert({
+            id: 'global_courier_dispatches',
+            data: _inMemoryDispatches,
+            updated_at: now,
+          }, { onConflict: 'id' });
+      } catch (_) {}
+    }
+
+    return res.status(201).json({ success: true, dispatch: dispatchRecord });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+
+export async function confirmDispatchReceipt(req: Request, res: Response) {
+  try {
+    const { id } = req.params;
+    const now = new Date().toISOString();
+    const item = _inMemoryDispatches.find(d => d.id === id);
+
+    if (!item) {
+      return res.status(404).json({ error: 'Dispatch record not found' });
+    }
+
+    item.recipientConfirmed = true;
+    item.recipientConfirmedAt = now;
+    item.status = 'delivered';
+    item.deliveredAt = item.deliveredAt || now;
+    item.updatedAt = now;
+
+    if (supabase) {
+      try {
+        await supabase
+          .from('system_configs')
+          .upsert({
+            id: 'global_courier_dispatches',
+            data: _inMemoryDispatches,
+            updated_at: now,
+          }, { onConflict: 'id' });
+      } catch (_) {}
+    }
+
+    return res.json({ success: true, message: 'Receipt of physical legal documents confirmed', dispatch: item });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
 }
