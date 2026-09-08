@@ -7,7 +7,7 @@ import '../services/api_service.dart';
 import '../services/direct_message_service.dart';
 import '../screens/inspections/inspections_screen.dart';
 import '../screens/messages/direct_chat_detail_screen.dart';
-import 'partner_landlord_onboard_modal.dart';
+import 'partner_legal_modal.dart';
 
 class PartnerLeadPipelineModal extends StatefulWidget {
   final UserProfile user;
@@ -456,11 +456,11 @@ class _PartnerLeadPipelineModalState extends State<PartnerLeadPipelineModal> {
             ElevatedButton.icon(
               onPressed: () {
                 Navigator.of(context).pop();
-                PartnerLandlordOnboardModal.show(context, user: widget.user);
+                PartnerLegalModal.generateMandateAgreementPdf(context);
               },
-              icon: const Icon(Icons.share_rounded, size: 16, color: Colors.white),
+              icon: const Icon(Icons.picture_as_pdf_rounded, size: 16, color: Colors.white),
               label: Text(
-                'Share Mandate Invite Link',
+                'Generate Mandate Agreement (PDF)',
                 style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
               ),
               style: ElevatedButton.styleFrom(

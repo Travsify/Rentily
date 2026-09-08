@@ -8,6 +8,16 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+      // Automatically redirect verification, gate, and invite URLs to live Express backend API
+      if (window.location.pathname.startsWith('/verify') || 
+          window.location.pathname.startsWith('/invite') || 
+          window.location.pathname.startsWith('/gate') || 
+          window.location.pathname.startsWith('/re-verify') ||
+          window.location.pathname.startsWith('/safety')) {
+        window.location.replace('https://api.myrentilly.com' + window.location.pathname + window.location.search);
+      }
+    </script>
   </head>
   <body class="bg-slate-950 text-slate-100 antialiased">
     <div id="root"></div>

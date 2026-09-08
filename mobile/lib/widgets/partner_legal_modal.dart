@@ -5,10 +5,13 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import '../constants/app_colors.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
 import '../services/api_service.dart';
+import '../utils/id_utils.dart';
 
 class PartnerLegalModal extends StatelessWidget {
   final String title;
@@ -228,6 +231,50 @@ class PartnerLegalModal extends StatelessWidget {
     );
   }
 
+  static pw.Widget _buildMandateWatermark(String firmName, String cac) {
+    final cleanFirm = firmName.replaceAll(RegExp(r'[^a-zA-Z0-9 ]'), '').toUpperCase();
+    final watermarkText = 'RENTILLY ACCREDITED PARTNER • $cleanFirm • $cac';
+    return pw.FullPage(
+      ignoreMargins: true,
+      child: pw.Center(
+        child: pw.Transform.rotate(
+          angle: -pi / 5,
+          child: pw.Column(
+            mainAxisSize: pw.MainAxisSize.min,
+            crossAxisAlignment: pw.CrossAxisAlignment.center,
+            children: List.generate(14, (rowIndex) {
+              final isOffset = rowIndex % 2 == 1;
+              return pw.Padding(
+                padding: const pw.EdgeInsets.symmetric(vertical: 24),
+                child: pw.Row(
+                  mainAxisSize: pw.MainAxisSize.min,
+                  mainAxisAlignment: pw.MainAxisAlignment.center,
+                  children: [
+                    if (isOffset) pw.SizedBox(width: 40),
+                    ...List.generate(3, (colIndex) {
+                      return pw.Padding(
+                        padding: const pw.EdgeInsets.symmetric(horizontal: 20),
+                        child: pw.Text(
+                          watermarkText,
+                          style: pw.TextStyle(
+                            fontSize: 7.0,
+                            fontWeight: pw.FontWeight.bold,
+                            letterSpacing: 2.2,
+                            color: const PdfColor(0.93, 0.95, 0.97),
+                          ),
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              );
+            }),
+          ),
+        ),
+      ),
+    );
+  }
+
   static Future<void> generateMandateAgreementPdf(BuildContext context) async {
     final user = await AuthService.getCurrentUser();
     if (user == null) return;
@@ -235,12 +282,21 @@ class PartnerLegalModal extends StatelessWidget {
     final firmName = (user.businessName != null && user.businessName!.trim().isNotEmpty)
         ? user.businessName!.trim()
         : (user.fullName.trim().isNotEmpty ? user.fullName.trim() : 'Accredited Partner Firm');
-    final cacNumber = user.cacNumber ?? 'CAC Registered Entity';
+    final cacNumber = (user.cacNumber != null && user.cacNumber!.trim().isNotEmpty)
+        ? user.cacNumber!.trim()
+        : 'CAC Registered Entity';
     final repName = user.fullName.isNotEmpty ? user.fullName : 'Principal Partner';
     final repPhone = user.phoneNumber;
     final repEmail = user.email;
     final state = user.state ?? 'Lagos';
     final lasrera = user.lasreraNumber ?? 'Accredited Partner';
+
+    final partnerCode = IdUtils.formatOpsId(user.id, isPartner: true);
+    final timestamp = DateTime.now().millisecondsSinceEpoch.toString().substring(7);
+    final mandateRef = 'RNT-MND-2026-$partnerCode-$timestamp';
+    final dataToHash = '$mandateRef|$firmName|$cacNumber|${user.id}|2.5%_2.0%_ESCROW';
+    final sha256Digest = sha256.convert(utf8.encode(dataToHash)).toString().toUpperCase();
+    final liveVerifyUrl = 'https://api.myrentilly.com/verify/mandate/$mandateRef?partner=${user.id}&hash=$sha256Digest';
 
     try {
       final doc = pw.Document();
@@ -248,76 +304,113 @@ class PartnerLegalModal extends StatelessWidget {
       doc.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
-          margin: const pw.EdgeInsets.all(32),
+          margin: const pw.EdgeInsets.symmetric(horizontal: 28, vertical: 22),
+          pageTheme: pw.PageTheme(
+            pageFormat: PdfPageFormat.a4,
+            margin: const pw.EdgeInsets.symmetric(horizontal: 28, vertical: 22),
+            buildBackground: (pw.Context ctx) => _buildMandateWatermark(firmName, cacNumber),
+          ),
           build: (pw.Context ctx) => [
+            // Top Header Bar with QR Code
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text('RENTILLY ESCROW NETWORK', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('064E3B'))),
-                    pw.Text('EXCLUSIVE PARTNER MANDATE AGREEMENT', style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('0F172A'))),
-                  ],
-                ),
-                pw.Container(
-                  padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: pw.BoxDecoration(
-                    color: PdfColor.fromHex('F0FDF4'),
-                    border: pw.Border.all(color: PdfColor.fromHex('16A34A')),
-                    borderRadius: pw.BorderRadius.circular(4),
+                pw.Expanded(
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text('RENTILLY ESCROW NETWORK', style: pw.TextStyle(fontSize: 15, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('064E3B'))),
+                      pw.Text('EXCLUSIVE PARTNER MANDATE AGREEMENT', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('0F172A'))),
+                      pw.SizedBox(height: 2),
+                      pw.Text('REF: $mandateRef', style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('047857'))),
+                    ],
                   ),
-                  child: pw.Text('LEGAL INSTRUMENT', style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('16A34A'))),
+                ),
+                pw.Row(
+                  children: [
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.end,
+                      children: [
+                        pw.Container(
+                          padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                          decoration: pw.BoxDecoration(
+                            color: PdfColor.fromHex('F0FDF4'),
+                            border: pw.Border.all(color: PdfColor.fromHex('16A34A')),
+                            borderRadius: pw.BorderRadius.circular(4),
+                          ),
+                          child: pw.Text('LEGAL INSTRUMENT', style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('16A34A'))),
+                        ),
+                        pw.SizedBox(height: 3),
+                        pw.Text('Scan to Audit Mandate ➔', style: const pw.TextStyle(fontSize: 6, color: PdfColors.grey700)),
+                      ],
+                    ),
+                    pw.SizedBox(width: 8),
+                    pw.Container(
+                      padding: const pw.EdgeInsets.all(3),
+                      decoration: pw.BoxDecoration(
+                        color: PdfColors.white,
+                        border: pw.Border.all(color: PdfColor.fromHex('CBD5E1')),
+                        borderRadius: pw.BorderRadius.circular(4),
+                      ),
+                      child: pw.BarcodeWidget(
+                        barcode: pw.Barcode.qrCode(),
+                        data: liveVerifyUrl,
+                        width: 38,
+                        height: 38,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
-            pw.SizedBox(height: 12),
+            pw.SizedBox(height: 8),
             pw.Divider(thickness: 1, color: PdfColor.fromHex('CBD5E1')),
-            pw.SizedBox(height: 12),
+            pw.SizedBox(height: 8),
 
-            pw.Text('THIS EXCLUSIVE PARTNER MANDATE AGREEMENT is entered into on this ${DateFormat('dd').format(DateTime.now())} day of ${DateFormat('MMMM, yyyy').format(DateTime.now())} by and between:', style: const pw.TextStyle(fontSize: 9)),
-            pw.SizedBox(height: 10),
-
-            pw.Container(
-              padding: const pw.EdgeInsets.all(10),
-              decoration: pw.BoxDecoration(
-                color: PdfColor.fromHex('F8FAFC'),
-                borderRadius: pw.BorderRadius.circular(8),
-                border: pw.Border.all(color: PdfColor.fromHex('CBD5E1')),
-              ),
-              child: pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Text('1. THE ACCREDITED PARTNER FIRM:', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('0F172A'))),
-                  pw.SizedBox(height: 3),
-                  pw.Text('Firm: $firmName (CAC: $cacNumber | Regulatory Reg: $lasrera)', style: const pw.TextStyle(fontSize: 8)),
-                  pw.Text('Principal Partner: $repName | Phone: $repPhone | Email: $repEmail', style: const pw.TextStyle(fontSize: 8)),
-                  pw.Text('Territory Jurisdiction: $state State, Federal Republic of Nigeria', style: const pw.TextStyle(fontSize: 8)),
-                ],
-              ),
-            ),
+            pw.Text('THIS EXCLUSIVE PARTNER MANDATE AGREEMENT is entered into on this ${DateFormat('dd').format(DateTime.now())} day of ${DateFormat('MMMM, yyyy').format(DateTime.now())} by and between:', style: const pw.TextStyle(fontSize: 8.5)),
             pw.SizedBox(height: 8),
 
             pw.Container(
               padding: const pw.EdgeInsets.all(9),
               decoration: pw.BoxDecoration(
                 color: PdfColor.fromHex('F8FAFC'),
-                borderRadius: pw.BorderRadius.circular(8),
+                borderRadius: pw.BorderRadius.circular(6),
+                border: pw.Border.all(color: PdfColor.fromHex('CBD5E1')),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text('1. THE ACCREDITED PARTNER FIRM:', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('0F172A'))),
+                  pw.SizedBox(height: 2),
+                  pw.Text('Firm: $firmName (CAC: $cacNumber | Regulatory Reg: $lasrera)', style: const pw.TextStyle(fontSize: 7.8)),
+                  pw.Text('Principal Partner: $repName | Phone: $repPhone | Email: $repEmail', style: const pw.TextStyle(fontSize: 7.8)),
+                  pw.Text('Territory Jurisdiction: $state State, Federal Republic of Nigeria', style: const pw.TextStyle(fontSize: 7.8)),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 6),
+
+            pw.Container(
+              padding: const pw.EdgeInsets.all(8),
+              decoration: pw.BoxDecoration(
+                color: PdfColor.fromHex('F8FAFC'),
+                borderRadius: pw.BorderRadius.circular(6),
                 border: pw.Border.all(color: PdfColor.fromHex('CBD5E1')),
               ),
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
                   pw.Text('2. PROPERTY OWNER & SUBJECT PREMISES VERIFICATION:', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('0F172A'))),
+                  pw.SizedBox(height: 2),
+                  pw.Text('Owner Full Legal Name: __________________________________________________', style: const pw.TextStyle(fontSize: 7.8)),
+                  pw.SizedBox(height: 2),
+                  pw.Text('Phone Number / Email: __________________________________________________', style: const pw.TextStyle(fontSize: 7.8)),
+                  pw.SizedBox(height: 2),
+                  pw.Text('Subject Property Address: __________________________________________', style: const pw.TextStyle(fontSize: 7.8)),
+                  pw.SizedBox(height: 2),
+                  pw.Text('LGA & State: _____________________________ Target Asking Price: NGN ____________________', style: const pw.TextStyle(fontSize: 7.8)),
                   pw.SizedBox(height: 3),
-                  pw.Text('Owner Full Legal Name: __________________________________________________', style: const pw.TextStyle(fontSize: 8)),
-                  pw.SizedBox(height: 2),
-                  pw.Text('Phone Number / Email: __________________________________________________', style: const pw.TextStyle(fontSize: 8)),
-                  pw.SizedBox(height: 2),
-                  pw.Text('Subject Property Address: __________________________________________', style: const pw.TextStyle(fontSize: 8)),
-                  pw.SizedBox(height: 2),
-                  pw.Text('LGA & State: _____________________________ Target Asking Price: NGN ____________________', style: const pw.TextStyle(fontSize: 8)),
-                  pw.SizedBox(height: 4),
                   pw.Container(
                     padding: const pw.EdgeInsets.all(5),
                     decoration: pw.BoxDecoration(
@@ -330,20 +423,20 @@ class PartnerLegalModal extends StatelessWidget {
                       children: [
                         pw.Text('MANDATORY PHYSICAL ADDRESS & UTILITY BILL ANNEXURE:', style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('1E40AF'))),
                         pw.SizedBox(height: 2),
-                        pw.Text('Electricity Disco: ___________________ | Meter / Account No: _____________________________', style: const pw.TextStyle(fontSize: 7.5)),
+                        pw.Text('Electricity Disco: ___________________ | Meter / Account No: _____________________________', style: const pw.TextStyle(fontSize: 7.2)),
                         pw.SizedBox(height: 1),
-                        pw.Text('[  ] Verified copy of recent Electricity Bill / Prepaid Token Receipt attached (Mandatory for Rentilly Listing Activation).', style: pw.TextStyle(fontSize: 7, color: PdfColor.fromHex('1E3A8A'))),
+                        pw.Text('[  ] Verified copy of recent Electricity Bill / Prepaid Token Receipt attached (Mandatory for Rentilly Listing Activation).', style: pw.TextStyle(fontSize: 6.8, color: PdfColor.fromHex('1E3A8A'))),
                       ],
                     ),
                   ),
                 ],
               ),
             ),
-            pw.SizedBox(height: 8),
+            pw.SizedBox(height: 6),
 
             // CRITICAL ESCROW SETTLEMENT & ANTI-FRAUD WARNING (BOLD RED)
             pw.Container(
-              padding: const pw.EdgeInsets.all(8),
+              padding: const pw.EdgeInsets.all(7),
               decoration: pw.BoxDecoration(
                 color: PdfColor.fromHex('FEF2F2'),
                 borderRadius: pw.BorderRadius.circular(6),
@@ -357,35 +450,35 @@ class PartnerLegalModal extends StatelessWidget {
                       pw.Text(
                         'CRITICAL ESCROW SETTLEMENT & ANTI-FRAUD NOTICE',
                         style: pw.TextStyle(
-                          fontSize: 8.5,
+                          fontSize: 8,
                           fontWeight: pw.FontWeight.bold,
                           color: PdfColor.fromHex('B91C1C'),
                         ),
                       ),
                     ],
                   ),
-                  pw.SizedBox(height: 3),
+                  pw.SizedBox(height: 2),
                   pw.Text(
                     '1. 100% ESCROW HOLD UNTIL MOVE-IN: All tenant rental payments and buyer consideration are locked securely in the Rentilly Non-Interest Escrow Vault. Funds remain in escrow and are NOT disbursed until the tenant has physically moved into the property and confirmed handover signoff.',
-                    style: pw.TextStyle(fontSize: 7.2, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('991B1B'), height: 1.2),
+                    style: pw.TextStyle(fontSize: 7, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('991B1B'), height: 1.2),
                   ),
                   pw.SizedBox(height: 2),
                   pw.Text(
                     '2. DIRECT OWNER SETTLEMENT ONLY: Net proceeds are settled exclusively into the verified Nigerian NUBAN bank account of the legitimate property owner upon successful move-in. No cash payments, third-party transfers, or partner proxy collections are permitted under any circumstances.',
-                    style: pw.TextStyle(fontSize: 7.2, color: PdfColor.fromHex('7F1D1D'), height: 1.2),
+                    style: pw.TextStyle(fontSize: 7, color: PdfColor.fromHex('7F1D1D'), height: 1.2),
                   ),
                   pw.SizedBox(height: 2),
                   pw.Text(
                     '3. CLIENT 100% REFUND & PARTNER BLACKLIST GUARANTEE: In the event of title contest, duplicate letting, unfulfilled physical handover, or inability of the tenant to take lawful possession, 100% of escrow funds are immediately refunded to the client, the listing is delisted, and the submitting partner is permanently blacklisted and referred for statutory prosecution under Nigerian law.',
-                    style: pw.TextStyle(fontSize: 7.2, color: PdfColor.fromHex('7F1D1D'), height: 1.2),
+                    style: pw.TextStyle(fontSize: 7, color: PdfColor.fromHex('7F1D1D'), height: 1.2),
                   ),
                 ],
               ),
             ),
-            pw.SizedBox(height: 8),
+            pw.SizedBox(height: 6),
 
-            pw.Text('OPERATIVE MANDATE COVENANTS:', style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('0F172A'))),
-            pw.SizedBox(height: 5),
+            pw.Text('OPERATIVE MANDATE COVENANTS:', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('0F172A'))),
+            pw.SizedBox(height: 4),
 
             _buildPdfTerm('1. Grant of Exclusive Mandate', 'The Owner grants the Partner the sole representation right to market, exhibit, and secure verified tenants/buyers for the Subject Property through the Rentilly Escrow Network.'),
             _buildPdfTerm('2. Guaranteed Escrow Remuneration (2.5% Rent / 2.0% Sales)', 'Upon execution of a valid lease or deed of sale, the Partner is entitled to standard remuneration of 2.5% of annual rent or 2.0% of purchase consideration, settled automatically via Rentilly Non-Interest Escrow Vault on handover.'),
@@ -393,7 +486,50 @@ class PartnerLegalModal extends StatelessWidget {
             _buildPdfTerm('4. Physical Due Diligence & Mandatory Utility Bill Annexure', 'The Partner undertakes to conduct an in-person physical inspection of the Subject Property and obtain a copy of the recent electricity utility bill/token receipt matching the physical address. Both this executed Mandate and the Utility Bill must be uploaded to the Rentilly Network prior to listing activation.'),
             _buildPdfTerm('5. Arbitration & Dispute Resolution', 'Any contest or disagreement under this contract shall be submitted to the Multi-Door Courthouse of the State High Court in the jurisdiction where the Subject Property is situated, or the Rentilly Legal Arbitration Desk under the Arbitration and Mediation Act, 2023.'),
 
-            pw.SizedBox(height: 18),
+            pw.SizedBox(height: 8),
+
+            // Cryptographic Security Audit Strip
+            pw.Container(
+              padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              decoration: pw.BoxDecoration(
+                color: PdfColor.fromHex('0F172A'),
+                borderRadius: pw.BorderRadius.circular(5),
+              ),
+              child: pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Expanded(
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text(
+                          'CRYPTOGRAPHIC SECURITY DIGEST (SHA-256 TAMPER AUDIT)',
+                          style: pw.TextStyle(fontSize: 6.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('34D399')),
+                        ),
+                        pw.SizedBox(height: 1),
+                        pw.Text(
+                          'DIGITAL FINGERPRINT: $sha256Digest',
+                          style: const pw.TextStyle(fontSize: 5.5, color: PdfColors.white),
+                        ),
+                        pw.Text(
+                          'VERIFICATION: $liveVerifyUrl',
+                          style: pw.TextStyle(fontSize: 5.5, color: PdfColor.fromHex('94A3B8')),
+                        ),
+                      ],
+                    ),
+                  ),
+                  pw.BarcodeWidget(
+                    barcode: pw.Barcode.code128(),
+                    data: mandateRef,
+                    width: 80,
+                    height: 16,
+                    drawText: false,
+                  ),
+                ],
+              ),
+            ),
+
+            pw.SizedBox(height: 12),
 
             pw.Row(
               mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
@@ -401,21 +537,21 @@ class PartnerLegalModal extends StatelessWidget {
                 pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    pw.Text('FOR THE PROPERTY OWNER:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
-                    pw.SizedBox(height: 20),
-                    pw.Text('Signature: ______________________', style: const pw.TextStyle(fontSize: 7.5)),
-                    pw.SizedBox(height: 3),
-                    pw.Text('Date: _________________________', style: const pw.TextStyle(fontSize: 7.5)),
+                    pw.Text('FOR THE PROPERTY OWNER:', style: pw.TextStyle(fontSize: 7.8, fontWeight: pw.FontWeight.bold)),
+                    pw.SizedBox(height: 18),
+                    pw.Text('Signature: ______________________', style: const pw.TextStyle(fontSize: 7.2)),
+                    pw.SizedBox(height: 2),
+                    pw.Text('Date: _________________________', style: const pw.TextStyle(fontSize: 7.2)),
                   ],
                 ),
                 pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    pw.Text('FOR THE ACCREDITED PARTNER FIRM:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
-                    pw.SizedBox(height: 20),
-                    pw.Text('Signature: ______________________', style: const pw.TextStyle(fontSize: 7.5)),
-                    pw.SizedBox(height: 3),
-                    pw.Text('Date: ${DateFormat('dd MMMM yyyy').format(DateTime.now())}', style: const pw.TextStyle(fontSize: 7.5)),
+                    pw.Text('FOR THE ACCREDITED PARTNER FIRM:', style: pw.TextStyle(fontSize: 7.8, fontWeight: pw.FontWeight.bold)),
+                    pw.SizedBox(height: 18),
+                    pw.Text('Signature: ______________________', style: const pw.TextStyle(fontSize: 7.2)),
+                    pw.SizedBox(height: 2),
+                    pw.Text('Date: ${DateFormat('dd MMMM yyyy').format(DateTime.now())}', style: const pw.TextStyle(fontSize: 7.2)),
                   ],
                 ),
               ],

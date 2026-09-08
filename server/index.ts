@@ -5,7 +5,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 import { apiRouter } from './routes/apiRouter';
-import { renderPartnerVerificationPage, renderLandlordInvitePage, renderReKycPage, renderGatePassPage, renderCredentialVerificationPage, handlePublicLandlordRegister } from './controllers/publicPartnerPages';
+import { renderPartnerVerificationPage, renderLandlordInvitePage, renderReKycPage, renderGatePassPage, renderCredentialVerificationPage, renderMandateVerificationPage, handlePublicLandlordRegister } from './controllers/publicPartnerPages';
 import { isSupabaseConfigured } from './supabaseClient';
 import { AutoReconciliationWorker } from './services/autoReconciliationWorker';
 import { MultiCurrencyService } from './services/multiCurrencyService';
@@ -64,9 +64,13 @@ const PORT = process.env.PORT || 4000;
 app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '10mb' }));
 
-// 1. Mount Public Partner Verification, Credential Audit & Gate Check-in Endpoints
+// 1. Mount Public Partner Verification, Credential Audit, Mandate & Gate Check-in Endpoints
+app.get('/verify/mandate/:id', renderMandateVerificationPage);
+app.get('/verify/mandate', renderMandateVerificationPage);
 app.get('/verify/partner', renderPartnerVerificationPage);
 app.get('/verify/partner/:id', renderPartnerVerificationPage);
+app.get('/verify-partner/:id', renderPartnerVerificationPage);
+app.get('/verify-partner', renderPartnerVerificationPage);
 app.get('/invite/landlord', renderLandlordInvitePage);
 app.post('/api/public/landlord-register', handlePublicLandlordRegister);
 app.get('/verify/rekyc', renderReKycPage);

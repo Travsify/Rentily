@@ -811,7 +811,9 @@ export async function verifyPublicCredential(req: Request, res: Response) {
         (cleanCode.length >= 2 && uId.startsWith(cleanCode)) ||
         uName === rawId.toLowerCase() ||
         uBiz === rawId.toLowerCase() ||
-        (u as any).opsId?.toLowerCase() === rawId.toLowerCase()
+        (u as any).opsId?.toLowerCase() === rawId.toLowerCase() ||
+        ((u as any).cacNumber && (u as any).cacNumber.toString().toLowerCase().trim() === rawId.toLowerCase()) ||
+        ((u as any).phoneNumber && (u as any).phoneNumber.replace(/[^0-9]/g, '') === rawId.replace(/[^0-9]/g, ''))
       );
     });
 
@@ -830,6 +832,9 @@ export async function verifyPublicCredential(req: Request, res: Response) {
             const pClean = (p.id || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
             const pName = (p.full_name || '').toLowerCase();
             const pBiz = (p.business_name || '').toLowerCase();
+            const pCac = (p.cac_number || '').toString().toLowerCase().trim();
+            const pPhone = (p.phone_number || '').toString().replace(/[^0-9]/g, '');
+            const cleanDigits = rawId.replace(/[^0-9]/g, '');
 
             return (
               pId === rawId.toLowerCase() ||
@@ -838,7 +843,9 @@ export async function verifyPublicCredential(req: Request, res: Response) {
               (cleanCode.length >= 2 && pClean.startsWith(cleanCode)) ||
               (cleanCode.length >= 2 && pId.startsWith(cleanCode)) ||
               pName === rawId.toLowerCase() ||
-              pBiz === rawId.toLowerCase()
+              pBiz === rawId.toLowerCase() ||
+              (pCac.length > 0 && pCac === rawId.toLowerCase()) ||
+              (cleanDigits.length >= 7 && pPhone.endsWith(cleanDigits))
             );
           });
 

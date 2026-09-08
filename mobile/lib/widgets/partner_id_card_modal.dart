@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
@@ -297,7 +298,7 @@ class PartnerIdCardModal extends StatelessWidget {
                         ),
                         pw.BarcodeWidget(
                           barcode: pw.Barcode.qrCode(),
-                          data: 'https://myrentilly.com/verify/$digitalId',
+                          data: 'https://api.myrentilly.com/verify/credential/$digitalId',
                           width: 28,
                           height: 28,
                         ),
@@ -706,7 +707,16 @@ class PartnerIdCardModal extends StatelessWidget {
                               ),
                               InkWell(
                                 onTap: () {
-                                  final verifyUrl = 'https://myrentilly.com/verify/credential/$digitalId';
+                                  final verifyUrl = 'https://api.myrentilly.com/verify/credential/$digitalId';
+                                  Clipboard.setData(ClipboardData(text: verifyUrl));
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text('Verification URL copied to clipboard! 🔗\n$verifyUrl', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold)),
+                                      backgroundColor: const Color(0xFF064E3B),
+                                      behavior: SnackBarBehavior.floating,
+                                      duration: const Duration(seconds: 3),
+                                    ),
+                                  );
                                   Share.share(
                                     '🛡️ OFFICIAL RENTILLY DIGITAL CREDENTIAL AUDIT\n\n'
                                     'Accredited Member: ${holderName.toUpperCase()}\n'

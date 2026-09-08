@@ -13,7 +13,6 @@ import '../../services/payment_security_service.dart';
 import '../../widgets/payment_pin_modal.dart';
 import '../../widgets/verification_modal.dart';
 import '../../widgets/partner_id_card_modal.dart';
-import '../../widgets/partner_landlord_onboard_modal.dart';
 import '../../widgets/partner_legal_modal.dart';
 import '../../widgets/app_avatar.dart';
 import '../../utils/id_utils.dart';
@@ -444,18 +443,6 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
               onTap: () {
                 if (_user != null) {
                   PartnerIdCardModal.show(context, user: _user!);
-                }
-              },
-            ),
-
-            _buildTile(
-              icon: Icons.link_rounded,
-              title: 'Onboard My Landlord 🔗',
-              subtitle: 'Share your WhatsApp invite link to auto-link properties and lock 2.5%/2.0% commissions',
-              trailing: const Icon(Icons.share_rounded, size: 18, color: Color(0xFF16A34A)),
-              onTap: () {
-                if (_user != null) {
-                  PartnerLandlordOnboardModal.show(context, user: _user!);
                 }
               },
             ),

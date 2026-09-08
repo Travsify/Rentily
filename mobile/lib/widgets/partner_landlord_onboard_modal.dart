@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
 import '../constants/app_colors.dart';
-import '../models/property.dart';
 import '../models/user_profile.dart';
 import '../services/api_service.dart';
 import '../utils/id_utils.dart';
@@ -48,51 +47,9 @@ class _PartnerLandlordOnboardModalState extends State<PartnerLandlordOnboardModa
       firmName: widget.user.businessName,
     );
 
-    if (liveLandlords.isNotEmpty) {
-      if (mounted) {
-        setState(() {
-          _onboardedLandlords = liveLandlords;
-          _isLoadingLandlords = false;
-        });
-      }
-      return;
-    }
-
-    // 2. Fallback to properties grouping
-    final allProps = await ApiService.fetchProperties();
-    final partnerProps = allProps.where((p) =>
-      (p.partnerId != null && p.partnerId == widget.user.id) ||
-      (p.ownerId == widget.user.id) ||
-      (p.ownerPhone.isNotEmpty && p.ownerPhone == widget.user.phoneNumber)
-    ).toList();
-
-    final Map<String, List<Property>> grouped = {};
-    for (final p in partnerProps) {
-      final key = p.ownerName.isNotEmpty && p.ownerName != 'Property Owner'
-          ? p.ownerName
-          : (p.ownerPhone.isNotEmpty ? p.ownerPhone : p.ownerId);
-      grouped.putIfAbsent(key, () => []).add(p);
-    }
-
-    final List<Map<String, dynamic>> list = [];
-    grouped.forEach((ownerName, props) {
-      double totalCommission = 0.0;
-      for (final p in props) {
-        final rate = p.purpose == 'rent' ? 0.025 : 0.02;
-        totalCommission += p.basePrice * rate;
-      }
-      list.add({
-        'name': ownerName,
-        'phone': props.first.ownerPhone,
-        'unitCount': props.length,
-        'properties': props,
-        'lockedCommission': totalCommission,
-      });
-    });
-
     if (mounted) {
       setState(() {
-        _onboardedLandlords = list;
+        _onboardedLandlords = liveLandlords;
         _isLoadingLandlords = false;
       });
     }
@@ -110,7 +67,7 @@ class _PartnerLandlordOnboardModalState extends State<PartnerLandlordOnboardModa
         ? widget.user.businessName!.trim()
         : (widget.user.fullName.trim().isNotEmpty ? widget.user.fullName.trim() : 'Accredited Partner Enterprise');
     final partnerId = IdUtils.formatOpsId(widget.user.id, isPartner: true);
-    final inviteLink = 'https://myrentilly.com/invite/landlord?partner_id=$partnerId&firm=${Uri.encodeComponent(businessName)}';
+    final inviteLink = 'https://api.myrentilly.com/invite/landlord?partner_id=$partnerId&firm=${Uri.encodeComponent(businessName)}';
 
     final message = 'Dear Property Owner,\n\n'
         'Kindly register and list your properties on Rentilly through our accredited firm link below:\n\n'
@@ -130,7 +87,7 @@ class _PartnerLandlordOnboardModalState extends State<PartnerLandlordOnboardModa
         ? widget.user.businessName!.trim()
         : (widget.user.fullName.trim().isNotEmpty ? widget.user.fullName.trim() : 'Accredited Partner Enterprise');
     final partnerId = IdUtils.formatOpsId(widget.user.id, isPartner: true);
-    final inviteLink = 'https://myrentilly.com/invite/landlord?partner_id=$partnerId&firm=${Uri.encodeComponent(businessName)}';
+    final inviteLink = 'https://api.myrentilly.com/invite/landlord?partner_id=$partnerId&firm=${Uri.encodeComponent(businessName)}';
 
     Clipboard.setData(ClipboardData(text: inviteLink));
     ScaffoldMessenger.of(context).showSnackBar(
@@ -147,7 +104,7 @@ class _PartnerLandlordOnboardModalState extends State<PartnerLandlordOnboardModa
         ? widget.user.businessName!.trim()
         : (widget.user.fullName.trim().isNotEmpty ? widget.user.fullName.trim() : 'Accredited Partner Enterprise');
     final partnerId = IdUtils.formatOpsId(widget.user.id, isPartner: true);
-    final inviteLink = 'https://myrentilly.com/invite/landlord?partner_id=$partnerId';
+    final inviteLink = 'https://api.myrentilly.com/invite/landlord?partner_id=$partnerId';
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.88,
