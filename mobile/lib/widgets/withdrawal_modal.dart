@@ -935,52 +935,6 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
               ),
             ),
             const SizedBox(height: 14),
-
-            // Institutional Escrow Trust Badge (Zero PSB Limits)
-            if (_withdrawalMode == 'NGN')
-              Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF0FDF4),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFBBF7D0)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.verified_user_rounded, size: 16, color: Color(0xFF16A34A)),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Institutional Commercial Rail • High-volume escrow payouts up to ₦10,000,000 per transfer enabled.',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFF166534),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF16A34A).withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        'ACTIVE',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 8.5,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFF15803D),
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
             if (_errorMessage != null) ...[
               Container(
                 padding: const EdgeInsets.all(10),
