@@ -60,7 +60,7 @@ class PartnerLegalModal extends StatelessWidget {
             'icon': Icons.gavel_rounded,
             'title': '5. Dispute Resolution & Tribunal Arbitration',
             'content':
-                'In the event of an ownership contest or tenancy disagreement, Rentilly Legal Desk arbitrates within 72 hours in coordination with the Lagos Multi-Door Courthouse and state property regulatory authorities.',
+                'In the event of an ownership contest or tenancy disagreement, Rentilly Legal Desk arbitrates within 72 hours in coordination with the Multi-Door Courthouse of the State High Court and the Arbitration and Mediation Act, 2023.',
           },
         ],
       ),
@@ -297,7 +297,7 @@ class PartnerLegalModal extends StatelessWidget {
             pw.SizedBox(height: 8),
 
             pw.Container(
-              padding: const pw.EdgeInsets.all(10),
+              padding: const pw.EdgeInsets.all(9),
               decoration: pw.BoxDecoration(
                 color: PdfColor.fromHex('F8FAFC'),
                 borderRadius: pw.BorderRadius.circular(8),
@@ -306,24 +306,89 @@ class PartnerLegalModal extends StatelessWidget {
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  pw.Text('2. THE PROPERTY OWNER / LESSOR:', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('0F172A'))),
+                  pw.Text('2. PROPERTY OWNER & SUBJECT PREMISES VERIFICATION:', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('0F172A'))),
                   pw.SizedBox(height: 3),
                   pw.Text('Owner Full Legal Name: __________________________________________________', style: const pw.TextStyle(fontSize: 8)),
-                  pw.Text('Phone / Email: _____________________________________________________', style: const pw.TextStyle(fontSize: 8)),
+                  pw.SizedBox(height: 2),
+                  pw.Text('Phone Number / Email: __________________________________________________', style: const pw.TextStyle(fontSize: 8)),
+                  pw.SizedBox(height: 2),
                   pw.Text('Subject Property Address: __________________________________________', style: const pw.TextStyle(fontSize: 8)),
-                  pw.Text('Target Asking Price (Rent/Sale): NGN ____________________________________', style: const pw.TextStyle(fontSize: 8)),
+                  pw.SizedBox(height: 2),
+                  pw.Text('LGA & State: _____________________________ Target Asking Price: NGN ____________________', style: const pw.TextStyle(fontSize: 8)),
+                  pw.SizedBox(height: 4),
+                  pw.Container(
+                    padding: const pw.EdgeInsets.all(5),
+                    decoration: pw.BoxDecoration(
+                      color: PdfColor.fromHex('EFF6FF'),
+                      borderRadius: pw.BorderRadius.circular(4),
+                      border: pw.Border.all(color: PdfColor.fromHex('93C5FD')),
+                    ),
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text('MANDATORY PHYSICAL ADDRESS & UTILITY BILL ANNEXURE:', style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('1E40AF'))),
+                        pw.SizedBox(height: 2),
+                        pw.Text('Electricity Disco: ___________________ | Meter / Account No: _____________________________', style: const pw.TextStyle(fontSize: 7.5)),
+                        pw.SizedBox(height: 1),
+                        pw.Text('[  ] Verified copy of recent Electricity Bill / Prepaid Token Receipt attached (Mandatory for Rentilly Listing Activation).', style: pw.TextStyle(fontSize: 7, color: PdfColor.fromHex('1E3A8A'))),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
-            pw.SizedBox(height: 12),
+            pw.SizedBox(height: 8),
+
+            // CRITICAL ESCROW SETTLEMENT & ANTI-FRAUD WARNING (BOLD RED)
+            pw.Container(
+              padding: const pw.EdgeInsets.all(8),
+              decoration: pw.BoxDecoration(
+                color: PdfColor.fromHex('FEF2F2'),
+                borderRadius: pw.BorderRadius.circular(6),
+                border: pw.Border.all(color: PdfColor.fromHex('DC2626'), width: 1.2),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Row(
+                    children: [
+                      pw.Text(
+                        'CRITICAL ESCROW SETTLEMENT & ANTI-FRAUD NOTICE',
+                        style: pw.TextStyle(
+                          fontSize: 8.5,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColor.fromHex('B91C1C'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  pw.SizedBox(height: 3),
+                  pw.Text(
+                    '1. 100% ESCROW HOLD UNTIL MOVE-IN: All tenant rental payments and buyer consideration are locked securely in the Rentilly Non-Interest Escrow Vault. Funds remain in escrow and are NOT disbursed until the tenant has physically moved into the property and confirmed handover signoff.',
+                    style: pw.TextStyle(fontSize: 7.2, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('991B1B'), height: 1.2),
+                  ),
+                  pw.SizedBox(height: 2),
+                  pw.Text(
+                    '2. DIRECT OWNER SETTLEMENT ONLY: Net proceeds are settled exclusively into the verified Nigerian NUBAN bank account of the legitimate property owner upon successful move-in. No cash payments, third-party transfers, or partner proxy collections are permitted under any circumstances.',
+                    style: pw.TextStyle(fontSize: 7.2, color: PdfColor.fromHex('7F1D1D'), height: 1.2),
+                  ),
+                  pw.SizedBox(height: 2),
+                  pw.Text(
+                    '3. CLIENT 100% REFUND & PARTNER BLACKLIST GUARANTEE: In the event of title contest, duplicate letting, unfulfilled physical handover, or inability of the tenant to take lawful possession, 100% of escrow funds are immediately refunded to the client, the listing is delisted, and the submitting partner is permanently blacklisted and referred for statutory prosecution under Nigerian law.',
+                    style: pw.TextStyle(fontSize: 7.2, color: PdfColor.fromHex('7F1D1D'), height: 1.2),
+                  ),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 8),
 
             pw.Text('OPERATIVE MANDATE COVENANTS:', style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('0F172A'))),
-            pw.SizedBox(height: 6),
+            pw.SizedBox(height: 5),
 
             _buildPdfTerm('1. Grant of Exclusive Mandate', 'The Owner grants the Partner the sole representation right to market, exhibit, and secure verified tenants/buyers for the Subject Property through the Rentilly Escrow Network.'),
             _buildPdfTerm('2. Guaranteed Escrow Remuneration (2.5% Rent / 2.0% Sales)', 'Upon execution of a valid lease or deed of sale, the Partner is entitled to standard remuneration of 2.5% of annual rent or 2.0% of purchase consideration, settled automatically via Rentilly Non-Interest Escrow Vault on handover.'),
             _buildPdfTerm('3. Strict Anti-Circumvention Protection', 'The Owner expressly warrants not to bypass, negotiate directly, or transact with any prospective tenant or buyer introduced by the Partner during or within 12 months after the mandate term.'),
-            _buildPdfTerm('4. Physical Due Diligence & Anti-Ghost Protocol', 'The Partner undertakes to conduct in-person physical walkthroughs and verify title and utility status as required under the Applicable State Real Estate Laws and Tenancy Laws of the Federal Republic of Nigeria.'),
+            _buildPdfTerm('4. Physical Due Diligence & Mandatory Utility Bill Annexure', 'The Partner undertakes to conduct an in-person physical inspection of the Subject Property and obtain a copy of the recent electricity utility bill/token receipt matching the physical address. Both this executed Mandate and the Utility Bill must be uploaded to the Rentilly Network prior to listing activation.'),
             _buildPdfTerm('5. Arbitration & Dispute Resolution', 'Any contest or disagreement under this contract shall be submitted to the Multi-Door Courthouse of the State High Court in the jurisdiction where the Subject Property is situated, or the Rentilly Legal Arbitration Desk under the Arbitration and Mediation Act, 2023.'),
 
             pw.SizedBox(height: 18),
