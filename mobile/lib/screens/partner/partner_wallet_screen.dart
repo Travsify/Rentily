@@ -1661,6 +1661,8 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                               fontWeight: FontWeight.bold,
                               color: Colors.white,
                             ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 2),
                           Text(
@@ -1669,6 +1671,8 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                               fontSize: 10,
                               color: const Color(0xFF94A3B8),
                             ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ],
                       ),
@@ -1891,344 +1895,401 @@ class _CommissionSplitCalculatorSheetState extends State<_CommissionSplitCalcula
 
     final mediaQuery = MediaQuery.of(context);
 
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 20,
-        right: 20,
-        top: 20,
-        bottom: mediaQuery.viewInsets.bottom + 24,
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: mediaQuery.size.height * 0.88,
       ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 18,
+          right: 18,
+          top: 16,
+          bottom: mediaQuery.viewInsets.bottom + 20,
+        ),
+        child: SingleChildScrollView(
+          physics: const ClampingScrollPhysics(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(7),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF10B981).withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(Icons.calculate_rounded, color: Color(0xFF10B981), size: 20),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(7),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    const SizedBox(width: 10),
-                    Text(
+                    child: const Icon(Icons.calculate_rounded, color: Color(0xFF10B981), size: 20),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
                       'Co-Broker Commission Split',
                       style: GoogleFonts.plusJakartaSans(
-                        fontSize: 16,
+                        fontSize: 15.5,
                         fontWeight: FontWeight.bold,
                         color: AppColors.textPrimary,
                       ),
-                    ),
-                  ],
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close_rounded, size: 20, color: AppColors.textSecondary),
-                  onPressed: () => Navigator.pop(context),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Deal Type Toggle
-            Row(
-              children: [
-                Expanded(
-                  child: InkWell(
-                    onTap: () => _onTypeChanged('rent'),
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      decoration: BoxDecoration(
-                        color: _dealType == 'rent' ? AppColors.primary : const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        'Tenancy / Lease (Rent)',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: _dealType == 'rent' ? Colors.white : AppColors.textSecondary,
-                        ),
-                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: InkWell(
-                    onTap: () => _onTypeChanged('sale'),
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      decoration: BoxDecoration(
-                        color: _dealType == 'sale' ? AppColors.primary : const Color(0xFFF1F5F9),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        'Property Outright Sale',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: _dealType == 'sale' ? Colors.white : AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
+                  const SizedBox(width: 6),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 20, color: AppColors.textSecondary),
+                    onPressed: () => Navigator.pop(context),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Deal Value Input
-            Text(
-              'Gross Transaction Value (₦)',
-              style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-            ),
-            const SizedBox(height: 6),
-            TextField(
-              controller: _amountCtrl,
-              keyboardType: TextInputType.number,
-              style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-              decoration: InputDecoration(
-                prefixText: '₦ ',
-                prefixStyle: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.primary),
-                hintText: 'e.g. 5,000,000',
-                filled: true,
-                fillColor: const Color(0xFFF8FAFC),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.borderDark)),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.borderDark)),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+                ],
               ),
-              onChanged: (_) => setState(() {}),
-            ),
-            const SizedBox(height: 8),
+              const SizedBox(height: 16),
 
-            // Presets
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [2500000, 5000000, 10000000, 25000000, 50000000].map((val) {
-                  final label = val >= 1000000 ? '₦${(val / 1000000).toStringAsFixed(val % 1000000 == 0 ? 0 : 1)}M' : '₦$val';
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: ActionChip(
-                      label: Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.w600)),
-                      backgroundColor: const Color(0xFFF1F5F9),
-                      side: BorderSide.none,
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      onPressed: () {
-                        setState(() {
-                          _amountCtrl.text = val.toString();
-                        });
-                      },
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-            const SizedBox(height: 14),
-
-            // Split Ratio Selector
-            Text(
-              'Co-Partner Split Ratio',
-              style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-            ),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                _buildRatioChip('50 / 50', 'Equal Share', 0.50),
-                const SizedBox(width: 8),
-                _buildRatioChip('60 / 40', 'Listing Lead', 0.60),
-                const SizedBox(width: 8),
-                _buildRatioChip('70 / 30', 'Exclusive Mandate', 0.70),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // WHT Switch
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Deduct 5% WHT (Withholding Tax)', style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                    Text('Federal Republic of Nigeria (FIRS / State IRS) 5% WHT compliance', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textSecondary)),
-                  ],
-                ),
-                Switch.adaptive(
-                  value: _deductWht,
-                  activeColor: const Color(0xFF10B981),
-                  onChanged: (val) => setState(() => _deductWht = val),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-
-            // Detailed Settlement Breakdown Card
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF0F172A),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFF1E293B)),
-              ),
-              child: Column(
+              // Deal Type Toggle
+              Row(
                 children: [
-                  _buildSummaryRow('Gross Property Value', '₦${widget.currencyFormat.format(dealAmount)}', isMuted: true),
-                  const SizedBox(height: 6),
-                  _buildSummaryRow(
-                    'Partner Guaranteed Remuneration (${_commissionRate.toStringAsFixed(1)}%)',
-                    '₦${widget.currencyFormat.format(grossCommission)}',
-                    color: const Color(0xFFFBBF24),
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    child: Divider(color: Color(0xFF334155), height: 1),
-                  ),
-                  _buildSummaryRow(
-                    'Distributable Escrow Pool',
-                    '₦${widget.currencyFormat.format(distributablePool)}',
-                    color: Colors.white,
-                    isBold: true,
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Split Breakdown
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1E293B),
-                      borderRadius: BorderRadius.circular(12),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => _onTypeChanged('rent'),
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                        decoration: BoxDecoration(
+                          color: _dealType == 'rent' ? AppColors.primary : const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          'Tenancy / Rent (2.5%)',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.bold,
+                            color: _dealType == 'rent' ? Colors.white : AppColors.textSecondary,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
                     ),
-                    child: Column(
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Listing Partner (${(_splitRatio * 100).toInt()}%)',
-                              style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold, color: const Color(0xFF38BDF8)),
-                            ),
-                            Text(
-                              '₦${widget.currencyFormat.format(listingNet)}',
-                              style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w900, color: const Color(0xFF38BDF8)),
-                            ),
-                          ],
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => _onTypeChanged('sale'),
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+                        decoration: BoxDecoration(
+                          color: _dealType == 'sale' ? AppColors.primary : const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(10),
                         ),
-                        if (_deductWht) ...[
-                          const SizedBox(height: 2),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('• 5% WHT deducted: ₦${widget.currencyFormat.format(listingWht)}', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: const Color(0xFF94A3B8))),
-                              Text('Gross: ₦${widget.currencyFormat.format(listingShare)}', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: const Color(0xFF94A3B8))),
-                            ],
+                        alignment: Alignment.center,
+                        child: Text(
+                          'Outright Sale (2.0%)',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.bold,
+                            color: _dealType == 'sale' ? Colors.white : AppColors.textSecondary,
                           ),
-                        ],
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 8),
-                          child: Divider(color: Color(0xFF334155), height: 1),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
                         ),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              'Co-Broker Partner (${((1.0 - _splitRatio) * 100).toInt()}%)',
-                              style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold, color: const Color(0xFF4ADE80)),
-                            ),
-                            Text(
-                              '₦${widget.currencyFormat.format(coBrokerNet)}',
-                              style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w900, color: const Color(0xFF4ADE80)),
-                            ),
-                          ],
-                        ),
-                        if (_deductWht) ...[
-                          const SizedBox(height: 2),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('• 5% WHT deducted: ₦${widget.currencyFormat.format(coBrokerWht)}', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: const Color(0xFF94A3B8))),
-                              Text('Gross: ₦${widget.currencyFormat.format(coBrokerShare)}', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: const Color(0xFF94A3B8))),
-                            ],
-                          ),
-                        ],
-                      ],
+                      ),
                     ),
                   ),
                 ],
               ),
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            // Action: Copy Agreement Breakdown
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  final summary = StringBuffer();
-                  summary.writeln('📋 RENTILLY ESCROW CO-BROKER PARTNER COMMISSION SPLIT AGREEMENT');
-                  summary.writeln('Jurisdiction: Federal Republic of Nigeria (Nationwide Coverage)');
-                  summary.writeln('Date: ${DateFormat('dd MMM yyyy, HH:mm').format(DateTime.now())}');
-                  summary.writeln('Deal Type: ${_dealType == 'rent' ? 'Tenancy / Lease (Rent)' : 'Outright Property Sale'}');
-                  summary.writeln('Gross Property Value: ₦${widget.currencyFormat.format(dealAmount)}');
-                  summary.writeln('Partner Remuneration Rate: ${_commissionRate.toStringAsFixed(1)}% (${_dealType == 'rent' ? '2.5% Rent' : '2.0% Sale'})');
-                  summary.writeln('Total Partner Escrow Pool: ₦${widget.currencyFormat.format(grossCommission)}');
-                  summary.writeln('----------------------------------------');
-                  summary.writeln('ESCROW SHARING FORMULA:');
-                  summary.writeln('• Listing Partner Share (${(_splitRatio * 100).toInt()}%): ₦${widget.currencyFormat.format(listingNet)} ${_deductWht ? '(Net after 5% WHT)' : ''}');
-                  summary.writeln('• Co-Broker Partner Share (${((1.0 - _splitRatio) * 100).toInt()}%): ₦${widget.currencyFormat.format(coBrokerNet)} ${_deductWht ? '(Net after 5% WHT)' : ''}');
-                  if (_deductWht) {
-                    summary.writeln('• Statutory 5% WHT Provision: ₦${widget.currencyFormat.format(listingWht + coBrokerWht)} (FIRS / State IRS Remittance)');
-                  }
-                  summary.writeln('----------------------------------------');
-                  summary.writeln('ESCROW & FIDUCIARY TERMS:');
-                  summary.writeln('1. Non-Interest Escrow Protection: All client funds remain securely held in the Rentilly Escrow Vault until physical inspection and formal onboarding verification.');
-                  summary.writeln('2. Automated Simultaneous Release: Commission splits are disbursed directly and simultaneously to each accredited Partner\'s Rentilly Commercial NUBAN wallet upon electronic signing.');
-                  summary.writeln('3. Anti-Circumvention & Good Faith: Both partners covenant to conduct all offers, documentation, and payments exclusively via the Rentilly Escrow Infrastructure.');
-                  summary.writeln('4. Nationwide Legal Validity: Fully enforceable under the Real Property and Tenancy Laws across all 36 States and the Federal Capital Territory (FCT), Nigeria.');
-
-                  widget.onCopy(summary.toString());
-                },
-                icon: const Icon(Icons.copy_rounded, size: 16),
-                label: Text(
-                  'Copy Co-Broker Agreement Note',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold),
+              // Deal Value Input
+              Text(
+                'Gross Transaction Value (₦)',
+                style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _amountCtrl,
+                keyboardType: TextInputType.number,
+                style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                decoration: InputDecoration(
+                  prefixText: '₦ ',
+                  prefixStyle: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.primary),
+                  hintText: 'e.g. 5,000,000',
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFC),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.borderDark)),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.borderDark)),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
                 ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF0F5B46),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  elevation: 0,
+                onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: 8),
+
+              // Presets
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [2500000, 5000000, 10000000, 25000000, 50000000].map((val) {
+                    final label = val >= 1000000 ? '₦${(val / 1000000).toStringAsFixed(val % 1000000 == 0 ? 0 : 1)}M' : '₦$val';
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: ActionChip(
+                        label: Text(label, style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.w600)),
+                        backgroundColor: const Color(0xFFF1F5F9),
+                        side: BorderSide.none,
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        onPressed: () {
+                          setState(() {
+                            _amountCtrl.text = val.toString();
+                          });
+                        },
+                      ),
+                    );
+                  }).toList(),
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 14),
+
+              // Split Ratio Selector
+              Text(
+                'Co-Partner Split Ratio',
+                style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  _buildRatioChip('50 / 50', 'Equal Share', 0.50),
+                  const SizedBox(width: 8),
+                  _buildRatioChip('60 / 40', 'Listing Lead', 0.60),
+                  const SizedBox(width: 8),
+                  _buildRatioChip('70 / 30', 'Exclusive Mandate', 0.70),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // WHT Switch
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Deduct 5% Statutory WHT',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Federal Republic of Nigeria (FIRS / State IRS) 5% WHT compliance',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textSecondary),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Switch.adaptive(
+                    value: _deductWht,
+                    activeColor: const Color(0xFF10B981),
+                    onChanged: (val) => setState(() => _deductWht = val),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+
+              // Detailed Settlement Breakdown Card
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F172A),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFF1E293B)),
+                ),
+                child: Column(
+                  children: [
+                    _buildSummaryRow('Gross Property Value', '₦${widget.currencyFormat.format(dealAmount)}', isMuted: true),
+                    const SizedBox(height: 6),
+                    _buildSummaryRow(
+                      'Partner Guaranteed Remuneration (${_commissionRate.toStringAsFixed(1)}%)',
+                      '₦${widget.currencyFormat.format(grossCommission)}',
+                      color: const Color(0xFFFBBF24),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Divider(color: Color(0xFF334155), height: 1),
+                    ),
+                    _buildSummaryRow(
+                      'Distributable Escrow Pool',
+                      '₦${widget.currencyFormat.format(distributablePool)}',
+                      color: Colors.white,
+                      isBold: true,
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Split Breakdown
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E293B),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'Listing Partner (${(_splitRatio * 100).toInt()}%)',
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold, color: const Color(0xFF38BDF8)),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '₦${widget.currencyFormat.format(listingNet)}',
+                                style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w900, color: const Color(0xFF38BDF8)),
+                              ),
+                            ],
+                          ),
+                          if (_deductWht) ...[
+                            const SizedBox(height: 3),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '• 5% WHT: ₦${widget.currencyFormat.format(listingWht)}',
+                                    style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: const Color(0xFF94A3B8)),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Gross: ₦${widget.currencyFormat.format(listingShare)}',
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: const Color(0xFF94A3B8)),
+                                ),
+                              ],
+                            ),
+                          ],
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 8),
+                            child: Divider(color: Color(0xFF334155), height: 1),
+                          ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'Co-Broker Partner (${((1.0 - _splitRatio) * 100).toInt()}%)',
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold, color: const Color(0xFF4ADE80)),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '₦${widget.currencyFormat.format(coBrokerNet)}',
+                                style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w900, color: const Color(0xFF4ADE80)),
+                              ),
+                            ],
+                          ),
+                          if (_deductWht) ...[
+                            const SizedBox(height: 3),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    '• 5% WHT: ₦${widget.currencyFormat.format(coBrokerWht)}',
+                                    style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: const Color(0xFF94A3B8)),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Gross: ₦${widget.currencyFormat.format(coBrokerShare)}',
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: const Color(0xFF94A3B8)),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Action: Copy Agreement Breakdown
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    final summary = StringBuffer();
+                    summary.writeln('📋 RENTILLY ESCROW CO-BROKER PARTNER COMMISSION SPLIT AGREEMENT');
+                    summary.writeln('Jurisdiction: Federal Republic of Nigeria (Nationwide Coverage)');
+                    summary.writeln('Date: ${DateFormat('dd MMM yyyy, HH:mm').format(DateTime.now())}');
+                    summary.writeln('Deal Type: ${_dealType == 'rent' ? 'Tenancy / Lease (Rent)' : 'Outright Property Sale'}');
+                    summary.writeln('Gross Property Value: ₦${widget.currencyFormat.format(dealAmount)}');
+                    summary.writeln('Partner Remuneration Rate: ${_commissionRate.toStringAsFixed(1)}% (${_dealType == 'rent' ? '2.5% Rent' : '2.0% Sale'})');
+                    summary.writeln('Total Partner Escrow Pool: ₦${widget.currencyFormat.format(grossCommission)}');
+                    summary.writeln('----------------------------------------');
+                    summary.writeln('ESCROW SHARING FORMULA:');
+                    summary.writeln('• Listing Partner Share (${(_splitRatio * 100).toInt()}%): ₦${widget.currencyFormat.format(listingNet)} ${_deductWht ? '(Net after 5% WHT)' : ''}');
+                    summary.writeln('• Co-Broker Partner Share (${((1.0 - _splitRatio) * 100).toInt()}%): ₦${widget.currencyFormat.format(coBrokerNet)} ${_deductWht ? '(Net after 5% WHT)' : ''}');
+                    if (_deductWht) {
+                      summary.writeln('• Statutory 5% WHT Provision: ₦${widget.currencyFormat.format(listingWht + coBrokerWht)} (FIRS / State IRS Remittance)');
+                    }
+                    summary.writeln('----------------------------------------');
+                    summary.writeln('ESCROW & FIDUCIARY TERMS:');
+                    summary.writeln('1. Non-Interest Escrow Protection: All client funds remain securely held in the Rentilly Escrow Vault until physical inspection and formal onboarding verification.');
+                    summary.writeln('2. Automated Simultaneous Release: Commission splits are disbursed directly and simultaneously to each accredited Partner\'s Rentilly Commercial NUBAN wallet upon electronic signing.');
+                    summary.writeln('3. Anti-Circumvention & Good Faith: Both partners covenant to conduct all offers, documentation, and payments exclusively via the Rentilly Escrow Infrastructure.');
+                    summary.writeln('4. Nationwide Legal Validity: Fully enforceable under the Real Property and Tenancy Laws across all 36 States and the Federal Capital Territory (FCT), Nigeria.');
+
+                    widget.onCopy(summary.toString());
+                  },
+                  icon: const Icon(Icons.copy_rounded, size: 16),
+                  label: Text(
+                    'Copy Co-Broker Agreement Note',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0F5B46),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    elevation: 0,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -2241,7 +2302,7 @@ class _CommissionSplitCalculatorSheetState extends State<_CommissionSplitCalcula
         onTap: () => setState(() => _splitRatio = val),
         borderRadius: BorderRadius.circular(10),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
           decoration: BoxDecoration(
             color: isSelected ? const Color(0xFF10B981).withValues(alpha: 0.12) : const Color(0xFFF8FAFC),
             borderRadius: BorderRadius.circular(10),
@@ -2251,24 +2312,28 @@ class _CommissionSplitCalculatorSheetState extends State<_CommissionSplitCalcula
             ),
           ),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 ratio,
                 style: GoogleFonts.plusJakartaSans(
-                  fontSize: 12,
+                  fontSize: 11.5,
                   fontWeight: FontWeight.bold,
                   color: isSelected ? const Color(0xFF065F46) : AppColors.textPrimary,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 2),
               Text(
                 subtitle,
                 style: GoogleFonts.plusJakartaSans(
-                  fontSize: 8.5,
+                  fontSize: 8,
                   color: isSelected ? const Color(0xFF059669) : AppColors.textSecondary,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
               ),
             ],
           ),
@@ -2279,22 +2344,34 @@ class _CommissionSplitCalculatorSheetState extends State<_CommissionSplitCalcula
 
   Widget _buildSummaryRow(String label, String value, {Color? color, bool isBold = false, bool isMuted = false}) {
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text(
-          label,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 11,
-            color: isMuted ? const Color(0xFF94A3B8) : Colors.white70,
-            fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+        Expanded(
+          flex: 6,
+          child: Text(
+            label,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 11,
+              color: isMuted ? const Color(0xFF94A3B8) : Colors.white70,
+              fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
-        Text(
-          value,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: isBold ? 13 : 11,
-            fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
-            color: color ?? Colors.white,
+        const SizedBox(width: 8),
+        Expanded(
+          flex: 4,
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: isBold ? 12.5 : 11,
+              fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
+              color: color ?? Colors.white,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
