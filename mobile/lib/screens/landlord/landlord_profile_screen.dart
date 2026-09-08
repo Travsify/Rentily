@@ -17,6 +17,7 @@ import '../../services/notification_service.dart';
 import '../../widgets/verification_modal.dart';
 import '../../widgets/payment_pin_modal.dart';
 import '../../widgets/partner_id_card_modal.dart';
+import '../../widgets/withdrawal_modal.dart';
 import '../../widgets/app_avatar.dart';
 import '../../utils/id_utils.dart';
 import '../auth/login_screen.dart';
@@ -41,6 +42,21 @@ class _LandlordProfileScreenState extends State<LandlordProfileScreen> {
   void initState() {
     super.initState();
     _loadUser();
+    AuthService.currentUserNotifier.addListener(_onUserUpdated);
+  }
+
+  @override
+  void dispose() {
+    AuthService.currentUserNotifier.removeListener(_onUserUpdated);
+    super.dispose();
+  }
+
+  void _onUserUpdated() {
+    if (mounted) {
+      setState(() {
+        _user = AuthService.currentUserNotifier.value;
+      });
+    }
   }
 
   void _loadUser() async {
@@ -58,6 +74,138 @@ class _LandlordProfileScreenState extends State<LandlordProfileScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  void _showSavedAccountsModal() {
+    if (_user == null) return;
+    final accNumber = _user?.accountNumber ?? '';
+    final bankName = _user?.bankName ?? '9PSB (Rentilly)';
+    final commAcc = _user?.commercialAccountNumber ?? '';
+    final commBank = _user?.commercialBankName ?? '';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.fromLTRB(22, 22, 22, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.account_balance_rounded, color: AppColors.primary, size: 22),
+                    const SizedBox(width: 8),
+                    Text('Bank & Settlement Accounts', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                  ],
+                ),
+                IconButton(icon: const Icon(Icons.close_rounded, size: 20), onPressed: () => Navigator.of(ctx).pop()),
+              ],
+            ),
+            const SizedBox(height: 14),
+
+            // 1. Dedicated Escrow Inbound Account
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0FDF4),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFF86EFAC)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('DEDICATED ESCROW COLLECTION ACCOUNT', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w900, color: const Color(0xFF16A34A))),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(4)),
+                        child: Text('ACTIVE NUBAN', style: GoogleFonts.plusJakartaSans(fontSize: 7.5, fontWeight: FontWeight.bold, color: const Color(0xFF15803D))),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    accNumber.isNotEmpty ? accNumber : '1100092831',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w900, color: AppColors.textPrimary),
+                  ),
+                  const SizedBox(height: 2),
+                  Text('$bankName • ${_user?.fullName ?? "Property Owner"} / Rentilly', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+                  const SizedBox(height: 8),
+                  Text('Direct settlement account for tenant rent deposits & utility escrows.', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: const Color(0xFF15803D))),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // 2. Destination Payout / Withdrawal Bank Account
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.borderDark),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('WITHDRAWAL PAYOUT DESTINATION', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w900, color: AppColors.textSecondary)),
+                      const Icon(Icons.verified_rounded, size: 16, color: Color(0xFF16A34A)),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    commAcc.isNotEmpty ? commAcc : (accNumber.isNotEmpty ? accNumber : 'Linked Bank Account'),
+                    style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    commBank.isNotEmpty ? commBank : bankName,
+                    style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  WithdrawalModal.show(
+                    context,
+                    user: _user!,
+                    onWithdrawalSuccess: (newBal) {
+                      setState(() => _user = _user!.copyWith(walletBalance: newBal));
+                    },
+                  );
+                },
+                icon: const Icon(Icons.north_east_rounded, size: 16, color: Colors.white),
+                label: Text('Withdraw Operating Funds', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, color: Colors.white)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _pickAvatar() async {
@@ -1030,6 +1178,14 @@ class _LandlordProfileScreenState extends State<LandlordProfileScreen> {
                 }
               },
             ),
+
+            _buildTile(
+              icon: Icons.account_balance_rounded,
+              title: 'Saved Bank & Settlement Accounts 🏦',
+              subtitle: 'Dedicated 9PSB collection account & linked payout bank',
+              trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.textMuted),
+              onTap: _showSavedAccountsModal,
+            ),
             const SizedBox(height: 20),
 
             // 3. Security & Payments
@@ -1119,6 +1275,19 @@ class _LandlordProfileScreenState extends State<LandlordProfileScreen> {
               title: 'Privacy Policy & Escrow Terms',
               subtitle: 'Strict title confidentiality & 256-bit financial encryption terms',
               onTap: _showPrivacyPolicyModal,
+            ),
+            const SizedBox(height: 10),
+
+            _buildTile(
+              icon: Icons.swap_horiz_rounded,
+              title: 'Switch to Renter / Tenant Mode 🔄',
+              subtitle: 'Browse properties, request inspections, and view tenant agreements',
+              trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.primary),
+              onTap: () {
+                if (widget.onSwitchToTenant != null) {
+                  widget.onSwitchToTenant!();
+                }
+              },
             ),
             const SizedBox(height: 24),
 

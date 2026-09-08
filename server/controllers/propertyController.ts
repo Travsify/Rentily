@@ -69,7 +69,6 @@ export async function getProperties(req: Request, res: Response) {
         if (minPrice) query = query.gte('base_price', Number(minPrice));
         if (maxPrice) query = query.lte('base_price', Number(maxPrice));
         if (furnishing && furnishing !== 'all') query = query.ilike('furnishing', `%${furnishing}%`);
-        if (listedByRole && listedByRole !== 'all') query = query.eq('listed_by_role', listedByRole);
         if (search) {
           query = query.or(`title.ilike.%${search}%,neighborhood.ilike.%${search}%,address.ilike.%${search}%,lga.ilike.%${search}%,state.ilike.%${search}%`);
         }
@@ -99,7 +98,7 @@ export async function getProperties(req: Request, res: Response) {
             basePrice: Number(row.base_price || 0),
             cautionFee: Number(row.caution_fee || 0),
             serviceCharge: Number(row.service_charge || 0),
-            rentillyFee: Number(row.rentilly_legal_fee || 0),
+            rentillyFee: Number(row.rentilly_fee || row.rentilly_legal_fee || 0),
             totalInitialPayment: Number(row.total_initial_payment || 0),
             paymentFrequency: row.payment_frequency,
             address: row.address,
@@ -124,6 +123,10 @@ export async function getProperties(req: Request, res: Response) {
             createdAt: row.created_at,
             updatedAt: row.updated_at
           }));
+
+          if (listedByRole && listedByRole !== 'all') {
+            supabaseProps = supabaseProps.filter(p => p.listedByRole === listedByRole);
+          }
 
           // If propertyType filter was requested, filter memory results since DB uses various slugs
           if (propertyType && propertyType !== 'all') {
@@ -324,13 +327,11 @@ export async function createProperty(req: Request, res: Response) {
     // Also persist to Supabase if available
     if (supabase) {
       try {
-        await supabase
+        const { error: propErr } = await supabase
           .from('properties')
           .insert({
             id: newProperty.id,
             owner_id: newProperty.ownerId,
-            owner_name: newProperty.ownerName,
-            owner_phone: newProperty.ownerPhone,
             title: newProperty.title,
             description: newProperty.description,
             purpose: newProperty.purpose,
@@ -338,7 +339,7 @@ export async function createProperty(req: Request, res: Response) {
             base_price: newProperty.basePrice,
             caution_fee: newProperty.cautionFee,
             service_charge: newProperty.serviceCharge,
-            rentilly_legal_fee: newProperty.rentillyFee,
+            rentilly_fee: newProperty.rentillyFee,
             total_initial_payment: newProperty.totalInitialPayment,
             payment_frequency: newProperty.paymentFrequency,
             address: newProperty.address,
@@ -354,6 +355,10 @@ export async function createProperty(req: Request, res: Response) {
             status: newProperty.status,
           });
 
+        if (propErr) {
+          console.error('[createProperty] Supabase insert error:', propErr);
+        }
+
         await supabase
           .from('kyp_verifications')
           .insert({
@@ -365,7 +370,9 @@ export async function createProperty(req: Request, res: Response) {
             status: 'pending',
             submitted_at: now
           });
-      } catch (_) {}
+      } catch (err: any) {
+        console.error('[createProperty] Supabase error:', err.message);
+      }
     }
 
     res.status(201).json(newProperty);
@@ -380,21 +387,84 @@ export async function updatePropertyStatus(req: Request, res: Response) {
     const { status, verifiedBy } = req.body;
     const now = new Date().toISOString();
 
-    // Update in AdminDataStore
-    const updated = await AdminDataStore.updatePropertyStatus(id, status);
+    let updated: Property | null = null;
 
-    // Also try Supabase
+    // 1. Update in Supabase
     if (supabase) {
       try {
-        await supabase
+        const { data, error } = await supabase
           .from('properties')
           .update({ status, verified_at: now, verified_by: verifiedBy, updated_at: now })
-          .eq('id', id);
-      } catch (_) {}
+          .eq('id', id)
+          .select()
+          .single();
+
+        if (!error && data) {
+          updated = {
+            id: data.id,
+            ownerId: data.owner_id,
+            ownerName: 'Property Owner',
+            ownerPhone: '',
+            title: data.title,
+            description: data.description || '',
+            purpose: data.purpose,
+            propertyType: data.property_type,
+            basePrice: Number(data.base_price || 0),
+            cautionFee: Number(data.caution_fee || 0),
+            serviceCharge: Number(data.service_charge || 0),
+            rentillyFee: Number(data.rentilly_fee || 0),
+            totalInitialPayment: Number(data.total_initial_payment || 0),
+            paymentFrequency: data.payment_frequency,
+            address: data.address,
+            state: data.state,
+            lga: data.lga,
+            neighborhood: data.neighborhood,
+            bedrooms: data.bedrooms,
+            bathrooms: data.bathrooms,
+            toilets: data.toilets,
+            furnishing: data.furnishing,
+            amenities: data.amenities || [],
+            images: data.images || [],
+            videoWalkthroughUrl: data.video_walkthrough_url,
+            status: data.status,
+            createdAt: data.created_at,
+            updatedAt: data.updated_at
+          };
+        }
+      } catch (err: any) {
+        console.error('[updatePropertyStatus] Supabase error:', err.message);
+      }
     }
+
+    // 2. Update in AdminDataStore
+    const storeUpdated = await AdminDataStore.updatePropertyStatus(id, status);
+    if (!updated && storeUpdated) updated = storeUpdated;
 
     if (!updated) return res.status(404).json({ error: 'Property not found' });
     res.json(updated);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+}
+
+export async function deleteProperty(req: Request, res: Response) {
+  try {
+    const id = req.params.id as string;
+    const { ownerId } = req.body || {};
+
+    if (supabase) {
+      try {
+        let query = supabase.from('properties').delete().eq('id', id);
+        if (ownerId) query = query.eq('owner_id', ownerId);
+        await query;
+        await supabase.from('kyp_verifications').delete().eq('property_id', id);
+      } catch (err: any) {
+        console.error('[deleteProperty] Supabase delete error:', err.message);
+      }
+    }
+
+    AdminDataStore.deleteProperty(id);
+    res.json({ success: true, message: 'Property deleted successfully' });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

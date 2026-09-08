@@ -215,6 +215,20 @@ class ApiService {
     }
   }
 
+  // 1a7. Delete Property Listing
+  static Future<bool> deleteProperty(String propertyId, {String? ownerId}) async {
+    try {
+      final response = await http.delete(
+        Uri.parse('$baseUrl/properties/$propertyId'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({if (ownerId != null) 'ownerId': ownerId}),
+      ).timeout(const Duration(seconds: 10));
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
   // 1b. Create & Publish New Property Listing
   static Future<bool> createProperty(Property property) async {
     try {

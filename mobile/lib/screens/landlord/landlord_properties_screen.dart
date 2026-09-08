@@ -124,6 +124,51 @@ class _LandlordPropertiesScreenState extends State<LandlordPropertiesScreen>
     }
   }
 
+  Future<void> _confirmDeleteProperty(Property prop) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        title: Row(
+          children: [
+            const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 22),
+            const SizedBox(width: 8),
+            Text('Delete Property', style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to permanently delete "${prop.title}" from your portfolio?\n\nThis will remove the listing and title verification records.',
+          style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: AppColors.textSecondary, fontWeight: FontWeight.bold)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+            child: Text('Delete', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldDelete == true) {
+      final ok = await ApiService.deleteProperty(prop.id, ownerId: _user?.id);
+      if (ok && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Property "${prop.title}" deleted from portfolio.', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold)),
+            backgroundColor: Colors.black87,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        _loadMyProperties(_user);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -397,7 +442,6 @@ class _LandlordPropertiesScreenState extends State<LandlordPropertiesScreen>
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 TextButton.icon(
                   onPressed: () {
@@ -408,6 +452,7 @@ class _LandlordPropertiesScreenState extends State<LandlordPropertiesScreen>
                   icon: const Icon(Icons.visibility_outlined, size: 14, color: AppColors.primary),
                   label: Text('Preview', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
                 ),
+                const Spacer(),
                 OutlinedButton(
                   onPressed: () => _toggleAvailability(prop),
                   style: OutlinedButton.styleFrom(
@@ -423,6 +468,12 @@ class _LandlordPropertiesScreenState extends State<LandlordPropertiesScreen>
                       color: isUnlisted ? const Color(0xFF16A34A) : Colors.red.shade700,
                     ),
                   ),
+                ),
+                const SizedBox(width: 6),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red),
+                  tooltip: 'Delete Property',
+                  onPressed: () => _confirmDeleteProperty(prop),
                 ),
               ],
             ),

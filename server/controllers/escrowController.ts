@@ -557,14 +557,22 @@ export async function payRentEscrow(req: Request, res: Response) {
 
         // 5. Create active digital tenancy agreement in legal_agreements
         try {
+          const ownerUid = property?.owner_id || property?.ownerId || (ownerProfile ? ownerProfile.id : null);
+          const ownerMail = ownerProfile?.email || property?.owner_email || property?.ownerEmail;
           await supabase.from('legal_agreements').insert({
             property_id: propertyId,
+            tenant_id: tenantId,
+            renter_id: tenantId,
             tenant_email: cleanEmail,
             tenant_name: tenantName || 'Tenant',
+            owner_id: ownerUid,
+            landlord_id: ownerUid,
+            landlord_email: ownerMail,
             landlord_name: ownerName,
             property_title: propTitle,
             property_address: propAddress,
             annual_rent: numBase,
+            rent_amount: numBase,
             caution_deposit: numCaution,
             tenancy_duration: `${tenancyDurationMonths || 12} Months`,
             status: 'fully_executed',
@@ -637,8 +645,12 @@ export async function getLandlordEscrowSummary(req: Request, res: Response) {
           .select('*')
           .eq('status', 'fully_executed');
 
-        if (email) {
+        if (email && ownerId) {
+          agreementsQuery = agreementsQuery.or(`landlord_email.eq.${email},owner_email.eq.${email},owner_id.eq.${ownerId},landlord_id.eq.${ownerId}`);
+        } else if (email) {
           agreementsQuery = agreementsQuery.or(`landlord_email.eq.${email},owner_email.eq.${email}`);
+        } else if (ownerId) {
+          agreementsQuery = agreementsQuery.or(`owner_id.eq.${ownerId},landlord_id.eq.${ownerId}`);
         }
 
         const { data: agreements } = await agreementsQuery;

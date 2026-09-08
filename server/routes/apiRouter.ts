@@ -130,6 +130,7 @@ apiRouter.get('/properties', propertyController.getProperties);
 apiRouter.get('/properties/:id', propertyController.getPropertyById);
 apiRouter.post('/properties', propertyController.createProperty);
 apiRouter.patch('/properties/:id/status', propertyController.updatePropertyStatus);
+apiRouter.delete('/properties/:id', propertyController.deleteProperty);
 
 // 5. KYP Verification Desk
 apiRouter.get('/kyp/records', kypController.getKYPRecords);

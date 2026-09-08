@@ -134,11 +134,15 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
   @override
   Widget build(BuildContext context) {
     if (_activeViewMode == 'partner') {
-      return const PartnerDashboardScreen();
+      return PartnerDashboardScreen(
+        onSwitchToTenant: () => setViewMode('consumer'),
+      );
     }
 
     if (_activeViewMode == 'landlord') {
-      return const LandlordDashboardScreen();
+      return LandlordDashboardScreen(
+        onSwitchToTenant: () => setViewMode('consumer'),
+      );
     }
 
     return Scaffold(

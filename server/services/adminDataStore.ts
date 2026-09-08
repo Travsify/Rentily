@@ -192,6 +192,15 @@ export class AdminDataStore {
     return _propertiesCache[idx];
   }
 
+  static deleteProperty(id: string): boolean {
+    const idx = _propertiesCache.findIndex(p => p.id === id);
+    if (idx >= 0) {
+      _propertiesCache.splice(idx, 1);
+      return true;
+    }
+    return false;
+  }
+
   // ============================================================
   // KYP RECORDS
   // ============================================================

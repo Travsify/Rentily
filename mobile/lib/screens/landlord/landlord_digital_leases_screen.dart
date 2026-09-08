@@ -250,9 +250,12 @@ class _LandlordDigitalLeasesScreenState extends State<LandlordDigitalLeasesScree
         elevation: 0,
       ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(18),
-          children: [
+        child: RefreshIndicator(
+          onRefresh: () async => _loadUser(),
+          color: AppColors.primary,
+          child: ListView(
+            padding: const EdgeInsets.all(18),
+            children: [
             // Legal Banner
             Container(
               padding: const EdgeInsets.all(16),
@@ -286,6 +289,47 @@ class _LandlordDigitalLeasesScreenState extends State<LandlordDigitalLeasesScree
                   Text(
                     'All leases generated on Rentilly are digitally signed, legally binding in Nigerian courts, and include automated move-in key handover escrow protection under the laws of the Federal Republic of Nigeria.',
                     style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: Colors.white70, height: 1.35),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+
+            // Hardcopy Agreement & International Courier Notice
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0D5C46).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: const Color(0xFF0D5C46).withValues(alpha: 0.25)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0D5C46).withValues(alpha: 0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.local_shipping_outlined, size: 20, color: Color(0xFF0D5C46)),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Hard Copy & International DocuSign Dispatch',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF0D5C46)),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          'In addition to digital escrow signing, the Rentilly Legal Desk dispatches physical stamped agreements via partner courier across all 36 Nigerian states and international DocuSign for diaspora tenants/buyers.',
+                          style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary, height: 1.35),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -393,7 +437,8 @@ class _LandlordDigitalLeasesScreenState extends State<LandlordDigitalLeasesScree
                   ),
                 );
               }),
-          ],
+            ],
+          ),
         ),
       ),
     );
