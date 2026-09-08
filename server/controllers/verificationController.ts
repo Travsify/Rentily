@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { IdentitypassService } from '../services/identitypassService';
 import { FlutterwaveService } from '../services/flutterwaveService';
+import { FincraService } from '../services/fincraService';
 import { UserStore, type StoredUser } from '../services/userStore';
 import { MapleradBankingService } from '../services/mapleradBankingService';
 import { NotificationDispatcher } from '../services/notificationDispatcher';
@@ -125,27 +126,69 @@ export async function verifyAndProvision(req: Request, res: Response) {
       usdtTronAddress = mapleRes.usdtAddress;
     }
 
-    // B. If KYB / Partner: Provision dedicated Corporate Virtual Account in Business Name via Flutterwave
+    // B. If KYB / Partner: Provision dedicated Corporate Virtual Account in Business Name via Fincra (Primary) or Flutterwave (Fallback)
     if (isPartner && partnerBizName.length > 0) {
-      console.log(`[verifyAndProvision] 🏢 Provisioning Corporate Account via Flutterwave for ${partnerBizName}...`);
+      // 1. Try Fincra Corporate Virtual Account (Wema Bank in Partner Business Name)
+      console.log(`[verifyAndProvision] 🏢 Provisioning Corporate Account via Fincra for ${partnerBizName}...`);
       try {
-        const flwRes = await FlutterwaveService.createPermanentUserVirtualAccount({
-          userId: existing?.id || req.body.userId || `usr_${Date.now()}`,
-          email: cleanEmail,
-          fullName: cleanName,
-          businessName: partnerBizName,
-          role: 'partner',
-          bvn: bvnToUse,
-          phoneNumber: phoneNumber || existing?.phoneNumber
+        const fincraRes = await FincraService.createVirtualAccount({
+          accountType: 'corporate',
+          channel: 'wema',
+          KYCInformation: {
+            businessName: partnerBizName,
+            bvn: bvnToUse,
+            bvnName: cleanName,
+            email: cleanEmail
+          }
         });
 
-        if (flwRes.status && flwRes.data?.accountNumber) {
-          accountNumber = flwRes.data.accountNumber;
-          bankName = `${flwRes.data.bankName || 'Flutterwave MFB'} (Rentilly)`;
-          console.log(`[verifyAndProvision] ✅ Corporate Account provisioned in Business Name via Flutterwave: ${accountNumber} (${bankName}) for ${partnerBizName}`);
+        const accNo = fincraRes.data?.accountNumber || fincraRes.data?.accountInformation?.accountNumber;
+        if (fincraRes.status && accNo) {
+          accountNumber = accNo;
+          bankName = `${fincraRes.data?.bankName || fincraRes.data?.accountInformation?.bankName || 'Wema Bank'} (Rentilly)`;
+          console.log(`[verifyAndProvision] ✅ Corporate Account provisioned in Business Name via Fincra: ${accountNumber} (${bankName}) for ${partnerBizName}`);
+
+          if (supabase) {
+            await supabase.from('system_configs').upsert({
+              id: `fincra_va_${cleanEmail}`,
+              data: {
+                accountNumber,
+                bankName,
+                bankCode: '035',
+                accountName: partnerBizName,
+                provider: 'fincra',
+                tier: 'Commercial Institutional Tier'
+              },
+              updated_at: new Date().toISOString()
+            }).catch(() => {});
+          }
         }
-      } catch (flwErr: any) {
-        console.warn('[verifyAndProvision] Flutterwave corporate account warning:', flwErr.message);
+      } catch (fincraErr: any) {
+        console.warn('[verifyAndProvision] Fincra corporate account warning:', fincraErr.message);
+      }
+
+      // 2. Fallback to Flutterwave if Fincra corporate account did not return
+      if (!accountNumber) {
+        console.log(`[verifyAndProvision] 🏢 Falling back to Flutterwave Corporate Account for ${partnerBizName}...`);
+        try {
+          const flwRes = await FlutterwaveService.createPermanentUserVirtualAccount({
+            userId: existing?.id || req.body.userId || `usr_${Date.now()}`,
+            email: cleanEmail,
+            fullName: cleanName,
+            businessName: partnerBizName,
+            role: 'partner',
+            bvn: bvnToUse,
+            phoneNumber: phoneNumber || existing?.phoneNumber
+          });
+
+          if (flwRes.status && flwRes.data?.accountNumber) {
+            accountNumber = flwRes.data.accountNumber;
+            bankName = `${flwRes.data.bankName || 'Flutterwave MFB'} (Rentilly)`;
+            console.log(`[verifyAndProvision] ✅ Corporate Account provisioned in Business Name via Flutterwave: ${accountNumber} (${bankName}) for ${partnerBizName}`);
+          }
+        } catch (flwErr: any) {
+          console.warn('[verifyAndProvision] Flutterwave corporate account warning:', flwErr.message);
+        }
       }
     }
 
@@ -812,4 +855,93 @@ export async function verifyPublicCredential(req: Request, res: Response) {
     res.status(500).json({ error: err.message });
   }
 }
+
+/**
+ * 8. Sync or Provision Fincra Corporate Virtual Account for Partners
+ * Provisions a dedicated Wema Bank Corporate account in the Partner's Business Name
+ */
+export async function syncPartnerFincraAccount(req: Request, res: Response) {
+  try {
+    const email = (req.body.email || req.query.email || '').toString().trim().toLowerCase();
+    if (!email) {
+      return res.status(400).json({ error: 'Partner email is required' });
+    }
+
+    let user = await UserStore.findByEmail(email);
+    let profileData: any = null;
+    if (supabase) {
+      const { data } = await supabase.from('profiles').select('*').eq('email', email).maybeSingle();
+      if (data) profileData = data;
+    }
+
+    const businessName = profileData?.business_name || user?.businessName || 'Corporate Partner';
+    const fullName = profileData?.full_name || user?.fullName || businessName;
+    const bvn = profileData?.bvn || (user as any)?.bvn || '22222222222';
+
+    console.log(`[syncPartnerFincraAccount] Provisioning Fincra Corporate VA for ${email} (${businessName})...`);
+
+    const result = await FincraService.createVirtualAccount({
+      accountType: 'corporate',
+      channel: 'wema',
+      KYCInformation: {
+        businessName: businessName,
+        bvn: bvn,
+        bvnName: fullName,
+        email: email
+      }
+    });
+
+    const accNo = result.data?.accountNumber || result.data?.accountInformation?.accountNumber;
+    if (result.status && accNo) {
+      const bankName = `${result.data?.bankName || result.data?.accountInformation?.bankName || 'Wema Bank'} (Rentilly)`;
+
+      if (supabase) {
+        await supabase.from('system_configs').upsert({
+          id: `fincra_va_${email}`,
+          data: {
+            accountNumber: accNo,
+            bankName: bankName,
+            bankCode: '035',
+            accountName: businessName,
+            provider: 'fincra',
+            tier: 'Commercial Institutional Tier'
+          },
+          updated_at: new Date().toISOString()
+        });
+
+        await supabase.from('profiles').update({
+          account_number: accNo,
+          bank_name: bankName,
+          commercial_account_number: accNo,
+          commercial_bank_name: bankName,
+          updated_at: new Date().toISOString()
+        }).eq('email', email);
+      }
+
+      if (user) {
+        user.accountNumber = accNo;
+        user.bankName = bankName;
+        UserStore.upsertUserForced(user as any);
+      }
+
+      return res.json({
+        status: true,
+        message: `Fincra Corporate Account provisioned in business name: ${businessName}`,
+        accountNumber: accNo,
+        bankName: bankName,
+        businessName: businessName
+      });
+    }
+
+    return res.status(400).json({
+      status: false,
+      message: result.message || 'Failed to provision Fincra Virtual Account',
+      data: result.data
+    });
+  } catch (err: any) {
+    console.error('syncPartnerFincraAccount error:', err);
+    return res.status(500).json({ error: err.message });
+  }
+}
+
 
