@@ -338,10 +338,19 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
       const recipientName = (accountName || memUser?.fullName || 'Rentilly User').trim();
       const nameParts = recipientName.split(' ');
 
+      // Build clean narration so beneficiary bank statements clearly display "Rentilly / [Narration]"
+      let payoutDescription = 'Rentilly Transfer';
+      if (rawReason && !rawReason.toLowerCase().includes('living escrow')) {
+        const cleaned = rawReason.replace(/transify/gi, '').replace(/payout/gi, 'Transfer').trim();
+        payoutDescription = cleaned.toLowerCase().startsWith('rentilly') ? cleaned : `Rentilly / ${cleaned}`;
+      } else {
+        payoutDescription = `Rentilly Transfer to ${recipientName}`;
+      }
+
       const fincraRes = await FincraService.initiatePayout({
         amount: numAmount,
         reference: txRef,
-        description: cleanReason,
+        description: payoutDescription,
         currency: 'NGN',
         beneficiary: {
           firstName: nameParts[0] || 'Rentilly',
@@ -352,7 +361,7 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
           type: 'individual'
         },
         sender: {
-          name: `${senderDisplayName} / Rentilly`,
+          name: senderDisplayName,
           email: cleanEmail
         }
       });

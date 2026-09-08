@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
@@ -12,6 +13,19 @@ import '../models/user_profile.dart';
 class StatementPdfService {
   static final NumberFormat _currencyFormat = NumberFormat('#,###.00', 'en_US');
   static final DateFormat _dateFormat = DateFormat('dd MMM yyyy, hh:mm a');
+
+  static pw.MemoryImage? _cachedLogo;
+
+  static Future<pw.MemoryImage?> _getLogoImage() async {
+    if (_cachedLogo != null) return _cachedLogo;
+    try {
+      final data = await rootBundle.load('assets/images/logo.png');
+      _cachedLogo = pw.MemoryImage(data.buffer.asUint8List());
+      return _cachedLogo;
+    } catch (_) {
+      return null;
+    }
+  }
 
   // Helper to sanitize any string from unsupported PDF unicode glyphs
   static String _sanitizePdfText(dynamic text) {
@@ -111,6 +125,7 @@ class StatementPdfService {
       (isCredit ? 'Wema Bank (Rentilly)' : 'Commercial Settlement Rail')
     );
     final displayAccount = _sanitizePdfText(transaction['recipientAccount'] ?? user.accountNumber ?? '');
+    final logoImage = await _getLogoImage();
 
     pdf.addPage(
       pw.Page(
@@ -125,21 +140,38 @@ class StatementPdfService {
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: pw.CrossAxisAlignment.center,
                 children: [
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  pw.Row(
+                    crossAxisAlignment: pw.CrossAxisAlignment.center,
                     children: [
-                      pw.Text(
-                        'RENTILLY',
-                        style: pw.TextStyle(
-                          fontSize: 24,
-                          fontWeight: pw.FontWeight.bold,
-                          color: primaryColor,
-                          letterSpacing: 1.5,
+                      if (logoImage != null) ...[
+                        pw.Container(
+                          width: 38,
+                          height: 38,
+                          margin: const pw.EdgeInsets.only(right: 12),
+                          child: pw.ClipRRect(
+                            horizontalRadius: 6,
+                            verticalRadius: 6,
+                            child: pw.Image(logoImage, fit: pw.BoxFit.contain),
+                          ),
                         ),
-                      ),
-                      pw.Text(
-                        'Direct Real Estate & Escrow Protocol',
-                        style: const pw.TextStyle(fontSize: 9.5, color: PdfColors.grey700),
+                      ],
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text(
+                            'RENTILLY',
+                            style: pw.TextStyle(
+                              fontSize: 22,
+                              fontWeight: pw.FontWeight.bold,
+                              color: primaryColor,
+                              letterSpacing: 1.5,
+                            ),
+                          ),
+                          pw.Text(
+                            'Direct Real Estate & Escrow Protocol',
+                            style: const pw.TextStyle(fontSize: 9.5, color: PdfColors.grey700),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -368,6 +400,7 @@ class StatementPdfService {
 
     final netMovement = totalInflow - totalOutflow;
     final closingBalance = user.walletBalance;
+    final logoImage = await _getLogoImage();
 
     pdf.addPage(
       pw.MultiPage(
@@ -380,25 +413,42 @@ class StatementPdfService {
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  pw.Row(
+                    crossAxisAlignment: pw.CrossAxisAlignment.center,
                     children: [
-                      pw.Text(
-                        'RENTILLY LIVING PROTOCOL',
-                        style: pw.TextStyle(
-                          fontSize: 18,
-                          fontWeight: pw.FontWeight.bold,
-                          color: primaryColor,
-                          letterSpacing: 1.2,
+                      if (logoImage != null) ...[
+                        pw.Container(
+                          width: 34,
+                          height: 34,
+                          margin: const pw.EdgeInsets.only(right: 10),
+                          child: pw.ClipRRect(
+                            horizontalRadius: 6,
+                            verticalRadius: 6,
+                            child: pw.Image(logoImage, fit: pw.BoxFit.contain),
+                          ),
                         ),
-                      ),
-                      pw.Text(
-                        'E-Homes Global Inclusive Limited (RC: 1984209)',
-                        style: const pw.TextStyle(fontSize: 8.5, color: PdfColors.grey700),
-                      ),
-                      pw.Text(
-                        'Plot 12, Admiralty Way, Lekki Phase 1, Lagos, Nigeria',
-                        style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey600),
+                      ],
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text(
+                            'RENTILLY LIVING PROTOCOL',
+                            style: pw.TextStyle(
+                              fontSize: 18,
+                              fontWeight: pw.FontWeight.bold,
+                              color: primaryColor,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                          pw.Text(
+                            'E-Homes Global Inclusive Limited (RC: 1984209)',
+                            style: const pw.TextStyle(fontSize: 8.5, color: PdfColors.grey700),
+                          ),
+                          pw.Text(
+                            'Plot 12, Admiralty Way, Lekki Phase 1, Lagos, Nigeria',
+                            style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey600),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -644,6 +694,8 @@ class StatementPdfService {
       }
     }
 
+    final logoImage = await _getLogoImage();
+
     pdf.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4,
@@ -655,21 +707,38 @@ class StatementPdfService {
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  pw.Row(
+                    crossAxisAlignment: pw.CrossAxisAlignment.center,
                     children: [
-                      pw.Text(
-                        'RENTILLY VIRTUAL DOLLAR CARD',
-                        style: pw.TextStyle(
-                          fontSize: 18,
-                          fontWeight: pw.FontWeight.bold,
-                          color: primaryColor,
-                          letterSpacing: 1.2,
+                      if (logoImage != null) ...[
+                        pw.Container(
+                          width: 34,
+                          height: 34,
+                          margin: const pw.EdgeInsets.only(right: 10),
+                          child: pw.ClipRRect(
+                            horizontalRadius: 6,
+                            verticalRadius: 6,
+                            child: pw.Image(logoImage, fit: pw.BoxFit.contain),
+                          ),
                         ),
-                      ),
-                      pw.Text(
-                        'Bridgecard CaaS Cardholder Statement (USD Global Visa)',
-                        style: const pw.TextStyle(fontSize: 8.5, color: PdfColors.grey700),
+                      ],
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text(
+                            'RENTILLY VIRTUAL DOLLAR CARD',
+                            style: pw.TextStyle(
+                              fontSize: 18,
+                              fontWeight: pw.FontWeight.bold,
+                              color: primaryColor,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                          pw.Text(
+                            'Bridgecard CaaS Cardholder Statement (USD Global Visa)',
+                            style: const pw.TextStyle(fontSize: 8.5, color: PdfColors.grey700),
+                          ),
+                        ],
                       ),
                     ],
                   ),

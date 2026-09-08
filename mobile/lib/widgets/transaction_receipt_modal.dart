@@ -180,21 +180,30 @@ class _TransactionReceiptModalState extends State<TransactionReceiptModal> {
             children: [
               Row(
                 children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: (isCardTx
-                          ? (isCredit ? const Color(0xFF0D9488) : const Color(0xFFE11D48))
-                          : AppColors.primary).withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      isCardTx ? (isCredit ? Icons.add_card_rounded : Icons.credit_card_rounded) : Icons.receipt_long_rounded,
-                      color: isCardTx ? (isCredit ? const Color(0xFF0D9488) : const Color(0xFFE11D48)) : AppColors.primary,
-                      size: 20,
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.asset(
+                      'assets/images/logo.png',
+                      width: 36,
+                      height: 36,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: (isCardTx
+                              ? (isCredit ? const Color(0xFF0D9488) : const Color(0xFFE11D48))
+                              : AppColors.primary).withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          isCardTx ? (isCredit ? Icons.add_card_rounded : Icons.credit_card_rounded) : Icons.receipt_long_rounded,
+                          color: isCardTx ? (isCredit ? const Color(0xFF0D9488) : const Color(0xFFE11D48)) : AppColors.primary,
+                          size: 20,
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 12),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -237,7 +246,7 @@ class _TransactionReceiptModalState extends State<TransactionReceiptModal> {
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: (isCredit ? const Color(0xFF064E3B) : (isCardTx ? const Color(0xFF881337) : const Color(0xFF1E293B))).withOpacity(0.25),
+                  color: (isCredit ? const Color(0xFF064E3B) : (isCardTx ? const Color(0xFF881337) : const Color(0xFF1E293B))).withValues(alpha: 0.25),
                   blurRadius: 16,
                   offset: const Offset(0, 6),
                 ),
@@ -260,7 +269,7 @@ class _TransactionReceiptModalState extends State<TransactionReceiptModal> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(

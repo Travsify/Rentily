@@ -378,7 +378,7 @@ export class FincraService {
         sourceCurrency: params.currency || 'NGN',
         destinationCurrency: params.currency || 'NGN',
         amount: params.amount,
-        description: params.description || 'Rentilly Escrow Disbursement',
+        description: params.description || 'Rentilly Transfer',
         paymentDestination: 'bank_account',
         customerReference: params.reference,
         beneficiary: {
