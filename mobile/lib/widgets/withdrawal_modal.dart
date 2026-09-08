@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -42,10 +43,11 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
   final TextEditingController _cryptoAddressController = TextEditingController();
   final TextEditingController _beneficiarySearchController = TextEditingController();
   final TextEditingController _narrationController = TextEditingController();
+  final TextEditingController _platformRecipientController = TextEditingController();
   final FocusNode _amountFocusNode = FocusNode();
 
   String _withdrawalMode = 'NGN'; // 'NGN' or 'USDT'
-  String _usdtDestinationType = 'BANK'; // 'BANK' (Convert to NGN) or 'CRYPTO' (Send on-chain)
+  String _usdtDestinationType = 'ONCHAIN'; // 'ONCHAIN' (External TRC20), 'PLATFORM' (Free to user), 'BANK' (Convert to NGN)
   double _fxUsdtToNgn = 1400.0;
   double _usdtWithdrawalFeePct = 2.0; // Dynamic from Admin Fee Settings (default 2%)
 
@@ -58,6 +60,11 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
   bool _isLoadingBanks = false;
   String? _errorMessage;
 
+  // Platform (Internal) Recipient Resolution
+  Map<String, dynamic>? _resolvedPlatformRecipient;
+  bool _isResolvingPlatformRecipient = false;
+  String? _platformRecipientError;
+
   // Beneficiary Management
   List<Map<String, dynamic>> _savedBeneficiaries = [];
   List<Map<String, dynamic>> _filteredBeneficiaries = [];
@@ -69,10 +76,16 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
   }
 
   double get _usdtFeeAmount {
+    if (_withdrawalMode == 'USDT' && _usdtDestinationType == 'PLATFORM') {
+      return 0.0;
+    }
     return (_enteredAmount * _usdtWithdrawalFeePct) / 100.0;
   }
 
   double get _usdtNetPayoutAmount {
+    if (_withdrawalMode == 'USDT' && _usdtDestinationType == 'PLATFORM') {
+      return _enteredAmount;
+    }
     return (_enteredAmount - _usdtFeeAmount).clamp(0.0, double.infinity);
   }
 
@@ -127,6 +140,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
     _amountController.dispose();
     _cryptoAddressController.dispose();
     _narrationController.dispose();
+    _platformRecipientController.dispose();
     super.dispose();
   }
 
@@ -158,7 +172,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
       _selectedBeneficiary = b;
       if (b['type'] == 'crypto' && b['cryptoAddress'] != null) {
         _withdrawalMode = 'USDT';
-        _usdtDestinationType = 'CRYPTO';
+        _usdtDestinationType = 'ONCHAIN';
         _cryptoAddressController.text = b['cryptoAddress'].toString();
       } else {
         _withdrawalMode = 'NGN';
@@ -185,6 +199,123 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
         _amountFocusNode.requestFocus();
       }
     });
+  }
+
+  void _resolvePlatformRecipient(String query) async {
+    final clean = query.trim();
+    if (clean.length < 3) {
+      setState(() {
+        _resolvedPlatformRecipient = null;
+        _platformRecipientError = null;
+        _isResolvingPlatformRecipient = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isResolvingPlatformRecipient = true;
+      _platformRecipientError = null;
+    });
+
+    final res = await ApiService.resolveCryptoRecipient(
+      query: clean,
+      senderEmail: widget.user.email,
+    );
+
+    if (!mounted) return;
+
+    if (res['success'] == true && res['recipient'] != null) {
+      setState(() {
+        _resolvedPlatformRecipient = Map<String, dynamic>.from(res['recipient']);
+        _platformRecipientError = null;
+        _isResolvingPlatformRecipient = false;
+      });
+    } else {
+      setState(() {
+        _resolvedPlatformRecipient = null;
+        _platformRecipientError = res['error']?.toString() ?? 'No Rentilly user found with this Email or Crypto ID.';
+        _isResolvingPlatformRecipient = false;
+      });
+    }
+  }
+
+  Widget _buildDestinationOption({
+    required String id,
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    bool isFree = false,
+  }) {
+    final isSelected = _usdtDestinationType == id;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _usdtDestinationType = id;
+            _errorMessage = null;
+          });
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? (isFree
+                    ? const Color(0xFF00C853).withValues(alpha: 0.12)
+                    : AppColors.primary.withValues(alpha: 0.1))
+                : const Color(0xFFF9FAFB),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected
+                  ? (isFree ? const Color(0xFF00C853) : AppColors.primary)
+                  : AppColors.borderDark,
+              width: isSelected ? 1.5 : 1,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    icon,
+                    size: 13,
+                    color: isSelected
+                        ? (isFree ? const Color(0xFF00C853) : AppColors.primary)
+                        : AppColors.textSecondary,
+                  ),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      title,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.bold,
+                        color: isSelected ? AppColors.textPrimary : AppColors.textSecondary,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 8.5,
+                  fontWeight: isFree && isSelected ? FontWeight.w800 : FontWeight.w500,
+                  color: isFree
+                      ? const Color(0xFF00C853)
+                      : (isSelected ? AppColors.primary : AppColors.textMuted),
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _openBeneficiarySearchSheet() {
@@ -579,8 +710,102 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
       }
     }
 
-    // Branch A: USDT On-chain Transfer to TRC20 Address
-    if (_withdrawalMode == 'USDT' && _usdtDestinationType == 'CRYPTO') {
+    // Branch 1: USDT On-Platform Transfer to Rentilly User (0% Fee / Free)
+    if (_withdrawalMode == 'USDT' && _usdtDestinationType == 'PLATFORM') {
+      final recipientQuery = _platformRecipientController.text.trim();
+      if (recipientQuery.isEmpty) {
+        setState(() => _errorMessage = 'Please enter recipient Email or Crypto ID.');
+        return;
+      }
+
+      if (_isResolvingPlatformRecipient) {
+        setState(() => _errorMessage = 'Please wait while we resolve the recipient details.');
+        return;
+      }
+
+      if (_resolvedPlatformRecipient == null) {
+        setState(() => _errorMessage = 'Please enter a valid, verified Rentilly recipient Email or Crypto ID.');
+        return;
+      }
+
+      final recipientName = _resolvedPlatformRecipient!['fullName'] ?? 'Rentilly User';
+      final recipientEmail = _resolvedPlatformRecipient!['email'] ?? recipientQuery;
+      final recipientCId = _resolvedPlatformRecipient!['cryptoId'] ?? '';
+
+      if (!mounted) return;
+      final authorized = await PaymentSecurityService.authorizeTransaction(
+        context,
+        title: 'Transfer $entered USDT to $recipientName',
+        amount: entered,
+        recipient: '$recipientName ($recipientCId)',
+      );
+      if (!authorized) {
+        setState(() => _errorMessage = 'Payment authorization cancelled or incorrect.');
+        return;
+      }
+
+      setState(() {
+        _isProcessing = true;
+        _errorMessage = null;
+      });
+
+      try {
+        final res = await ApiService.transferPlatformCrypto(
+          senderEmail: currentUser.email,
+          recipientQuery: recipientQuery,
+          amountUsdt: entered,
+          note: _narrationController.text.trim().isNotEmpty ? _narrationController.text.trim() : null,
+        );
+
+        setState(() => _isProcessing = false);
+
+        if (res['success'] == true) {
+          final serverNewBal = (res['newBalance'] != null)
+              ? (res['newBalance'] as num).toDouble()
+              : (availUsdt - entered).clamp(0.0, double.infinity);
+          widget.onWithdrawalSuccess(serverNewBal);
+
+          NotificationService.addNotification(
+            title: 'USDT Sent On-Platform ⚡',
+            message: 'Transferred $entered USDT to $recipientName ($recipientCId) with zero fees.',
+            category: 'transaction',
+            metadata: {
+              'amount': '\$$entered USDT',
+              'recipient': recipientName,
+              'email': recipientEmail,
+              'cryptoId': recipientCId,
+              'fee': 'FREE (\$0.00)',
+            },
+          );
+
+          if (!mounted) return;
+          Navigator.of(context).pop();
+
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Successfully sent $entered USDT to $recipientName (0% Fee)',
+                style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              backgroundColor: const Color(0xFF00C853),
+            ),
+          );
+        } else {
+          setState(() {
+            _errorMessage = res['error'] ?? res['message'] ?? 'Platform crypto transfer failed.';
+          });
+        }
+      } catch (e) {
+        setState(() {
+          _isProcessing = false;
+          _errorMessage = 'Network error. Please check your connection and try again.';
+        });
+      }
+      return;
+    }
+
+    // Branch 2: USDT On-chain Transfer to TRC20 Address
+    if (_withdrawalMode == 'USDT' && (_usdtDestinationType == 'ONCHAIN' || _usdtDestinationType == 'CRYPTO')) {
       final cryptoAddr = _cryptoAddressController.text.trim();
       if (cryptoAddr.length < 30 || !cryptoAddr.startsWith('T')) {
         setState(() => _errorMessage = 'Please enter a valid TRON TRC20 wallet address (starts with T).');
@@ -1197,31 +1422,53 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
             ],
             const SizedBox(height: 12),
 
-            // If USDT: Show Destination Selector (Bank Payout or Crypto Address)
+            // If USDT: Show 3 Destination Options (On-Chain, On-Platform Free, To Bank)
             if (_withdrawalMode == 'USDT') ...[
-              Text(
-                'DESTINATION METHOD',
-                style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'SELECT WITHDRAWAL DESTINATION',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                  ),
+                  if (_usdtDestinationType == 'PLATFORM')
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF00C853).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFF00C853).withValues(alpha: 0.3)),
+                      ),
+                      child: Text(
+                        '0% FEE • INSTANT',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.w800, color: const Color(0xFF00C853)),
+                      ),
+                    ),
+                ],
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               Row(
                 children: [
-                  Expanded(
-                    child: ChoiceChip(
-                      label: Text('Convert & Payout to Bank', style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold)),
-                      selected: _usdtDestinationType == 'BANK',
-                      selectedColor: AppColors.primary.withValues(alpha: 0.15),
-                      onSelected: (val) => setState(() => _usdtDestinationType = 'BANK'),
-                    ),
+                  _buildDestinationOption(
+                    id: 'ONCHAIN',
+                    title: 'On-Chain',
+                    subtitle: 'External Wallet',
+                    icon: Icons.account_balance_wallet_outlined,
                   ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: ChoiceChip(
-                      label: Text('Send to TRC20 Wallet', style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold)),
-                      selected: _usdtDestinationType == 'CRYPTO',
-                      selectedColor: const Color(0xFF00E676).withValues(alpha: 0.2),
-                      onSelected: (val) => setState(() => _usdtDestinationType = 'CRYPTO'),
-                    ),
+                  const SizedBox(width: 6),
+                  _buildDestinationOption(
+                    id: 'PLATFORM',
+                    title: 'On-Platform',
+                    subtitle: 'Free to User',
+                    icon: Icons.bolt_rounded,
+                    isFree: true,
+                  ),
+                  const SizedBox(width: 6),
+                  _buildDestinationOption(
+                    id: 'BANK',
+                    title: 'To Bank',
+                    subtitle: 'Convert to ₦',
+                    icon: Icons.account_balance_rounded,
                   ),
                 ],
               ),
@@ -1266,46 +1513,278 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
             ),
             const SizedBox(height: 10),
 
-            // Live FX Conversion Banner for USDT
+            // Live Conversion / Fee Banner for USDT
             if (_withdrawalMode == 'USDT') ...[
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF07382B),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFF00E676).withValues(alpha: 0.3)),
+              if (_usdtDestinationType == 'BANK')
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF07382B),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFF00E676).withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'CONVERTED NAIRA VALUE',
+                            style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.w800, color: const Color(0xFF00E676), letterSpacing: 0.8),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '≈ ₦${NumberFormat('#,###.00').format(_computedNgnAmount)} NGN',
+                            style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.white),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
+                        child: Text('1 USDT = ₦${_fxUsdtToNgn.toStringAsFixed(0)}', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.white)),
+                      ),
+                    ],
+                  ),
+                )
+              else if (_usdtDestinationType == 'PLATFORM')
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF042F1A),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFF00C853).withValues(alpha: 0.4)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'INSTANT P2P TRANSFER',
+                            style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.w800, color: const Color(0xFF00C853), letterSpacing: 0.8),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${_enteredAmount.toStringAsFixed(2)} USDT',
+                            style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.white),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(color: const Color(0xFF00C853).withValues(alpha: 0.25), borderRadius: BorderRadius.circular(8)),
+                        child: Text('0% FEE • FREE', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.bold, color: const Color(0xFF00E676))),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF07382B),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFF00E676).withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'ESTIMATED NET PAYOUT',
+                            style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.w800, color: const Color(0xFF00E676), letterSpacing: 0.8),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${_usdtNetPayoutAmount.toStringAsFixed(2)} USDT',
+                            style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.white),
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
+                        child: Text('Fee: ${_usdtFeeAmount.toStringAsFixed(2)} USDT', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.white)),
+                      ),
+                    ],
+                  ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'CONVERTED NAIRA VALUE',
-                          style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.w800, color: const Color(0xFF00E676), letterSpacing: 0.8),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '≈ ₦${NumberFormat('#,###.00').format(_computedNgnAmount)} NGN',
-                          style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.white),
-                        ),
-                      ],
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
-                      child: Text('1 USDT = ₦${_fxUsdtToNgn.toStringAsFixed(0)}', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.white)),
-                    ),
-                  ],
-                ),
-              ),
               const SizedBox(height: 14),
             ],
 
             // Payout Destination Inputs:
-            // 1. If Crypto Address chosen
-            if (_withdrawalMode == 'USDT' && _usdtDestinationType == 'CRYPTO') ...[
+            // 1. If On-Platform Transfer to Rentilly User (Free via Email or Crypto ID)
+            if (_withdrawalMode == 'USDT' && _usdtDestinationType == 'PLATFORM') ...[
+              // User's own Crypto ID display with tap-to-copy
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.fingerprint_rounded, size: 20, color: AppColors.primary),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'YOUR AUTO-LINKED CRYPTO ID',
+                            style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                          ),
+                          Text(
+                            widget.user.displayCryptoId,
+                            style: GoogleFonts.firaCode(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.primary),
+                          ),
+                        ],
+                      ),
+                    ),
+                    InkWell(
+                      onTap: () {
+                        Clipboard.setData(ClipboardData(text: widget.user.displayCryptoId));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Your Crypto ID (${widget.user.displayCryptoId}) copied to clipboard!', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
+                            duration: const Duration(seconds: 2),
+                            backgroundColor: AppColors.primary,
+                          ),
+                        );
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.borderDark),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.copy_rounded, size: 12, color: AppColors.primary),
+                            const SizedBox(width: 4),
+                            Text('Copy', style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              Text('RECIPIENT EMAIL OR CRYPTO ID', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+              const SizedBox(height: 6),
+              TextField(
+                controller: _platformRecipientController,
+                style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                decoration: InputDecoration(
+                  hintText: 'e.g. patrick@gmail.com or RT-84920192',
+                  hintStyle: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: AppColors.textMuted),
+                  filled: true,
+                  fillColor: const Color(0xFFF9FAFB),
+                  prefixIcon: const Icon(Icons.alternate_email_rounded, size: 18, color: AppColors.primary),
+                  suffixIcon: _isResolvingPlatformRecipient
+                      ? const SizedBox(width: 16, height: 16, child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary)))
+                      : (_resolvedPlatformRecipient != null
+                          ? const Icon(Icons.check_circle_rounded, size: 18, color: Color(0xFF00C853))
+                          : null),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.borderDark)),
+                ),
+                onChanged: _resolvePlatformRecipient,
+              ),
+
+              if (_resolvedPlatformRecipient != null) ...[
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00C853).withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFF00C853).withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.check_circle_rounded, size: 15, color: Color(0xFF00C853)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _resolvedPlatformRecipient!['fullName'] ?? 'Rentilly User',
+                              style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                            ),
+                            Text(
+                              '${_resolvedPlatformRecipient!['email']} • ID: ${_resolvedPlatformRecipient!['cryptoId']}',
+                              style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textSecondary),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF00C853),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text('VERIFIED', style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.w800, color: Colors.white)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+              if (_platformRecipientError != null) ...[
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF2F2),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFEF4444)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline_rounded, size: 14, color: Color(0xFFEF4444)),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          _platformRecipientError!,
+                          style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: const Color(0xFFB91C1C)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  const Icon(Icons.flash_on_rounded, size: 13, color: Color(0xFF00C853)),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      'On-platform transfers are 100% FREE with zero network fees.',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.w600, color: const Color(0xFF007E33)),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+            ]
+            // 2. If On-Chain Crypto Address chosen
+            else if (_withdrawalMode == 'USDT' && (_usdtDestinationType == 'ONCHAIN' || _usdtDestinationType == 'CRYPTO')) ...[
               Text('RECIPIENT TRON / TRC20 ADDRESS', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
               const SizedBox(height: 6),
               TextField(
@@ -1337,6 +1816,11 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.borderDark)),
                 ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Standard network processing fee of $_usdtWithdrawalFeePct% applies for external on-chain payouts.',
+                style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textMuted),
               ),
               const SizedBox(height: 14),
             ] else ...[
@@ -1502,9 +1986,11 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
                     ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : Text(
                         _withdrawalMode == 'USDT'
-                            ? (_usdtDestinationType == 'CRYPTO' 
-                                ? 'Authorize & Send ${_enteredAmount.toStringAsFixed(2)} USDT' 
-                                : 'Convert & Payout ₦${NumberFormat('#,###.00').format(_computedNgnAmount)}')
+                            ? (_usdtDestinationType == 'PLATFORM'
+                                ? 'Send ${_enteredAmount.toStringAsFixed(2)} USDT (0% Fee)'
+                                : (_usdtDestinationType == 'ONCHAIN' || _usdtDestinationType == 'CRYPTO'
+                                    ? 'Authorize & Send ${_enteredAmount.toStringAsFixed(2)} USDT' 
+                                    : 'Convert & Payout ₦${NumberFormat('#,###.00').format(_computedNgnAmount)}'))
                             : 'Authorize & Send ₦${NumberFormat('#,###.00').format(_computedNgnAmount)}',
                         style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold),
                       ),

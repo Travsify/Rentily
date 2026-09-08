@@ -3306,6 +3306,7 @@ export async function getWalletBalance(req: Request, res: Response) {
         role: dbUser?.role || memUser?.role || 'owner',
         walletBalance: balance,
         usdtBalance,
+        cryptoId: generateCryptoId(cleanEmail, dbUser?.id || memUser?.id),
       }
     });
   } catch (err: any) {
@@ -4637,4 +4638,362 @@ export async function saveUserBeneficiary(req: Request, res: Response) {
     return res.status(500).json({ error: err.message });
   }
 }
+
+/**
+ * Deterministically generates a unique, human-readable Crypto ID for a user
+ * e.g., RT-84920153
+ */
+export function generateCryptoId(email: string, id?: string): string {
+  const clean = (email || id || 'rentilly').toLowerCase().trim();
+  let hash = 5381;
+  for (let i = 0; i < clean.length; i++) {
+    hash = ((hash << 5) + hash) + clean.charCodeAt(i);
+    hash |= 0;
+  }
+  const positive = Math.abs(hash).toString().padStart(8, '0').slice(0, 8);
+  return `RT-${positive}`;
+}
+
+/**
+ * Resolves a recipient by Email or Crypto ID for On-Platform Crypto Transfers
+ * GET /api/payments/crypto/resolve-recipient?query={query}&senderEmail={senderEmail}
+ */
+export async function resolveCryptoRecipient(req: Request, res: Response) {
+  try {
+    const rawQuery = ((req.query.query as string) || (req.query.recipient as string) || '').trim();
+    const senderEmail = ((req.query.senderEmail as string) || '').toLowerCase().trim();
+
+    if (!rawQuery) {
+      return res.status(400).json({ success: false, error: 'Recipient email or Crypto ID is required' });
+    }
+
+    const cleanQuery = rawQuery.toLowerCase();
+    let recipient: any = null;
+
+    // Strategy 1: Check in-memory UserStore
+    const allUsers = await UserStore.getUsers();
+    recipient = allUsers.find(u => 
+      u.email?.toLowerCase() === cleanQuery ||
+      u.id === rawQuery ||
+      generateCryptoId(u.email, u.id).toLowerCase() === cleanQuery
+    );
+
+    // Strategy 2: Check Supabase profiles
+    if (!recipient && supabase) {
+      const { data: byEmail } = await supabase
+        .from('profiles')
+        .select('id, email, full_name, role')
+        .eq('email', cleanQuery)
+        .maybeSingle();
+
+      if (byEmail) {
+        recipient = byEmail;
+      } else {
+        const { data: allProfiles } = await supabase
+          .from('profiles')
+          .select('id, email, full_name, role')
+          .limit(300);
+
+        if (allProfiles) {
+          recipient = allProfiles.find(p => 
+            p.email?.toLowerCase() === cleanQuery ||
+            p.id === rawQuery ||
+            generateCryptoId(p.email, p.id).toLowerCase() === cleanQuery
+          );
+        }
+      }
+    }
+
+    if (!recipient) {
+      return res.status(404).json({
+        success: false,
+        error: `No Rentilly account found for "${rawQuery}". Please check the Email or Crypto ID.`
+      });
+    }
+
+    if (senderEmail && recipient.email?.toLowerCase() === senderEmail) {
+      return res.status(400).json({
+        success: false,
+        error: 'You cannot transfer crypto to your own account.'
+      });
+    }
+
+    const cryptoId = generateCryptoId(recipient.email, recipient.id);
+
+    return res.json({
+      success: true,
+      recipient: {
+        id: recipient.id,
+        email: recipient.email,
+        fullName: recipient.full_name || recipient.fullName || 'Rentilly User',
+        cryptoId
+      }
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+/**
+ * Free On-Platform Crypto Transfer (P2P between Rentilly Users)
+ * POST /api/payments/crypto/transfer-platform
+ */
+export async function transferPlatformCrypto(req: Request, res: Response) {
+  try {
+    const { senderEmail, recipientQuery, amountUsdt, note } = req.body;
+    if (!senderEmail || !recipientQuery || !amountUsdt) {
+      return res.status(400).json({
+        success: false,
+        error: 'senderEmail, recipientQuery, and amountUsdt are required.'
+      });
+    }
+
+    const cleanSenderEmail = senderEmail.toLowerCase().trim();
+    const cleanRecipientQuery = recipientQuery.trim().toLowerCase();
+    const numAmount = Number(amountUsdt);
+
+    if (isNaN(numAmount) || numAmount <= 0) {
+      return res.status(400).json({ success: false, error: 'Please enter a valid positive USDT amount.' });
+    }
+
+    // 1. Resolve Recipient
+    let recipient: any = null;
+    const allUsers = await UserStore.getUsers();
+    recipient = allUsers.find(u => 
+      u.email?.toLowerCase() === cleanRecipientQuery ||
+      u.id === recipientQuery.trim() ||
+      generateCryptoId(u.email, u.id).toLowerCase() === cleanRecipientQuery
+    );
+
+    if (!recipient && supabase) {
+      const { data: byEmail } = await supabase
+        .from('profiles')
+        .select('id, email, full_name, role, usdt_balance')
+        .eq('email', cleanRecipientQuery)
+        .maybeSingle();
+
+      if (byEmail) {
+        recipient = byEmail;
+      } else {
+        const { data: allProfiles } = await supabase
+          .from('profiles')
+          .select('id, email, full_name, role, usdt_balance')
+          .limit(300);
+
+        if (allProfiles) {
+          recipient = allProfiles.find(p => 
+            p.email?.toLowerCase() === cleanRecipientQuery ||
+            p.id === recipientQuery.trim() ||
+            generateCryptoId(p.email, p.id).toLowerCase() === cleanRecipientQuery
+          );
+        }
+      }
+    }
+
+    if (!recipient) {
+      return res.status(404).json({
+        success: false,
+        error: `Recipient "${recipientQuery}" not found on Rentilly.`
+      });
+    }
+
+    const cleanRecipientEmail = recipient.email?.toLowerCase().trim();
+    if (cleanSenderEmail === cleanRecipientEmail) {
+      return res.status(400).json({
+        success: false,
+        error: 'You cannot transfer crypto to your own account.'
+      });
+    }
+
+    // 2. Check Sender's USDT Balance
+    let senderBalUsdt = 0;
+    if (supabase) {
+      const { data: usdtCfg } = await supabase
+        .from('system_configs')
+        .select('data')
+        .eq('id', `usdt_balance_${cleanSenderEmail}`)
+        .maybeSingle();
+      if (usdtCfg?.data?.usdtBalance != null) {
+        senderBalUsdt = Number(usdtCfg.data.usdtBalance);
+      }
+    }
+    const memSender = await UserStore.findByEmail(cleanSenderEmail);
+    if (!senderBalUsdt && memSender?.usdtBalance != null) {
+      senderBalUsdt = Number(memSender.usdtBalance);
+    }
+
+    if (senderBalUsdt < numAmount) {
+      return res.status(400).json({
+        success: false,
+        error: `Insufficient USDT balance. Available balance: $${senderBalUsdt.toFixed(2)} USDT, attempted: $${numAmount.toFixed(2)} USDT.`
+      });
+    }
+
+    // 3. Check Recipient's Current USDT Balance
+    let recipientBalUsdt = 0;
+    if (supabase) {
+      const { data: rUsdtCfg } = await supabase
+        .from('system_configs')
+        .select('data')
+        .eq('id', `usdt_balance_${cleanRecipientEmail}`)
+        .maybeSingle();
+      if (rUsdtCfg?.data?.usdtBalance != null) {
+        recipientBalUsdt = Number(rUsdtCfg.data.usdtBalance);
+      }
+    }
+    const memRecipient = await UserStore.findByEmail(cleanRecipientEmail);
+    if (!recipientBalUsdt && memRecipient?.usdtBalance != null) {
+      recipientBalUsdt = Number(memRecipient.usdtBalance);
+    }
+
+    // 4. Calculate New Balances (0% Fee / Free!)
+    const newSenderBal = Math.max(0, Number((senderBalUsdt - numAmount).toFixed(2)));
+    const newRecipientBal = Number((recipientBalUsdt + numAmount).toFixed(2));
+
+    const senderCryptoId = generateCryptoId(cleanSenderEmail, memSender?.id);
+    const recipientCryptoId = generateCryptoId(cleanRecipientEmail, recipient.id);
+    const senderName = memSender?.businessName || memSender?.fullName || cleanSenderEmail.split('@')[0];
+    const recipientName = recipient.full_name || recipient.fullName || cleanRecipientEmail.split('@')[0];
+    const txRef = `P2P_CRYPTO_${Date.now()}`;
+    const now = new Date().toISOString();
+
+    // 5. Update Balances in Supabase
+    if (supabase) {
+      try {
+        await Promise.all([
+          // Sender updates
+          supabase.from('system_configs').upsert({
+            id: `usdt_balance_${cleanSenderEmail}`,
+            data: { usdtBalance: newSenderBal, email: cleanSenderEmail, updatedAt: now }
+          }),
+          supabase.from('profiles').update({ usdt_balance: newSenderBal, updated_at: now }).eq('email', cleanSenderEmail),
+          
+          // Recipient updates
+          supabase.from('system_configs').upsert({
+            id: `usdt_balance_${cleanRecipientEmail}`,
+            data: { usdtBalance: newRecipientBal, email: cleanRecipientEmail, updatedAt: now }
+          }),
+          supabase.from('profiles').update({ usdt_balance: newRecipientBal, updated_at: now }).eq('email', cleanRecipientEmail),
+
+          // Record in wallet_transactions for both
+          supabase.from('wallet_transactions').insert([
+            {
+              user_id: memSender?.id || cleanSenderEmail,
+              email: cleanSenderEmail,
+              amount: numAmount,
+              type: 'debit',
+              status: 'completed',
+              flw_ref: txRef,
+              tx_ref: txRef,
+              narration: `P2P Crypto Sent: $${numAmount} USDT to ${recipientName} (${recipientCryptoId})${note ? ` - ${note}` : ''}`,
+              created_at: now
+            },
+            {
+              user_id: recipient.id || cleanRecipientEmail,
+              email: cleanRecipientEmail,
+              amount: numAmount,
+              type: 'credit',
+              status: 'completed',
+              flw_ref: txRef,
+              tx_ref: txRef,
+              narration: `P2P Crypto Received: $${numAmount} USDT from ${senderName} (${senderCryptoId})${note ? ` - ${note}` : ''}`,
+              created_at: now
+            }
+          ])
+        ]);
+      } catch (dbErr: any) {
+        console.warn('[transferPlatformCrypto] Supabase sync warning:', dbErr.message);
+      }
+    }
+
+    // 6. Update in-memory stores
+    if (memSender) {
+      memSender.usdtBalance = newSenderBal;
+      await UserStore.upsertUserForced(memSender);
+    }
+    if (memRecipient) {
+      memRecipient.usdtBalance = newRecipientBal;
+      await UserStore.upsertUserForced(memRecipient);
+    }
+
+    // Dual entry in TransactionStore
+    await Promise.all([
+      TransactionStore.addTransaction({
+        id: `TX_${txRef}_DR`,
+        userId: memSender?.id || cleanSenderEmail,
+        email: cleanSenderEmail,
+        title: `P2P Crypto Sent to ${recipientName}`,
+        type: 'On-Platform Crypto Transfer',
+        category: 'transfer',
+        amount: numAmount,
+        currency: 'USDT',
+        isCredit: false,
+        reference: txRef,
+        sender: `${senderName} (${senderCryptoId})`,
+        beneficiary: `${recipientName} (${recipientCryptoId})`,
+        recipientAccount: recipientCryptoId,
+        recipientBank: 'Rentilly Instant Ledger',
+        status: 'SUCCESSFUL',
+        date: now,
+      }),
+      TransactionStore.addTransaction({
+        id: `TX_${txRef}_CR`,
+        userId: recipient.id || cleanRecipientEmail,
+        email: cleanRecipientEmail,
+        title: `P2P Crypto Received from ${senderName}`,
+        type: 'On-Platform Crypto Transfer',
+        category: 'transfer',
+        amount: numAmount,
+        currency: 'USDT',
+        isCredit: true,
+        reference: txRef,
+        sender: `${senderName} (${senderCryptoId})`,
+        beneficiary: `${recipientName} (${recipientCryptoId})`,
+        recipientAccount: recipientCryptoId,
+        recipientBank: 'Rentilly Instant Ledger',
+        status: 'SUCCESSFUL',
+        date: now,
+      })
+    ]);
+
+    // 7. Dispatch Notifications to both parties
+    NotificationDispatcher.dispatch({
+      userId: memSender?.id || cleanSenderEmail,
+      email: cleanSenderEmail,
+      userName: senderName,
+      title: 'P2P Crypto Sent ⚡',
+      category: 'transfer',
+      message: `You sent $${numAmount.toFixed(2)} USDT to ${recipientName} (${recipientCryptoId}) instantly with 0% fee.`,
+      metadata: { txRef, amount: numAmount, newBalance: newSenderBal }
+    });
+
+    NotificationDispatcher.dispatch({
+      userId: recipient.id || cleanRecipientEmail,
+      email: cleanRecipientEmail,
+      userName: recipientName,
+      title: 'P2P Crypto Received 💰',
+      category: 'transfer',
+      message: `You received $${numAmount.toFixed(2)} USDT from ${senderName} (${senderCryptoId}) in your USDT Vault.`,
+      metadata: { txRef, amount: numAmount, newBalance: newRecipientBal }
+    });
+
+    return res.json({
+      success: true,
+      message: `Successfully transferred $${numAmount.toFixed(2)} USDT to ${recipientName}!`,
+      reference: txRef,
+      amount: numAmount,
+      fee: 0.00,
+      newBalance: newSenderBal,
+      recipient: {
+        fullName: recipientName,
+        email: cleanRecipientEmail,
+        cryptoId: recipientCryptoId
+      }
+    });
+  } catch (err: any) {
+    console.error('[transferPlatformCrypto] Exception:', err);
+    return res.status(500).json({ success: false, error: err.message || 'Error processing on-platform transfer' });
+  }
+}
+
 

@@ -182,6 +182,8 @@ apiRouter.get('/payments/paystack-banks', paymentController.getPaystackBanks);
 apiRouter.get('/payments/resolve-account', paymentController.resolvePaystackAccount);
 apiRouter.post('/payments/withdraw-paystack', paymentController.withdrawWithPaystack);
 apiRouter.post('/payments/withdraw-crypto', paymentController.withdrawCrypto);
+apiRouter.get('/payments/crypto/resolve-recipient', paymentController.resolveCryptoRecipient);
+apiRouter.post('/payments/crypto/transfer-platform', paymentController.transferPlatformCrypto);
 apiRouter.get('/payments/beneficiaries', paymentController.getUserBeneficiaries);
 apiRouter.post('/payments/beneficiaries', paymentController.saveUserBeneficiary);
 apiRouter.post('/payments/reconcile', paymentController.adminReconcileBalance);

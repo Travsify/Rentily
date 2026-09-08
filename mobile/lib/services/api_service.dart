@@ -1383,6 +1383,51 @@ class ApiService {
     } catch (_) {}
     return {'success': false};
   }
+
+  /// Resolve internal Rentilly user by email or Crypto ID (RT-XXXXXXXX)
+  static Future<Map<String, dynamic>> resolveCryptoRecipient({
+    required String query,
+    String? senderEmail,
+  }) async {
+    try {
+      final qp = <String, String>{
+        'query': query.trim(),
+        if (senderEmail != null && senderEmail.isNotEmpty) 'senderEmail': senderEmail.trim(),
+      };
+      final uri = Uri.parse('$baseUrl/payments/crypto/resolve-recipient').replace(queryParameters: qp);
+      final res = await http.get(uri).timeout(const Duration(seconds: 10));
+      final data = json.decode(res.body);
+      return data is Map<String, dynamic> ? data : {'success': false, 'error': 'Invalid server response'};
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: $e'};
+    }
+  }
+
+  /// Free On-Platform Instant USDT Transfer between Rentilly Users
+  static Future<Map<String, dynamic>> transferPlatformCrypto({
+    required String senderEmail,
+    required String recipientQuery,
+    required double amountUsdt,
+    String? note,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/payments/crypto/transfer-platform');
+      final res = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'senderEmail': senderEmail.trim(),
+          'recipientQuery': recipientQuery.trim(),
+          'amountUsdt': amountUsdt,
+          'note': note,
+        }),
+      ).timeout(const Duration(seconds: 25));
+      final data = json.decode(res.body);
+      return data is Map<String, dynamic> ? data : {'success': false, 'error': 'Invalid server response'};
+    } catch (e) {
+      return {'success': false, 'error': 'Network error: $e'};
+    }
+  }
 }
 
 

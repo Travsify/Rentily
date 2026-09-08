@@ -30,6 +30,7 @@ class UserProfile {
   final String? kycFailureReason;
   final int mapleradTier;
   final String? lasreraNumber;
+  final String? cryptoId;
 
   UserProfile({
     required this.id,
@@ -61,7 +62,21 @@ class UserProfile {
     this.kycFailureReason,
     this.mapleradTier = 0,
     this.lasreraNumber,
+    this.cryptoId,
   });
+
+  /// Auto-linked deterministic or assigned Crypto ID
+  String get displayCryptoId {
+    if (cryptoId != null && cryptoId!.trim().isNotEmpty) return cryptoId!;
+    final clean = email.toLowerCase().trim();
+    int hash = 5381;
+    for (int i = 0; i < clean.length; i++) {
+      hash = ((hash << 5) + hash) + clean.codeUnitAt(i);
+      hash &= 0xFFFFFFFF;
+    }
+    final positive = hash.abs().toString().padLeft(8, '0').substring(0, 8);
+    return 'RT-$positive';
+  }
 
   // Role detection getters
   bool get isPartner =>
@@ -148,6 +163,7 @@ class UserProfile {
       kycFailureReason: json['kycFailureReason']?.toString() ?? json['kyc_failure_reason']?.toString() ?? json['reason']?.toString(),
       mapleradTier: (json['mapleradTier'] as num?)?.toInt() ?? 0,
       lasreraNumber: json['lasreraNumber']?.toString() ?? json['lasrera_number']?.toString(),
+      cryptoId: json['cryptoId']?.toString() ?? json['crypto_id']?.toString(),
     );
   }
 
@@ -182,6 +198,7 @@ class UserProfile {
       'kycFailureReason': kycFailureReason,
       'mapleradTier': mapleradTier,
       'lasreraNumber': lasreraNumber,
+      'cryptoId': cryptoId,
     };
   }
 
@@ -215,6 +232,7 @@ class UserProfile {
     String? kycFailureReason,
     int? mapleradTier,
     String? lasreraNumber,
+    String? cryptoId,
   }) {
     return UserProfile(
       id: id ?? this.id,
@@ -246,6 +264,7 @@ class UserProfile {
       kycFailureReason: kycFailureReason ?? this.kycFailureReason,
       mapleradTier: mapleradTier ?? this.mapleradTier,
       lasreraNumber: lasreraNumber ?? this.lasreraNumber,
+      cryptoId: cryptoId ?? this.cryptoId,
     );
   }
 }
