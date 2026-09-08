@@ -12,7 +12,6 @@ import '../services/beneficiary_service.dart';
 import '../services/notification_service.dart';
 import '../services/payment_security_service.dart';
 import '../services/security_telemetry_service.dart';
-import 'tier_upgrade_modal.dart';
 import '../screens/shared/qr_scanner_screen.dart';
 
 class WithdrawalModal extends StatefulWidget {
@@ -937,46 +936,48 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
             ),
             const SizedBox(height: 14),
 
-            // Tier Upgrade Limit Hint (Promoting Tier 3)
+            // Institutional Escrow Trust Badge (Zero PSB Limits)
             if (_withdrawalMode == 'NGN')
-              InkWell(
-                borderRadius: BorderRadius.circular(10),
-                onTap: () {
-                  TierUpgradeModal.show(context, user: widget.user);
-                },
-                child: Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFFBEB),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFFDE68A)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.bolt_rounded, size: 16, color: Color(0xFFD97706)),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Need higher transfer limits? Tier 3 unlocks ₦5,000,000 daily with unlimited volume.',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF92400E),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'Upgrade ➔',
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0FDF4),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFBBF7D0)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.verified_user_rounded, size: 16, color: Color(0xFF16A34A)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Institutional Commercial Rail • High-volume escrow payouts up to ₦10,000,000 per transfer enabled.',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 10.5,
-                          fontWeight: FontWeight.bold,
-                          color: const Color(0xFFB45309),
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF166534),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF16A34A).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'ACTIVE',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 8.5,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF15803D),
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
 
