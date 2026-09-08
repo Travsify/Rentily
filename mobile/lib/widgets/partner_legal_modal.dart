@@ -30,13 +30,13 @@ class PartnerLegalModal extends StatelessWidget {
       backgroundColor: Colors.transparent,
       builder: (ctx) => const PartnerLegalModal(
         title: 'Partner Legal Desk ⚖️',
-        subtitle: 'Corporate Brokerage Mandate & Arbitration Terms',
+        subtitle: 'Corporate Partner Mandate & Arbitration Terms',
         sections: [
           {
             'icon': Icons.verified_user_rounded,
-            'title': '1. Corporate Brokerage Mandate & Exclusive Representation',
+            'title': '1. Corporate Partner Mandate & Exclusive Representation',
             'content':
-                'As an accredited Rentilly Corporate Partner, your listings are protected under Nigerian Commercial Agency Law. Partners warrant that all property listings are backed by an executed Power of Attorney or verified Landlord Representation Mandate.',
+                'As an accredited Rentilly Corporate Partner, your listings are protected under Nigerian Commercial Law. Partners warrant that all property listings are backed by an executed Power of Attorney or verified Landlord Representation Mandate.',
           },
           {
             'icon': Icons.savings_rounded,
@@ -54,7 +54,7 @@ class PartnerLegalModal extends StatelessWidget {
             'icon': Icons.link_rounded,
             'title': '4. Landlord Auto-Link & Anti-Circumvention Policy',
             'content':
-                'When you onboard landlords using your unique partner link, all current and future properties listed by that landlord are permanently mapped to your brokerage profile, preventing landlord circumvention.',
+                'When you onboard landlords using your unique partner link, all current and future properties listed by that landlord are permanently mapped to your partner profile, preventing landlord circumvention.',
           },
           {
             'icon': Icons.gavel_rounded,
@@ -232,9 +232,9 @@ class PartnerLegalModal extends StatelessWidget {
 
     final firmName = (user.businessName != null && user.businessName!.trim().isNotEmpty)
         ? user.businessName!.trim()
-        : (user.fullName.trim().isNotEmpty ? user.fullName.trim() : 'Accredited Brokerage Firm');
+        : (user.fullName.trim().isNotEmpty ? user.fullName.trim() : 'Accredited Partner Firm');
     final cacNumber = user.cacNumber ?? 'CAC Registered Entity';
-    final repName = user.fullName.isNotEmpty ? user.fullName : 'Principal Broker';
+    final repName = user.fullName.isNotEmpty ? user.fullName : 'Principal Partner';
     final repPhone = user.phoneNumber;
     final repEmail = user.email;
     final state = user.state ?? 'Lagos';
@@ -255,7 +255,7 @@ class PartnerLegalModal extends StatelessWidget {
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     pw.Text('RENTILLY ESCROW NETWORK', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('064E3B'))),
-                    pw.Text('EXCLUSIVE AGENCY & BROKERAGE MANDATE AGREEMENT', style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('0F172A'))),
+                    pw.Text('EXCLUSIVE PARTNER MANDATE AGREEMENT', style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('0F172A'))),
                   ],
                 ),
                 pw.Container(
@@ -273,7 +273,7 @@ class PartnerLegalModal extends StatelessWidget {
             pw.Divider(thickness: 1, color: PdfColor.fromHex('CBD5E1')),
             pw.SizedBox(height: 12),
 
-            pw.Text('THIS EXCLUSIVE BROKERAGE MANDATE AGREEMENT is entered into on this _____ day of _______________, 2026 by and between:', style: const pw.TextStyle(fontSize: 9)),
+            pw.Text('THIS EXCLUSIVE PARTNER MANDATE AGREEMENT is entered into on this ${DateFormat('dd').format(DateTime.now())} day of ${DateFormat('MMMM, yyyy').format(DateTime.now())} by and between:', style: const pw.TextStyle(fontSize: 9)),
             pw.SizedBox(height: 10),
 
             pw.Container(
@@ -286,10 +286,10 @@ class PartnerLegalModal extends StatelessWidget {
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  pw.Text('1. THE ACCREDITED BROKERAGE FIRM:', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('0F172A'))),
+                  pw.Text('1. THE ACCREDITED PARTNER FIRM:', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('0F172A'))),
                   pw.SizedBox(height: 3),
-                  pw.Text('Firm: $firmName (CAC: $cacNumber • Regulatory Reg: $lasrera)', style: const pw.TextStyle(fontSize: 8)),
-                  pw.Text('Principal Broker: $repName • Phone: $repPhone • Email: $repEmail', style: const pw.TextStyle(fontSize: 8)),
+                  pw.Text('Firm: $firmName (CAC: $cacNumber | Regulatory Reg: $lasrera)', style: const pw.TextStyle(fontSize: 8)),
+                  pw.Text('Principal Partner: $repName | Phone: $repPhone | Email: $repEmail', style: const pw.TextStyle(fontSize: 8)),
                   pw.Text('Territory Jurisdiction: $state State, Federal Republic of Nigeria', style: const pw.TextStyle(fontSize: 8)),
                 ],
               ),
@@ -311,7 +311,7 @@ class PartnerLegalModal extends StatelessWidget {
                   pw.Text('Owner Full Legal Name: __________________________________________________', style: const pw.TextStyle(fontSize: 8)),
                   pw.Text('Phone / Email: _____________________________________________________', style: const pw.TextStyle(fontSize: 8)),
                   pw.Text('Subject Property Address: __________________________________________', style: const pw.TextStyle(fontSize: 8)),
-                  pw.Text('Target Asking Price (Rent/Sale): ₦____________________________________', style: const pw.TextStyle(fontSize: 8)),
+                  pw.Text('Target Asking Price (Rent/Sale): NGN ____________________________________', style: const pw.TextStyle(fontSize: 8)),
                 ],
               ),
             ),
@@ -320,11 +320,11 @@ class PartnerLegalModal extends StatelessWidget {
             pw.Text('OPERATIVE MANDATE COVENANTS:', style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('0F172A'))),
             pw.SizedBox(height: 6),
 
-            _buildPdfTerm('1. Grant of Exclusive Mandate', 'The Owner grants the Firm the sole representation right to market, exhibit, and secure verified tenants/buyers for the Subject Property through the Rentilly Escrow Network.'),
-            _buildPdfTerm('2. Guaranteed Escrow Remuneration (2.5% / 2.0%)', 'Upon execution of a valid lease or deed of sale, the Firm is entitled to 2.5% of annual rent or 2.0% of purchase consideration, settled automatically via Rentilly Central Escrow on handover.'),
-            _buildPdfTerm('3. Strict Anti-Circumvention Protection', 'The Owner expressly warrants not to bypass, negotiate directly, or transact with any prospective tenant or buyer introduced by the Firm during or within 12 months after the mandate term.'),
-            _buildPdfTerm('4. Physical Due Diligence & Anti-Ghost Protocol', 'The Firm undertakes to conduct in-person physical walkthroughs and verify utility bills as required under LASRERA and Nigerian Tenancy Laws.'),
-            _buildPdfTerm('5. Arbitration & Dispute Resolution', 'Any contest or disagreement under this contract shall be submitted to the Lagos Multi-Door Courthouse (LMDC) or Rentilly Legal Arbitration Desk within 72 hours.'),
+            _buildPdfTerm('1. Grant of Exclusive Mandate', 'The Owner grants the Partner the sole representation right to market, exhibit, and secure verified tenants/buyers for the Subject Property through the Rentilly Escrow Network.'),
+            _buildPdfTerm('2. Guaranteed Escrow Remuneration (2.5% Rent / 2.0% Sales)', 'Upon execution of a valid lease or deed of sale, the Partner is entitled to standard remuneration of 2.5% of annual rent or 2.0% of purchase consideration, settled automatically via Rentilly Non-Interest Escrow Vault on handover.'),
+            _buildPdfTerm('3. Strict Anti-Circumvention Protection', 'The Owner expressly warrants not to bypass, negotiate directly, or transact with any prospective tenant or buyer introduced by the Partner during or within 12 months after the mandate term.'),
+            _buildPdfTerm('4. Physical Due Diligence & Anti-Ghost Protocol', 'The Partner undertakes to conduct in-person physical walkthroughs and verify title and utility status as required under the Applicable State Real Estate Laws and Tenancy Laws of the Federal Republic of Nigeria.'),
+            _buildPdfTerm('5. Arbitration & Dispute Resolution', 'Any contest or disagreement under this contract shall be submitted to the Multi-Door Courthouse of the State High Court in the jurisdiction where the Subject Property is situated, or the Rentilly Legal Arbitration Desk under the Arbitration and Mediation Act, 2023.'),
 
             pw.SizedBox(height: 18),
 
@@ -344,7 +344,7 @@ class PartnerLegalModal extends StatelessWidget {
                 pw.Column(
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
-                    pw.Text('FOR THE ACCREDITED FIRM:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
+                    pw.Text('FOR THE ACCREDITED PARTNER FIRM:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
                     pw.SizedBox(height: 20),
                     pw.Text('Signature: ______________________', style: const pw.TextStyle(fontSize: 7.5)),
                     pw.SizedBox(height: 3),
@@ -402,11 +402,11 @@ class _PartnerInquiryComplaintSheetState extends State<_PartnerInquiryComplaintS
 
   final Map<String, String> _categoryOptions = {
     'commission_settlement': 'Commission & Escrow Settlement Query',
-    'mandate_dispute': 'Landlord Brokerage Mandate Dispute',
+    'mandate_dispute': 'Landlord Partner Mandate Dispute',
     'verification_kyb': 'CAC KYB / Bank Account Inquiries',
     'inspection_access': 'Inspection Gate Code & Key Handover',
     'anti_ghost_report': 'Anti-Ghost Whistleblower Report',
-    'general_support': 'General Corporate Broker Support',
+    'general_support': 'General Corporate Partner Support',
   };
 
   @override

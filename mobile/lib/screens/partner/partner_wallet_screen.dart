@@ -251,7 +251,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          'International $curr collection accounts require enterprise brokerage tier upgrade. Reach out via Live Support Desk. 🌐',
+          'International $curr collection accounts require enterprise partner tier upgrade. Reach out via Live Support Desk. 🌐',
           style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
         ),
         backgroundColor: AppColors.primary,
@@ -707,7 +707,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'To comply with CBN regulations and prevent ghost brokerage accounts, your dedicated settlement Naira bank account is provisioned after completing CAC and identity verification.',
+                          'To comply with CBN regulations and prevent ghost partner accounts, your dedicated settlement Naira bank account is provisioned after completing CAC and identity verification.',
                           style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: const Color(0xFF78350F), height: 1.35),
                         ),
                         const SizedBox(height: 14),
@@ -1180,7 +1180,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Request a dedicated domestic $_selectedCurrency collection account to receive international direct deposits, tenancy escrow retainers, and overseas broker commissions without FX spread loss.',
+                          'Request a dedicated domestic $_selectedCurrency collection account to receive international direct deposits, tenancy escrow retainers, and overseas partner commissions without FX spread loss.',
                           style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary, height: 1.4),
                         ),
                         const SizedBox(height: 14),
@@ -1778,7 +1778,7 @@ class _CommissionSplitCalculatorSheet extends StatefulWidget {
 class _CommissionSplitCalculatorSheetState extends State<_CommissionSplitCalculatorSheet> {
   String _dealType = 'rent'; // 'rent' or 'sale'
   final TextEditingController _amountCtrl = TextEditingController(text: '5000000');
-  double _commissionRate = 10.0; // 10% rent, 5% sale
+  double _commissionRate = 2.5; // 2.5% rent, 2.0% sale
   double _splitRatio = 0.50; // 0.50 (50/50), 0.60 (60/40), 0.70 (70/30)
   bool _deductWht = false;
 
@@ -1792,9 +1792,9 @@ class _CommissionSplitCalculatorSheetState extends State<_CommissionSplitCalcula
     setState(() {
       _dealType = type;
       if (type == 'rent') {
-        _commissionRate = 10.0;
+        _commissionRate = 2.5;
       } else {
-        _commissionRate = 5.0;
+        _commissionRate = 2.0;
       }
     });
   }
@@ -1803,10 +1803,8 @@ class _CommissionSplitCalculatorSheetState extends State<_CommissionSplitCalcula
   Widget build(BuildContext context) {
     final dealAmount = double.tryParse(_amountCtrl.text.replaceAll(',', '').trim()) ?? 0.0;
     final grossCommission = dealAmount * (_commissionRate / 100.0);
-    final platformFeeRate = _dealType == 'rent' ? 2.5 : 2.0;
-    final platformFee = dealAmount * (platformFeeRate / 100.0);
-    // Agency pool available to split
-    final distributablePool = (grossCommission - platformFee).clamp(0.0, double.infinity);
+    // Entire guaranteed 2.5% / 2.0% partner pool is distributed via escrow
+    final distributablePool = grossCommission;
     final listingShare = distributablePool * _splitRatio;
     final coBrokerShare = distributablePool * (1.0 - _splitRatio);
 
@@ -1980,7 +1978,7 @@ class _CommissionSplitCalculatorSheetState extends State<_CommissionSplitCalcula
 
             // Split Ratio Selector
             Text(
-              'Co-Brokerage Split Ratio',
+              'Co-Partner Split Ratio',
               style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
             ),
             const SizedBox(height: 6),
@@ -2003,7 +2001,7 @@ class _CommissionSplitCalculatorSheetState extends State<_CommissionSplitCalcula
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Deduct 5% WHT (Withholding Tax)', style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                    Text('FIRS / LIRS compliant agency withholding', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textSecondary)),
+                    Text('Federal Republic of Nigeria (FIRS / State IRS) 5% WHT compliance', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: AppColors.textSecondary)),
                   ],
                 ),
                 Switch.adaptive(
@@ -2029,22 +2027,16 @@ class _CommissionSplitCalculatorSheetState extends State<_CommissionSplitCalcula
                   _buildSummaryRow('Gross Property Value', '₦${widget.currencyFormat.format(dealAmount)}', isMuted: true),
                   const SizedBox(height: 6),
                   _buildSummaryRow(
-                    'Agency Commission (${_commissionRate.toStringAsFixed(1)}%)',
+                    'Partner Guaranteed Remuneration (${_commissionRate.toStringAsFixed(1)}%)',
                     '₦${widget.currencyFormat.format(grossCommission)}',
                     color: const Color(0xFFFBBF24),
-                  ),
-                  const SizedBox(height: 6),
-                  _buildSummaryRow(
-                    'Rentilly Escrow Fee (${platformFeeRate.toStringAsFixed(1)}%)',
-                    '-₦${widget.currencyFormat.format(platformFee)}',
-                    color: const Color(0xFFEF4444),
                   ),
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 8),
                     child: Divider(color: Color(0xFF334155), height: 1),
                   ),
                   _buildSummaryRow(
-                    'Net Distributable Pool',
+                    'Distributable Escrow Pool',
                     '₦${widget.currencyFormat.format(distributablePool)}',
                     color: Colors.white,
                     isBold: true,
@@ -2064,7 +2056,7 @@ class _CommissionSplitCalculatorSheetState extends State<_CommissionSplitCalcula
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              'Listing Host (${(_splitRatio * 100).toInt()}%)',
+                              'Listing Partner (${(_splitRatio * 100).toInt()}%)',
                               style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold, color: const Color(0xFF38BDF8)),
                             ),
                             Text(
@@ -2091,7 +2083,7 @@ class _CommissionSplitCalculatorSheetState extends State<_CommissionSplitCalcula
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              'Co-Broker (${((1.0 - _splitRatio) * 100).toInt()}%)',
+                              'Co-Broker Partner (${((1.0 - _splitRatio) * 100).toInt()}%)',
                               style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold, color: const Color(0xFF4ADE80)),
                             ),
                             Text(
@@ -2124,23 +2116,26 @@ class _CommissionSplitCalculatorSheetState extends State<_CommissionSplitCalcula
               child: ElevatedButton.icon(
                 onPressed: () {
                   final summary = StringBuffer();
-                  summary.writeln('📋 RENTILLY CO-BROKER COMMISSION SPLIT AGREEMENT');
+                  summary.writeln('📋 RENTILLY ESCROW CO-BROKER PARTNER COMMISSION SPLIT AGREEMENT');
+                  summary.writeln('Jurisdiction: Federal Republic of Nigeria (Nationwide Coverage)');
                   summary.writeln('Date: ${DateFormat('dd MMM yyyy, HH:mm').format(DateTime.now())}');
-                  summary.writeln('Deal Type: ${_dealType == 'rent' ? 'Tenancy / Lease' : 'Outright Property Sale'}');
-                  summary.writeln('Gross Deal Value: ₦${widget.currencyFormat.format(dealAmount)}');
-                  summary.writeln('Agency Commission Rate: ${_commissionRate.toStringAsFixed(1)}%');
-                  summary.writeln('Gross Commission Pool: ₦${widget.currencyFormat.format(grossCommission)}');
-                  summary.writeln('Rentilly Escrow Platform Fee ($platformFeeRate%): ₦${widget.currencyFormat.format(platformFee)}');
-                  summary.writeln('Net Distributable Pool: ₦${widget.currencyFormat.format(distributablePool)}');
+                  summary.writeln('Deal Type: ${_dealType == 'rent' ? 'Tenancy / Lease (Rent)' : 'Outright Property Sale'}');
+                  summary.writeln('Gross Property Value: ₦${widget.currencyFormat.format(dealAmount)}');
+                  summary.writeln('Partner Remuneration Rate: ${_commissionRate.toStringAsFixed(1)}% (${_dealType == 'rent' ? '2.5% Rent' : '2.0% Sale'})');
+                  summary.writeln('Total Partner Escrow Pool: ₦${widget.currencyFormat.format(grossCommission)}');
                   summary.writeln('----------------------------------------');
+                  summary.writeln('ESCROW SHARING FORMULA:');
                   summary.writeln('• Listing Partner Share (${(_splitRatio * 100).toInt()}%): ₦${widget.currencyFormat.format(listingNet)} ${_deductWht ? '(Net after 5% WHT)' : ''}');
-                  summary.writeln('• Co-Broker Share (${((1.0 - _splitRatio) * 100).toInt()}%): ₦${widget.currencyFormat.format(coBrokerNet)} ${_deductWht ? '(Net after 5% WHT)' : ''}');
+                  summary.writeln('• Co-Broker Partner Share (${((1.0 - _splitRatio) * 100).toInt()}%): ₦${widget.currencyFormat.format(coBrokerNet)} ${_deductWht ? '(Net after 5% WHT)' : ''}');
                   if (_deductWht) {
-                    summary.writeln('Total WHT Remitted (5%): ₦${widget.currencyFormat.format(listingWht + coBrokerWht)}');
+                    summary.writeln('• Statutory 5% WHT Provision: ₦${widget.currencyFormat.format(listingWht + coBrokerWht)} (FIRS / State IRS Remittance)');
                   }
                   summary.writeln('----------------------------------------');
-                  summary.writeln('Settlement Method: Rentilly Automated Escrow Vault');
-                  summary.writeln('Regulatory Compliance: LASRERA & Nigerian Tenancy Code');
+                  summary.writeln('ESCROW & FIDUCIARY TERMS:');
+                  summary.writeln('1. Non-Interest Escrow Protection: All client funds remain securely held in the Rentilly Escrow Vault until physical inspection and formal onboarding verification.');
+                  summary.writeln('2. Automated Simultaneous Release: Commission splits are disbursed directly and simultaneously to each accredited Partner\'s Rentilly Commercial NUBAN wallet upon electronic signing.');
+                  summary.writeln('3. Anti-Circumvention & Good Faith: Both partners covenant to conduct all offers, documentation, and payments exclusively via the Rentilly Escrow Infrastructure.');
+                  summary.writeln('4. Nationwide Legal Validity: Fully enforceable under the Real Property and Tenancy Laws across all 36 States and the Federal Capital Territory (FCT), Nigeria.');
 
                   widget.onCopy(summary.toString());
                 },
