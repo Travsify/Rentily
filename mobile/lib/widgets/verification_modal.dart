@@ -364,7 +364,7 @@ class _VerificationModalState extends State<VerificationModal> {
               Text(
                 _isPartner
                     ? '${user.businessName ?? user.fullName} is now accredited. Your dedicated settlement vault is activated.'
-                    : 'Your Tier-3 biometric and BVN verification is complete. Settlement account provisioned.',
+                    : 'Your biometric and BVN verification is complete. Dedicated settlement account provisioned.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: AppColors.textSecondary),
               ),
@@ -649,7 +649,7 @@ class _VerificationModalState extends State<VerificationModal> {
                       const Icon(Icons.verified_rounded, size: 16, color: Color(0xFF4ADE80)),
                       const SizedBox(width: 6),
                       Text(
-                        isPartner ? 'CAC KYB ACCREDITED 🛡️' : 'TIER-3 IDENTITY VERIFIED 🛡️',
+                        isPartner ? 'CAC KYB ACCREDITED 🛡️' : 'VERIFIED IDENTITY 🛡️',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 8.5,
                           fontWeight: FontWeight.w900,
@@ -1008,7 +1008,7 @@ class _VerificationModalState extends State<VerificationModal> {
                         style: GoogleFonts.plusJakartaSans(fontSize: 15, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                       ),
                       Text(
-                        _isPartner ? 'Accredit your corporate firm & activate commission settlements' : 'Tier-3 CBN compliance & dedicated escrow bank account',
+                        _isPartner ? 'Accredit your corporate firm & activate commission settlements' : 'CBN regulatory compliance & dedicated escrow bank account',
                         style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary),
                       ),
                     ],

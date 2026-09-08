@@ -203,7 +203,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             const SizedBox(height: 4),
             Text(
               _mapleradTier >= 3
-                  ? 'Tier 3 • Fully Verified 🛡️'
+                  ? 'Fully Verified Account 🛡️'
                   : _mapleradTier == 2
                       ? 'Tier 2 Verified ✓'
                       : 'Tier 1 Verified',
@@ -763,11 +763,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   const SizedBox(width: 4),
                                   Text(
                                     _mapleradTier >= 3
-                                        ? 'Tier 3 • Fully Verified 🛡️'
+                                        ? 'Verified Account 🛡️'
                                         : _mapleradTier == 2
                                             ? 'Tier 2 Verified ✓'
                                             : (_mapleradTier == 1 || _currentUser?.isVerified == true)
-                                                ? 'Tier 1 Verified • Tap to Upgrade ➔'
+                                                ? 'Verified Account 🛡️'
                                                 : 'Unverified • Tap to Verify',
                                     style: GoogleFonts.plusJakartaSans(
                                       fontSize: 9,

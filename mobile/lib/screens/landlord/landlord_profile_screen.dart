@@ -1015,7 +1015,7 @@ class _LandlordProfileScreenState extends State<LandlordProfileScreen> {
 
             _buildTile(
               icon: Icons.verified_user_rounded,
-              title: 'Tier-3 Identity & Title Audit',
+              title: 'Identity & Title Audit',
               subtitle: isVerified ? 'Verified with BVN & Deed of Ownership' : 'Tap to complete BVN/NIN check & unlock settlement account',
               trailing: Icon(
                 isVerified ? Icons.check_circle_rounded : Icons.arrow_forward_ios_rounded,

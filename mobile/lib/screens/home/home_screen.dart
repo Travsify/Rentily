@@ -21,7 +21,6 @@ import '../../widgets/date_of_birth_modal.dart';
 import '../../widgets/biometric_prompt_modal.dart';
 import '../../widgets/withdrawal_modal.dart';
 import '../../widgets/daily_quotes_card.dart';
-import '../../widgets/tier_upgrade_banner.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -772,17 +771,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 12),
 
-              // 2b. In-App Notification / Tier 3 Upgrade Banner (Unlocks ₦5M Limit)
-              if (_user != null) ...[
-                TierUpgradeBanner(
-                  user: _user!,
-                  onUpgradeComplete: () {
-                    _loadUser();
-                  },
-                ),
-                const SizedBox(height: 12),
-              ],
-
               // 3. Circular Grid-Based Quick Hub (The 4 Core Action Pods)
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1275,7 +1263,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             Text(
                               (_user != null && (_user!.accountNumber == null || _user!.rekycRequired))
                                   ? 'Action Required: Confirm Date of Birth'
-                                  : (_user?.isVerified == true ? 'Tier-1 Identity & Bank Verification' : 'Tier 1 Account (Unverified)'),
+                                  : (_user?.isVerified == true ? 'Identity & Bank Verification' : 'Account Verification (Unverified)'),
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,

@@ -401,13 +401,9 @@ class _PartnerProfileScreenState extends State<PartnerProfileScreen> {
                             border: Border.all(color: (_mapleradTier >= 2 || isVerified) ? const Color(0xFF86EFAC) : const Color(0xFFFCD34D)),
                           ),
                           child: Text(
-                            _mapleradTier >= 3
-                                ? 'CAC & TIER-3 ACCREDITED 🛡️'
-                                : _mapleradTier == 2
-                                    ? 'CAC TIER-2 ACCREDITED ✓'
-                                    : (isVerified || _mapleradTier == 1)
-                                        ? 'CAC TIER-1 ACCREDITED 🛡️'
-                                        : 'PENDING CAC KYB/KYC',
+                            (isVerified || _mapleradTier >= 1)
+                                ? 'CAC ACCREDITED PARTNER 🛡️'
+                                : 'PENDING CAC KYB/KYC',
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 8.5,
                               fontWeight: FontWeight.w900,

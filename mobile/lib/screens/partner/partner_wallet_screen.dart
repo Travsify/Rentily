@@ -705,7 +705,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                         ),
                         const SizedBox(height: 6),
                         Text(
-                          'To comply with CBN regulations and prevent ghost brokerage accounts, your dedicated settlement Naira bank account is provisioned after completing CAC and Tier-3 verification.',
+                          'To comply with CBN regulations and prevent ghost brokerage accounts, your dedicated settlement Naira bank account is provisioned after completing CAC and identity verification.',
                           style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: const Color(0xFF78350F), height: 1.35),
                         ),
                         const SizedBox(height: 14),
@@ -716,7 +716,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                             });
                           },
                           icon: const Icon(Icons.verified_user_rounded, size: 16, color: Colors.white),
-                          label: Text('Complete Tier-3 KYC Verification', style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                          label: Text('Complete Identity Verification', style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.bold)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFFB45309),
                             foregroundColor: Colors.white,

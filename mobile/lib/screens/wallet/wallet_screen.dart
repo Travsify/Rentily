@@ -23,8 +23,6 @@ import '../../widgets/virtual_card_widget.dart';
 import '../../widgets/transaction_receipt_modal.dart';
 import '../../widgets/statement_export_modal.dart';
 import '../../widgets/currency_swap_modal.dart';
-import '../../widgets/tier_upgrade_banner.dart';
-import '../../widgets/tier_upgrade_modal.dart';
 import '../cards/cards_screen.dart';
 
 class WalletScreen extends StatefulWidget {
@@ -1456,18 +1454,6 @@ class _WalletScreenState extends State<WalletScreen> {
                 ),
               ),
               const SizedBox(height: 18),
-
-              // 2. In-App Notification / Upgrade Prompt for High-Volume Limit (Tier 3)
-              if (_user != null) ...[
-                const SizedBox(height: 12),
-                TierUpgradeBanner(
-                  user: _user!,
-                  onUpgradeComplete: () {
-                    _loadData();
-                  },
-                ),
-              ],
-              const SizedBox(height: 14),
 
               // 3. Living Wallet Actions Hub (Add Money, Swap, Withdraw, Statement, Vault)
               _buildLivingWalletActionsHub(),
