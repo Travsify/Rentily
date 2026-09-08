@@ -289,25 +289,48 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
       cleanReason = `Payout: $${usdtAmount} USDT converted to ₦${numAmount.toLocaleString()} (Rate: 1 USDT = ₦${fxRate || 1510})`;
     }
 
-    // Auto-sync real inbound transactions across Flutterwave, Maplerad, and Paystack
-    await syncFlutterwaveTransactionsForUser(cleanEmail);
-    await syncMapleradTransactionsForUser(cleanEmail);
-    await syncPaystackInboundTransactionsForUser(cleanEmail);
+    const isUsdtSource = sourceCurrency === 'USDT' && Boolean(usdtAmount);
+    const numUsdt = usdtAmount ? Number(usdtAmount) : 0;
 
     // Apply Platform Fee Settings (Standard bank withdrawal fee)
     const platformFees = getStoredFees();
     const withdrawalFee = Number(platformFees.withdrawalFee ?? 65);
     const totalDebit = numAmount + withdrawalFee;
 
-    // Check user true net balance from TransactionStore
-    const currentBal = TransactionStore.computeNetBalance(cleanEmail);
     const memUser = await UserStore.findByEmail(cleanEmail);
-    console.log(`[Withdrawal] Verifying user ${cleanEmail} true balance: ₦${currentBal} vs total required: ₦${totalDebit} (Amount: ₦${numAmount} + Fee: ₦${withdrawalFee})`);
+    let currentBalUsdt = 0;
+    let currentBal = 0;
 
-    if (currentBal < totalDebit) {
-      return res.status(400).json({
-        error: `Insufficient wallet balance. Withdrawing ₦${numAmount.toLocaleString()} requires ₦${totalDebit.toLocaleString()} (including the standard ₦${withdrawalFee} bank transfer fee). Available balance: ₦${currentBal.toLocaleString()}.`
-      });
+    if (isUsdtSource) {
+      if (supabase) {
+        const { data: usdtCfg } = await supabase.from('system_configs').select('data').eq('id', `usdt_balance_${cleanEmail}`).single();
+        if (usdtCfg?.data?.usdtBalance != null) {
+          currentBalUsdt = Number(usdtCfg.data.usdtBalance);
+        }
+      }
+      if (!currentBalUsdt && memUser?.usdtBalance != null) {
+        currentBalUsdt = Number(memUser.usdtBalance);
+      }
+      console.log(`[Withdrawal] Verifying user ${cleanEmail} USDT balance: $${currentBalUsdt} vs required: $${numUsdt}`);
+      if (currentBalUsdt < numUsdt) {
+        return res.status(400).json({
+          error: `Insufficient USDT balance. Payout requires $${numUsdt} USDT. Available: $${currentBalUsdt.toFixed(2)} USDT.`
+        });
+      }
+    } else {
+      // Auto-sync real inbound transactions across Flutterwave, Maplerad, and Paystack
+      await syncFlutterwaveTransactionsForUser(cleanEmail);
+      await syncMapleradTransactionsForUser(cleanEmail);
+      await syncPaystackInboundTransactionsForUser(cleanEmail);
+
+      currentBal = TransactionStore.computeNetBalance(cleanEmail);
+      console.log(`[Withdrawal] Verifying user ${cleanEmail} true balance: ₦${currentBal} vs total required: ₦${totalDebit} (Amount: ₦${numAmount} + Fee: ₦${withdrawalFee})`);
+
+      if (currentBal < totalDebit) {
+        return res.status(400).json({
+          error: `Insufficient wallet balance. Withdrawing ₦${numAmount.toLocaleString()} requires ₦${totalDebit.toLocaleString()} (including the standard ₦${withdrawalFee} bank transfer fee). Available balance: ₦${currentBal.toLocaleString()}.`
+        });
+      }
     }
 
     // Step A: Exclusive Payout Rail - Fincra High-Value Instant Disbursement
@@ -389,87 +412,120 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
     }
 
     if (transferSuccess) {
-      const newBal = Math.max(0, currentBal - totalDebit);
       const finalTxRef = transferData?.reference || transferData?.data?.reference || txRef || `WD_${Date.now()}`;
-
       const targetUserId = userId || memUser?.id || (cleanEmail === 'tonerocool1@gmail.com' ? 'c0000000-0000-0000-0000-000000000001' : 'b0000000-0000-0000-0000-000000000001');
 
-      // Record single consolidated withdrawal in TransactionStore (amount + fee unified)
-      // Use finalTxRef in id so subsequent syncs deduplicate correctly (not Date.now() which is always unique)
+      let newNgnBal = currentBal;
+      let newUsdtBal = currentBalUsdt;
+
+      if (isUsdtSource) {
+        newUsdtBal = Math.max(0, Number((currentBalUsdt - numUsdt).toFixed(2)));
+        if (memUser) {
+          memUser.usdtBalance = newUsdtBal;
+          UserStore.upsertUserForced(memUser);
+        }
+        if (supabase) {
+          try {
+            await supabase.from('system_configs').upsert({
+              id: `usdt_balance_${cleanEmail}`,
+              data: { usdtBalance: newUsdtBal, email: cleanEmail, updatedAt: new Date().toISOString() }
+            });
+            await supabase.from('wallet_transactions').upsert({
+              user_id: targetUserId,
+              email: cleanEmail,
+              amount: totalDebit,
+              type: 'debit',
+              status: 'completed',
+              flw_ref: finalTxRef,
+              tx_ref: finalTxRef,
+              narration: `[${cleanReason}] Payout to ${accountName || 'Bank Account'} (${accountNumber}) • Incl. ₦${withdrawalFee} Fee`,
+              created_at: new Date().toISOString()
+            }, { onConflict: 'flw_ref' });
+          } catch (e: any) {
+            console.warn('[Withdrawal] Supabase usdt update warning:', e?.message);
+          }
+        }
+      } else {
+        newNgnBal = Math.max(0, currentBal - totalDebit);
+        if (memUser) {
+          UserStore.upsertUserForced({
+            ...memUser,
+            walletBalance: newNgnBal,
+            updatedAt: new Date().toISOString()
+          });
+        }
+        if (supabase) {
+          try {
+            await supabase
+              .from('profiles')
+              .update({ wallet_balance: newNgnBal, updated_at: new Date().toISOString() })
+              .eq('id', targetUserId);
+
+            const remarkPart = cleanReason && cleanReason !== 'Rentilly Payout' ? `[${cleanReason}] ` : '';
+            await supabase.from('wallet_transactions').upsert({
+              user_id: targetUserId,
+              email: cleanEmail,
+              amount: totalDebit,
+              type: 'debit',
+              status: 'completed',
+              flw_ref: finalTxRef,
+              tx_ref: finalTxRef,
+              narration: `${remarkPart}Payout to ${accountName || 'Bank Account'} (${accountNumber}) • Incl. ₦${withdrawalFee} Fee`,
+              created_at: new Date().toISOString()
+            }, { onConflict: 'flw_ref' });
+          } catch (e: any) {
+            console.warn('[Withdrawal] Supabase profiles update warning:', e?.message);
+          }
+        }
+      }
+
+      // Record in TransactionStore (always NGN for bank transfer payouts)
       await TransactionStore.addTransaction({
         id: `TX_WD_${finalTxRef}`,
         userId: targetUserId,
         email: cleanEmail,
-        title: `Bank Transfer Payout to ${accountName || 'Bank Account'}`,
+        title: `Payout to ${accountName || 'Bank Account'} (${accountNumber}) • Incl. ₦${withdrawalFee} Fee`,
         description: cleanReason && cleanReason !== 'Rentilly Payout' ? cleanReason : undefined,
-        type: 'Instant Direct Bank Payout',
+        type: 'debit',
         category: 'withdrawal',
         amount: totalDebit,
+        currency: 'NGN',
         isCredit: false,
         reference: finalTxRef,
-        sender: `${memUser?.businessName || memUser?.fullName || 'Rentilly User'} (Rentilly Payout)`,
+        sender: `${memUser?.businessName || memUser?.fullName || 'Rentilly User'} (Rentilly Escrow Vault)`,
         beneficiary: accountName || 'Bank Account',
         recipientAccount: accountNumber.toString(),
-        recipientBank: 'Direct Bank Transfer',
+        recipientBank: bankName || 'Direct Bank Transfer',
         status: 'SUCCESSFUL',
         date: new Date().toISOString()
       });
-
-      // Update in-memory user cache
-      if (memUser) {
-        UserStore.upsertUserForced({
-          ...memUser,
-          walletBalance: newBal,
-          updatedAt: new Date().toISOString()
-        });
-      }
-
-      // Authoritative Supabase Cloud profiles & ledger updates
-      if (supabase) {
-        try {
-          await supabase
-            .from('profiles')
-            .update({ wallet_balance: newBal, updated_at: new Date().toISOString() })
-            .eq('id', targetUserId);
-
-          const remarkPart = cleanReason && cleanReason !== 'Rentilly Payout' ? `[${cleanReason}] ` : '';
-          await supabase.from('wallet_transactions').upsert({
-            user_id: targetUserId,
-            email: cleanEmail,
-            amount: totalDebit,
-            type: 'debit',
-            status: 'completed',
-            flw_ref: finalTxRef,
-            tx_ref: finalTxRef,
-            narration: `${remarkPart}Payout to ${accountName || 'Bank Account'} (${accountNumber}) • Incl. ₦${withdrawalFee} Fee`,
-            created_at: new Date().toISOString()
-          }, { onConflict: 'flw_ref' });
-        } catch (e: any) {
-          console.warn('[Withdrawal] Supabase profiles update warning:', e?.message);
-        }
-      }
 
       // Dispatch In-App Alert & Resend HTML Email
       NotificationDispatcher.dispatch({
         userId: userId || memUser?.id,
         email: cleanEmail,
         userName: memUser?.fullName || accountName,
-        title: `Debit Alert: ₦${numAmount.toLocaleString()} Withdrawn`,
+        title: isUsdtSource
+          ? `Debit Alert: $${numUsdt} USDT Payout (₦${numAmount.toLocaleString()} to Bank)`
+          : `Debit Alert: ₦${numAmount.toLocaleString()} Withdrawn`,
         category: 'wallet',
         message: `A payout of ₦${numAmount.toLocaleString()} has been processed and sent to your bank account (${accountNumber}).`,
         metadata: {
           amount: numAmount,
+          usdtAmount: isUsdtSource ? numUsdt : undefined,
           reference: txRef,
-          bankName: 'NIBSS Instant Transfer',
+          bankName: bankName || 'NIBSS Instant Transfer',
           accountNumber: accountNumber.toString()
         }
       });
 
       return res.json({
         status: true,
-        message: `Withdrawal processed successfully via ${transferProvider === 'MAPLERAD' ? 'Maplerad Interbank Rail' : 'Paystack Settlement Rail'}!`,
+        message: `Withdrawal of ₦${numAmount.toLocaleString()} processed successfully!`,
         provider: transferProvider,
-        newBalance: newBal,
+        newBalance: isUsdtSource ? newUsdtBal : newNgnBal,
+        newUsdtBalance: newUsdtBal,
+        newNgnBalance: newNgnBal,
         data: transferData
       });
     } else {

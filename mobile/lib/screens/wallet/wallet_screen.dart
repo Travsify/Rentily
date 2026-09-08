@@ -2248,12 +2248,14 @@ class _WalletScreenState extends State<WalletScreen> {
     if (_user == null) return;
     final txCurr = (tx['currency'] ?? '').toString().toUpperCase();
     final titleUpper = (tx['title'] ?? tx['narration'] ?? '').toString().toUpperCase();
+    final narrationLower = (tx['description'] ?? tx['narration'] ?? tx['title'] ?? '').toString().toLowerCase();
     String detectedCurrency = _selectedCurrency;
-    if (txCurr == 'USDT' || titleUpper.contains('USDT') || titleUpper.contains('TRC20') || titleUpper.contains('TRON')) {
+
+    if (txCurr == 'NGN' || narrationLower.contains('converted to ngn') || narrationLower.contains('payout to') || (tx['recipientAccount'] != null && tx['recipientAccount'].toString().length == 10)) {
+      detectedCurrency = 'NGN';
+    } else if (txCurr == 'USDT' || titleUpper.contains('USDT') || titleUpper.contains('TRC20') || titleUpper.contains('TRON')) {
       detectedCurrency = 'USDT';
     } else if (txCurr == 'USD') {
-      // ✅ Only treat as USD if currency field is explicitly USD.
-      // Card top-ups from Naira wallet are NGN transactions — don't use title keywords.
       detectedCurrency = 'USD';
     }
 

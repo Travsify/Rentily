@@ -156,8 +156,11 @@ export class TransactionStore {
           }
 
           const narrationUpper = rawNarration.toUpperCase();
+          const narrationLower = rawNarration.toLowerCase();
           let txCurrency: 'NGN' | 'USDT' | 'USD' = 'NGN';
-          if (narrationUpper.includes('USDT') || narrationUpper.includes('TRC20') || narrationUpper.includes('TRON')) {
+          if (narrationLower.includes('converted to ngn') || narrationLower.includes('payout to') || narrationLower.includes('bank payout') || narrationLower.includes('direct bank')) {
+            txCurrency = 'NGN';
+          } else if (narrationUpper.includes('USDT') || narrationUpper.includes('TRC20') || narrationUpper.includes('TRON')) {
             txCurrency = 'USDT';
           } else if (narrationUpper.includes('USD') || narrationUpper.includes('DOLLAR')) {
             txCurrency = 'USD';
