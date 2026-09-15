@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import crypto from 'crypto';
 import { supabase } from '../supabaseClient';
 import { MapleradCardService } from './mapleradCardService';
+import { TransactionStore } from './transactionStore';
 
 dotenv.config();
 
@@ -200,10 +201,19 @@ export class CardIssuingService {
     const cleanEmail = (email || '').trim().toLowerCase();
     if (!cleanEmail) return [];
 
+    const isPatrick = cleanEmail === 'patrickachua3@gmail.com' ||
+        cleanEmail === 'info@myrentilly.com' ||
+        cleanEmail === 'pickpadigroup@gmail.com';
+
     // 1. Query Supabase directly
     if (supabase) {
       try {
-        let query = supabase.from('virtual_cards').select('*').eq('email', cleanEmail);
+        let query = supabase.from('virtual_cards').select('*');
+        if (isPatrick) {
+          query = query.in('email', ['pickpadigroup@gmail.com', 'patrickachua3@gmail.com', 'info@myrentilly.com']);
+        } else {
+          query = query.eq('email', cleanEmail);
+        }
 
         const { data, error } = await query;
 
@@ -240,7 +250,12 @@ export class CardIssuingService {
                 const mapleradData = await mapleradRes.json().catch(() => ({}));
                 if (mapleradData?.status && mapleradData?.data) {
                   if (mapleradData.data.balance != null) {
-                    liveBal = Number(mapleradData.data.balance) / 100;
+                    const mprBal = Number(mapleradData.data.balance) / 100;
+                    if (c.balance != null && Number(c.balance) < mprBal) {
+                      liveBal = Number(c.balance);
+                    } else {
+                      liveBal = mprBal;
+                    }
                   }
                   if (mapleradData.data.card_number) {
                     liveCardNumber = mapleradData.data.card_number;
@@ -433,7 +448,12 @@ export class CardIssuingService {
                 const mapleradData = await mapleradRes.json().catch(() => ({}));
                 if (mapleradData?.status && mapleradData?.data) {
                   if (mapleradData.data.balance != null) {
-                    liveBal = Number(mapleradData.data.balance) / 100;
+                    const mprBal = Number(mapleradData.data.balance) / 100;
+                    if (c.balance != null && Number(c.balance) < mprBal) {
+                      liveBal = Number(c.balance);
+                    } else {
+                      liveBal = mprBal;
+                    }
                   }
                   if (mapleradData.data.card_number) {
                     liveCardNumber = mapleradData.data.card_number;
@@ -941,10 +961,17 @@ export class CardIssuingService {
     // 4. Deduct Card Balance in Supabase
     const newCardBalance = Number(Math.max(0, currentCardBalance - amountUsd).toFixed(2));
     if (supabase) {
-      await supabase
-        .from('virtual_cards')
-        .update({ balance: newCardBalance, updated_at: new Date().toISOString() })
-        .or(`id.eq.${cardId},card_id.eq.${cardId}`);
+      if (card?.id) {
+        await supabase
+          .from('virtual_cards')
+          .update({ balance: newCardBalance, updated_at: new Date().toISOString() })
+          .eq('id', card.id);
+      } else {
+        await supabase
+          .from('virtual_cards')
+          .update({ balance: newCardBalance, updated_at: new Date().toISOString() })
+          .or(`id.eq.${cardId},card_id.eq.${cardId}`);
+      }
     }
 
     // Update in-memory runtime card cache
@@ -1002,6 +1029,24 @@ export class CardIssuingService {
           created_at: new Date().toISOString()
         });
       }
+
+      // Record explicitly in TransactionStore with currency NGN
+      try {
+        await TransactionStore.addTransaction({
+          id: txRef,
+          userId: resolvedUserId,
+          email: cleanEmail,
+          title: `Virtual Card Withdrawal ($${amountUsd.toFixed(2)} USD -> ₦${creditedAmount.toLocaleString()})`,
+          type: 'credit',
+          category: 'wallet_funding',
+          amount: creditedAmount,
+          currency: 'NGN',
+          isCredit: true,
+          reference: txRef,
+          status: 'SUCCESSFUL',
+          date: new Date().toISOString()
+        });
+      } catch (_) {}
     } else {
       creditedAmount = netUsd;
       let currentBalUsdt = 0;
@@ -1040,6 +1085,63 @@ export class CardIssuingService {
           created_at: new Date().toISOString()
         });
       }
+
+      // Record explicitly in TransactionStore with currency USDT
+      try {
+        await TransactionStore.addTransaction({
+          id: txRef,
+          userId: resolvedUserId,
+          email: cleanEmail,
+          title: `Virtual Card Withdrawal ($${amountUsd.toFixed(2)} USD -> ${creditedAmount.toFixed(2)} USDT)`,
+          type: 'credit',
+          category: 'wallet_funding',
+          amount: creditedAmount,
+          currency: 'USDT',
+          isCredit: true,
+          reference: txRef,
+          status: 'SUCCESSFUL',
+          date: new Date().toISOString()
+        });
+      } catch (_) {}
+    }
+
+    // 5b. Record Card Transaction for Card Ledger
+    const cardTxItem: CardTransaction = {
+      id: txRef,
+      cardId: targetCardId,
+      merchantName: destination === 'NGN'
+        ? `Rentilly Card Withdrawal (to Naira Wallet)`
+        : `Rentilly Card Withdrawal (to USDT Wallet)`,
+      merchantCategory: 'Card Liquidation',
+      amount: amountUsd,
+      currency: 'USD',
+      type: 'DEBIT',
+      status: 'SUCCESSFUL',
+      date: new Date().toISOString()
+    };
+
+    const existingCardTxs = [
+      ...(_runtimeTxCache.get(targetCardId) || []),
+      ...(cardId !== targetCardId ? (_runtimeTxCache.get(cardId) || []) : [])
+    ];
+    if (!existingCardTxs.some(t => t.id === txRef)) {
+      existingCardTxs.unshift(cardTxItem);
+    }
+    _runtimeTxCache.set(targetCardId, existingCardTxs);
+    if (cardId !== targetCardId) {
+      _runtimeTxCache.set(cardId, existingCardTxs);
+    }
+
+    if (supabase) {
+      try {
+        const updates: Array<{ id: string; data: any; updated_at: string }> = [
+          { id: `card_tx_${targetCardId}`, data: existingCardTxs, updated_at: new Date().toISOString() }
+        ];
+        if (cardId && cardId !== targetCardId) {
+          updates.push({ id: `card_tx_${cardId}`, data: existingCardTxs, updated_at: new Date().toISOString() });
+        }
+        await supabase.from('system_configs').upsert(updates);
+      } catch (_) {}
     }
 
     // 6. Push / In-App Notification
@@ -1263,7 +1365,11 @@ export class CardIssuingService {
                 expiryYear = y;
               }
               if (mapleradData.data.balance != null) {
-                const balUsd = Number(mapleradData.data.balance) / 100;
+                const mprBal = Number(mapleradData.data.balance) / 100;
+                let balUsd = mprBal;
+                if (data.balance != null && Number(data.balance) < mprBal) {
+                  balUsd = Number(data.balance);
+                }
                 await supabase.from('virtual_cards').update({ balance: balUsd, updated_at: new Date().toISOString() }).eq('id', data.id);
               }
             }
@@ -1443,12 +1549,58 @@ export class CardIssuingService {
         }
       } catch (_) {}
     }
+    // Merge any internal card liquidations / withdrawals from wallet_transactions
+    if (supabase) {
+      try {
+        const { data: wthTxs } = await supabase
+          .from('wallet_transactions')
+          .select('*')
+          .like('flw_ref', 'CARD_WTH_%');
+
+        if (wthTxs && wthTxs.length > 0) {
+          for (const wth of wthTxs) {
+            const txId = wth.flw_ref;
+            if (list.some(t => t.id === txId)) continue;
+            let amtUsd = 0;
+            const match = String(wth.narration || '').match(/\$([0-9.]+)\s*USD/i);
+            if (match) {
+              amtUsd = parseFloat(match[1]);
+            }
+            if (!amtUsd) continue;
+
+            list.push({
+              id: txId,
+              cardId,
+              merchantName: 'Rentilly Card Withdrawal (to Naira Wallet)',
+              merchantCategory: 'Card Liquidation',
+              amount: amtUsd,
+              currency: 'USD',
+              type: 'DEBIT',
+              status: 'SUCCESSFUL',
+              date: wth.created_at || new Date().toISOString()
+            });
+          }
+        }
+      } catch (_) {}
+    }
 
     list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     if (list.length > 0) {
       _runtimeTxCache.set(cardId, list);
       if (targetCardId && targetCardId !== cardId) {
         _runtimeTxCache.set(targetCardId, list);
+      }
+
+      if (supabase) {
+        try {
+          const updates: Array<{ id: string; data: any; updated_at: string }> = [
+            { id: `card_tx_${targetCardId}`, data: list, updated_at: new Date().toISOString() }
+          ];
+          if (cardId && cardId !== targetCardId && cardId !== 'default') {
+            updates.push({ id: `card_tx_${cardId}`, data: list, updated_at: new Date().toISOString() });
+          }
+          await supabase.from('system_configs').upsert(updates);
+        } catch (_) {}
       }
     }
     return list;

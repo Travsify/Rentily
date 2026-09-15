@@ -64,19 +64,21 @@ export async function getLegalAgreements(req: Request, res: Response) {
     }
 
     // Filter if requested by Flutter app
-    if (landlordId) {
-      storeLegal = storeLegal.filter(a => a.landlordId === landlordId || (a as any).ownerId === landlordId);
-    } else if (tenantId) {
-      storeLegal = storeLegal.filter(a => a.tenantId === tenantId || (a as any).renterId === tenantId);
-    } else if (cleanEmail) {
-      storeLegal = storeLegal.filter(a =>
-        (a.tenantName || '').toLowerCase().includes(cleanEmail) ||
-        (a.landlordName || '').toLowerCase().includes(cleanEmail) ||
-        (a.tenantId || '').toLowerCase() === cleanEmail ||
-        (a.landlordId || '').toLowerCase() === cleanEmail ||
-        ((a as any).tenantEmail || '').toLowerCase() === cleanEmail ||
-        ((a as any).landlordEmail || '').toLowerCase() === cleanEmail
-      );
+    if (landlordId || tenantId || cleanEmail) {
+      storeLegal = storeLegal.filter(a => {
+        const matchesLandlord = landlordId ? (a.landlordId === landlordId || (a as any).ownerId === landlordId) : false;
+        const matchesTenant = tenantId ? (a.tenantId === tenantId || (a as any).renterId === tenantId) : false;
+        const matchesEmail = cleanEmail ? (
+          (a.tenantName || '').toLowerCase().includes(cleanEmail) ||
+          (a.landlordName || '').toLowerCase().includes(cleanEmail) ||
+          (a.tenantId || '').toLowerCase() === cleanEmail ||
+          (a.landlordId || '').toLowerCase() === cleanEmail ||
+          ((a as any).tenantEmail || '').toLowerCase() === cleanEmail ||
+          ((a as any).landlordEmail || '').toLowerCase() === cleanEmail
+        ) : false;
+
+        return matchesLandlord || matchesTenant || matchesEmail;
+      });
     }
 
     return res.json(storeLegal);

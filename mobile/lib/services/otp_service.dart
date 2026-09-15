@@ -1,6 +1,7 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../constants/app_constants.dart';
+import '../utils/phone_utils.dart';
 
 class OtpService {
   static const String baseUrl = AppConstants.apiBaseUrl;
@@ -14,12 +15,13 @@ class OtpService {
     String purpose = 'Account Verification',
   }) async {
     try {
+      final sanitizedPhone = PhoneUtils.tryFormatToE164(phoneNumber) ?? phoneNumber;
       final response = await http.post(
         Uri.parse('$baseUrl/auth/send-otp'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'email': email,
-          'phoneNumber': phoneNumber,
+          'phoneNumber': sanitizedPhone,
           'userName': userName,
           'channel': channel,
           'purpose': purpose,
@@ -53,12 +55,13 @@ class OtpService {
     required String code,
   }) async {
     try {
+      final sanitizedPhone = PhoneUtils.tryFormatToE164(phoneNumber) ?? phoneNumber;
       final response = await http.post(
         Uri.parse('$baseUrl/auth/verify-otp'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'email': email,
-          'phoneNumber': phoneNumber,
+          'phoneNumber': sanitizedPhone,
           'code': code.trim(),
         }),
       ).timeout(const Duration(seconds: 12));

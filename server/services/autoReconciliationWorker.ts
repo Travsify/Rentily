@@ -5,12 +5,14 @@ import { AtomicLedgerService } from './atomicLedgerService';
 import { UserStore } from './userStore';
 import { TransactionStore } from './transactionStore';
 import { FincraService } from './fincraService';
+import { PayoutReversalService } from './payoutReversalService';
+import { PlatformAccountRegistry } from './platformAccountRegistry';
 
 dotenv.config();
 
 export class AutoReconciliationWorker {
   private static isRunning = false;
-  private static pollIntervalMs = 15000; // Poll every 15 seconds for instant bank transfer capture
+  private static pollIntervalMs = 10000; // Poll every 10 seconds for ultra-fast bank transfer capture
   private static timer: NodeJS.Timeout | null = null;
 
   /**
@@ -19,7 +21,7 @@ export class AutoReconciliationWorker {
   static start() {
     if (this.isRunning) return;
     this.isRunning = true;
-    console.log('⚡ [AutoReconciliation] Realtime Worker started (Polling every 15s)');
+    console.log('⚡ [AutoReconciliation] Realtime Worker started (Polling every 10s)');
 
     // Run first sync quietly
     this.syncAll().catch(() => {});
@@ -50,6 +52,7 @@ export class AutoReconciliationWorker {
       this.syncFlutterwaveTransactions(),
       this.syncMapleradTransactions(),
       this.syncFincraTransactions(),
+      this.syncFincraPayouts(),
     ]);
   }
 
@@ -417,6 +420,8 @@ export class AutoReconciliationWorker {
             created_at: tx.created_at || new Date().toISOString()
           }, { onConflict: 'flw_ref' });
 
+          await this.markProcessed(ref, targetUser.id, amount, targetUser.email);
+
           await TransactionStore.addTransaction({
             id: `TX_USDT_${ref}`,
             userId: targetUser.id,
@@ -523,15 +528,25 @@ export class AutoReconciliationWorker {
       // 1. Fetch live collections directly from Fincra (Inbound bank transfers to virtual accounts)
       const colRes = await FincraService.listCollections({ page: 1, perPage: 30 });
       if (colRes.status && Array.isArray(colRes.data) && colRes.data.length > 0) {
-        // Pre-fetch configs and profiles to match collections efficiently
-        const { data: fincraConfigs } = await supabase
-          .from('system_configs')
-          .select('id, data')
-          .like('id', 'fincra_va_%');
+        // Pre-fetch reconciled refs, wallet refs, configs, and profiles in a single concurrent batch
+        const [recRes, walletRes, fincraConfigsRes, allProfilesRes] = await Promise.all([
+          supabase.from('reconciled_transactions').select('flw_ref'),
+          supabase.from('wallet_transactions').select('flw_ref, tx_ref'),
+          supabase.from('system_configs').select('id, data').like('id', 'fincra_va_%'),
+          supabase.from('profiles').select('id, email, full_name, account_number, wallet_balance')
+        ]);
 
-        const { data: allProfiles } = await supabase
-          .from('profiles')
-          .select('id, email, full_name, account_number, wallet_balance');
+        const processedRefs = new Set<string>();
+        (recRes.data || []).forEach((r: any) => {
+          if (r.flw_ref) processedRefs.add(String(r.flw_ref).trim());
+        });
+        (walletRes.data || []).forEach((w: any) => {
+          if (w.flw_ref) processedRefs.add(String(w.flw_ref).trim());
+          if (w.tx_ref) processedRefs.add(String(w.tx_ref).trim());
+        });
+
+        const fincraConfigs = fincraConfigsRes.data || [];
+        const allProfiles = allProfilesRes.data || [];
 
         for (const col of colRes.data) {
           const isSuccess = col.status === 'successful' || col.status === 'success';
@@ -541,26 +556,71 @@ export class AutoReconciliationWorker {
           const ref = String(col.reference || col.id || '').trim();
           if (!ref) continue;
 
-          // Check if already processed
-          if (await this.isAlreadyProcessed(ref)) continue;
+          // O(1) in-memory check + persistent DB check
+          if (processedRefs.has(ref)) continue;
+          if (await this.isAlreadyProcessed(ref)) {
+            processedRefs.add(ref);
+            continue;
+          }
+
+          const incomingVaId = String(col.virtualAccountId || '').trim();
+          const incomingAccNo = String(col.accountNumber || col.destinationAccountNumber || col.virtualAccount || '').trim();
+          const platformKey = incomingVaId || incomingAccNo;
+
+          // Cross-app blocklist guard (defence-in-depth)
+          const CROSS_APP_BLOCKLIST = new Set([
+            '7941121155',               // Giga Ride driver settlement VA
+            '6aa3a161afaadc31df84a941', // Giga Ride VA ID
+            '1100092831',               // Pickpadi group account
+            '5003504921',               // Giga Ride alternative acc
+          ]);
+          if (CROSS_APP_BLOCKLIST.has(incomingAccNo) || CROSS_APP_BLOCKLIST.has(incomingVaId)) {
+            processedRefs.add(ref);
+            continue;
+          }
+
+          let platformInfo: any = null;
+          if (platformKey) {
+            try {
+              platformInfo = await PlatformAccountRegistry.resolveAccount(platformKey);
+              if (platformInfo && platformInfo.app !== 'rentilly') {
+                // Non-Rentilly ecosystem account (Giga, Kartlily, Pickpadi) - skip!
+                processedRefs.add(ref);
+                continue;
+              }
+            } catch (_) {}
+          }
 
           // Match target user
           let targetUser: any = null;
 
+          // Strategy 0: Platform Registry direct match (highest precision)
+          if (platformInfo && platformInfo.app === 'rentilly' && platformInfo.userEmail) {
+            targetUser = allProfiles.find((p: any) => p.email.toLowerCase().trim() === platformInfo.userEmail);
+          }
+
           // Strategy A: Match by virtualAccountId in fincra_va_* configs
-          if (col.virtualAccountId && fincraConfigs) {
+          if (!targetUser && col.virtualAccountId && fincraConfigs.length > 0) {
             const matchedCfg = fincraConfigs.find((c: any) =>
               c.data?.virtualAccountId === col.virtualAccountId ||
               c.data?._id === col.virtualAccountId
             );
             if (matchedCfg) {
-              const matchedEmail = matchedCfg.id.replace('fincra_va_', '');
-              targetUser = allProfiles?.find((p: any) => p.email.toLowerCase() === matchedEmail.toLowerCase());
+              const matchedEmail = matchedCfg.id.replace('fincra_va_', '').toLowerCase().trim();
+              targetUser = allProfiles.find((p: any) => p.email.toLowerCase().trim() === matchedEmail);
             }
           }
 
-          // Strategy B: Match by payeeName (e.g. "patrick Achua" -> "Patrick Achua")
-          if (!targetUser && col.payeeName && allProfiles) {
+          // Strategy B: Match by direct account number in profiles
+          if (!targetUser) {
+            const possibleAccNo = String(col.accountNumber || col.destinationAccountNumber || col.virtualAccount || '').trim();
+            if (possibleAccNo) {
+              targetUser = allProfiles.find((p: any) => String(p.account_number || '').trim() === possibleAccNo);
+            }
+          }
+
+          // Strategy C: Match by payeeName (e.g. "patrick Achua" -> "Patrick Achua")
+          if (!targetUser && col.payeeName && allProfiles.length > 0) {
             const cleanPayee = String(col.payeeName).replace(/^FIN-|^M-/i, '').trim().toLowerCase();
             targetUser = allProfiles.find((p: any) => {
               const pName = (p.full_name || '').toLowerCase().trim();
@@ -590,8 +650,22 @@ export class AutoReconciliationWorker {
               narration: `Inbound Bank Transfer from ${senderName} (Wema Bank Rail)`
             });
 
+            processedRefs.add(ref);
+
             if (creditRes.success && !creditRes.alreadyProcessed) {
               console.log(`⚡ [AutoReconciliation] Auto-credited Fincra bank transfer: ₦${amount.toLocaleString()} for ${targetUser.email} (Ref: ${ref})`);
+
+              // Mark processed in reconciled_transactions table
+              await this.markProcessed(ref, targetUser.id, amount, targetUser.email);
+
+              // Update memory cache
+              const mem = await UserStore.findByEmail(targetUser.email);
+              if (mem) {
+                UserStore.upsertUserForced({
+                  ...mem,
+                  walletBalance: creditRes.newBalance ?? (Number(targetUser.wallet_balance || 0) + amount)
+                });
+              }
 
               await TransactionStore.addTransaction({
                 id: `FINCRA_TX_${ref}`,
@@ -696,6 +770,37 @@ export class AutoReconciliationWorker {
       }
     } catch (err: any) {
       console.warn('⚡ [AutoReconciliation] Fincra sync exception:', err.message);
+    }
+  }
+
+  /**
+   * Autonomous Fincra Payout Auto-Reversal Worker
+   * Continuously monitors disbursements/payouts and automatically reverses
+   * any failed or rejected bank transfers back to the user's wallet.
+   */
+  private static async syncFincraPayouts() {
+    if (!FincraService.isConfigured() || !supabase) return;
+
+    try {
+      const payoutRes = await FincraService.listPayouts({ page: 1, perPage: 25 });
+      if (!payoutRes.status || !Array.isArray(payoutRes.data) || payoutRes.data.length === 0) return;
+
+      const failedPayouts = payoutRes.data.filter((p: any) => (p.status || '').toLowerCase() === 'failed');
+      if (failedPayouts.length === 0) return;
+
+      for (const p of failedPayouts) {
+        await PayoutReversalService.handleFailedPayout({
+          reference: String(p.reference || ''),
+          customerReference: String(p.customerReference || ''),
+          amount: Number(p.amountSent || p.amount || 0),
+          fee: Number(p.fee || 0),
+          failedReason: p.failedReason || p.reason || p.errorMessage || 'Destination bank rejected transfer',
+          beneficiaryName: p.beneficiaryName || p.beneficiary?.accountHolderName,
+          accountNumber: p.beneficiary?.accountNumber
+        });
+      }
+    } catch (err: any) {
+      console.warn('⚡ [AutoReconciliation] Fincra payouts sync exception:', err.message);
     }
   }
 }

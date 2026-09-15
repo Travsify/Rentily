@@ -235,9 +235,9 @@ class _InspectionsScreenState extends State<InspectionsScreen> with SingleTicker
                             instruction: 'Point camera at visitor QR pass',
                           );
                           if (scanned != null && scanned.trim().isNotEmpty) {
-                            final clean = scanned.replaceAll(RegExp(r'\D'), '');
-                            final effectiveCode = clean.length >= 6 ? clean.substring(clean.length - 6) : scanned.trim();
-                            codeController.text = effectiveCode;
+                            final clean = scanned.trim().replaceAll(RegExp(r'[^a-zA-Z0-9-]'), '');
+                            final effectiveCode = clean.length >= 6 ? clean.substring(clean.length - 6) : clean;
+                            codeController.text = clean.isNotEmpty ? clean : scanned.trim();
 
                             setModalState(() {
                               isVerifying = true;

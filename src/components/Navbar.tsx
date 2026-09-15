@@ -117,22 +117,32 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Profile & Logout */}
         <div className="flex items-center gap-2 pl-2 border-l border-slate-800">
-          <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white ring-1 ring-emerald-500/40">
-            <UserCheck className="w-4 h-4 text-white" />
-          </div>
-          <div className="hidden lg:block text-left">
-            <p className="text-[11px] font-semibold text-white leading-tight">
-              {currentUser?.fullName || (isAgent ? 'Support Agent' : 'Rentilly Super Admin')}
-            </p>
-            {isAgent ? (
-              <div className="flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <p className="text-[9px] text-emerald-400 font-medium">Online</p>
-              </div>
-            ) : (
-              <p className="text-[9px] text-emerald-400 font-medium">Platform Administrator</p>
-            )}
-          </div>
+          <button
+            type="button"
+            onClick={() => !isAgent && setCurrentTab('admin_profile')}
+            title={!isAgent ? 'Open Admin Profile & MFA Hub' : undefined}
+            className={`flex items-center gap-2 text-left transition rounded-xl p-1 -m-1 ${
+              !isAgent ? 'hover:bg-slate-800/60 cursor-pointer' : 'cursor-default'
+            }`}
+          >
+            <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white ring-1 ring-emerald-500/40 shrink-0">
+              <UserCheck className="w-4 h-4 text-white" />
+            </div>
+            <div className="hidden lg:block text-left">
+              <p className="text-[11px] font-semibold text-white leading-tight flex items-center gap-1">
+                <span>{currentUser?.fullName || (isAgent ? 'Support Agent' : 'Rentilly Super Admin')}</span>
+                {!isAgent && <span className="text-[8px] px-1 rounded bg-emerald-500/20 text-emerald-400 font-bold">MFA</span>}
+              </p>
+              {isAgent ? (
+                <div className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <p className="text-[9px] text-emerald-400 font-medium">Online</p>
+                </div>
+              ) : (
+                <p className="text-[9px] text-emerald-400 font-medium hover:underline">Profile &amp; Security</p>
+              )}
+            </div>
+          </button>
 
           <button
             onClick={onLogout}

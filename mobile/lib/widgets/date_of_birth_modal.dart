@@ -142,7 +142,7 @@ class _DateOfBirthModalState extends State<DateOfBirthModal> {
 
       if (res.statusCode == 200 && data['status'] == true) {
         final newAccount = data['accountNumber']?.toString() ?? widget.user.accountNumber;
-        final newBank = data['bankName']?.toString() ?? widget.user.bankName ?? '9PSB (Rentilly)';
+        final newBank = data['bankName']?.toString() ?? widget.user.bankName ?? 'Wema Bank (Fincra)';
 
         final updatedUser = widget.user.copyWith(
           dob: dobStr,
@@ -235,7 +235,7 @@ class _DateOfBirthModalState extends State<DateOfBirthModal> {
                       style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                     ),
                     Text(
-                      'Activate your dedicated 9PSB account & Dollar Card',
+                      'Activate your dedicated bank account & Dollar Card',
                       style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
                     ),
                   ],
@@ -262,7 +262,7 @@ class _DateOfBirthModalState extends State<DateOfBirthModal> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Your wallet balance is 100% safe. Linking your Date of Birth activates your dedicated 9PSB settlement account & Virtual Dollar Card immediately.',
+                    'Your wallet balance is 100% safe. Linking your Date of Birth activates your dedicated settlement account & Virtual Dollar Card immediately.',
                     style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: const Color(0xFF15803D), height: 1.3),
                   ),
                 ),

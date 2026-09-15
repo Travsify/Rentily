@@ -158,13 +158,27 @@ export class TransactionStore {
           const narrationUpper = rawNarration.toUpperCase();
           const narrationLower = rawNarration.toLowerCase();
           let txCurrency: 'NGN' | 'USDT' | 'USD' = 'NGN';
-          if (narrationLower.includes('converted to ngn') || narrationLower.includes('payout to') || narrationLower.includes('bank payout') || narrationLower.includes('direct bank')) {
+          if (
+            rawNarration.includes('-> ₦') ||
+            rawNarration.includes('₦') ||
+            narrationLower.includes('-> ngn') ||
+            narrationLower.includes('to naira') ||
+            narrationLower.includes('naira wallet') ||
+            narrationLower.includes('converted to ngn') ||
+            narrationLower.includes('payout to') ||
+            narrationLower.includes('bank payout') ||
+            narrationLower.includes('direct bank')
+          ) {
             txCurrency = 'NGN';
-          } else if (narrationUpper.includes('USDT') || narrationUpper.includes('TRC20') || narrationUpper.includes('TRON')) {
+          } else if (narrationUpper.includes('USDT') || narrationUpper.includes('TRC20') || narrationUpper.includes('TRON') || narrationLower.includes('-> usdt')) {
             txCurrency = 'USDT';
           } else if (narrationUpper.includes('USD') || narrationUpper.includes('DOLLAR')) {
             txCurrency = 'USD';
           }
+
+          // If narration explicitly indicates credit/transfer to Naira, strictly enforce NGN
+          const isNairaDestination = rawNarration.includes('-> ₦') || rawNarration.includes('₦') || narrationLower.includes('to naira') || narrationLower.includes('naira wallet');
+          const finalCurrency = isNairaDestination ? 'NGN' : (row.currency || txCurrency);
 
           let txBeneficiary: string | undefined;
           let txRecipientAccount: string | undefined;
@@ -194,7 +208,7 @@ export class TransactionStore {
             type: rawType || (isCredit ? 'credit' : 'debit'),
             category,
             amount: amt,
-            currency: row.currency || txCurrency,
+            currency: finalCurrency,
             isCredit,
             reference: ref,
             beneficiary: txBeneficiary,
@@ -349,29 +363,10 @@ export class TransactionStore {
     const userFullName = (user?.fullName || '').toLowerCase().trim();
     const userBusinessName = (user?.businessName || '').toLowerCase().trim();
 
-    // 1. Strict user-only filter: only include transactions that strictly belong to THIS user
+    // 1. Strict user-only filter: include all transactions that belong to this user
     const filtered = all.filter(t => {
       if ((t.email || '').toLowerCase().trim() !== cleanEmail) return false;
       if (TransactionStore.isTreasuryTransaction(t)) return false;
-
-      // Filter out collections performed by other unrelated users that were erroneously stamped
-      const titleLower = (t.title || '').toLowerCase();
-      if (titleLower.startsWith('virtual account collection -') || titleLower.startsWith('account funding -')) {
-        // Extract the name if present (e.g. "Virtual Account Collection - TOMISIN OLAMIPO KOLAWOLE - 8026990956")
-        const parts = titleLower.split(' - ');
-        if (parts.length >= 2) {
-          const senderInTitle = parts[1].trim();
-          if (userFullName && senderInTitle && !senderInTitle.includes(userFullName) && !userFullName.includes(senderInTitle)) {
-            // Also check first or last name
-            const userWords = userFullName.split(/\s+/).filter(w => w.length > 2);
-            const matchesUser = userWords.some(w => senderInTitle.includes(w));
-            if (!matchesUser && (!userBusinessName || !senderInTitle.includes(userBusinessName))) {
-              return false;
-            }
-          }
-        }
-      }
-
       return true;
     });
 
@@ -420,7 +415,26 @@ export class TransactionStore {
       deduped.push(t);
     }
 
+    for (const t of deduped) {
+      if ((t.title && (t.title.includes('-> ₦') || t.title.includes('₦'))) || (t.description && (t.description.includes('-> ₦') || t.description.includes('₦')))) {
+        t.currency = 'NGN';
+      }
+    }
+
     return deduped.sort((a, b) => new Date(b.date || b.createdAt || 0).getTime() - new Date(a.date || a.createdAt || 0).getTime());
+  }
+
+  static findByReference(ref: string): WalletTransaction | undefined {
+    const cleanRef = (ref || '').trim();
+    if (!cleanRef) return undefined;
+    const all = this.getAllTransactions();
+    return all.find(t => 
+      t.reference === cleanRef || 
+      t.id === cleanRef || 
+      (t.txRef && t.txRef === cleanRef) ||
+      (t.flwRef && t.flwRef === cleanRef) ||
+      (t.reference && t.reference.toLowerCase() === cleanRef.toLowerCase())
+    );
   }
 
   static async addTransaction(tx: WalletTransaction): Promise<WalletTransaction> {

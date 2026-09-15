@@ -31,6 +31,7 @@ import { IntegrationsTab } from './components/IntegrationsTab';
 import { FeatureFlagsTab } from './components/FeatureFlagsTab';
 import { SupabaseConfigTab } from './components/SupabaseConfigTab';
 import { FlutterApiDocsTab } from './components/FlutterApiDocsTab';
+import { AdminProfileTab } from './components/AdminProfileTab';
 import { AdminLoginPage } from './components/AdminLoginPage';
 import { RentillyApiService, checkServerHealth } from './services/api';
 import { supabaseClient } from './services/supabaseClient';
@@ -360,6 +361,10 @@ export default function App() {
 
           {currentTab === 'flutter_api' && (
             <FlutterApiDocsTab />
+          )}
+
+          {currentTab === 'admin_profile' && (
+            <AdminProfileTab />
           )}
         </main>
       </div>

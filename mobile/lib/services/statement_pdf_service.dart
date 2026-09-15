@@ -109,7 +109,6 @@ class StatementPdfService {
   }) async {
     final pdf = pw.Document();
     final primaryColor = PdfColor.fromHex('#0B4F3F');
-    final currPrefix = _formatCurrencyPrefix(currency);
 
     final txRef = _sanitizePdfText(transaction['reference'] ?? transaction['id'] ?? 'REF_${DateTime.now().millisecondsSinceEpoch}');
     final rawAmount = (transaction['amount'] as num?)?.toDouble() ?? 0.0;
@@ -137,10 +136,14 @@ class StatementPdfService {
     final type = _sanitizePdfText(transaction['type'] ?? 'Escrow Settlement');
     final title = _sanitizePdfText(cleanTitleText.isNotEmpty ? cleanTitleText : 'Electronic Payment Settlement');
 
-    final isCardTx = currency.toUpperCase() == 'USD' ||
+    final isNairaDest = cleanTitleText.contains('-> ₦') || cleanTitleText.contains('₦') || cleanTitleText.toLowerCase().contains('to naira');
+    final effectiveCurrency = isNairaDest ? 'NGN' : currency;
+    final currPrefix = _formatCurrencyPrefix(effectiveCurrency);
+
+    final isCardTx = !isNairaDest && (currency.toUpperCase() == 'USD' ||
         currency.toUpperCase() == 'CARD_USD' ||
         transaction['cardId'] != null ||
-        transaction['merchantName'] != null;
+        transaction['merchantName'] != null);
 
     final isCredit = transaction['isCredit'] == true ||
         (transaction['type'] ?? '').toString().toUpperCase() == 'CREDIT' ||
@@ -554,7 +557,7 @@ class StatementPdfService {
                       children: [
                         pw.Text('COLLECTION COORDINATES', style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: PdfColors.grey600)),
                         pw.SizedBox(height: 2),
-                        pw.Text('Account Number: ${user.accountNumber ?? "Pending 9PSB"}', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold)),
+                        pw.Text('Account Number: ${user.accountNumber ?? "Pending Fincra"}', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold)),
                         pw.Text('Settlement Bank: $partnerBank', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey800)),
                         pw.Text('Account Type: Escrow / Wallet ($currency)', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey800)),
                         pw.Text('Generated: $generatedAt', style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey600)),

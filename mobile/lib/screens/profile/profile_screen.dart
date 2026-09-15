@@ -1040,74 +1040,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ));
                 },
               ),
-              // Switch to Landlord/Partner Portal
-              if (_currentUser?.isLandlord == true) ...[
-                Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0D5C46).withValues(alpha: 0.06),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: const Color(0xFF0D5C46).withValues(alpha: 0.3)),
-                  ),
-                  child: ListTile(
-                    onTap: () {
-                      MainNavigationScreen.of(context)?.setViewMode('landlord');
-                    },
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    leading: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF0D5C46).withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(Icons.real_estate_agent_rounded, size: 20, color: Color(0xFF0D5C46)),
-                    ),
-                    title: Text(
-                      'Switch to Landlord Portal 🔑',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: const Color(0xFF0D5C46)),
-                    ),
-                    subtitle: Text(
-                      'Manage your rental properties, leases & escrow payouts',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary),
-                    ),
-                    trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Color(0xFF0D5C46)),
-                  ),
-                ),
-              ],
-              if (_currentUser?.isPartner == true) ...[
-                Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.06),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
-                  ),
-                  child: ListTile(
-                    onTap: () {
-                      MainNavigationScreen.of(context)?.setViewMode('partner');
-                    },
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    leading: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(Icons.storefront_rounded, size: 20, color: AppColors.primary),
-                    ),
-                    title: Text(
-                      'Switch to Partner Portal 💼',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primary),
-                    ),
-                    subtitle: Text(
-                      'Manage agency listings, client inspections & commission payouts',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary),
-                    ),
-                    trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.primary),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 10),
+              const SizedBox(height: 20),
 
               // Logout Button
               SizedBox(
@@ -1323,7 +1256,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const Divider(height: 18),
                   _buildStatusRow('Dedicated Account', _currentUser?.accountNumber ?? 'Pending (Add Date of Birth)'),
                   const Divider(height: 18),
-                  _buildStatusRow('Settlement Bank', _currentUser?.bankName ?? '9PSB (Rentilly)'),
+                  _buildStatusRow('Settlement Bank', _currentUser?.bankName ?? 'Wema Bank (Fincra)'),
                   const Divider(height: 18),
                   _buildStatusRow('Identity Verification', isApproved ? 'Level 2 Verified Tier 🛡️' : 'Pending Verification'),
                   if (_currentUser?.phoneNumber != null && _currentUser!.phoneNumber.isNotEmpty) ...[
@@ -1514,7 +1447,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('Dedicated Rentilly Escrow Account', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                        Text('${_currentUser?.accountNumber ?? "Pending 9PSB"} • ${_currentUser?.fullName ?? "Rentilly User"}', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+                        Text('${_currentUser?.accountNumber ?? "Pending Fincra"} • ${_currentUser?.fullName ?? "Rentilly User"}', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
                       ],
                     ),
                   ),

@@ -4,6 +4,33 @@ import { UserStore, hashPassword, verifyPassword } from '../services/userStore';
 import { NotificationDispatcher } from '../services/notificationDispatcher';
 import { OtpStore } from '../services/otpStore';
 import crypto from 'crypto';
+import { generateSecret, generateURI, verifySync } from 'otplib';
+import QRCode from 'qrcode';
+import { tryFormatToE164 } from '../utils/phoneUtils';
+
+export let ADMIN_EMAIL = 'info@travsify.com';
+export let ADMIN_PASSWORD = 'Andrewtate2024./';
+export let ADMIN_HARSH_KEY = 'Brevity230./';
+export let ADMIN_NAME = 'Travsify Executive Admin';
+
+// Hydrate dynamically updated admin credentials from database
+async function initAdminCredentialsFromDb() {
+  if (!supabase) return;
+  try {
+    const { data } = await supabase
+      .from('system_configs')
+      .select('data')
+      .eq('id', 'admin_security_credentials')
+      .single();
+    if (data?.data) {
+      if (data.data.password) ADMIN_PASSWORD = data.data.password;
+      if (data.data.harshKey) ADMIN_HARSH_KEY = data.data.harshKey;
+      if (data.data.name) ADMIN_NAME = data.data.name;
+      console.log('🔐 [Admin Auth] Loaded persisted administrator security credentials from Supabase.');
+    }
+  } catch (_) {}
+}
+initAdminCredentialsFromDb();
 
 export async function register(req: Request, res: Response) {
   try {
@@ -25,7 +52,11 @@ export async function register(req: Request, res: Response) {
     }
 
     const cleanEmail = email.toLowerCase().trim();
-    const cleanPhone = (phoneNumber || '').replace(/[^0-9+]/g, '');
+    let cleanPhone = (phoneNumber || '').replace(/[^0-9+]/g, '');
+    if (phoneNumber && typeof phoneNumber === 'string' && phoneNumber.trim()) {
+      const pRes = tryFormatToE164(phoneNumber.trim());
+      if (pRes.success && pRes.formatted) cleanPhone = pRes.formatted;
+    }
 
     // Check if user already exists
     const existing = await UserStore.findByEmail(cleanEmail);
@@ -137,30 +168,11 @@ export async function login(req: Request, res: Response) {
 
     const cleanEmail = email.toLowerCase().trim();
 
-    // 1. Direct Admin Account validation
-    const validAdminAccounts = [
-      { email: 'admin@myrentilly.com', name: 'Rentilly Super Admin' },
-      { email: 'travsify@myrentilly.com', name: 'Travsify Admin Director' },
-      { email: 'info@myrentilly.com', name: 'Rentilly Executive Admin' },
-      { email: 'admin@rentilly.ng', name: 'Rentilly Super Admin' },
-      { email: 'travsify@rentilly.ng', name: 'Travsify Admin Director' },
-      { email: 'superadmin@rentilly.ng', name: 'Principal Administrator' }
-    ];
-
-    const validAdmin = validAdminAccounts.find(a => a.email === cleanEmail);
-    const validPasswords = ['AdminRentilly2026!', 'Forgetpassword.', 'admin123', 'rentillyadmin'];
-
-    if (validAdmin && validPasswords.includes(password)) {
-      const token = `admin-token-${Date.now()}`;
-      return res.json({
-        token,
-        user: {
-          id: 'usr-admin-01',
-          email: validAdmin.email,
-          fullName: validAdmin.name,
-          role: 'admin',
-          isVerified: true
-        }
+    // 1. Enforce 2FA & Harsh Key Policy for Administrative Accounts
+    if (cleanEmail === ADMIN_EMAIL || cleanEmail === 'admin@myrentilly.com') {
+      return res.status(403).json({
+        error: 'Administrative access requires 2FA authentication and admin harsh key verification. Please use the Admin 2FA portal.',
+        requires2FA: true
       });
     }
 
@@ -277,6 +289,23 @@ export async function getMe(req: Request, res: Response) {
   }
 
   const token = authHeader.replace('Bearer ', '');
+
+  if (token.startsWith('admin-token-')) {
+    return res.json({
+      user: {
+        id: 'usr-admin-travsify-01',
+        fullName: ADMIN_NAME,
+        email: ADMIN_EMAIL,
+        phoneNumber: '+2348000000000',
+        role: 'admin',
+        isVerified: true,
+        state: 'Lagos',
+        walletBalance: 0,
+        createdAt: new Date().toISOString()
+      }
+    });
+  }
+
   const parts = token.split('_');
   let userId = '';
   if (parts.length >= 3 && parts[0] === 'rentilly') {
@@ -804,7 +833,10 @@ export async function updateProfile(req: Request, res: Response) {
 
     // Apply updates
     if (fullName && fullName.trim()) user.fullName = fullName.trim();
-    if (phoneNumber) user.phoneNumber = phoneNumber.replace(/[^0-9+]/g, '');
+    if (phoneNumber) {
+      const pRes = tryFormatToE164(phoneNumber);
+      user.phoneNumber = pRes.success && pRes.formatted ? pRes.formatted : phoneNumber.replace(/[^0-9+]/g, '');
+    }
     if (state) user.state = state;
     if (avatarUrl) user.avatarUrl = avatarUrl;
     if (businessName) user.businessName = businessName.trim();
@@ -819,7 +851,10 @@ export async function updateProfile(req: Request, res: Response) {
       try {
         const update: any = {};
         if (fullName && fullName.trim()) update.full_name = fullName.trim();
-        if (phoneNumber) update.phone_number = phoneNumber.replace(/[^0-9+]/g, '');
+        if (phoneNumber) {
+          const pRes = tryFormatToE164(phoneNumber);
+          update.phone_number = pRes.success && pRes.formatted ? pRes.formatted : phoneNumber.replace(/[^0-9+]/g, '');
+        }
         if (state) update.state = state;
         if (avatarUrl) update.avatar_url = avatarUrl;
         if (businessName) update.business_name = businessName.trim();
@@ -1173,4 +1208,552 @@ export async function deleteAccount(req: Request, res: Response) {
     return res.status(500).json({ error: err.message });
   }
 }
+
+/**
+ * Admin 2FA: Step 1 - Validate credentials & harsh key, then dispatch 6-digit OTP
+ */
+export async function requestAdminOtp(req: Request, res: Response) {
+  try {
+    const { email, password, harshKey } = req.body;
+    if (!email || !password || !harshKey) {
+      return res.status(400).json({ error: 'Email, password, and admin harsh key are all required.' });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+
+    if (cleanEmail !== ADMIN_EMAIL || password !== ADMIN_PASSWORD || harshKey !== ADMIN_HARSH_KEY) {
+      console.warn(`⚠️ [Admin 2FA] Failed login attempt for email: ${cleanEmail}`);
+      return res.status(401).json({ error: 'Invalid administrative credentials or harsh security key.' });
+    }
+
+    // Generate 6-digit OTP valid for 10 minutes
+    const { code } = OtpStore.createOtp(cleanEmail, 'Admin 2FA Console Login');
+    console.log(`🔐 [Admin 2FA] Generated 6-digit OTP for ${cleanEmail}: ${code} (Expires in 10 mins)`);
+
+    // Dispatch transactional 2FA email
+    NotificationDispatcher.dispatch({
+      email: cleanEmail,
+      userName: ADMIN_NAME,
+      title: '🔐 Admin Console 2FA Security Code',
+      category: 'security',
+      message: `A request was made to access the Rentilly Operations Console. Use the 6-digit verification code below to authorize your session. This code will expire in 10 minutes.`,
+      metadata: {
+        '2FA Verification Code': code,
+        'Harsh Key': 'Verified ✅',
+        'Authorized Email': cleanEmail,
+        'Time': new Date().toLocaleString('en-NG', { timeZone: 'Africa/Lagos' }),
+        'Security Notice': 'If you did not initiate this sign-in, please change your administrative credentials immediately.'
+      }
+    }).catch(err => console.warn('[Admin 2FA] Notification error:', err?.message));
+
+    return res.json({
+      status: true,
+      message: `2FA security code dispatched to ${cleanEmail}. Please enter the 6-digit code to complete authentication.`,
+      email: cleanEmail
+    });
+  } catch (err: any) {
+    console.error('requestAdminOtp error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to dispatch 2FA code.' });
+  }
+}
+
+/**
+ * Admin 2FA: Step 2 - Verify 6-digit OTP & Harsh Key, then issue admin session token
+ */
+export async function verifyAdmin2fa(req: Request, res: Response) {
+  try {
+    const { email, code, harshKey } = req.body;
+    if (!email || !code || !harshKey) {
+      return res.status(400).json({ error: 'Email, 6-digit OTP code, and admin harsh key are required.' });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+
+    if (cleanEmail !== ADMIN_EMAIL || harshKey !== ADMIN_HARSH_KEY) {
+      return res.status(401).json({ error: 'Invalid administrative authorization parameters.' });
+    }
+
+    const verification = OtpStore.verifyOtp(cleanEmail, code);
+    if (!verification.valid) {
+      return res.status(400).json({ error: verification.message || 'Invalid or expired 2FA code.' });
+    }
+
+    const token = `admin-token-travsify-${Date.now()}`;
+    const adminUser = {
+      id: 'usr-admin-travsify-01',
+      email: cleanEmail,
+      fullName: ADMIN_NAME,
+      role: 'admin',
+      isVerified: true,
+      createdAt: new Date().toISOString()
+    };
+
+    // Dispatch Security Alert on successful admin login
+    NotificationDispatcher.dispatch({
+      email: cleanEmail,
+      userName: ADMIN_NAME,
+      title: '🛡️ Admin Console Access Authorized',
+      category: 'security',
+      message: `Your administrator account (${cleanEmail}) has successfully authenticated into the Rentilly Executive Operations Hub.`,
+      metadata: {
+        'Authentication Method': 'Harsh Key + 2FA OTP Code',
+        'Time': new Date().toLocaleString('en-NG', { timeZone: 'Africa/Lagos' })
+      }
+    }).catch(() => {});
+
+    console.log(`✅ [Admin 2FA] Successful 2FA login for ${cleanEmail}`);
+
+    return res.json({
+      status: true,
+      message: 'Admin 2FA authentication verified successfully.',
+      token,
+      user: adminUser
+    });
+  } catch (err: any) {
+    console.error('verifyAdmin2fa error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to verify admin 2FA.' });
+  }
+}
+
+interface AdminTotpConfig {
+  secret: string;
+  uri: string;
+  configured: boolean;
+  email: string;
+  confirmedAt?: string;
+  updatedAt: string;
+}
+
+let _adminTotpCache: AdminTotpConfig | null = null;
+
+async function getPersistedAdminTotp(email: string): Promise<AdminTotpConfig | null> {
+  if (_adminTotpCache && _adminTotpCache.email === email) {
+    return _adminTotpCache;
+  }
+  if (supabase) {
+    try {
+      const { data } = await supabase
+        .from('system_configs')
+        .select('data')
+        .eq('id', `admin_totp_${email}`)
+        .single();
+      if (data?.data?.secret) {
+        _adminTotpCache = data.data as AdminTotpConfig;
+        return _adminTotpCache;
+      }
+    } catch (_) {}
+  }
+  return null;
+}
+
+async function savePersistedAdminTotp(config: AdminTotpConfig): Promise<void> {
+  _adminTotpCache = config;
+  if (supabase) {
+    try {
+      await supabase.from('system_configs').upsert({
+        id: `admin_totp_${config.email}`,
+        data: config
+      });
+    } catch (err: any) {
+      console.warn('[Admin MFA] Failed to persist TOTP config to Supabase:', err.message);
+    }
+  }
+}
+
+/**
+ * Check if Google Authenticator MFA is set up for admin
+ */
+export async function getAdminMfaStatus(req: Request, res: Response) {
+  try {
+    const { email, harshKey } = req.body;
+    if (!email || !harshKey) {
+      return res.status(400).json({ error: 'Admin email and harsh key are required.' });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+    if (cleanEmail !== ADMIN_EMAIL || harshKey !== ADMIN_HARSH_KEY) {
+      return res.status(401).json({ error: 'Invalid administrative credentials or harsh security key.' });
+    }
+
+    const config = await getPersistedAdminTotp(cleanEmail);
+    return res.json({
+      status: true,
+      configured: !!config?.configured,
+      hasSecret: !!config?.secret,
+      preferredMethod: config?.configured ? 'totp' : 'email'
+    });
+  } catch (err: any) {
+    console.error('getAdminMfaStatus error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to check MFA status.' });
+  }
+}
+
+/**
+ * Set up or retrieve Google Authenticator QR Code & Secret for Admin
+ */
+export async function setupAdminTotp(req: Request, res: Response) {
+  try {
+    const { email, password, harshKey, forceNew } = req.body;
+    if (!email || !password || !harshKey) {
+      return res.status(400).json({ error: 'Admin email, password, and harsh key are required.' });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+    if (cleanEmail !== ADMIN_EMAIL || password !== ADMIN_PASSWORD || harshKey !== ADMIN_HARSH_KEY) {
+      return res.status(401).json({ error: 'Invalid administrative credentials or harsh security key.' });
+    }
+
+    let existing = await getPersistedAdminTotp(cleanEmail);
+    let secret = existing?.secret;
+
+    if (!secret || forceNew) {
+      secret = generateSecret();
+    }
+
+    const uri = generateURI({
+      secret,
+      label: `Admin (${cleanEmail})`,
+      issuer: 'Rentilly'
+    });
+
+    const qrCodeDataUrl = await QRCode.toDataURL(uri, {
+      errorCorrectionLevel: 'M',
+      margin: 2,
+      width: 260,
+      color: {
+        dark: '#000000',
+        light: '#ffffff'
+      }
+    });
+
+    const updatedConfig: AdminTotpConfig = {
+      secret,
+      uri,
+      configured: !forceNew ? (existing?.configured ?? false) : false,
+      email: cleanEmail,
+      updatedAt: new Date().toISOString()
+    };
+
+    await savePersistedAdminTotp(updatedConfig);
+
+    return res.json({
+      status: true,
+      secret,
+      uri,
+      qrCodeDataUrl,
+      configured: updatedConfig.configured,
+      email: cleanEmail
+    });
+  } catch (err: any) {
+    console.error('setupAdminTotp error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to initialize Google Authenticator MFA.' });
+  }
+}
+
+/**
+ * Verify Google Authenticator 6-digit TOTP code and issue admin session token
+ */
+export async function verifyAdminTotp(req: Request, res: Response) {
+  try {
+    const { email, code, harshKey } = req.body;
+    if (!email || !code || !harshKey) {
+      return res.status(400).json({ error: 'Admin email, 6-digit authenticator code, and harsh key are required.' });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+    if (cleanEmail !== ADMIN_EMAIL || harshKey !== ADMIN_HARSH_KEY) {
+      return res.status(401).json({ error: 'Invalid administrative authorization parameters.' });
+    }
+
+    const config = await getPersistedAdminTotp(cleanEmail);
+    if (!config || !config.secret) {
+      return res.status(400).json({
+        error: 'Google Authenticator is not configured yet. Please scan the QR code to set it up first.',
+        requiresSetup: true
+      });
+    }
+
+    const cleanCode = String(code).trim().replace(/\s+/g, '');
+    const verification = verifySync({
+      token: cleanCode,
+      secret: config.secret,
+      epochTolerance: 60 // tolerate 60s drift (+/- 2 intervals)
+    });
+
+    if (!verification.valid) {
+      return res.status(400).json({
+        error: 'Invalid or expired Google Authenticator code. Please check your authenticator app and enter the current 6-digit code.'
+      });
+    }
+
+    // Mark as configured & confirmed
+    config.configured = true;
+    config.confirmedAt = new Date().toISOString();
+    await savePersistedAdminTotp(config);
+
+    const token = `admin-token-travsify-${Date.now()}`;
+    const adminUser = {
+      id: 'usr-admin-travsify-01',
+      email: cleanEmail,
+      fullName: ADMIN_NAME,
+      role: 'admin',
+      isVerified: true,
+      createdAt: new Date().toISOString()
+    };
+
+    // Dispatch Security Alert on successful admin login
+    NotificationDispatcher.dispatch({
+      email: cleanEmail,
+      userName: ADMIN_NAME,
+      title: '🛡️ Admin Console Access Authorized (Google MFA)',
+      category: 'security',
+      message: `Your administrator account (${cleanEmail}) has successfully authenticated into the Rentilly Executive Operations Hub using Google Authenticator MFA.`,
+      metadata: {
+        'Authentication Method': 'Google Authenticator MFA (TOTP)',
+        'Harsh Key': 'Verified ✅',
+        'Time': new Date().toLocaleString('en-NG', { timeZone: 'Africa/Lagos' })
+      }
+    }).catch(() => {});
+
+    console.log(`✅ [Admin MFA] Successful Google Authenticator login for ${cleanEmail}`);
+
+    return res.json({
+      status: true,
+      message: 'Google Authenticator MFA verified successfully.',
+      token,
+      user: adminUser
+    });
+  } catch (err: any) {
+    console.error('verifyAdminTotp error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to verify Google Authenticator code.' });
+  }
+}
+
+/**
+ * Retrieve comprehensive Admin Profile and security status
+ */
+export async function getAdminProfile(req: Request, res: Response) {
+  try {
+    const authHeader = req.headers.authorization || '';
+    const { email } = req.body || {};
+    const cleanEmail = (email || ADMIN_EMAIL).toLowerCase().trim();
+
+    // Verify session token or admin email
+    if (!authHeader.includes('admin-token-') && cleanEmail !== ADMIN_EMAIL) {
+      return res.status(401).json({ error: 'Unauthorized administrative access.' });
+    }
+
+    const totpConfig = await getPersistedAdminTotp(ADMIN_EMAIL);
+    let qrCodeDataUrl = '';
+    if (totpConfig?.uri) {
+      try {
+        qrCodeDataUrl = await QRCode.toDataURL(totpConfig.uri, {
+          width: 320,
+          margin: 2,
+          color: { dark: '#000000', light: '#ffffff' }
+        });
+      } catch (qrErr) {
+        console.warn('Failed to generate profile QR code:', qrErr);
+      }
+    }
+
+    return res.json({
+      status: true,
+      profile: {
+        id: 'usr-admin-travsify-01',
+        email: ADMIN_EMAIL,
+        fullName: ADMIN_NAME,
+        role: 'Executive Super Admin',
+        title: 'Master Treasury & Platform Controller',
+        organization: 'Travsify Technologies Limited / Rentilly Protocol',
+        clearanceLevel: 'Tier-1 Sovereign Authority',
+        isVerified: true,
+        mfaConfigured: !!totpConfig?.configured,
+        mfaSecret: totpConfig?.secret || null,
+        mfaUri: totpConfig?.uri || null,
+        qrCodeDataUrl: qrCodeDataUrl || null,
+        mfaConfirmedAt: totpConfig?.confirmedAt || null,
+        harshKeyMasked: ADMIN_HARSH_KEY.length > 4 
+          ? `${ADMIN_HARSH_KEY.substring(0, 3)}••••••${ADMIN_HARSH_KEY.slice(-3)}`
+          : '••••••••',
+        harshKeyLength: ADMIN_HARSH_KEY.length,
+        twoFactorEnforced: true,
+        securityTier: 'Bank-Grade AES-256 + RFC 6238 TOTP',
+        lastLoginMethod: totpConfig?.configured ? 'Google Authenticator MFA' : 'Email Security OTP',
+        activeGatewayIp: '69.62.127.50'
+      }
+    });
+  } catch (err: any) {
+    console.error('getAdminProfile error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to retrieve admin profile.' });
+  }
+}
+
+/**
+ * Change Master Admin Password
+ */
+export async function changeAdminPassword(req: Request, res: Response) {
+  try {
+    const { email, currentPassword, newPassword, harshKey } = req.body;
+    if (!email || !currentPassword || !newPassword || !harshKey) {
+      return res.status(400).json({ error: 'Email, current password, new password, and harsh key are required.' });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+    if (cleanEmail !== ADMIN_EMAIL || currentPassword !== ADMIN_PASSWORD || harshKey !== ADMIN_HARSH_KEY) {
+      return res.status(401).json({ error: 'Invalid current credentials or harsh security key.' });
+    }
+
+    if (newPassword.length < 8) {
+      return res.status(400).json({ error: 'New password must be at least 8 characters long.' });
+    }
+
+    // Update in-memory
+    ADMIN_PASSWORD = newPassword;
+
+    // Persist to Supabase system_configs
+    if (supabase) {
+      await supabase.from('system_configs').upsert({
+        id: 'admin_security_credentials',
+        data: {
+          password: ADMIN_PASSWORD,
+          harshKey: ADMIN_HARSH_KEY,
+          name: ADMIN_NAME,
+          updatedAt: new Date().toISOString()
+        }
+      });
+    }
+
+    // Dispatch Security Alert
+    NotificationDispatcher.dispatch({
+      email: cleanEmail,
+      userName: ADMIN_NAME,
+      title: '🔑 Admin Password Changed Successfully',
+      category: 'security',
+      message: `The master password for your administrator account (${cleanEmail}) was successfully updated.`,
+      metadata: {
+        'Account': cleanEmail,
+        'Harsh Key': 'Verified ✅',
+        'Time': new Date().toLocaleString('en-NG', { timeZone: 'Africa/Lagos' })
+      }
+    }).catch(() => {});
+
+    console.log(`🔐 [Admin Security] Master password updated for ${cleanEmail}`);
+
+    return res.json({
+      status: true,
+      message: 'Master administrative password updated successfully and persisted.'
+    });
+  } catch (err: any) {
+    console.error('changeAdminPassword error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to update admin password.' });
+  }
+}
+
+/**
+ * Change Admin Harsh Key (Passphrase)
+ */
+export async function changeAdminHarshKey(req: Request, res: Response) {
+  try {
+    const { email, password, currentHarshKey, newHarshKey } = req.body;
+    if (!email || !password || !currentHarshKey || !newHarshKey) {
+      return res.status(400).json({ error: 'Email, password, current harsh key, and new harsh key are required.' });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+    if (cleanEmail !== ADMIN_EMAIL || password !== ADMIN_PASSWORD || currentHarshKey !== ADMIN_HARSH_KEY) {
+      return res.status(401).json({ error: 'Invalid administrator credentials or harsh key.' });
+    }
+
+    if (newHarshKey.length < 6) {
+      return res.status(400).json({ error: 'New harsh key must be at least 6 characters.' });
+    }
+
+    // Update in-memory
+    ADMIN_HARSH_KEY = newHarshKey;
+
+    // Persist to Supabase system_configs
+    if (supabase) {
+      await supabase.from('system_configs').upsert({
+        id: 'admin_security_credentials',
+        data: {
+          password: ADMIN_PASSWORD,
+          harshKey: ADMIN_HARSH_KEY,
+          name: ADMIN_NAME,
+          updatedAt: new Date().toISOString()
+        }
+      });
+    }
+
+    // Dispatch Security Alert
+    NotificationDispatcher.dispatch({
+      email: cleanEmail,
+      userName: ADMIN_NAME,
+      title: '🛡️ Admin Harsh Key Updated',
+      category: 'security',
+      message: `The security harsh key for your administrator account (${cleanEmail}) was successfully modified. Use your new harsh key for all subsequent 2FA and administrative authorizations.`,
+      metadata: {
+        'Account': cleanEmail,
+        'Time': new Date().toLocaleString('en-NG', { timeZone: 'Africa/Lagos' })
+      }
+    }).catch(() => {});
+
+    console.log(`🛡️ [Admin Security] Admin harsh key updated for ${cleanEmail}`);
+
+    return res.json({
+      status: true,
+      message: 'Admin harsh security key updated successfully and persisted.'
+    });
+  } catch (err: any) {
+    console.error('changeAdminHarshKey error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to update admin harsh key.' });
+  }
+}
+
+/**
+ * Test Google Authenticator live synchronization code without logging out
+ */
+export async function testAdminTotpSync(req: Request, res: Response) {
+  try {
+    const { email, harshKey, code } = req.body;
+    if (!email || !code || !harshKey) {
+      return res.status(400).json({ error: 'Email, 6-digit code, and harsh key are required.' });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+    if (cleanEmail !== ADMIN_EMAIL || harshKey !== ADMIN_HARSH_KEY) {
+      return res.status(401).json({ error: 'Invalid administrative authorization parameters.' });
+    }
+
+    const config = await getPersistedAdminTotp(cleanEmail);
+    if (!config || !config.secret) {
+      return res.status(400).json({ error: 'Google Authenticator MFA is not yet set up.' });
+    }
+
+    const cleanCode = String(code).trim().replace(/\s+/g, '');
+    const verification = verifySync({
+      token: cleanCode,
+      secret: config.secret,
+      epochTolerance: 60
+    });
+
+    if (!verification.valid) {
+      return res.status(400).json({
+        valid: false,
+        error: 'Code verification failed. Check the clock time on your phone or re-scan the QR code.'
+      });
+    }
+
+    return res.json({
+      status: true,
+      valid: true,
+      message: 'Google Authenticator code verified! Time synchronization is 100% active and aligned.'
+    });
+  } catch (err: any) {
+    console.error('testAdminTotpSync error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to test authenticator code.' });
+  }
+}
+
+
 

@@ -78,13 +78,14 @@ class UserProfile {
     return 'RT-$positive';
   }
 
-  // Role detection getters
-  bool get isPartner =>
-      role.toLowerCase() == 'partner' ||
-      (businessName != null && businessName!.trim().isNotEmpty && businessName!.trim().toLowerCase() != 'null') ||
-      (cacNumber != null && cacNumber!.trim().isNotEmpty);
+  // Role detection getters — role is the sole source of truth.
+  // businessName/cacNumber do NOT promote a user to partner; role must be
+  // explicitly 'partner'. This prevents landlords with company info (e.g. an
+  // Ltd. registered as owner/landlord) from being routed to the partner UI.
+  bool get isPartner => role.toLowerCase() == 'partner';
 
-  bool get isLandlord => !isPartner && (role.toLowerCase() == 'owner' || role.toLowerCase() == 'landlord');
+  bool get isLandlord =>
+      role.toLowerCase() == 'owner' || role.toLowerCase() == 'landlord';
 
   bool get isConsumer => !isPartner && !isLandlord;
 

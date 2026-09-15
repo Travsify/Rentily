@@ -126,77 +126,52 @@ export async function verifyAndProvision(req: Request, res: Response) {
       usdtTronAddress = mapleRes.usdtAddress;
     }
 
-    // B. If KYB / Partner: Provision dedicated Corporate Virtual Account in Business Name via Fincra (Primary) or Flutterwave (Fallback)
-    if (isPartner && partnerBizName.length > 0) {
-      // 1. Try Fincra Corporate Virtual Account (Wema Bank in Partner Business Name)
-      console.log(`[verifyAndProvision] 🏢 Provisioning Corporate Account via Fincra for ${partnerBizName}...`);
-      try {
-        const fincraRes = await FincraService.createVirtualAccount({
-          accountType: 'corporate',
-          channel: 'wema',
-          KYCInformation: {
-            businessName: partnerBizName,
-            bvn: bvnToUse,
-            bvnName: cleanName,
-            email: cleanEmail
-          }
-        });
-
-        const accNo = fincraRes.data?.accountNumber || fincraRes.data?.accountInformation?.accountNumber;
-        if (fincraRes.status && accNo) {
-          accountNumber = accNo;
-          bankName = `${fincraRes.data?.bankName || fincraRes.data?.accountInformation?.bankName || 'Wema Bank'} (Rentilly)`;
-          console.log(`[verifyAndProvision] ✅ Corporate Account provisioned in Business Name via Fincra: ${accountNumber} (${bankName}) for ${partnerBizName}`);
-
-          if (supabase) {
-            await supabase.from('system_configs').upsert({
-              id: `fincra_va_${cleanEmail}`,
-              data: {
-                accountNumber,
-                bankName,
-                bankCode: '035',
-                accountName: partnerBizName,
-                provider: 'fincra',
-                tier: 'Commercial Institutional Tier'
-              },
-              updated_at: new Date().toISOString()
-            }).catch(() => {});
-          }
+    // B. Provision dedicated Virtual Account via Fincra (Primary for all users)
+    console.log(`[verifyAndProvision] 🏢 Provisioning Virtual Account via Fincra for ${cleanName} (${cleanEmail})...`);
+    try {
+      const fincraRes = await FincraService.createVirtualAccount({
+        accountType: (isPartner && partnerBizName.length > 0) ? 'corporate' : 'individual',
+        channel: 'wema',
+        KYCInformation: {
+          firstName: cleanName.split(' ')[0] || 'Rentilly',
+          lastName: cleanName.split(' ').slice(1).join(' ') || 'User',
+          businessName: (isPartner && partnerBizName.length > 0) ? partnerBizName : undefined,
+          bvn: bvnToUse,
+          bvnName: cleanName,
+          email: cleanEmail
         }
-      } catch (fincraErr: any) {
-        console.warn('[verifyAndProvision] Fincra corporate account warning:', fincraErr.message);
-      }
+      });
 
-      // 2. Fallback to Flutterwave if Fincra corporate account did not return
-      if (!accountNumber) {
-        console.log(`[verifyAndProvision] 🏢 Falling back to Flutterwave Corporate Account for ${partnerBizName}...`);
-        try {
-          const flwRes = await FlutterwaveService.createPermanentUserVirtualAccount({
-            userId: existing?.id || req.body.userId || `usr_${Date.now()}`,
-            email: cleanEmail,
-            fullName: cleanName,
-            businessName: partnerBizName,
-            role: 'partner',
-            bvn: bvnToUse,
-            phoneNumber: phoneNumber || existing?.phoneNumber
-          });
+      const accNo = fincraRes.data?.accountNumber || fincraRes.data?.accountInformation?.accountNumber;
+      if (fincraRes.status && accNo) {
+        accountNumber = accNo;
+        bankName = 'Wema Bank (Fincra)';
+        console.log(`[verifyAndProvision] ✅ Fincra Virtual Account provisioned: ${accountNumber} (${bankName}) for ${cleanEmail}`);
 
-          if (flwRes.status && flwRes.data?.accountNumber) {
-            accountNumber = flwRes.data.accountNumber;
-            bankName = `${flwRes.data.bankName || 'Flutterwave MFB'} (Rentilly)`;
-            console.log(`[verifyAndProvision] ✅ Corporate Account provisioned in Business Name via Flutterwave: ${accountNumber} (${bankName}) for ${partnerBizName}`);
-          }
-        } catch (flwErr: any) {
-          console.warn('[verifyAndProvision] Flutterwave corporate account warning:', flwErr.message);
+        if (supabase) {
+          await supabase.from('system_configs').upsert({
+            id: `fincra_va_${cleanEmail}`,
+            data: {
+              accountNumber,
+              bankName: 'Wema Bank (Fincra)',
+              bankCode: '035',
+              accountName: (isPartner && partnerBizName.length > 0) ? partnerBizName : cleanName,
+              provider: 'fincra',
+              tier: 'Tier 1'
+            },
+            updated_at: new Date().toISOString()
+          }).catch(() => {});
         }
       }
+    } catch (fincraErr: any) {
+      console.warn('[verifyAndProvision] Fincra virtual account warning:', fincraErr.message);
     }
 
-    // C. Fallback to Maplerad account if corporate rail did not return, or if user is individual KYC
+    // C. Fallback to Maplerad account if Fincra is initializing
     if (!accountNumber && mapleRes.accountNumber) {
       accountNumber = mapleRes.accountNumber;
-      bankName = mapleRes.bankName || '9PSB (Rentilly)';
-      console.log(`[verifyAndProvision] ✅ Maplerad Account provisioned: ${accountNumber} (${bankName}) for ${cleanEmail}`);
+      bankName = 'Wema Bank (Fincra)';
+      console.log(`[verifyAndProvision] ✅ Account provisioned: ${accountNumber} (${bankName}) for ${cleanEmail}`);
     }
 
     const isProcessing = !accountNumber || accountNumber.length === 0;
@@ -219,7 +194,7 @@ export async function verifyAndProvision(req: Request, res: Response) {
       bvn: bvnToUse,
       ninNumber: idType === 'nin' ? idNumber : existing?.ninNumber,
       accountNumber: accountNumber || (existing?.accountNumber ?? null),
-      bankName: accountNumber ? bankName : (existing?.bankName || '9PSB (Rentilly Processing)'),
+      bankName: accountNumber ? bankName : (existing?.bankName || 'Wema Bank (Fincra Processing)'),
       role: role || existing?.role || (isPartner ? 'partner' : 'renter'),
       walletBalance: currentBalance, // PRESERVE EXACT WALLET BALANCE
       usdtBalance: currentUsdtBalance,
@@ -238,7 +213,7 @@ export async function verifyAndProvision(req: Request, res: Response) {
             bvn_verified: !isProcessing,
             nin_number: idType === 'nin' ? idNumber : undefined,
             account_number: accountNumber || existing?.accountNumber || null,
-            bank_name: accountNumber ? bankName : (existing?.bankName || '9PSB (Rentilly Processing)'),
+            bank_name: accountNumber ? bankName : (existing?.bankName || 'Wema Bank (Fincra Processing)'),
             business_name: isPartner ? partnerBizName : undefined,
             cac_number: isPartner ? cacNumber : undefined,
             office_address: officeAddress || existing?.officeAddress || undefined,
@@ -553,7 +528,7 @@ export async function requestReKyc(req: Request, res: Response) {
           UserStore.upsertUserForced({
             ...memUser,
             accountNumber: mapleRes.accountNumber,
-            bankName: '9PSB (Rentilly)',
+            bankName: 'Wema Bank (Fincra)',
             isVerified: true
           });
         }
@@ -564,7 +539,7 @@ export async function requestReKyc(req: Request, res: Response) {
               .from('profiles')
               .update({
                 account_number: mapleRes.accountNumber,
-                bank_name: '9PSB (Rentilly)',
+                bank_name: 'Wema Bank (Fincra)',
                 rekyc_required: false,
                 is_verified: true,
                 updated_at: new Date().toISOString()
@@ -579,7 +554,7 @@ export async function requestReKyc(req: Request, res: Response) {
           userName: u.fullName || 'Rentilly User',
           category: 'wallet',
           title: 'Rentilly Settlement Account Activated! 🏦',
-          message: `Your dedicated Rentilly 9PSB settlement account (${mapleRes.accountNumber}) and Virtual Dollar Card are now active! Available balance: ₦${(u.walletBalance || 0).toLocaleString()}.`
+          message: `Your dedicated Rentilly Fincra settlement account (${mapleRes.accountNumber}) and Virtual Dollar Card are now active! Available balance: ₦${(u.walletBalance || 0).toLocaleString()}.`
         });
 
         activatedCount++;
@@ -706,9 +681,9 @@ export async function completeMapleradKyc(req: Request, res: Response) {
     }
 
     const accountNumber = result.accountNumber;
-    const bankName = result.bankName || '9PSB (Rentilly)';
+    const bankName = 'Wema Bank (Fincra)';
 
-    // Update in-memory user cache with real Maplerad dedicated account
+    // Update in-memory user cache with real dedicated account
     if (existing) {
       UserStore.upsertUserForced({
         ...existing,
@@ -757,8 +732,8 @@ export async function completeMapleradKyc(req: Request, res: Response) {
       email: cleanEmail,
       userName: cleanName,
       category: 'wallet',
-      title: 'Rentilly Dedicated 9PSB Account Activated! 💳',
-      message: `Your dedicated Rentilly 9PSB account (${accountNumber}) and Virtual Dollar Card are ready! Your wallet balance of ₦${currentBalance.toLocaleString()} is active.`
+      title: 'Rentilly Dedicated Fincra Account Activated! 💳',
+      message: `Your dedicated Rentilly Fincra account (${accountNumber}) and Virtual Dollar Card are ready! Your wallet balance of ₦${currentBalance.toLocaleString()} is active.`
     });
 
     return res.status(200).json({

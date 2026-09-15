@@ -113,13 +113,13 @@ class _MySpacesScreenState extends State<MySpacesScreen> {
                   child: Row(
                     children: [
                       Expanded(
-                        child: _buildSubTab('rented', 'Rented ()'),
+                        child: _buildSubTab('rented', 'Rented (${_rentedSpaces.length})'),
                       ),
                       Expanded(
-                        child: _buildSubTab('owned', 'Owned ()'),
+                        child: _buildSubTab('owned', 'Owned (${_ownedSpaces.length})'),
                       ),
                       Expanded(
-                        child: _buildSubTab('receipts', 'Legal Receipts ()'),
+                        child: _buildSubTab('receipts', 'Legal Receipts (${_receipts.length})'),
                       ),
                     ],
                   ),

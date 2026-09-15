@@ -22,7 +22,8 @@ interface InspectionsTabProps {
 export const InspectionsTab: React.FC<InspectionsTabProps> = ({
   inspections,
   properties,
-  onBookInspection
+  onBookInspection,
+  onUpdateStatus
 }) => {
   const [selectedInspection, setSelectedInspection] = useState<Inspection | null>(inspections[0] || null);
   const [showBookingForm, setShowBookingForm] = useState(false);
@@ -307,6 +308,36 @@ export const InspectionsTab: React.FC<InspectionsTabProps> = ({
                     <span className="text-[10px] text-slate-400 block">{currentInsp.ownerPhone}</span>
                   </div>
                 </div>
+
+                {/* Status Update Actions */}
+                {onUpdateStatus && (
+                  <div className="pt-2 border-t border-slate-800 flex items-center justify-end gap-2 text-xs">
+                    {currentInsp.status !== 'confirmed' && (
+                      <button
+                        onClick={() => onUpdateStatus(currentInsp.id, 'confirmed')}
+                        className="px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 font-semibold border border-emerald-500/30 transition"
+                      >
+                        ✓ Confirm Appointment
+                      </button>
+                    )}
+                    {currentInsp.status !== 'completed' && (
+                      <button
+                        onClick={() => onUpdateStatus(currentInsp.id, 'completed')}
+                        className="px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 font-semibold border border-blue-500/30 transition"
+                      >
+                        Mark Completed
+                      </button>
+                    )}
+                    {currentInsp.status !== 'cancelled' && (
+                      <button
+                        onClick={() => onUpdateStatus(currentInsp.id, 'cancelled')}
+                        className="px-3 py-1.5 rounded-lg bg-red-600/20 hover:bg-red-600/30 text-red-400 font-semibold border border-red-500/30 transition"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Direct In-App Chat Room */}

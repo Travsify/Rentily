@@ -137,13 +137,15 @@ class _CardsScreenState extends State<CardsScreen> {
             _spreadBuyRate = (spread['buyRate'] as num?)?.toDouble() ?? 1370.0;
             _cardIssuanceFeeUsd = (pricing['issuanceFeeUsd'] as num?)?.toDouble() ?? 3.00;
             _liquidationFeePercent = (pricing['liquidationFeePercent'] as num?)?.toDouble() ?? 1.0;
-            if (cards.isNotEmpty) {
-              _userCards = cards;
-            }
+            _userCards = cards;
             _selectedCardIndex = (_selectedCardIndex < _userCards.length) ? _selectedCardIndex : 0;
             _isLoading = false;
           });
-          _fetchCardTransactions();
+          if (cards.isNotEmpty) {
+            _fetchCardTransactions();
+          } else {
+            setState(() => _cardTransactions = []);
+          }
         }
         return;
       } catch (_) {}
@@ -165,7 +167,12 @@ class _CardsScreenState extends State<CardsScreen> {
       if (_cardTransactions.isEmpty) {
         await _loadCachedCardTransactions();
       }
-      final txs = await ApiService.fetchCardTransactions(cardId);
+      var txs = await ApiService.fetchCardTransactions(cardId);
+      final altId = (card['id'] ?? card['cardId'])?.toString();
+      if (txs.isEmpty && altId != null && altId != cardId) {
+        final altTxs = await ApiService.fetchCardTransactions(altId);
+        if (altTxs.isNotEmpty) txs = altTxs;
+      }
       if (mounted && txs.isNotEmpty) {
         setState(() {
           _cardTransactions = txs;
@@ -1036,7 +1043,26 @@ class _CardsScreenState extends State<CardsScreen> {
 
                             if (mounted) {
                               Navigator.pop(ctx);
+                              if (res['success'] == true) {
+                                setState(() {
+                                  final oldBal = (card['balance'] as num?)?.toDouble() ?? 0.0;
+                                  card['balance'] = (oldBal - withdrawAmountUsd) > 0 ? (oldBal - withdrawAmountUsd) : 0.0;
+                                  _cardTransactions.insert(0, {
+                                    'id': 'CARD_WTH_${DateTime.now().millisecondsSinceEpoch}',
+                                    'cardId': cardId,
+                                    'amount': withdrawAmountUsd,
+                                    'currency': 'USD',
+                                    'description': 'Rentilly Card Withdrawal (to ${selectedDestination == 'NGN' ? 'Naira' : 'USDT'} Wallet)',
+                                    'status': 'SUCCESSFUL',
+                                    'type': 'DEBIT',
+                                    'merchant': {'name': 'Rentilly Card Withdrawal'},
+                                    'createdAt': DateTime.now().toIso8601String(),
+                                  });
+                                });
+                                _persistCardsToDisk();
+                              }
                               await _loadData();
+                              _fetchCardTransactions();
                               if (res['success'] == true) {
                                 showDialog(
                                   context: context,
@@ -3340,6 +3366,7 @@ class _CardsScreenState extends State<CardsScreen> {
       {'name': 'Netflix', 'category': 'Streaming', 'icon': Icons.movie_filter_rounded, 'color': const Color(0xFFE50914)},
       {'name': 'Spotify', 'category': 'Music Premium', 'icon': Icons.headphones_rounded, 'color': const Color(0xFF1DB954)},
       {'name': 'OpenAI', 'category': 'ChatGPT Plus', 'icon': Icons.psychology_rounded, 'color': const Color(0xFF10A37F)},
+      {'name': 'Claude', 'category': 'Anthropic AI Pro', 'icon': Icons.smart_toy_rounded, 'color': const Color(0xFFD97706)},
       {'name': 'PayPal', 'category': 'Checkout & Send', 'icon': Icons.account_balance_wallet_rounded, 'color': const Color(0xFF003087)},
       {'name': 'Uber & Bolt', 'category': 'Rides & Eats', 'icon': Icons.local_taxi_rounded, 'color': const Color(0xFF0F172A)},
       {'name': 'Airbnb', 'category': 'Travel & Stays', 'icon': Icons.apartment_rounded, 'color': const Color(0xFFFF5A5F)},

@@ -568,6 +568,64 @@ export class FlutterwaveBillsService {
     }
   }
 
+  // 5b. Validate Cable TV Smartcard / IUC Number
+  static async validateCableSmartcard(params: {
+    smartcardNumber: string;
+    provider: string;
+  }): Promise<{ status: boolean; data?: any; message?: string }> {
+    const cleanCard = (params.smartcardNumber || '').replace(/[^0-9]/g, '');
+    const prov = (params.provider || 'DSTV').toUpperCase().trim();
+    const itemCode = prov.includes('GOTV') ? 'CB486' : prov.includes('STARTIMES') ? 'CB192' : 'CB177';
+    const billerCode = prov.includes('GOTV') ? 'BIL122' : prov.includes('STARTIMES') ? 'BIL123' : 'BIL121';
+
+    try {
+      const url = `${FLW_BASE_URL}/bill-items/${itemCode}/validate?code=${billerCode}&customer=${cleanCard}`;
+      const response = await fetch(url, { headers: this.getHeaders() });
+      const resJson: any = await response.json();
+
+      if (response.ok && resJson.status === 'success' && resJson.data) {
+        return {
+          status: true,
+          data: {
+            customerName: resJson.data.name || `${prov} Subscriber`,
+            smartcardNumber: cleanCard,
+            provider: params.provider,
+            responseCode: resJson.data.response_code || '00'
+          },
+          message: `${prov} smartcard verified successfully`
+        };
+      }
+
+      // Fallback check on /bills/{billerName}/validate
+      const fallbackUrl = `${FLW_BASE_URL}/bills/${prov}/validate?customer=${cleanCard}`;
+      const fbRes = await fetch(fallbackUrl, { headers: this.getHeaders() }).catch(() => null);
+      if (fbRes && fbRes.ok) {
+        const fbJson: any = await fbRes.json().catch(() => ({}));
+        if (fbJson.status === 'success' && fbJson.data) {
+          return {
+            status: true,
+            data: {
+              customerName: fbJson.data.name || `${prov} Subscriber`,
+              smartcardNumber: cleanCard,
+              provider: params.provider
+            },
+            message: `${prov} smartcard verified successfully`
+          };
+        }
+      }
+
+      return {
+        status: false,
+        message: resJson.message || `Unable to verify ${prov} smartcard ${cleanCard}. Please check your decoder number.`
+      };
+    } catch (err: any) {
+      return {
+        status: false,
+        message: err.message || 'Error validating Cable TV smartcard.'
+      };
+    }
+  }
+
   // 6. Query live bill payment status and token
   static async queryBillStatus(reference: string): Promise<{ status: boolean; token?: string; units?: string; message?: string }> {
     try {

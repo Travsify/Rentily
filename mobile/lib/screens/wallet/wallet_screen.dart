@@ -625,7 +625,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 Text('Personal TRC20 Wallet Pending', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                 const SizedBox(height: 8),
                 Text(
-                  'Your dedicated TRON (TRC20) deposit address is automatically generated once your Rentilly 9PSB Tier 1 account verification is completed.',
+                  'Your dedicated TRON (TRC20) deposit address is automatically generated once your Rentilly Tier 1 account verification is completed.',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary),
                 ),
@@ -788,7 +788,8 @@ class _WalletScreenState extends State<WalletScreen> {
     const String effectiveCurrency = 'NGN';
     final String symbol = '₦';
     final double balance = _user?.walletBalance ?? 0.00;
-    final String bank = _user?.bankName ?? '9PSB (Rentilly)';
+    final rawBank = _user?.bankName ?? 'Wema Bank';
+    final String bank = rawBank.replaceAll(RegExp(r'\s*\([Ff]incra\)', caseSensitive: false), '').replaceAll(RegExp(r'Fincra\s*', caseSensitive: false), '').trim();
     final String? accNum = _user?.accountNumber;
     const String accountLabel = 'DEDICATED NUBAN ACCOUNT';
 
@@ -993,7 +994,7 @@ class _WalletScreenState extends State<WalletScreen> {
                       ),
                     const SizedBox(height: 14),
 
-                    // Brand-Styled Multi-Vault Switcher: Daily 9PSB vs High-Value Wema Commercial vs USDT
+                    // Brand-Styled Multi-Vault Switcher: Daily NGN vs High-Value Escrow vs USDT
                     Container(
                       padding: const EdgeInsets.all(3),
                       decoration: BoxDecoration(
@@ -1003,7 +1004,7 @@ class _WalletScreenState extends State<WalletScreen> {
                       ),
                       child: Row(
                         children: [
-                          // Tab 1: Fincra NGN Escrow Vault (Wema Bank)
+                          // Tab 1: NGN Escrow Vault (Wema Bank)
                           Expanded(
                             child: GestureDetector(
                               onTap: () {
@@ -1421,7 +1422,15 @@ class _WalletScreenState extends State<WalletScreen> {
                                         WithdrawalModal.show(
                                           context,
                                           user: _user!,
-                                          onWithdrawalSuccess: (newBal) => setState(() => _user = _user!.copyWith(walletBalance: newBal)),
+                                          onWithdrawalSuccess: (newBal, [newTx]) {
+                                            setState(() {
+                                              _user = _user!.copyWith(walletBalance: newBal);
+                                              if (newTx != null) {
+                                                _transactions.insert(0, newTx);
+                                              }
+                                            });
+                                            _syncBalanceAndTransactionsSilently();
+                                          },
                                         );
                                       }
                                     },
@@ -1908,8 +1917,14 @@ class _WalletScreenState extends State<WalletScreen> {
                     WithdrawalModal.show(
                       context,
                       user: _user!,
-                      onWithdrawalSuccess: (newBal) {
-                        setState(() => _user = _user!.copyWith(walletBalance: newBal));
+                      onWithdrawalSuccess: (newBal, [newTx]) {
+                        setState(() {
+                          _user = _user!.copyWith(walletBalance: newBal);
+                          if (newTx != null) {
+                            _transactions.insert(0, newTx);
+                          }
+                        });
+                        _syncBalanceAndTransactionsSilently();
                       },
                     );
                   },

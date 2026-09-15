@@ -163,10 +163,10 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
   }
 
   void _selectBeneficiary(Map<String, dynamic> b) {
-    final bankCode = b['bankCode']?.toString() ?? '';
-    final bankName = b['bankName']?.toString() ?? '';
-    final accNum = b['accountNumber']?.toString() ?? '';
-    final accName = b['accountName']?.toString() ?? '';
+    final bankCode = b['bankCode']?.toString().trim() ?? '';
+    final bankName = b['bankName']?.toString().trim() ?? '';
+    final accNum = b['accountNumber']?.toString().trim() ?? '';
+    final accName = b['accountName']?.toString().trim() ?? '';
 
     setState(() {
       _selectedBeneficiary = b;
@@ -180,18 +180,23 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
           (bk) => (bankCode.isNotEmpty && bk['code'] == bankCode) || 
                   (bankName.isNotEmpty && bk['name']!.toLowerCase().contains(bankName.toLowerCase())),
           orElse: () => {
-            'name': bankName.isNotEmpty ? bankName : 'Guaranty Trust Bank (GTBank)',
-            'code': bankCode.isNotEmpty ? bankCode : '058'
+            'name': bankName,
+            'code': bankCode,
           },
         );
-        _selectedBankCode = matchedBank['code'] ?? (bankCode.isNotEmpty ? bankCode : '058');
-        _selectedBankName = matchedBank['name'] ?? (bankName.isNotEmpty ? bankName : 'Guaranty Trust Bank (GTBank)');
+        _selectedBankCode = (matchedBank['code']?.isNotEmpty == true) ? matchedBank['code']! : bankCode;
+        _selectedBankName = (matchedBank['name']?.isNotEmpty == true) ? matchedBank['name']! : bankName;
         _accountController.text = accNum;
         _resolvedAccountName = accName.isNotEmpty ? accName : null;
         _accountResolutionError = null;
       }
       _errorMessage = null;
     });
+
+    // For bank payouts: trigger live NIP verification immediately
+    if (b['type'] != 'crypto' && accNum.length == 10 && _selectedBankCode.isNotEmpty) {
+      _resolveAccount();
+    }
 
     // Auto-focus on the amount field so the user can immediately type how much to send
     Future.delayed(const Duration(milliseconds: 150), () {
@@ -763,7 +768,24 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
           final serverNewBal = (res['newBalance'] != null)
               ? (res['newBalance'] as num).toDouble()
               : (availUsdt - entered).clamp(0.0, double.infinity);
-          widget.onWithdrawalSuccess(serverNewBal);
+          final createdTx = <String, dynamic>{
+            'id': 'TX_CRYPTO_${DateTime.now().millisecondsSinceEpoch}',
+            'title': 'Transfer to $recipientName ($recipientCId)',
+            'type': 'debit',
+            'category': 'transfer',
+            'amount': entered,
+            'currency': 'USDT',
+            'isCredit': false,
+            'sender': currentUser.fullName.isNotEmpty ? currentUser.fullName : 'Rentilly User',
+            'beneficiary': recipientName,
+            'status': 'SUCCESSFUL',
+            'date': DateTime.now().toIso8601String(),
+          };
+          try {
+            (widget.onWithdrawalSuccess as dynamic)(serverNewBal, createdTx);
+          } catch (_) {
+            widget.onWithdrawalSuccess(serverNewBal);
+          }
 
           NotificationService.addNotification(
             title: 'USDT Sent On-Platform ⚡',
@@ -837,6 +859,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
           body: json.encode({
             'userId': currentUser.id,
             'email': currentUser.email,
+            'address': cryptoAddr,
             'cryptoAddress': cryptoAddr,
             'chain': 'TRC20',
             'amountUsdt': entered,
@@ -852,7 +875,24 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
           final serverNewBal = (data['newBalance'] != null)
               ? (data['newBalance'] as num).toDouble()
               : (availUsdt - entered).clamp(0.0, double.infinity);
-          widget.onWithdrawalSuccess(serverNewBal);
+          final createdTx = <String, dynamic>{
+            'id': 'TX_CRYPTO_WD_${DateTime.now().millisecondsSinceEpoch}',
+            'title': 'USDT Withdrawal (${cryptoAddr.substring(0, 6)}...)',
+            'type': 'debit',
+            'category': 'withdrawal',
+            'amount': entered,
+            'currency': 'USDT',
+            'isCredit': false,
+            'sender': currentUser.fullName.isNotEmpty ? currentUser.fullName : 'Rentilly User',
+            'beneficiary': 'TRC20 Wallet',
+            'status': 'SUCCESSFUL',
+            'date': DateTime.now().toIso8601String(),
+          };
+          try {
+            (widget.onWithdrawalSuccess as dynamic)(serverNewBal, createdTx);
+          } catch (_) {
+            widget.onWithdrawalSuccess(serverNewBal);
+          }
 
           // Save crypto beneficiary
           BeneficiaryService.saveBeneficiary(
@@ -976,7 +1016,30 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
         final serverNewBal = (data['newBalance'] != null)
             ? (data['newBalance'] as num).toDouble()
             : (currentBal - totalNgnRequired).clamp(0.0, double.infinity);
-        widget.onWithdrawalSuccess(serverNewBal);
+
+        final createdTx = (data['transaction'] is Map)
+            ? Map<String, dynamic>.from(data['transaction'])
+            : <String, dynamic>{
+                'id': 'TX_WD_${DateTime.now().millisecondsSinceEpoch}',
+                'title': 'Payout to $_selectedBankName ($accNum) • Incl. ₦65 Fee',
+                'type': 'debit',
+                'category': 'withdrawal',
+                'amount': totalNgnRequired,
+                'currency': 'NGN',
+                'isCredit': false,
+                'sender': '${currentUser.fullName.isNotEmpty ? currentUser.fullName : "Rentilly User"} (Rentilly Escrow Vault)',
+                'beneficiary': confirmedRecipient,
+                'recipientAccount': accNum,
+                'recipientBank': _selectedBankName,
+                'status': 'SUCCESSFUL',
+                'date': DateTime.now().toIso8601String(),
+              };
+
+        try {
+          (widget.onWithdrawalSuccess as dynamic)(serverNewBal, createdTx);
+        } catch (_) {
+          widget.onWithdrawalSuccess(serverNewBal);
+        }
 
         // Save beneficiary for future instant 1-tap searches & auto-fill
         BeneficiaryService.saveBeneficiary(

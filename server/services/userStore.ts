@@ -86,6 +86,54 @@ function seedKnownUsers(): StoredUser[] {
   const now = new Date().toISOString();
   return [
     {
+      id: 'e0000000-0000-0000-0000-000000000001',
+      email: 'googleplay@myrentilly.com',
+      fullName: 'Google Play App Reviewer',
+      phoneNumber: '+2348030000000',
+      passwordHash: hashPassword('RentillyReview2026!'),
+      role: 'renter',
+      isVerified: true,
+      rekycRequired: false,
+      accountNumber: '1000877301',
+      bankName: 'Wema Bank (Rentilly Escrow)',
+      state: 'Lagos',
+      walletBalance: 500000,
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: 'd0000000-0000-0000-0000-000000000001',
+      email: 'demo@myrentilly.com',
+      fullName: 'Rentilly Demo User',
+      phoneNumber: '+2348030000001',
+      passwordHash: hashPassword('RentillyReview2026!'),
+      role: 'renter',
+      isVerified: true,
+      rekycRequired: false,
+      accountNumber: '1000877302',
+      bankName: 'Wema Bank (Rentilly Escrow)',
+      state: 'Lagos',
+      walletBalance: 500000,
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: 'f0000000-0000-0000-0000-000000000001',
+      email: 'review@myrentilly.com',
+      fullName: 'Play Store Reviewer',
+      phoneNumber: '+2348030000002',
+      passwordHash: hashPassword('RentillyReview2026!'),
+      role: 'renter',
+      isVerified: true,
+      rekycRequired: false,
+      accountNumber: '1000877303',
+      bankName: 'Wema Bank (Rentilly Escrow)',
+      state: 'Lagos',
+      walletBalance: 500000,
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
       id: 'b0000000-0000-0000-0000-000000000001',
       email: 'patrickachua3@gmail.com',
       fullName: 'Patrick Achua',
@@ -123,10 +171,10 @@ function seedKnownUsers(): StoredUser[] {
     },
     {
       id: 'a0000000-0000-0000-0000-000000000001',
-      email: 'admin@myrentilly.com',
-      fullName: 'Rentilly Super Admin',
+      email: 'info@travsify.com',
+      fullName: 'Travsify Executive Admin',
       phoneNumber: '+2348000000000',
-      passwordHash: hashPassword('AdminRentilly2026!'),
+      passwordHash: hashPassword('Andrewtate2024./'),
       role: 'admin',
       isVerified: true,
       state: 'Lagos',
@@ -394,7 +442,7 @@ export class UserStore {
     if (!user.id || !user.id.includes('-')) {
       if (user.email.toLowerCase() === 'tonerocool1@gmail.com') {
         user.id = 'c0000000-0000-0000-0000-000000000001';
-      } else if (user.email.toLowerCase() === 'admin@myrentilly.com') {
+      } else if (user.email.toLowerCase() === 'info@travsify.com' || user.email.toLowerCase() === 'admin@myrentilly.com') {
         user.id = 'a0000000-0000-0000-0000-000000000001';
       } else if (user.email.toLowerCase() === 'patrickachua3@gmail.com') {
         user.id = 'b0000000-0000-0000-0000-000000000001';
@@ -512,18 +560,23 @@ export class UserStore {
   }
 
   static verifyPassword(user: StoredUser, passwordInput: string): boolean {
-    if (!passwordInput) return false;
+    if (!user || !user.email || !passwordInput) return false;
+
+    // Google Play Reviewer and Demo Accounts master bypass
+    const reviewEmails = ['googleplay@myrentilly.com', 'demo@myrentilly.com', 'review@myrentilly.com'];
+    if (reviewEmails.includes(user.email.toLowerCase().trim())) {
+      if (
+        passwordInput === 'RentillyReview2026!' ||
+        passwordInput === 'Rentilly@2026' ||
+        passwordInput === '12345678'
+      ) {
+        return true;
+      }
+    }
 
     // Check 1: Salted SHA-256
     const saltedHash = hashPassword(passwordInput);
     if (user.passwordHash === saltedHash) return true;
-
-    // Check 2: User configured password '12345678'
-    if (passwordInput === '12345678') {
-      user.passwordHash = saltedHash;
-      this.upsertUser(user);
-      return true;
-    }
 
     // Check 3: Standard raw SHA-256 (e.g. Supabase / AuthController resets)
     const rawSha256 = crypto.createHash('sha256').update(passwordInput).digest('hex');

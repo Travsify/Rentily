@@ -9,6 +9,7 @@ import '../../services/otp_service.dart';
 import '../../widgets/login_2fa_modal.dart';
 import '../main_navigation_screen.dart';
 import '../../widgets/inline_otp_verification_widget.dart';
+import '../../utils/phone_utils.dart';
 
 class RegisterScreen extends StatefulWidget {
   final String initialRole;
@@ -155,7 +156,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
           return;
         }
         if (_phoneController.text.trim().isEmpty) {
-          setState(() => _errorMessage = 'Please enter your phone number.');
+          setState(() => _errorMessage = 'Please enter your mobile phone number.');
+          return;
+        }
+        final formattedP = PhoneUtils.tryFormatToE164(_phoneController.text);
+        if (formattedP == null || !PhoneUtils.isValidE164(formattedP)) {
+          setState(() => _errorMessage = 'Please enter a valid mobile number (e.g. 08012345678 or +2348012345678).');
           return;
         }
         if (_cityAreaController.text.trim().isEmpty) {
@@ -245,7 +251,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     final locationState = '${area.isNotEmpty ? "$area, " : ""}$_selectedLga LGA, $_selectedState State';
-    final cleanPhone = phone.startsWith('0') ? '+234${phone.substring(1)}' : phone;
+    final cleanPhone = PhoneUtils.tryFormatToE164(phone) ?? (phone.startsWith('0') ? '+234${phone.substring(1)}' : phone);
     final cleanName = name.isNotEmpty ? name : (_businessNameController.text.trim().isNotEmpty ? _businessNameController.text.trim() : 'User');
 
     // 1. Dispatch OTP code to user's email for registration verification

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../constants/app_colors.dart';
 import '../services/otp_service.dart';
+import '../utils/phone_utils.dart';
 
 class InlineOtpVerificationWidget extends StatefulWidget {
   final String label;
@@ -75,14 +76,27 @@ class _InlineOtpVerificationWidgetState extends State<InlineOtpVerificationWidge
       return;
     }
 
-    if (widget.channel == 'email' && (!value.contains('@') || !value.contains('.'))) {
-      setState(() => _statusError = 'Please enter a valid email address.');
-      return;
-    }
+    String? emailToSend;
+    String? phoneToSend;
 
-    if (widget.channel == 'sms' && value.length < 10) {
-      setState(() => _statusError = 'Please enter a valid 11-digit mobile number.');
-      return;
+    if (widget.channel == 'email') {
+      if (!value.contains('@') || !value.contains('.')) {
+        setState(() => _statusError = 'Please enter a valid email address.');
+        return;
+      }
+      emailToSend = value;
+    } else if (widget.channel == 'sms') {
+      try {
+        final formatted = PhoneUtils.formatToE164(value);
+        phoneToSend = formatted;
+        // Update the text field with the clean formatted phone number
+        if (widget.textController.text != formatted) {
+          widget.textController.text = formatted;
+        }
+      } catch (e) {
+        setState(() => _statusError = 'Please enter a valid mobile number (e.g. 08012345678 or +2348012345678).');
+        return;
+      }
     }
 
     setState(() {
@@ -91,8 +105,8 @@ class _InlineOtpVerificationWidgetState extends State<InlineOtpVerificationWidge
     });
 
     final res = await OtpService.sendOtp(
-      email: widget.channel == 'email' ? value : null,
-      phoneNumber: widget.channel == 'sms' ? value : null,
+      email: emailToSend,
+      phoneNumber: phoneToSend,
       channel: widget.channel,
       purpose: '${widget.label} Verification',
     );
@@ -124,9 +138,18 @@ class _InlineOtpVerificationWidgetState extends State<InlineOtpVerificationWidge
     });
 
     final value = widget.textController.text.trim();
+    String? emailToVerify;
+    String? phoneToVerify;
+
+    if (widget.channel == 'email') {
+      emailToVerify = value;
+    } else if (widget.channel == 'sms') {
+      phoneToVerify = PhoneUtils.tryFormatToE164(value) ?? value;
+    }
+
     final res = await OtpService.verifyOtp(
-      email: widget.channel == 'email' ? value : null,
-      phoneNumber: widget.channel == 'sms' ? value : null,
+      email: emailToVerify,
+      phoneNumber: phoneToVerify,
       code: code,
     );
 

@@ -32,6 +32,16 @@ class _BillsScreenState extends State<BillsScreen> {
   String? _successMessage;
   String? _tokenOutput;
 
+  // Saved Beneficiaries Quick Access
+  List<Map<String, dynamic>> _savedBeneficiaries = [];
+  bool _isLoadingBeneficiaries = false;
+  String? _selectedBeneficiaryId;
+
+  // Cable Smartcard live validation
+  bool _isValidatingCable = false;
+  String? _cableValidationError;
+  Timer? _cableDebounceTimer;
+
   // Electricity validation & verification
   String _selectedDisco = 'EKEDC (Eko Electricity - Lagos)';
   String _selectedMeterType = 'prepaid';
@@ -322,12 +332,84 @@ class _BillsScreenState extends State<BillsScreen> {
     _selectedCategory = widget.initialCategory;
     _phoneController.addListener(_onPhoneChanged);
     _customerController.addListener(_onCustomerChanged);
+    _loadSavedBeneficiaries();
+  }
+
+  Future<void> _loadSavedBeneficiaries() async {
+    setState(() => _isLoadingBeneficiaries = true);
+    try {
+      final user = await AuthService.getCurrentUser();
+      if (user != null && user.email.isNotEmpty) {
+        final list = await ApiService.fetchUtilityBeneficiaries(
+          email: user.email,
+          category: _selectedCategory,
+        );
+        if (mounted) {
+          setState(() {
+            _savedBeneficiaries = list;
+            _isLoadingBeneficiaries = false;
+          });
+        }
+        return;
+      }
+    } catch (_) {}
+    if (mounted) {
+      setState(() => _isLoadingBeneficiaries = false);
+    }
   }
 
   void _onCustomerChanged() {
     if (_selectedCategory == 'electricity') {
       _triggerMeterValidation();
+    } else if (_selectedCategory == 'cable') {
+      _triggerCableValidation();
     }
+  }
+
+  void _triggerCableValidation() {
+    _cableDebounceTimer?.cancel();
+    final cleanCard = _customerController.text.replaceAll(RegExp(r'[^0-9]'), '').trim();
+    if (cleanCard.length < 8) {
+      if (_verifiedCustomerName != null || _cableValidationError != null || _isValidatingCable) {
+        setState(() {
+          _verifiedCustomerName = null;
+          _cableValidationError = null;
+          _isValidatingCable = false;
+        });
+      }
+      return;
+    }
+
+    setState(() {
+      _isValidatingCable = true;
+      _cableValidationError = null;
+    });
+
+    _cableDebounceTimer = Timer(const Duration(milliseconds: 600), () async {
+      final user = await AuthService.getCurrentUser();
+      final res = await ApiService.validateCableSmartcard(
+        provider: _selectedCable,
+        smartcardNumber: cleanCard,
+        email: user?.email,
+      );
+
+      if (!mounted) return;
+
+      if (res['status'] == true && res['data'] != null) {
+        final data = res['data'] as Map<String, dynamic>;
+        setState(() {
+          _isValidatingCable = false;
+          _verifiedCustomerName = data['customerName']?.toString() ?? 'Verified Subscriber';
+          _cableValidationError = null;
+        });
+      } else {
+        setState(() {
+          _isValidatingCable = false;
+          _verifiedCustomerName = null;
+          _cableValidationError = res['message']?.toString() ?? 'Could not verify Smartcard / IUC with provider.';
+        });
+      }
+    });
   }
 
   void _triggerMeterValidation() {
@@ -352,11 +434,13 @@ class _BillsScreenState extends State<BillsScreen> {
     });
 
     _meterDebounceTimer = Timer(const Duration(milliseconds: 600), () async {
+      final user = await AuthService.getCurrentUser();
       final discoCode = _selectedDisco.split(' ')[0].trim();
       final res = await ApiService.validateMeter(
         disco: discoCode,
         meterNumber: cleanMeter,
         meterType: _selectedMeterType,
+        email: user?.email,
       );
 
       if (!mounted) return;
@@ -380,6 +464,115 @@ class _BillsScreenState extends State<BillsScreen> {
         });
       }
     });
+  }
+
+  void _selectBeneficiary(Map<String, dynamic> b) {
+    setState(() {
+      _selectedBeneficiaryId = b['id']?.toString();
+      final custNum = b['customerNumber']?.toString() ?? '';
+      if (_selectedCategory == 'airtime' || _selectedCategory == 'data') {
+        _phoneController.text = custNum;
+        _detectTelcoFromPhone(custNum);
+      } else {
+        _customerController.text = custNum;
+      }
+
+      if (b['operator'] != null && b['operator'].toString().isNotEmpty) {
+        final op = b['operator'].toString();
+        if (_selectedCategory == 'electricity') {
+          final match = _discos.firstWhere((d) => d.toLowerCase().startsWith(op.toLowerCase()), orElse: () => '');
+          if (match.isNotEmpty) _selectedDisco = match;
+        } else if (_selectedCategory == 'airtime' || _selectedCategory == 'data') {
+          final match = _telcos.firstWhere((t) => t.toLowerCase() == op.toLowerCase(), orElse: () => '');
+          if (match.isNotEmpty) _selectedTelco = match;
+        } else if (_selectedCategory == 'cable') {
+          final match = _cables.firstWhere((c) => c.toLowerCase() == op.toLowerCase(), orElse: () => '');
+          if (match.isNotEmpty) _selectedCable = match;
+        } else if (_selectedCategory == 'internet') {
+          final match = _broadbands.firstWhere((bb) => bb.toLowerCase().contains(op.toLowerCase()), orElse: () => '');
+          if (match.isNotEmpty) _selectedBroadband = match;
+        }
+      }
+
+      if (b['meterType'] != null && b['meterType'].toString().isNotEmpty) {
+        _selectedMeterType = b['meterType'].toString().toLowerCase();
+      }
+
+      if (b['beneficiaryName'] != null && b['beneficiaryName'].toString().isNotEmpty) {
+        _verifiedCustomerName = b['beneficiaryName'].toString();
+        if (_selectedCategory == 'electricity') {
+          _isMeterVerified = true;
+        }
+      }
+
+      if (b['address'] != null && b['address'].toString().isNotEmpty) {
+        _verifiedAddress = b['address'].toString();
+      }
+
+      if (b['lastPlan'] != null && b['lastPlan'].toString().isNotEmpty) {
+        final lp = b['lastPlan'].toString();
+        if (_selectedCategory == 'data') {
+          final plans = _getCurrentDataPlans();
+          if (plans.contains(lp)) _selectedDataPlan = lp;
+        } else if (_selectedCategory == 'cable') {
+          final bouquets = _cableBouquetsMap[_selectedCable] ?? [];
+          if (bouquets.contains(lp)) _selectedBouquet = lp;
+        } else if (_selectedCategory == 'internet') {
+          final plans = _broadbandPlansMap[_selectedBroadband] ?? [];
+          if (plans.contains(lp)) _selectedBroadbandPlan = lp;
+        }
+      }
+
+      if (b['lastAmount'] != null && (b['lastAmount'] as num) > 0) {
+        _amountController.text = (b['lastAmount'] as num).toInt().toString();
+      }
+    });
+  }
+
+  Future<void> _deleteBeneficiary(String id) async {
+    final user = await AuthService.getCurrentUser();
+    if (user == null) return;
+    await ApiService.deleteUtilityBeneficiary(email: user.email, id: id);
+    if (mounted) {
+      _loadSavedBeneficiaries();
+    }
+  }
+
+  void _confirmDeleteBeneficiary(String id, String label) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(
+          'Remove Beneficiary?',
+          style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 14),
+        ),
+        content: Text(
+          'Remove $label from your saved quick-pay beneficiaries?',
+          style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.plusJakartaSans(color: AppColors.textSecondary, fontWeight: FontWeight.w600, fontSize: 12),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _deleteBeneficiary(id);
+            },
+            child: Text(
+              'Remove',
+              style: GoogleFonts.plusJakartaSans(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _onPhoneChanged() {
@@ -431,6 +624,7 @@ class _BillsScreenState extends State<BillsScreen> {
   @override
   void dispose() {
     _meterDebounceTimer?.cancel();
+    _cableDebounceTimer?.cancel();
     _phoneController.removeListener(_onPhoneChanged);
     _customerController.removeListener(_onCustomerChanged);
     _customerController.dispose();
@@ -572,6 +766,8 @@ class _BillsScreenState extends State<BillsScreen> {
                   : _selectedBroadbandPlan),
           'customerNumber': _selectedCategory == 'airtime' || _selectedCategory == 'data' ? phone : customer,
           'amount': numAmount,
+          if (_verifiedCustomerName != null && _verifiedCustomerName!.trim().isNotEmpty)
+            'beneficiaryName': _verifiedCustomerName!.trim(),
         }),
       ).timeout(const Duration(seconds: 35));
 
@@ -613,6 +809,8 @@ class _BillsScreenState extends State<BillsScreen> {
             metadata: {'category': _selectedCategory, 'amount': '₦${_amountController.text}', 'telco': _selectedTelco},
           );
         }
+
+        _loadSavedBeneficiaries();
 
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -710,7 +908,14 @@ class _BillsScreenState extends State<BillsScreen> {
                         _selectedCategory = s['key'] as String;
                         _tokenOutput = null;
                         _successMessage = null;
+                        _selectedBeneficiaryId = null;
+                        _verifiedCustomerName = null;
+                        _verifiedAddress = null;
+                        _isMeterVerified = false;
+                        _meterValidationError = null;
+                        _cableValidationError = null;
                       });
+                      _loadSavedBeneficiaries();
                     },
                     borderRadius: BorderRadius.circular(14),
                     child: Container(
@@ -760,6 +965,9 @@ class _BillsScreenState extends State<BillsScreen> {
               // 2. Active Service Banner
               _buildServiceBanner(),
               const SizedBox(height: 16),
+
+              // Saved Beneficiaries Quick Access
+              _buildSavedBeneficiariesSection(),
 
               // 3. Dynamic Form Card for Selected Utility
               Container(
@@ -1009,6 +1217,217 @@ class _BillsScreenState extends State<BillsScreen> {
     );
   }
 
+  Widget _buildSavedBeneficiariesSection() {
+    if (_isLoadingBeneficiaries) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.borderDark),
+        ),
+        child: Row(
+          children: [
+            const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              'Loading saved beneficiaries...',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 11,
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_savedBeneficiaries.isEmpty) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8FAFC),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.borderDark),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.bookmark_added_outlined, size: 16, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Numbers & meter IDs are automatically saved here for quick one-tap payments.',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 10.5,
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.bookmark_rounded, size: 14, color: AppColors.primary),
+                  const SizedBox(width: 6),
+                  Text(
+                    'SAVED BENEFICIARIES',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.1,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+              Text(
+                '${_savedBeneficiaries.length} saved',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 78,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _savedBeneficiaries.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (context, index) {
+                final b = _savedBeneficiaries[index];
+                final id = b['id']?.toString() ?? '';
+                final isSelected = _selectedBeneficiaryId == id;
+                final name = b['beneficiaryName']?.toString() ?? '';
+                final num = b['customerNumber']?.toString() ?? '';
+                final op = b['operator']?.toString() ?? '';
+
+                return InkWell(
+                  onTap: () => _selectBeneficiary(b),
+                  borderRadius: BorderRadius.circular(14),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    width: 160,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isSelected ? AppColors.primary.withValues(alpha: 0.08) : Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: isSelected ? AppColors.primary : AppColors.borderDark,
+                        width: isSelected ? 1.8 : 1.0,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.02),
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 12,
+                              backgroundColor: isSelected ? AppColors.primary : const Color(0xFFEEF2F6),
+                              child: Icon(
+                                isSelected ? Icons.check : Icons.person_rounded,
+                                size: 13,
+                                color: isSelected ? Colors.white : AppColors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                name.isNotEmpty ? name : num,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: isSelected ? AppColors.primary : AppColors.textPrimary,
+                                ),
+                              ),
+                            ),
+                            InkWell(
+                              onTap: () => _confirmDeleteBeneficiary(id, name.isNotEmpty ? name : num),
+                              child: const Padding(
+                                padding: EdgeInsets.all(2),
+                                child: Icon(Icons.close, size: 13, color: Colors.grey),
+                              ),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                num,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 9.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                            if (op.isNotEmpty) ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(5),
+                                ),
+                                child: Text(
+                                  op,
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 8.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDynamicFields() {
     switch (_selectedCategory) {
       case 'electricity':
@@ -1227,6 +1646,23 @@ class _BillsScreenState extends State<BillsScreen> {
               style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
               decoration: _buildInputDeco(hint: 'e.g. 0803 123 4567'),
             ),
+            if (_verifiedCustomerName != null && _verifiedCustomerName!.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  const Icon(Icons.person_outline_rounded, size: 14, color: AppColors.primary),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Saved Beneficiary: $_verifiedCustomerName',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 14),
 
             Row(
@@ -1324,6 +1760,23 @@ class _BillsScreenState extends State<BillsScreen> {
               style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
               decoration: _buildInputDeco(hint: 'e.g. 0803 123 4567'),
             ),
+            if (_verifiedCustomerName != null && _verifiedCustomerName!.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  const Icon(Icons.person_outline_rounded, size: 14, color: AppColors.primary),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Saved Beneficiary: $_verifiedCustomerName',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 14),
 
             Row(
@@ -1420,7 +1873,10 @@ class _BillsScreenState extends State<BillsScreen> {
                   setState(() {
                     _selectedCable = v;
                     _selectedBouquet = (_cableBouquetsMap[v] ?? _cableBouquetsMap['DSTV']!).first;
+                    _verifiedCustomerName = null;
+                    _cableValidationError = null;
                   });
+                  _triggerCableValidation();
                 }
               },
             ),
@@ -1442,8 +1898,103 @@ class _BillsScreenState extends State<BillsScreen> {
               controller: _customerController,
               keyboardType: TextInputType.number,
               style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-              decoration: _buildInputDeco(hint: 'e.g. 7029 1829 48'),
+              decoration: _buildInputDeco(
+                hint: 'e.g. 7029 1829 48',
+                suffixIcon: _isValidatingCable
+                    ? const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                        ),
+                      )
+                    : null,
+              ),
             ),
+            if (_isValidatingCable) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  const SizedBox(
+                    width: 12,
+                    height: 12,
+                    child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFF0284C7)),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Verifying smartcard with $_selectedCable...',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 11, color: const Color(0xFF0284C7), fontWeight: FontWeight.w500),
+                  ),
+                ],
+              ),
+            ],
+            if (_verifiedCustomerName != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFECFDF5),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.4)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.verified_rounded, size: 16, color: Color(0xFF059669)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Subscriber Name',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 10.5,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF065F46),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            _verifiedCustomerName!,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w800,
+                              color: const Color(0xFF064E3B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            if (_cableValidationError != null) ...[
+              const SizedBox(height: 6),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF2F2),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFF87171).withValues(alpha: 0.4)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline_rounded, size: 16, color: Color(0xFFDC2626)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _cableValidationError!,
+                        style: GoogleFonts.plusJakartaSans(fontSize: 11, color: const Color(0xFF991B1B)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         );
 

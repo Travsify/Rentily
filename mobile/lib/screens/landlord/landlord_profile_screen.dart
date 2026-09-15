@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
@@ -22,11 +21,11 @@ import '../../widgets/app_avatar.dart';
 import '../../utils/id_utils.dart';
 import '../auth/login_screen.dart';
 import '../support/support_chat_screen.dart';
+import '../cards/cards_screen.dart';
+import 'landlord_wallet_screen.dart';
 
 class LandlordProfileScreen extends StatefulWidget {
-  final VoidCallback? onSwitchToTenant;
-
-  const LandlordProfileScreen({super.key, this.onSwitchToTenant});
+  const LandlordProfileScreen({super.key});
 
   @override
   State<LandlordProfileScreen> createState() => _LandlordProfileScreenState();
@@ -79,7 +78,8 @@ class _LandlordProfileScreenState extends State<LandlordProfileScreen> {
   void _showSavedAccountsModal() {
     if (_user == null) return;
     final accNumber = _user?.accountNumber ?? '';
-    final bankName = _user?.bankName ?? '9PSB (Rentilly)';
+    final rawBank = _user?.bankName ?? 'Wema Bank';
+    final bankName = rawBank.replaceAll(RegExp(r'\s*\([Ff]incra\)', caseSensitive: false), '').replaceAll(RegExp(r'Fincra\s*', caseSensitive: false), '').trim();
     final commAcc = _user?.commercialAccountNumber ?? '';
     final commBank = _user?.commercialBankName ?? '';
 
@@ -1182,9 +1182,29 @@ class _LandlordProfileScreenState extends State<LandlordProfileScreen> {
             _buildTile(
               icon: Icons.account_balance_rounded,
               title: 'Saved Bank & Settlement Accounts 🏦',
-              subtitle: 'Dedicated 9PSB collection account & linked payout bank',
+              subtitle: 'Dedicated collection account & linked payout bank',
               trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.textMuted),
               onTap: _showSavedAccountsModal,
+            ),
+
+            _buildTile(
+              icon: Icons.credit_card_rounded,
+              title: 'Virtual Dollar Cards 💳',
+              subtitle: 'Issue, fund & manage 3D-Secure Virtual Visa Dollar Cards',
+              trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.textMuted),
+              onTap: () {
+                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CardsScreen()));
+              },
+            ),
+
+            _buildTile(
+              icon: Icons.currency_bitcoin_rounded,
+              title: 'USDT TRC20 Crypto Vault ₮',
+              subtitle: 'Dedicated TRON deposit address & live crypto settlements',
+              trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.textMuted),
+              onTap: () {
+                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LandlordWalletScreen()));
+              },
             ),
             const SizedBox(height: 20),
 
@@ -1275,19 +1295,6 @@ class _LandlordProfileScreenState extends State<LandlordProfileScreen> {
               title: 'Privacy Policy & Escrow Terms',
               subtitle: 'Strict title confidentiality & 256-bit financial encryption terms',
               onTap: _showPrivacyPolicyModal,
-            ),
-            const SizedBox(height: 10),
-
-            _buildTile(
-              icon: Icons.swap_horiz_rounded,
-              title: 'Switch to Renter / Tenant Mode 🔄',
-              subtitle: 'Browse properties, request inspections, and view tenant agreements',
-              trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.primary),
-              onTap: () {
-                if (widget.onSwitchToTenant != null) {
-                  widget.onSwitchToTenant!();
-                }
-              },
             ),
             const SizedBox(height: 24),
 

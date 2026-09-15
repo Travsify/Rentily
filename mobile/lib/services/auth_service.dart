@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/app_constants.dart';
 import '../models/user_profile.dart';
+import 'api_service.dart';
 import 'push_notification_service.dart';
 import 'payment_security_service.dart';
 import 'security_telemetry_service.dart';
@@ -602,6 +603,7 @@ class AuthService {
 
   // 9. Sign Out / Voluntary Logout (Requires OTP/Password on next sign-in)
   static Future<void> logout() async {
+    ApiService.clearCache();
     try {
       final currentUser = await getCurrentUser();
       if (currentUser != null) {

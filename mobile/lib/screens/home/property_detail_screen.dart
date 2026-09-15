@@ -871,7 +871,11 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
         child: SafeArea(
           child: Builder(
             builder: (context) {
-              final isDirectOwner = _currentUser?.id != null && _currentUser!.id == prop.ownerId;
+              final isDirectOwner = _currentUser?.id != null && (
+                _currentUser!.id == prop.ownerId ||
+                (_currentUser!.isLandlord && prop.ownerName.toLowerCase().contains(_currentUser!.fullName.toLowerCase())) ||
+                (_currentUser!.phoneNumber.isNotEmpty && _currentUser!.phoneNumber == prop.ownerPhone && prop.listedByRole == 'direct_landlord')
+              );
               final isMandatePartner = _currentUser?.id != null &&
                   (_currentUser!.id == prop.partnerId ||
                       (_currentUser!.phoneNumber.isNotEmpty && _currentUser!.phoneNumber == prop.ownerPhone && prop.listedByRole == 'verified_partner'));

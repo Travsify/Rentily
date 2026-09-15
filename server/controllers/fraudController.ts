@@ -101,7 +101,8 @@ export async function addToBlacklist(req: Request, res: Response) {
 
 export async function checkBlacklist(req: Request, res: Response) {
   try {
-    const { phoneNumber, bvn, nin, bankAccountNumber } = req.query;
+    const source = req.method === 'POST' ? req.body : req.query;
+    const { phoneNumber, bvn, nin, bankAccountNumber } = source || {};
     const all = _blacklistCache;
 
     const matched = all.filter(entry => {

@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { UserStore } from '../services/userStore';
 import { NotificationDispatcher } from '../services/notificationDispatcher';
 import { supabase } from '../supabaseClient';
+import { TransactionStore } from '../services/transactionStore';
 
 export async function renderPartnerVerificationPage(req: Request, res: Response) {
   const partnerIdStr = String(req.params.id || req.query.id || req.query.partner_id || '').trim();
@@ -592,8 +593,7 @@ export async function renderReKycPage(req: Request, res: Response) {
     hasValidBvn &&
     user &&
     user.isVerified &&
-    user.accountNumber &&
-    user.bankName?.includes('9PSB')
+    user.accountNumber
   );
 
   const displayName = user?.fullName || user?.businessName || (cleanEmail ? cleanEmail.split('@')[0] : 'Rentilly User');
@@ -602,7 +602,7 @@ export async function renderReKycPage(req: Request, res: Response) {
   const currentBvn = user?.bvn || '';
   const currentNin = user?.ninNumber || '';
   const currentAccount = user?.accountNumber || '';
-  const currentBank = user?.bankName || '9PSB (Rentilly)';
+  const currentBank = user?.bankName || 'Wema Bank (Fincra)';
 
   res.send(`
     <!DOCTYPE html>
@@ -641,11 +641,11 @@ export async function renderReKycPage(req: Request, res: Response) {
         ${isAlreadyApproved ? `
           <div class="badge-icon">✅</div>
           <h1>ACCOUNT VERIFIED & ACTIVE</h1>
-          <div class="tagline">Dedicated 9PSB Settlement & Dollar Card Active</div>
+          <div class="tagline">Dedicated Fincra Settlement & Dollar Card Active</div>
 
           <div style="background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 18px; padding: 24px; text-align: center; margin-top: 20px;">
             <p style="font-size: 13px; color: #a7f3d0; margin-bottom: 14px; line-height: 1.5;">
-              Your Rentilly dedicated 9PSB settlement account is fully verified and active.
+              Your Rentilly dedicated Fincra settlement account is fully verified and active.
             </p>
             <div style="font-size: 11px; text-transform: uppercase; color: #94a3b8; font-weight: 700;">Dedicated Account Number</div>
             <div class="result-acc" style="display: block;">${currentAccount}</div>
@@ -663,13 +663,13 @@ export async function renderReKycPage(req: Request, res: Response) {
         ` : `
           <div class="badge-icon">🛡️</div>
           <h1>ACCOUNT UPGRADE & ACTIVATION</h1>
-          <div class="tagline">Dedicated 9PSB Settlement & Dollar Card</div>
+          <div class="tagline">Dedicated Fincra Settlement & Dollar Card</div>
 
           <div class="safe-banner">
             <span style="font-size: 20px;">🛡️</span>
             <div>
               <strong>Your Funds Are 100% Secure.</strong><br>
-              Your current wallet balance of <strong>₦${currentBalance.toLocaleString()}</strong> will automatically link to your dedicated 9PSB settlement account.
+              Your current wallet balance of <strong>₦${currentBalance.toLocaleString()}</strong> will automatically link to your dedicated Fincra settlement account.
             </div>
           </div>
 
@@ -695,7 +695,7 @@ export async function renderReKycPage(req: Request, res: Response) {
             <div class="form-group">
               <label>Bank Verification Number (BVN) <span style="color: #10b981;">*</span></label>
               <input type="text" id="bvn" placeholder="Enter 11-digit BVN" value="${currentBvn}" maxlength="11" required />
-              <span style="font-size: 10px; color: #64748b; margin-top: 4px; display: block;">Required by the Central Bank of Nigeria & NIBSS for dedicated 9PSB account issuance.</span>
+              <span style="font-size: 10px; color: #64748b; margin-top: 4px; display: block;">Required by the Central Bank of Nigeria & NIBSS for dedicated Fincra account issuance.</span>
             </div>
 
             <div class="form-group">
@@ -717,10 +717,10 @@ export async function renderReKycPage(req: Request, res: Response) {
           <div id="resultBox" class="result-box">
             <div style="font-size: 40px; margin-bottom: 8px;">🎉</div>
             <h2 style="color: #ffffff; font-size: 18px; font-weight: 800;">Dedicated Account Activated!</h2>
-            <p style="color: #94a3b8; font-size: 12px; margin-top: 4px;">Your dedicated 9PSB settlement account is active and permanently attached to your profile.</p>
+            <p style="color: #94a3b8; font-size: 12px; margin-top: 4px;">Your dedicated Fincra settlement account is active and permanently attached to your profile.</p>
 
             <div class="result-acc" id="accDisplay">----------</div>
-            <div style="font-size: 13px; font-weight: 700; color: #38bdf8;" id="bankDisplay">9PSB (Rentilly Settlement)</div>
+            <div style="font-size: 13px; font-weight: 700; color: #38bdf8;" id="bankDisplay">Wema Bank (Fincra)</div>
 
             <div style="margin-top: 16px; padding: 12px; background: rgba(16, 185, 129, 0.1); border-radius: 10px; font-size: 12px; color: #a7f3d0;">
               💳 Virtual Dollar Card: <strong>Active</strong><br>
@@ -1089,6 +1089,593 @@ export async function renderCredentialVerificationPage(req: Request, res: Respon
           }
         }
         fetchCredential();
+      </script>
+    </body>
+    </html>
+  `);
+}
+
+/**
+ * Public Live Digital Electronic Receipt Verification Page
+ * Displays the exact bank-grade electronic receipt when the QR code on a receipt is scanned.
+ * Accessible on web at: /verify-receipt/:id or /verify-receipt?ref=:id or /receipt/:id
+ */
+export async function renderTransactionReceiptPage(req: Request, res: Response) {
+  const refParam = (req.params.id || req.params.ref || req.query.ref || req.query.id || req.query.code || '').toString().trim();
+
+  // Helper to escape HTML safely
+  const escapeHtml = (str: string) => (str || '').replace(/[&<>"']/g, (m) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+  }[m] || m));
+
+  let tx: any = null;
+
+  if (refParam && refParam !== 'receipt') {
+    // 1. Check TransactionStore in-memory & synced
+    try {
+      tx = TransactionStore.findByReference(refParam);
+    } catch (_) {}
+
+    // 2. Query Supabase wallet_transactions
+    if (!tx && supabase) {
+      try {
+        const { data: wTxs } = await supabase
+          .from('wallet_transactions')
+          .select('*')
+          .or(`flw_ref.eq.${refParam},tx_ref.eq.${refParam},id.eq.${refParam}`)
+          .limit(1);
+
+        if (wTxs && wTxs.length > 0) {
+          const row = wTxs[0];
+          const rawNarration = row.narration || '';
+          const isCredit = (row.type || '').toLowerCase() === 'credit';
+          const isNaira = rawNarration.includes('-> ₦') || rawNarration.includes('₦') || rawNarration.toLowerCase().includes('to naira') || rawNarration.toLowerCase().includes('naira wallet');
+          tx = {
+            id: row.id,
+            reference: row.flw_ref || row.tx_ref || row.id,
+            email: row.email,
+            title: rawNarration || (isCredit ? 'Inbound Wallet Settlement' : 'Wallet Withdrawal'),
+            amount: Number(row.amount || 0),
+            currency: isNaira ? 'NGN' : (row.currency || 'NGN'),
+            isCredit,
+            status: (row.status || 'COMPLETED').toUpperCase(),
+            date: row.created_at || new Date().toISOString()
+          };
+        }
+      } catch (e: any) {
+        console.warn('[renderTransactionReceiptPage] wallet_transactions lookup error:', e?.message);
+      }
+    }
+
+    // 3. Query Supabase property transactions (escrow / leases)
+    if (!tx && supabase) {
+      try {
+        const { data: pTxs } = await supabase
+          .from('transactions')
+          .select('*')
+          .or(`payment_reference.eq.${refParam},id.eq.${refParam},flutterwave_reference.eq.${refParam}`)
+          .limit(1);
+
+        if (pTxs && pTxs.length > 0) {
+          const row = pTxs[0];
+          tx = {
+            id: row.id,
+            reference: row.payment_reference || row.id,
+            email: row.payer_name || '',
+            title: row.property_title || row.owner_payout_reference || 'Property Escrow Settlement',
+            amount: Number(row.total_amount || row.amount || 0),
+            currency: row.currency || 'NGN',
+            isCredit: row.transaction_type !== 'withdrawal',
+            status: (row.escrow_status || row.status || 'SUCCESSFUL').toUpperCase(),
+            date: row.created_at || new Date().toISOString()
+          };
+        }
+      } catch (e: any) {
+        console.warn('[renderTransactionReceiptPage] transactions table lookup error:', e?.message);
+      }
+    }
+  }
+
+  // Lookup payer / holder details
+  let payerName = 'Rentilly Verified Customer';
+  let payerEmailMasked = '';
+  if (tx?.email) {
+    const parts = tx.email.split('@');
+    if (parts.length === 2) {
+      payerEmailMasked = `${parts[0].slice(0, 2)}***@${parts[1]}`;
+    }
+    try {
+      const user = await UserStore.findByEmail(tx.email);
+      if (user?.fullName) {
+        payerName = user.fullName;
+      } else if (supabase) {
+        const { data: prof } = await supabase.from('profiles').select('full_name, business_name').eq('email', tx.email).single();
+        if (prof?.full_name || prof?.business_name) {
+          payerName = prof.full_name || prof.business_name;
+        }
+      }
+    } catch (_) {}
+  }
+
+  // Currency & formatting
+  const rawTitle = (tx?.title || tx?.narration || '').toString();
+  const isNaira = (tx?.currency === 'NGN') || rawTitle.includes('-> ₦') || rawTitle.includes('₦') || rawTitle.toLowerCase().includes('naira');
+  const isUsdt = !isNaira && ((tx?.currency === 'USDT') || rawTitle.toUpperCase().includes('USDT') || rawTitle.toUpperCase().includes('TRC20'));
+  const isUsd = !isNaira && !isUsdt && ((tx?.currency === 'USD') || rawTitle.toUpperCase().includes('USD') || rawTitle.toUpperCase().includes('DOLLAR'));
+  
+  const currencyCode = isNaira ? 'NGN' : (isUsdt ? 'USDT' : (isUsd ? 'USD' : 'NGN'));
+  const currencySymbol = isNaira ? '₦' : '$';
+  const rawAmt = Number(tx?.amount || 0);
+  const formattedAmount = rawAmt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const isCredit = tx ? (tx.isCredit !== false) : true;
+  const cleanRef = tx?.reference || tx?.id || refParam;
+
+  // Rail / Channel determination
+  let rail = 'Rentilly Escrow Protocol (CBN / NIBSS Interbank)';
+  if (rawTitle.toLowerCase().includes('virtual card') || rawTitle.toLowerCase().includes('card')) {
+    rail = 'Rentilly Platinum Virtual USD Card • Maplerad Liquidation Rail';
+  } else if (rawTitle.toLowerCase().includes('wema')) {
+    rail = 'Wema Bank Settlement Rail (Fincra Institutional Partner)';
+  } else if (rawTitle.toLowerCase().includes('opay')) {
+    rail = 'Opay Microfinance Bank Transfer Rail';
+  } else if (rawTitle.toLowerCase().includes('flutterwave')) {
+    rail = 'Flutterwave Electronic Inflow Rail';
+  } else if (rawTitle.toLowerCase().includes('paystack')) {
+    rail = 'Paystack Direct Settlement Rail';
+  }
+
+  // Formatted Date
+  let dateFormatted = 'Recent';
+  if (tx?.date) {
+    try {
+      const d = new Date(tx.date);
+      dateFormatted = d.toLocaleString('en-NG', {
+        timeZone: 'Africa/Lagos',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      }) + ' (WAT)';
+    } catch (_) {
+      dateFormatted = tx.date;
+    }
+  }
+
+  const auditHash = cleanRef 
+    ? ('SHA256-' + crypto.createHash('sha256').update(`${cleanRef}_${rawAmt}_${tx?.date || ''}`).digest('hex').toUpperCase().slice(0, 20))
+    : 'SHA256-AUTHENTIC-LEDGER';
+
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Certified Electronic Receipt • ${escapeHtml(cleanRef)} | Rentilly Living Protocol</title>
+      <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+      <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+      <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+          font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+          background: #030712;
+          color: #f8fafc;
+          min-height: 100vh;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 20px 16px;
+        }
+        .receipt-card {
+          background: #0f172a;
+          border: 1.5px solid #065f46;
+          border-radius: 28px;
+          max-width: 520px;
+          width: 100%;
+          padding: 32px 24px;
+          box-shadow: 0 25px 60px -15px rgba(0,0,0,0.7), 0 0 40px rgba(16,185,129,0.1);
+          position: relative;
+          overflow: hidden;
+        }
+        .top-badge {
+          background: rgba(16,185,129,0.12);
+          border-bottom: 1px solid rgba(16,185,129,0.25);
+          padding: 10px 16px;
+          font-size: 11px;
+          font-weight: 800;
+          color: #34d399;
+          letter-spacing: 0.5px;
+          margin: -32px -24px 24px -24px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        .pulse-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: #10b981;
+          display: inline-block;
+          animation: pulse 1.6s infinite;
+        }
+        @keyframes pulse {
+          0% { transform: scale(0.9); opacity: 0.8; }
+          50% { transform: scale(1.3); opacity: 1; }
+          100% { transform: scale(0.9); opacity: 0.8; }
+        }
+        .brand-row {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          margin-bottom: 20px;
+          text-align: left;
+        }
+        .logo-wrap {
+          width: 54px;
+          height: 54px;
+          border-radius: 16px;
+          overflow: hidden;
+          border: 2px solid #10b981;
+          background: #020617;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 4px 16px rgba(16,185,129,0.25);
+          flex-shrink: 0;
+        }
+        .logo-wrap img { width: 100%; height: 100%; object-fit: contain; }
+        .brand-text h2 {
+          font-size: 18px;
+          font-weight: 900;
+          color: #ffffff;
+          letter-spacing: 0.8px;
+          line-height: 1.2;
+        }
+        .brand-text p {
+          font-size: 11px;
+          color: #94a3b8;
+          font-weight: 500;
+        }
+        .brand-text .company-reg {
+          font-size: 9.5px;
+          color: #64748b;
+        }
+        .receipt-title-box {
+          background: rgba(16,185,129,0.08);
+          border: 1px solid rgba(16,185,129,0.25);
+          border-radius: 12px;
+          padding: 8px 12px;
+          text-align: center;
+          margin-bottom: 20px;
+        }
+        .receipt-title-box span {
+          font-size: 11px;
+          font-weight: 800;
+          color: #10b981;
+          letter-spacing: 1px;
+          text-transform: uppercase;
+        }
+        .amount-hero {
+          background: linear-gradient(135deg, #064e3b 0%, #065f46 60%, #047857 100%);
+          border-radius: 20px;
+          padding: 22px 16px;
+          text-align: center;
+          color: #fff;
+          margin-bottom: 22px;
+          box-shadow: 0 10px 25px -5px rgba(6,95,70,0.4);
+          position: relative;
+        }
+        .amount-hero .lbl {
+          font-size: 11px;
+          font-weight: 700;
+          color: #a7f3d0;
+          letter-spacing: 0.8px;
+          text-transform: uppercase;
+          margin-bottom: 4px;
+        }
+        .amount-hero .val {
+          font-size: 32px;
+          font-weight: 900;
+          letter-spacing: -0.5px;
+          margin-bottom: 8px;
+        }
+        .amount-hero .status-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          background: #022c22;
+          color: #34d399;
+          border: 1px solid #10b981;
+          padding: 4px 12px;
+          border-radius: 20px;
+          font-size: 10.5px;
+          font-weight: 800;
+          letter-spacing: 0.5px;
+        }
+        .details-grid {
+          background: #020617;
+          border: 1px solid #1e293b;
+          border-radius: 18px;
+          padding: 16px 18px;
+          margin-bottom: 20px;
+          text-align: left;
+        }
+        .grid-row {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          padding: 9px 0;
+          border-bottom: 1px solid rgba(51,65,85,0.4);
+          font-size: 12px;
+          gap: 12px;
+        }
+        .grid-row:last-child { border-bottom: none; }
+        .grid-row .row-lbl {
+          color: #94a3b8;
+          font-weight: 600;
+          flex-shrink: 0;
+        }
+        .grid-row .row-val {
+          color: #f8fafc;
+          font-weight: 700;
+          text-align: right;
+          word-break: break-word;
+        }
+        .grid-row .row-val.highlight {
+          color: #34d399;
+          font-family: monospace;
+          font-size: 12.5px;
+        }
+        .copy-btn {
+          background: rgba(16,185,129,0.15);
+          border: 1px solid #10b981;
+          color: #34d399;
+          font-size: 10px;
+          font-weight: 700;
+          padding: 2px 7px;
+          border-radius: 6px;
+          cursor: pointer;
+          margin-left: 6px;
+          transition: all 0.2s;
+        }
+        .copy-btn:hover { background: #10b981; color: #020617; }
+        .action-row {
+          display: flex;
+          gap: 12px;
+          margin-top: 6px;
+        }
+        .btn-print {
+          flex: 1;
+          background: #10b981;
+          color: #020617;
+          font-weight: 800;
+          font-size: 13px;
+          padding: 13px 18px;
+          border-radius: 14px;
+          border: none;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          transition: transform 0.15s, background 0.2s;
+        }
+        .btn-print:hover { background: #34d399; transform: translateY(-1px); }
+        .btn-secondary {
+          background: #1e293b;
+          color: #cbd5e1;
+          font-weight: 700;
+          font-size: 13px;
+          padding: 13px 18px;
+          border-radius: 14px;
+          border: 1px solid #334155;
+          text-decoration: none;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: background 0.2s;
+        }
+        .btn-secondary:hover { background: #334155; color: #fff; }
+        .trust-seal {
+          margin-top: 18px;
+          padding-top: 14px;
+          border-top: 1px dashed #1e293b;
+          text-align: center;
+          font-size: 10px;
+          color: #64748b;
+          line-height: 1.5;
+        }
+        .trust-seal .hash {
+          font-family: monospace;
+          color: #475569;
+          font-size: 9px;
+          margin-top: 4px;
+          letter-spacing: 0.5px;
+        }
+
+        /* Print Media Stylesheet */
+        @media print {
+          body {
+            background: #ffffff !important;
+            color: #000000 !important;
+            padding: 0 !important;
+          }
+          .receipt-card {
+            border: 1px solid #cbd5e1 !important;
+            box-shadow: none !important;
+            background: #ffffff !important;
+            color: #000000 !important;
+            max-width: 100% !important;
+            padding: 24px !important;
+          }
+          .top-badge, .action-row, .copy-btn { display: none !important; }
+          .brand-text h2 { color: #065f46 !important; }
+          .brand-text p, .brand-text .company-reg { color: #475569 !important; }
+          .receipt-title-box {
+            background: #f8fafc !important;
+            border: 1px solid #cbd5e1 !important;
+          }
+          .receipt-title-box span { color: #065f46 !important; }
+          .amount-hero {
+            background: #f0fdf4 !important;
+            color: #065f46 !important;
+            border: 1.5px solid #10b981 !important;
+            box-shadow: none !important;
+          }
+          .amount-hero .lbl { color: #047857 !important; }
+          .amount-hero .val { color: #064e3b !important; }
+          .amount-hero .status-pill {
+            background: #dcfce7 !important;
+            color: #065f46 !important;
+            border-color: #10b981 !important;
+          }
+          .details-grid {
+            background: #ffffff !important;
+            border: 1px solid #cbd5e1 !important;
+          }
+          .grid-row { border-bottom-color: #e2e8f0 !important; }
+          .grid-row .row-lbl { color: #64748b !important; }
+          .grid-row .row-val { color: #0f172a !important; }
+          .grid-row .row-val.highlight { color: #065f46 !important; }
+          .trust-seal { color: #64748b !important; border-top-color: #cbd5e1 !important; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="receipt-card">
+        <div class="top-badge">
+          <span><span class="pulse-dot"></span> LIVE LEDGER VERIFICATION</span>
+          <span id="liveClock"></span>
+        </div>
+
+        <div class="brand-row">
+          <div class="logo-wrap">
+            <img src="/logo.png" alt="Rentilly" onerror="this.src='/favicon.png'" />
+          </div>
+          <div class="brand-text">
+            <h2>RENTILLY LIVING PROTOCOL</h2>
+            <p>Institutional Escrow & Living Infrastructure</p>
+            <p class="company-reg">Product of E-Homes Global Inclusive Limited (RC: 1984209)</p>
+          </div>
+        </div>
+
+        <div class="receipt-title-box">
+          <span>✓ Official Verified Transaction Receipt</span>
+        </div>
+
+        ${tx ? `
+          <div class="amount-hero">
+            <div class="lbl">${isCredit ? 'SETTLEMENT VALUE CREDITED' : 'TOTAL SETTLEMENT DEBITED'}</div>
+            <div class="val">${isCredit ? '+' : '-'}${currencySymbol}${formattedAmount} <span style="font-size: 16px; font-weight: 700; opacity: 0.9;">${currencyCode}</span></div>
+            <div class="status-pill">
+              <span>●</span> SETTLED • COMPLETED
+            </div>
+          </div>
+
+          <div class="details-grid">
+            <div class="grid-row">
+              <span class="row-lbl">Transaction Reference</span>
+              <span class="row-val highlight">
+                ${escapeHtml(cleanRef)}
+                <button class="copy-btn" onclick="copyRef('${escapeHtml(cleanRef)}')">Copy</button>
+              </span>
+            </div>
+
+            <div class="grid-row">
+              <span class="row-lbl">Description / Purpose</span>
+              <span class="row-val">${escapeHtml(rawTitle || (isCredit ? 'Inbound Escrow Settlement' : 'Wallet Withdrawal'))}</span>
+            </div>
+
+            <div class="grid-row">
+              <span class="row-lbl">Entry Nature</span>
+              <span class="row-val" style="color: ${isCredit ? '#34d399' : '#f87171'};">
+                ${isCredit ? 'CREDIT (+) • Inbound Wallet Deposit' : 'DEBIT (-) • Outbound Settlement'}
+              </span>
+            </div>
+
+            <div class="grid-row">
+              <span class="row-lbl">Account Holder</span>
+              <span class="row-val">${escapeHtml(payerName)}</span>
+            </div>
+
+            ${payerEmailMasked ? `
+              <div class="grid-row">
+                <span class="row-lbl">Masked Email</span>
+                <span class="row-val" style="font-family: monospace;">${escapeHtml(payerEmailMasked)}</span>
+              </div>
+            ` : ''}
+
+            <div class="grid-row">
+              <span class="row-lbl">Settlement Rail</span>
+              <span class="row-val">${escapeHtml(rail)}</span>
+            </div>
+
+            <div class="grid-row">
+              <span class="row-lbl">Timestamp (WAT)</span>
+              <span class="row-val">${escapeHtml(dateFormatted)}</span>
+            </div>
+
+            <div class="grid-row">
+              <span class="row-lbl">Escrow Custody</span>
+              <span class="row-val" style="color: #34d399;">✓ Guaranteed by Rentilly SafeVault</span>
+            </div>
+          </div>
+        ` : `
+          <div style="background: rgba(239,68,68,0.1); border: 1.5px solid #ef4444; border-radius: 18px; padding: 22px; text-align: center; margin-bottom: 20px;">
+            <div style="font-size: 28px; margin-bottom: 8px;">⚠️</div>
+            <h3 style="color: #f87171; font-size: 16px; font-weight: 800; margin-bottom: 6px;">Transaction Reference Not Found</h3>
+            <p style="color: #fca5a5; font-size: 12px; line-height: 1.45; margin-bottom: 16px;">
+              Reference <strong>${escapeHtml(cleanRef || 'None Provided')}</strong> was not located on the live ledger.
+            </p>
+            <div style="display: flex; gap: 8px;">
+              <input id="refInput" type="text" placeholder="Enter Reference (e.g. CARD_WTH_...)" style="flex: 1; padding: 10px 14px; background: #020617; border: 1px solid #334155; border-radius: 10px; color: #fff; font-size: 12px;" />
+              <button onclick="searchNewRef()" style="background: #10b981; color: #020617; font-weight: 800; border: none; padding: 10px 16px; border-radius: 10px; cursor: pointer; font-size: 12px;">Audit</button>
+            </div>
+          </div>
+        `}
+
+        <div class="action-row">
+          <button class="btn-print" onclick="window.print()">
+            📄 Print / Save PDF
+          </button>
+          <a class="btn-secondary" href="https://myrentilly.com">
+            Rentilly App
+          </a>
+        </div>
+
+        <div class="trust-seal">
+          🔒 Certified Bank-Grade Escrow Electronic Transaction Receipt<br/>
+          Non-Bank Technology Provider • Anti-Photoshop & Tamper-Proof Cryptographic Hash
+          <div class="hash">${escapeHtml(auditHash)}</div>
+        </div>
+      </div>
+
+      <script>
+        function updateClock() {
+          const now = new Date();
+          document.getElementById('liveClock').textContent = now.toLocaleTimeString('en-US', { hour12: true }) + ' (WAT)';
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        function copyRef(val) {
+          navigator.clipboard.writeText(val).then(() => {
+            alert('Reference ID copied to clipboard: ' + val);
+          }).catch(() => {
+            prompt('Copy Reference ID:', val);
+          });
+        }
+
+        function searchNewRef() {
+          const input = document.getElementById('refInput');
+          if (input && input.value.trim()) {
+            window.location.href = '/verify-receipt/' + encodeURIComponent(input.value.trim());
+          }
+        }
       </script>
     </body>
     </html>

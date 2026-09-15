@@ -187,7 +187,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final String firstName = _user?.firstName ?? 'User';
     final double balance = _user?.walletBalance ?? 0.00;
     final String? accNum = _user?.accountNumber;
-    final String bank = _user?.bankName ?? '9PSB (Rentilly)';
+    final rawBank = _user?.bankName ?? 'Wema Bank';
+    final String bank = rawBank.replaceAll(RegExp(r'\s*\([Ff]incra\)', caseSensitive: false), '').replaceAll(RegExp(r'Fincra\s*', caseSensitive: false), '').trim();
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
@@ -268,7 +269,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 if (_user?.isVerified == true && _user?.accountNumber != null && _user!.accountNumber!.isNotEmpty) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text('Your dedicated Rentilly 9PSB bank account is active and verified.', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
+                                      content: Text('Your dedicated Rentilly bank account is active and verified.', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
                                       backgroundColor: AppColors.primary,
                                     ),
                                   );
@@ -308,7 +309,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     Text(
                                       (_user?.accountNumber != null && _user!.accountNumber!.isNotEmpty)
                                           ? 'VERIFIED'
-                                          : (_user?.isVerified == true ? 'PENDING 9PSB' : 'UNVERIFIED'),
+                                          : (_user?.isVerified == true ? 'PROCESSING' : 'UNVERIFIED'),
                                       style: GoogleFonts.plusJakartaSans(
                                         fontSize: 8,
                                         fontWeight: FontWeight.w800,
@@ -413,7 +414,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 18),
 
-              // 1b. Action Required: Upgrade to Dedicated 9PSB Account Banner (Only when admin triggers Re-KYC)
+              // 1b. Action Required: Upgrade to Dedicated Bank Account Banner (Only when admin triggers Re-KYC)
               if (_user != null && _user!.rekycRequired == true) ...[
                 GestureDetector(
                   onTap: () {
@@ -471,7 +472,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               const SizedBox(height: 3),
                               Text(
-                                'Confirm your BVN, NIN & Date of Birth to activate your dedicated 9PSB settlement account & Dollar Card.',
+                                'Confirm your BVN, NIN & Date of Birth to activate your dedicated settlement account & Dollar Card.',
                                 style: GoogleFonts.plusJakartaSans(
                                   fontSize: 10.5,
                                   fontWeight: FontWeight.w500,
@@ -1321,15 +1322,16 @@ class _HomeScreenState extends State<HomeScreen> {
   void _showLocationPicker() {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
       builder: (context) {
-        return Padding(
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.55,
           padding: const EdgeInsets.all(18),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
@@ -1339,7 +1341,6 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 12),
               Expanded(
                 child: ListView.builder(
-                  shrinkWrap: true,
                   itemCount: _locations.length,
                   itemBuilder: (context, index) {
                     final loc = _locations[index];

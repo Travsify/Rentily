@@ -93,10 +93,19 @@ export const GlobalCardsDeskTab: React.FC = () => {
   const [newCardBrand, setNewCardBrand] = useState<'VISA' | 'MASTERCARD'>('VISA');
   const [revealedCardId, setRevealedCardId] = useState<string | null>(null);
 
+  const getSessionEmail = () => {
+    try {
+      const u = localStorage.getItem('rentilly_auth_user');
+      if (u) return JSON.parse(u).email || 'admin@myrentilly.com';
+    } catch (_) {}
+    return 'admin@myrentilly.com';
+  };
+
   const fetchData = async () => {
     try {
+      const email = getSessionEmail();
       const [accRes, cardRes, fxRes, pricingRes, spreadRes] = await Promise.all([
-        fetch('/api/wallet/multi-currency-accounts?email=tonerocool1@gmail.com'),
+        fetch(`/api/wallet/multi-currency-accounts?email=${encodeURIComponent(email)}`),
         fetch('/api/cards/all'),
         fetch('/api/wallet/fx-rates'),
         fetch('/api/cards/pricing'),
@@ -233,8 +242,8 @@ export const GlobalCardsDeskTab: React.FC = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: 'tonerocool1@gmail.com',
-          cardholderName: newCardholder || 'Ehomes Corporate Admin',
+          email: getSessionEmail(),
+          cardholderName: newCardholder || 'Rentilly Corporate Admin',
           currency: newCardCurrency,
           brand: newCardBrand,
           initialFunding: newCardCurrency === 'USD' ? 250 : 50000
@@ -258,7 +267,7 @@ export const GlobalCardsDeskTab: React.FC = () => {
         body: JSON.stringify({
           cardId: selectedCardForFund.id,
           amount: Number(fundAmount),
-          email: 'tonerocool1@gmail.com'
+          email: getSessionEmail()
         })
       });
       if (res.ok) {

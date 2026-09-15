@@ -84,8 +84,9 @@ class _AddMoneyModalState extends State<AddMoneyModal> {
   }
 
   void _copyAllDetails(BuildContext context) {
-    final bank = widget.user.bankName ?? '9PSB (Rentilly)';
-    final accNum = widget.user.accountNumber ?? 'Pending 9PSB Issuance';
+    final rawBank = widget.user.bankName ?? 'Wema Bank';
+    final bank = rawBank.replaceAll(RegExp(r'\s*\([Ff]incra\)', caseSensitive: false), '').replaceAll(RegExp(r'Fincra\s*', caseSensitive: false), '').trim();
+    final accNum = widget.user.accountNumber ?? 'Pending Dedicated Issuance';
     final isPartner = widget.user.role == 'partner';
     final name = isPartner
         ? (widget.user.businessName != null && widget.user.businessName!.trim().isNotEmpty
@@ -123,6 +124,15 @@ class _AddMoneyModalState extends State<AddMoneyModal> {
 
     try {
       final cleanEmail = widget.user.email.toLowerCase().trim();
+
+      // 1. Proactively force server to query bank rails for uncredited collections
+      try {
+        await http.get(
+          Uri.parse('${AppConstants.apiBaseUrl}/wallet/sync-transfers?email=$cleanEmail'),
+        ).timeout(const Duration(seconds: 6));
+      } catch (_) {}
+
+      // 2. Fetch authoritative wallet balance
       final url = Uri.parse('${AppConstants.apiBaseUrl}/wallet/balance?email=$cleanEmail');
       final res = await http.get(url).timeout(const Duration(seconds: 12));
 
@@ -197,8 +207,9 @@ class _AddMoneyModalState extends State<AddMoneyModal> {
 
   @override
   Widget build(BuildContext context) {
-    final bankName = widget.user.bankName ?? '9PSB (Rentilly)';
-    final accountNumber = widget.user.accountNumber ?? 'Pending 9PSB Issuance';
+    final rawBank = widget.user.bankName ?? 'Wema Bank';
+    final bankName = rawBank.replaceAll(RegExp(r'\s*\([Ff]incra\)', caseSensitive: false), '').replaceAll(RegExp(r'Fincra\s*', caseSensitive: false), '').trim();
+    final accountNumber = widget.user.accountNumber ?? 'Generating NUBAN...';
     final isPartner = widget.user.role == 'partner';
     final name = isPartner
         ? (widget.user.businessName != null && widget.user.businessName!.trim().isNotEmpty
@@ -257,7 +268,7 @@ class _AddMoneyModalState extends State<AddMoneyModal> {
                         ),
                       ),
                       Text(
-                        '${widget.user.bankName ?? "9PSB (Rentilly)"} • Zero Fees • Instant Credit',
+                        '$bankName • Zero Fees • Instant Credit',
                         style: GoogleFonts.plusJakartaSans(
                           fontSize: 10,
                           color: AppColors.textSecondary,

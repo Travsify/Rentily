@@ -68,24 +68,7 @@ class _StatementExportModalState extends State<StatementExportModal> {
     setState(() => _isGenerating = true);
     try {
       if (_selectedScope == 'CARD' || _selectedScope == 'CARD_USD') {
-        final cardTxs = widget.cardTransactions ?? [
-          {
-            'merchant': 'OpenAI API Subscription',
-            'category': 'AI & SaaS Cloud',
-            'amount': 20.00,
-            'isCredit': false,
-            'status': 'SUCCESSFUL',
-            'date': DateTime.now().subtract(const Duration(days: 2)).toIso8601String(),
-          },
-          {
-            'merchant': 'Card Wallet Top-Up (NGN -> USD)',
-            'category': 'Bridgecard Inflow',
-            'amount': 100.00,
-            'isCredit': true,
-            'status': 'SUCCESSFUL',
-            'date': DateTime.now().subtract(const Duration(days: 5)).toIso8601String(),
-          },
-        ];
+        final cardTxs = widget.cardTransactions ?? [];
         await StatementPdfService.downloadOrPrintCardStatement(
           context,
           user: widget.user,
@@ -122,24 +105,7 @@ class _StatementExportModalState extends State<StatementExportModal> {
     setState(() => _isGenerating = true);
     try {
       if (_selectedScope == 'CARD' || _selectedScope == 'CARD_USD') {
-        final cardTxs = widget.cardTransactions ?? [
-          {
-            'merchant': 'OpenAI API Subscription',
-            'category': 'AI & SaaS Cloud',
-            'amount': 20.00,
-            'isCredit': false,
-            'status': 'SUCCESSFUL',
-            'date': DateTime.now().subtract(const Duration(days: 2)).toIso8601String(),
-          },
-          {
-            'merchant': 'Card Wallet Top-Up (NGN -> USD)',
-            'category': 'Bridgecard Inflow',
-            'amount': 100.00,
-            'isCredit': true,
-            'status': 'SUCCESSFUL',
-            'date': DateTime.now().subtract(const Duration(days: 5)).toIso8601String(),
-          },
-        ];
+        final cardTxs = widget.cardTransactions ?? [];
         await StatementPdfService.shareCardStatement(
           user: widget.user,
           cardTransactions: cardTxs,

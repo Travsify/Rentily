@@ -6,14 +6,36 @@ import '../constants/app_constants.dart';
 import '../services/auth_service.dart';
 
 class BeneficiaryService {
-  static const String _storagePrefix = 'rentilly_beneficiaries_';
+  static const String _storagePrefix = 'rentilly_beneficiaries_v2_';
 
   /// Returns normalized storage key for a user
   static String _getKey(String email) {
     return '$_storagePrefix${email.trim().toLowerCase()}';
   }
 
-  /// Get all saved beneficiaries for a user, automatically merged with past transaction recipients
+  /// Sanitizes a beneficiary object to ensure it is valid and verified
+  static bool _isValidBeneficiary(Map<String, dynamic> b) {
+    final type = (b['type'] ?? 'bank').toString();
+    if (type == 'crypto') {
+      final cryptoAddr = (b['cryptoAddress'] ?? '').toString().trim();
+      return cryptoAddr.length >= 20;
+    }
+
+    final acc = (b['accountNumber'] ?? '').toString().trim();
+    final bankName = (b['bankName'] ?? '').toString().trim();
+    final bankCode = (b['bankCode'] ?? '').toString().trim();
+
+    // Must have 10-digit Nigerian NUBAN account
+    if (acc.length != 10 || !RegExp(r'^\d{10}$').hasMatch(acc)) return false;
+
+    // Must have actual verified bank name and valid bank code
+    if (bankName.isEmpty || bankName.toLowerCase() == 'nigerian bank') return false;
+    if (bankCode.isEmpty || bankCode == 'undefined' || bankCode == 'null') return false;
+
+    return true;
+  }
+
+  /// Get all verified saved beneficiaries for a user
   static Future<List<Map<String, dynamic>>> getBeneficiaries({String? userEmail}) async {
     try {
       final email = userEmail?.trim().toLowerCase() ?? 
@@ -23,11 +45,17 @@ class BeneficiaryService {
 
       final prefs = await SharedPreferences.getInstance();
       final key = _getKey(email);
-      final rawJson = prefs.getString(key);
 
+      // Also clean up any legacy corrupted v1 storage
+      final legacyKey = 'rentilly_beneficiaries_$email';
+      if (prefs.containsKey(legacyKey)) {
+        await prefs.remove(legacyKey);
+      }
+
+      final rawJson = prefs.getString(key);
       Map<String, Map<String, dynamic>> deduped = {};
 
-      // 1. Ingest locally saved beneficiaries
+      // 1. Ingest locally saved beneficiaries (strictly validated)
       if (rawJson != null && rawJson.isNotEmpty) {
         try {
           final decoded = json.decode(rawJson);
@@ -35,10 +63,11 @@ class BeneficiaryService {
             for (final item in decoded) {
               if (item is Map) {
                 final m = Map<String, dynamic>.from(item);
-                final acc = (m['accountNumber'] ?? '').toString().trim();
-                final name = (m['accountName'] ?? '').toString().trim();
-                final dedupeKey = acc.length == 10 ? acc : name.toLowerCase();
-                if (dedupeKey.isNotEmpty) {
+                if (_isValidBeneficiary(m)) {
+                  final isCrypto = m['type'] == 'crypto';
+                  final dedupeKey = isCrypto 
+                      ? 'crypto_${(m['cryptoAddress'] ?? '').toString().toLowerCase()}'
+                      : '${m['accountNumber']}_${m['bankCode']}';
                   deduped[dedupeKey] = m;
                 }
               }
@@ -49,45 +78,22 @@ class BeneficiaryService {
         }
       }
 
-      // 2. Scan locally cached transactions
-      final cachedTxJson = prefs.getString('rentilly_cached_tx_$email');
-      if (cachedTxJson != null && cachedTxJson.isNotEmpty) {
-        try {
-          final decodedTx = json.decode(cachedTxJson);
-          if (decodedTx is List) {
-            for (final tx in decodedTx) {
-              if (tx is Map) {
-                final extracted = _extractFromTx(Map<String, dynamic>.from(tx));
-                if (extracted != null) {
-                  final acc = (extracted['accountNumber'] ?? '').toString().trim();
-                  final name = (extracted['accountName'] ?? '').toString().trim();
-                  final dedupeKey = acc.length == 10 ? acc : name.toLowerCase();
-                  if (dedupeKey.isNotEmpty && !deduped.containsKey(dedupeKey)) {
-                    deduped[dedupeKey] = extracted;
-                  }
-                }
-              }
-            }
-          }
-        } catch (e) {
-          debugPrint('[BeneficiaryService] Error scanning local cached tx: $e');
-        }
-      }
-
-      // 3. Network Fetch: Try dedicated server beneficiaries endpoint first
+      // 2. Fetch authoritative beneficiaries from Server
       try {
         final benUrl = Uri.parse('${AppConstants.apiBaseUrl}/payments/beneficiaries?email=${Uri.encodeComponent(email)}');
-        final benRes = await http.get(benUrl).timeout(const Duration(seconds: 4));
+        final benRes = await http.get(benUrl).timeout(const Duration(seconds: 5));
         if (benRes.statusCode == 200) {
           final benJson = json.decode(benRes.body);
           if (benJson['status'] == true && benJson['data'] is List) {
             for (final item in benJson['data']) {
               if (item is Map) {
                 final m = Map<String, dynamic>.from(item);
-                final acc = (m['accountNumber'] ?? '').toString().trim();
-                final name = (m['accountName'] ?? '').toString().trim();
-                final dedupeKey = acc.length == 10 ? acc : name.toLowerCase();
-                if (dedupeKey.isNotEmpty) {
+                if (_isValidBeneficiary(m)) {
+                  final isCrypto = m['type'] == 'crypto';
+                  final dedupeKey = isCrypto 
+                      ? 'crypto_${(m['cryptoAddress'] ?? '').toString().toLowerCase()}'
+                      : '${m['accountNumber']}_${m['bankCode']}';
+                  
                   if (deduped.containsKey(dedupeKey)) {
                     final existing = deduped[dedupeKey]!;
                     deduped[dedupeKey] = {
@@ -108,36 +114,6 @@ class BeneficiaryService {
         debugPrint('[BeneficiaryService] Remote beneficiaries sync warning: $e');
       }
 
-      // 4. Fallback Network Fetch: If still empty, fetch live transactions
-      if (deduped.isEmpty) {
-        try {
-          final txUrl = Uri.parse('${AppConstants.apiBaseUrl}/payments/transactions?email=${Uri.encodeComponent(email)}');
-          final txRes = await http.get(txUrl).timeout(const Duration(seconds: 4));
-          if (txRes.statusCode == 200) {
-            final txJson = json.decode(txRes.body);
-            if (txJson['status'] == true && txJson['data'] is List) {
-              final txList = List<Map<String, dynamic>>.from(txJson['data']);
-              // Update local cache
-              await prefs.setString('rentilly_cached_tx_$email', json.encode(txList));
-
-              for (final tx in txList) {
-                final extracted = _extractFromTx(tx);
-                if (extracted != null) {
-                  final acc = (extracted['accountNumber'] ?? '').toString().trim();
-                  final name = (extracted['accountName'] ?? '').toString().trim();
-                  final dedupeKey = acc.length == 10 ? acc : name.toLowerCase();
-                  if (dedupeKey.isNotEmpty && !deduped.containsKey(dedupeKey)) {
-                    deduped[dedupeKey] = extracted;
-                  }
-                }
-              }
-            }
-          }
-        } catch (e) {
-          debugPrint('[BeneficiaryService] Remote transactions sync warning: $e');
-        }
-      }
-
       final result = deduped.values.toList();
 
       // Sort by lastUsed descending
@@ -147,10 +123,8 @@ class BeneficiaryService {
         return dateB.compareTo(dateA);
       });
 
-      // Persist merged beneficiaries locally for fast offline access
-      if (result.isNotEmpty) {
-        await prefs.setString(key, json.encode(result.take(50).toList()));
-      }
+      // Persist clean beneficiaries locally
+      await prefs.setString(key, json.encode(result.take(50).toList()));
 
       return result;
     } catch (e) {
@@ -159,72 +133,7 @@ class BeneficiaryService {
     }
   }
 
-  /// Extracts structured beneficiary info from any transaction record
-  static Map<String, dynamic>? _extractFromTx(Map<String, dynamic> tx) {
-    final title = (tx['title'] ?? '').toString();
-    final narration = (tx['narration'] ?? '').toString();
-    final description = (tx['description'] ?? '').toString();
-    final subtitle = (tx['subtitle'] ?? '').toString();
-    final fullText = '$title $narration $description $subtitle';
-
-    final isWithdrawal = tx['category'] == 'withdrawal' ||
-        tx['type'] == 'debit' ||
-        tx['type'] == 'Instant Direct Bank Payout' ||
-        title.toLowerCase().contains('payout') ||
-        title.toLowerCase().contains('withdrawal') ||
-        subtitle.toLowerCase().contains('to:') ||
-        narration.toLowerCase().contains('payout');
-
-    if (!isWithdrawal) return null;
-
-    String name = (tx['beneficiary'] ?? tx['accountName'] ?? tx['recipient'] ?? '').toString().trim();
-    String account = (tx['accountNumber'] ?? tx['recipientAccount'] ?? tx['account_number'] ?? '').toString().trim();
-    String bank = (tx['bankName'] ?? tx['recipientBank'] ?? tx['bank_name'] ?? '').toString().trim();
-
-    // Regex 1: "Payout to NAME (ACCOUNT)"
-    final m1 = RegExp(r'Payout to\s+([A-Za-z\s]+?)\s*\((\d{10})\)', caseSensitive: false).firstMatch(fullText);
-    if (m1 != null) {
-      if (name.isEmpty) name = m1.group(1)?.trim() ?? '';
-      if (account.isEmpty) account = m1.group(2)?.trim() ?? '';
-    }
-
-    // Regex 2: "Payout to NAME • Incl" or "Bank Transfer Payout to NAME"
-    if (name.isEmpty) {
-      final m2 = RegExp(r'Payout to\s+([A-Za-z\s]+?)(?:[•\(\-\[]|$)', caseSensitive: false).firstMatch(fullText);
-      if (m2 != null) name = m2.group(1)?.trim() ?? '';
-    }
-
-    // Regex 3: Any 10-digit number
-    if (account.isEmpty || account.length != 10) {
-      final mAcc = RegExp(r'\b(\d{10})\b').firstMatch(fullText);
-      if (mAcc != null) account = mAcc.group(1) ?? '';
-    }
-
-    if (name.length < 2) return null;
-
-    // Clean up name
-    name = name.replaceAll(RegExp(r'\s+'), ' ').trim();
-    name = name.replaceAll(RegExp(r'•.*$'), '').trim();
-
-    if (bank.isEmpty || bank.toLowerCase() == 'direct bank transfer') {
-      bank = _guessBankNameFromText(account, fullText);
-    }
-
-    final bankCode = tx['bankCode']?.toString() ?? _guessBankCode(bank);
-    final lastUsed = tx['date'] ?? tx['createdAt'] ?? tx['created_at'] ?? DateTime.now().toIso8601String();
-
-    return {
-      'accountName': name,
-      'accountNumber': account.isNotEmpty ? account : '0000000000',
-      'bankName': bank,
-      'bankCode': bankCode,
-      'type': 'bank',
-      'lastUsed': lastUsed.toString(),
-      'useCount': 1,
-    };
-  }
-
-  /// Saves or updates a beneficiary locally and to server
+  /// Saves or updates a verified beneficiary locally and to server
   static Future<bool> saveBeneficiary({
     required String userEmail,
     required String accountName,
@@ -238,18 +147,29 @@ class BeneficiaryService {
       final cleanEmail = userEmail.trim().toLowerCase();
       if (cleanEmail.isEmpty) return false;
 
+      final cleanAcc = accountNumber.trim();
+      final cleanBankName = bankName.trim();
+      final cleanBankCode = bankCode.trim();
+      final cleanCrypto = cryptoAddress?.trim() ?? '';
+      final isCrypto = type == 'crypto';
+
+      // Strict validation: never save unverified, guessed, or fallback banks
+      if (!isCrypto) {
+        if (cleanAcc.length != 10 || !RegExp(r'^\d{10}$').hasMatch(cleanAcc)) return false;
+        if (cleanBankName.isEmpty || cleanBankName.toLowerCase() == 'nigerian bank') return false;
+        if (cleanBankCode.isEmpty || cleanBankCode == 'undefined' || cleanBankCode == 'null') return false;
+      } else {
+        if (cleanCrypto.length < 20) return false;
+      }
+
       final prefs = await SharedPreferences.getInstance();
       final key = _getKey(cleanEmail);
       final list = await getBeneficiaries(userEmail: cleanEmail);
 
-      final cleanAcc = accountNumber.trim();
-      final cleanBankCode = bankCode.trim();
-      final cleanCrypto = cryptoAddress?.trim() ?? '';
-
       int existingIdx = -1;
-      if (type == 'crypto') {
+      if (isCrypto) {
         existingIdx = list.indexWhere((b) => 
-            b['type'] == 'crypto' && b['cryptoAddress'] == cleanCrypto);
+            b['type'] == 'crypto' && (b['cryptoAddress'] ?? '').toString().toLowerCase() == cleanCrypto.toLowerCase());
       } else {
         existingIdx = list.indexWhere((b) => 
             b['accountNumber'] == cleanAcc && b['bankCode'] == cleanBankCode);
@@ -257,36 +177,27 @@ class BeneficiaryService {
 
       final nowIso = DateTime.now().toIso8601String();
 
+      final updatedEntry = {
+        'accountName': accountName.trim(),
+        'accountNumber': cleanAcc,
+        'bankName': cleanBankName,
+        'bankCode': cleanBankCode,
+        'type': isCrypto ? 'crypto' : 'bank',
+        'lastUsed': nowIso,
+        'useCount': existingIdx >= 0 ? ((list[existingIdx]['useCount'] as num?)?.toInt() ?? 1) + 1 : 1,
+        if (isCrypto) 'cryptoAddress': cleanCrypto,
+      };
+
       if (existingIdx >= 0) {
-        final current = list[existingIdx];
-        final currentCount = (current['useCount'] as num?)?.toInt() ?? 1;
-        list[existingIdx] = {
-          ...current,
-          'accountName': accountName.trim(),
-          'bankName': bankName.trim(),
-          'bankCode': cleanBankCode,
-          'lastUsed': nowIso,
-          'useCount': currentCount + 1,
-          if (cryptoAddress != null) 'cryptoAddress': cleanCrypto,
-        };
+        list[existingIdx] = updatedEntry;
       } else {
-        list.insert(0, {
-          'accountName': accountName.trim(),
-          'accountNumber': cleanAcc,
-          'bankName': bankName.trim(),
-          'bankCode': cleanBankCode,
-          'type': type,
-          'lastUsed': nowIso,
-          'useCount': 1,
-          if (cryptoAddress != null) 'cryptoAddress': cleanCrypto,
-        });
+        list.insert(0, updatedEntry);
       }
 
-      // Limit to 50 saved beneficiaries
       final trimmed = list.take(50).toList();
       await prefs.setString(key, json.encode(trimmed));
 
-      // Push to server in background
+      // Push to server
       try {
         final url = Uri.parse('${AppConstants.apiBaseUrl}/payments/beneficiaries');
         http.post(
@@ -296,12 +207,12 @@ class BeneficiaryService {
             'email': cleanEmail,
             'accountName': accountName.trim(),
             'accountNumber': cleanAcc,
-            'bankName': bankName.trim(),
+            'bankName': cleanBankName,
             'bankCode': cleanBankCode,
-            'type': type,
-            if (cryptoAddress != null) 'cryptoAddress': cleanCrypto,
+            'type': isCrypto ? 'crypto' : 'bank',
+            if (isCrypto) 'cryptoAddress': cleanCrypto,
           }),
-        ).timeout(const Duration(seconds: 4));
+        ).timeout(const Duration(seconds: 5));
       } catch (_) {}
 
       return true;
@@ -311,11 +222,12 @@ class BeneficiaryService {
     }
   }
 
-  /// Deletes a saved beneficiary
+  /// Deletes a saved beneficiary locally and on the server
   static Future<bool> deleteBeneficiary({
     required String userEmail,
     required String accountNumber,
     required String bankCode,
+    String? cryptoAddress,
   }) async {
     try {
       final cleanEmail = userEmail.trim().toLowerCase();
@@ -323,11 +235,32 @@ class BeneficiaryService {
       final key = _getKey(cleanEmail);
       final list = await getBeneficiaries(userEmail: cleanEmail);
 
-      list.removeWhere((b) => 
-          b['accountNumber'] == accountNumber.trim() && 
-          b['bankCode'] == bankCode.trim());
+      final cleanAcc = accountNumber.trim();
+      final cleanBankCode = bankCode.trim();
+      final cleanCrypto = cryptoAddress?.trim().toLowerCase() ?? '';
+
+      list.removeWhere((b) {
+        if (b['type'] == 'crypto' && cleanCrypto.isNotEmpty) {
+          return (b['cryptoAddress'] ?? '').toString().toLowerCase() == cleanCrypto;
+        }
+        return b['accountNumber'] == cleanAcc && b['bankCode'] == cleanBankCode;
+      });
 
       await prefs.setString(key, json.encode(list));
+
+      // Call server DELETE
+      try {
+        final uri = Uri.parse('${AppConstants.apiBaseUrl}/payments/beneficiaries').replace(queryParameters: {
+          'email': cleanEmail,
+          'accountNumber': cleanAcc,
+          'bankCode': cleanBankCode,
+          if (cleanCrypto.isNotEmpty) 'cryptoAddress': cleanCrypto,
+        });
+        await http.delete(uri).timeout(const Duration(seconds: 5));
+      } catch (e) {
+        debugPrint('[BeneficiaryService] Remote delete warning: $e');
+      }
+
       return true;
     } catch (e) {
       debugPrint('[BeneficiaryService] deleteBeneficiary error: $e');
@@ -346,53 +279,5 @@ class BeneficiaryService {
       final crypto = (b['cryptoAddress'] ?? '').toString().toLowerCase();
       return name.contains(q) || bank.contains(q) || acc.contains(q) || crypto.contains(q);
     }).toList();
-  }
-
-  /// Guesses bank name from context and account structure
-  static String _guessBankNameFromText(String account, String text) {
-    final t = text.toLowerCase();
-    if (t.contains('opay')) return 'OPay Digital Services (OPay)';
-    if (t.contains('palmpay')) return 'PalmPay';
-    if (t.contains('kuda')) return 'Kuda Microfinance Bank';
-    if (t.contains('moniepoint')) return 'Moniepoint Microfinance Bank';
-    if (t.contains('gtb') || t.contains('guaranty')) return 'Guaranty Trust Bank (GTBank)';
-    if (t.contains('zenith')) return 'Zenith Bank';
-    if (t.contains('access')) return 'Access Bank';
-    if (t.contains('first bank')) return 'First Bank of Nigeria';
-    if (t.contains('uba') || t.contains('united bank')) return 'United Bank for Africa (UBA)';
-    if (t.contains('wema')) return 'Wema Bank';
-    if (t.contains('providus')) return 'Providus Bank';
-    if (t.contains('fidelity')) return 'Fidelity Bank';
-    if (t.contains('stanbic')) return 'Stanbic IBTC Bank';
-    if (t.contains('sterling')) return 'Sterling Bank';
-    if (RegExp(r'^[789]\d{9}$').hasMatch(account)) return 'OPay Digital Services (OPay)';
-    return 'Nigerian Bank';
-  }
-
-  /// Helper to guess bank code from standard Nigerian bank names
-  static String _guessBankCode(String bankName) {
-    final bn = bankName.toLowerCase();
-    if (bn.contains('guaranty') || bn.contains('gtb')) return '058';
-    if (bn.contains('zenith')) return '057';
-    if (bn.contains('access')) return '044';
-    if (bn.contains('first bank')) return '011';
-    if (bn.contains('uba') || bn.contains('united bank')) return '033';
-    if (bn.contains('kuda')) return '50211';
-    if (bn.contains('opay')) return '999992';
-    if (bn.contains('palmpay')) return '999991';
-    if (bn.contains('wema')) return '035';
-    if (bn.contains('providus')) return '101';
-    if (bn.contains('fidelity')) return '070';
-    if (bn.contains('stanbic')) return '221';
-    if (bn.contains('moniepoint')) return '50515';
-    if (bn.contains('sterling')) return '232';
-    if (bn.contains('union')) return '032';
-    if (bn.contains('ecobank')) return '050';
-    if (bn.contains('fcmb')) return '214';
-    if (bn.contains('polaris')) return '076';
-    if (bn.contains('vfd')) return '566';
-    if (bn.contains('jaiz')) return '301';
-    if (bn.contains('taj')) return '302';
-    return '058'; // Default
   }
 }

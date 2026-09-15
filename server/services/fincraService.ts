@@ -1,7 +1,13 @@
 import crypto from 'crypto';
 import dotenv from 'dotenv';
 
+import dns from 'dns';
+
 dotenv.config();
+
+try {
+  dns.setDefaultResultOrder('ipv4first');
+} catch (_) {}
 
 export interface FincraCheckoutCustomer {
   name: string;
@@ -40,7 +46,9 @@ export class FincraService {
       'api-key': this.SECRET_KEY,
       'x-pub-key': this.PUBLIC_KEY,
       'x-business-id': this.BUSINESS_ID,
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      'Connection': 'close',
+      'User-Agent': 'Rentilly-Core/1.0'
     };
   }
 
@@ -438,17 +446,22 @@ export class FincraService {
   }> {
     try {
       const page = params?.page || 1;
-      const perPage = params?.perPage || 50;
+      const perPage = params?.perPage || 15;
       const url = `${this.BASE_URL}/collections?business=${this.BUSINESS_ID}&page=${page}&perPage=${perPage}`;
 
       const res = await fetch(url, {
         method: 'GET',
-        headers: this.getHeaders()
+        headers: this.getHeaders(),
+        signal: AbortSignal.timeout(8000)
       });
 
-      const resJson: any = await res.json().catch(() => null);
+      const rawText = await res.text().catch(() => '');
+      let resJson: any = null;
+      try {
+        resJson = JSON.parse(rawText);
+      } catch (_) {}
 
-      if (res.ok && resJson && (resJson.status === true || resJson.success === true || Array.isArray(resJson.data?.results) || Array.isArray(resJson.data))) {
+      if (res.ok && resJson && (resJson.status === 'success' || resJson.status === true || resJson.success === true || Array.isArray(resJson.data?.results) || Array.isArray(resJson.data))) {
         const results = Array.isArray(resJson.data?.results)
           ? resJson.data.results
           : (Array.isArray(resJson.data) ? resJson.data : []);
@@ -474,6 +487,98 @@ export class FincraService {
   }
 
   /**
+   * Fetch a single Collection by reference directly from Fincra
+   * Fast, reliable O(1) query that circumvents pagination limits
+   */
+  static async getCollectionByReference(reference: string): Promise<{
+    status: boolean;
+    data?: any;
+    message?: string;
+  }> {
+    try {
+      if (!reference) return { status: false, message: 'Reference is required' };
+      const url = `${this.BASE_URL}/collections?business=${this.BUSINESS_ID}&reference=${encodeURIComponent(reference)}`;
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: this.getHeaders(),
+        signal: AbortSignal.timeout(8000)
+      });
+      const rawText = await res.text().catch(() => '');
+      let resJson: any = null;
+      try {
+        resJson = JSON.parse(rawText);
+      } catch (_) {}
+
+      if (res.ok && resJson && (resJson.status === 'success' || resJson.status === true || resJson.success === true)) {
+        const results = resJson.data?.results || (Array.isArray(resJson.data) ? resJson.data : []);
+        if (results.length > 0) {
+          return {
+            status: true,
+            data: results[0],
+            message: 'Collection found'
+          };
+        }
+      }
+      return {
+        status: false,
+        message: resJson?.error || resJson?.message || 'Collection not found'
+      };
+    } catch (err: any) {
+      return {
+        status: false,
+        message: err.message || 'Error connecting to Fincra Collections API'
+      };
+    }
+  }
+
+  /**
+   * List Disbursements / Payouts from Fincra
+   * Enables background reconciliation of failed payouts & automated reversals
+   */
+  static async listPayouts(params?: { page?: number; perPage?: number }): Promise<{
+    status: boolean;
+    data?: any[];
+    total?: number;
+    message?: string;
+  }> {
+    try {
+      const page = params?.page || 1;
+      const perPage = params?.perPage || 30;
+      const url = `${this.BASE_URL}/disbursements/payouts?business=${this.BUSINESS_ID}&page=${page}&perPage=${perPage}`;
+
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: this.getHeaders()
+      });
+
+      const resJson: any = await res.json().catch(() => null);
+
+      if (res.ok && resJson && (resJson.status === true || resJson.success === true || Array.isArray(resJson.data?.results) || Array.isArray(resJson.data))) {
+        const results = Array.isArray(resJson.data?.results)
+          ? resJson.data.results
+          : (Array.isArray(resJson.data) ? resJson.data : []);
+        const total = resJson.data?.total || results.length;
+        return {
+          status: true,
+          data: results,
+          total,
+          message: 'Payouts fetched successfully'
+        };
+      }
+
+      return {
+        status: false,
+        message: resJson?.error || resJson?.message || 'Failed to fetch payouts from Fincra'
+      };
+    } catch (err: any) {
+      return {
+        status: false,
+        message: err.message || 'Error connecting to Fincra Payouts API'
+      };
+    }
+  }
+
+  /**
    * Fetch All Merchant Virtual Accounts from Fincra
    */
   static async getMerchantVirtualAccounts(currency: string = 'NGN'): Promise<{
@@ -483,16 +588,18 @@ export class FincraService {
     message?: string;
   }> {
     try {
-      const res = await fetch(`${this.BASE_URL}/profile/virtual-accounts?currency=${encodeURIComponent(currency)}`, {
+      const res = await fetch(`${this.BASE_URL}/profile/virtual-accounts/requests?businessID=${this.BUSINESS_ID}`, {
         method: 'GET',
-        headers: this.getHeaders()
+        headers: this.getHeaders(),
+        signal: AbortSignal.timeout(15000)
       });
       const resJson: any = await res.json().catch(() => null);
       if (res.ok && resJson && (resJson.status === true || resJson.success === true)) {
+        const results = resJson.data?.results || (Array.isArray(resJson.data) ? resJson.data : []);
         return {
           status: true,
-          data: resJson.data?.results || [],
-          total: resJson.data?.total || 0,
+          data: results,
+          total: resJson.data?.total || results.length,
           message: 'Virtual accounts fetched successfully'
         };
       }
@@ -509,13 +616,48 @@ export class FincraService {
   }
 
   /**
-   * Create / Request Virtual Account on Fincra
+   * Fetch a single Virtual Account by ID from Fincra
+   */
+  static async getVirtualAccount(virtualAccountId: string): Promise<{
+    status: boolean;
+    data?: any;
+    message?: string;
+  }> {
+    try {
+      if (!virtualAccountId) return { status: false, message: 'virtualAccountId is required' };
+      const res = await fetch(`${this.BASE_URL}/profile/virtual-accounts/${virtualAccountId}`, {
+        method: 'GET',
+        headers: this.getHeaders(),
+        signal: AbortSignal.timeout(8000)
+      });
+      const resJson: any = await res.json().catch(() => null);
+      if (res.ok && resJson && (resJson.status === true || resJson.success === true || resJson.data)) {
+        return {
+          status: true,
+          data: resJson.data,
+          message: 'Virtual account fetched successfully'
+        };
+      }
+      return {
+        status: false,
+        message: resJson?.error || resJson?.message || 'Failed to fetch virtual account'
+      };
+    } catch (err: any) {
+      return {
+        status: false,
+        message: err.message || 'Error connecting to Fincra Virtual Accounts API'
+      };
+    }
+  }
+
+  /**
    * Primary provider: Wema Bank (035), with zero PSB limits and instant corporate limits
    */
   static async createVirtualAccount(params: {
     currency?: string;
     accountType?: 'individual' | 'corporate';
     channel?: string; // 'wema' | 'globus' | 'sterling'
+    metadata?: Record<string, any>;
     KYCInformation: {
       firstName?: string;
       lastName?: string;
@@ -537,6 +679,12 @@ export class FincraService {
         KYCInformation: {
           email: params.KYCInformation.email,
           bvn: params.KYCInformation.bvn
+        },
+        metadata: {
+          platform: 'RENTILLY',
+          app: 'rentilly',
+          tenant: 'rentilly',
+          ...(params.metadata || {})
         }
       };
 

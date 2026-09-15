@@ -140,9 +140,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> with Widget
     }
 
     if (_activeViewMode == 'landlord') {
-      return LandlordDashboardScreen(
-        onSwitchToTenant: () => setViewMode('consumer'),
-      );
+      return const LandlordDashboardScreen();
     }
 
     return Scaffold(

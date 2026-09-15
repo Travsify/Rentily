@@ -292,7 +292,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                 Text('Personal TRC20 Wallet Pending', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                 const SizedBox(height: 8),
                 Text(
-                  'Your dedicated TRON (TRC20) deposit address is automatically generated once your Rentilly 9PSB Tier 1 account verification is completed.',
+                  'Your dedicated TRON (TRC20) deposit address is automatically generated once your Rentilly Fincra Tier 1 account verification is completed.',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary),
                 ),
@@ -498,7 +498,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
     final double operationalBalance = _user?.walletBalance ?? 0.00;
     final escrowCommission = _escrowCommission;
     final accountNumber = _user?.accountNumber ?? 'Pending KYC';
-    final bankName = _user?.bankName ?? '9PSB (Rentilly)';
+    final bankName = _user?.bankName ?? 'Wema Bank (Fincra)';
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
@@ -898,7 +898,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                                               const Icon(Icons.info_outline_rounded, size: 13, color: AppColors.accentOrange),
                                               const SizedBox(width: 5),
                                               Text(
-                                                'Pending 9PSB • Tap to complete KYB ⚡',
+                                                'Pending Fincra • Tap to complete KYB ⚡',
                                                 style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.accentOrange),
                                               ),
                                             ],
@@ -1281,7 +1281,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                                             const Icon(Icons.info_outline_rounded, size: 13, color: AppColors.accentOrange),
                                             const SizedBox(width: 5),
                                             Text(
-                                              'Pending 9PSB • Tap to complete KYB ⚡',
+                                              'Pending Fincra • Tap to complete KYB ⚡',
                                               style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.accentOrange),
                                             ),
                                           ],
@@ -1768,8 +1768,9 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                               builder: (context) {
                                 final txCurr = (tx['currency'] ?? '').toString().toUpperCase();
                                 final titleUpper = title.toString().toUpperCase();
-                                final isUsdtTx = txCurr == 'USDT' || titleUpper.contains('USDT') || titleUpper.contains('TRC20') || titleUpper.contains('TRON');
-                                final isUsdTx = txCurr == 'USD' || titleUpper.contains('DOLLAR CARD') || titleUpper.contains('USD CARD') || titleUpper.contains('VIRTUAL USD');
+                                final isNairaDest = titleUpper.contains('-> ₦') || titleUpper.contains('₦') || titleUpper.contains('TO NAIRA') || txCurr == 'NGN';
+                                final isUsdtTx = !isNairaDest && (txCurr == 'USDT' || titleUpper.contains('USDT') || titleUpper.contains('TRC20') || titleUpper.contains('TRON'));
+                                final isUsdTx = !isNairaDest && (txCurr == 'USD' || titleUpper.contains('DOLLAR CARD') || titleUpper.contains('USD CARD') || titleUpper.contains('VIRTUAL USD'));
                                 final currSymbol = isUsdtTx ? '\$' : (isUsdTx ? '\$' : '₦');
                                 final currSuffix = isUsdtTx ? ' USDT' : (isUsdTx ? ' USD' : '');
 

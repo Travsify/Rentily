@@ -222,7 +222,8 @@ export type AdminTab =
   | 'integrations'
   | 'feature_flags'
   | 'supabase_config'
-  | 'flutter_api';
+  | 'flutter_api'
+  | 'admin_profile';
 
 export interface LegalDispatch {
   id: string;

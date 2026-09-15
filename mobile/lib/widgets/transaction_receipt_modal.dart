@@ -107,11 +107,6 @@ class _TransactionReceiptModalState extends State<TransactionReceiptModal> {
   @override
   Widget build(BuildContext context) {
     final tx = widget.transaction;
-    final isCardTx = widget.currency.toUpperCase() == 'USD' ||
-        widget.currency.toUpperCase() == 'CARD_USD' ||
-        tx['cardId'] != null ||
-        tx['merchantName'] != null;
-
     final rawAmount = (tx['amount'] as num?)?.toDouble() ?? 0.0;
     final isCredit = tx['isCredit'] == true ||
         (tx['type'] ?? '').toString().toLowerCase() == 'credit' ||
@@ -121,6 +116,13 @@ class _TransactionReceiptModalState extends State<TransactionReceiptModal> {
         (tx['type'] ?? '').toString().toLowerCase().contains('top');
 
     final rawTitle = (tx['title'] ?? tx['narration'] ?? tx['merchantName'] ?? tx['description'] ?? tx['type'] ?? (isCredit ? 'Escrow Inflow' : 'Wallet Withdrawal')).toString();
+    final isNairaDest = rawTitle.contains('-> ₦') || rawTitle.contains('₦') || rawTitle.toLowerCase().contains('to naira') || (tx['currency']?.toString().toUpperCase() == 'NGN');
+    final isCardTx = !isNairaDest && (widget.currency.toUpperCase() == 'USD' ||
+        widget.currency.toUpperCase() == 'CARD_USD' ||
+        tx['cardId'] != null ||
+        tx['merchantName'] != null);
+    final effectiveCurrency = isNairaDest ? 'NGN' : widget.currency;
+
     final merchantName = (tx['merchantName'] ?? tx['merchant']?['name'] ?? tx['description'] ?? rawTitle).toString();
 
     // Extract any transaction fee so that shared receipts strictly contain the sent amount
@@ -149,7 +151,7 @@ class _TransactionReceiptModalState extends State<TransactionReceiptModal> {
             ? DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.tryParse(tx['createdAt'].toString()) ?? DateTime.now())
             : DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.now()));
     final status = (tx['status'] ?? 'SUCCESSFUL').toString().toUpperCase();
-    final sym = _getCurrencySymbol(widget.currency);
+    final sym = _getCurrencySymbol(effectiveCurrency);
 
     return Container(
       decoration: const BoxDecoration(

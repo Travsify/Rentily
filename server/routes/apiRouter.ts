@@ -106,6 +106,15 @@ apiRouter.get('/debug/store', (_req, res) => {
 apiRouter.post('/auth/register', authController.register);
 apiRouter.post('/auth/login', authController.login);
 apiRouter.post('/auth/login-otp', authController.loginWithOtp);
+apiRouter.post('/auth/admin/request-otp', authController.requestAdminOtp);
+apiRouter.post('/auth/admin/verify-2fa', authController.verifyAdmin2fa);
+apiRouter.post('/auth/admin/mfa/status', authController.getAdminMfaStatus);
+apiRouter.post('/auth/admin/mfa/setup', authController.setupAdminTotp);
+apiRouter.post('/auth/admin/mfa/verify-totp', authController.verifyAdminTotp);
+apiRouter.post('/auth/admin/mfa/test-sync', authController.testAdminTotpSync);
+apiRouter.post('/auth/admin/profile', authController.getAdminProfile);
+apiRouter.post('/auth/admin/change-password', authController.changeAdminPassword);
+apiRouter.post('/auth/admin/change-harsh-key', authController.changeAdminHarshKey);
 apiRouter.get('/auth/me', authController.getMe);
 apiRouter.get('/users', authController.listUsers);
 apiRouter.post('/auth/send-otp', otpController.sendOtp);
@@ -155,6 +164,10 @@ apiRouter.post('/payments/validate-meter', paymentController.validateDiscoMeter)
 apiRouter.post('/bills/electricity/validate', paymentController.validateDiscoMeter);
 apiRouter.get('/bills/electricity/discos', paymentController.getSupportedDiscos);
 apiRouter.post('/bills/purchase-electricity', paymentController.purchaseElectricityToken);
+apiRouter.post('/bills/cable/validate', paymentController.validateCableSmartcard);
+apiRouter.get('/bills/beneficiaries', paymentController.getUtilityBeneficiaries);
+apiRouter.post('/bills/beneficiaries', paymentController.saveUtilityBeneficiary);
+apiRouter.delete('/bills/beneficiaries/:id', paymentController.deleteUtilityBeneficiary);
 apiRouter.post('/payments/pay-bill', paymentController.payBill);
 apiRouter.get('/payments/transactions', paymentController.getUserTransactions);
 apiRouter.post('/webhooks/flutterwave', paymentController.flutterwaveWebhook);
@@ -162,6 +175,9 @@ apiRouter.post('/webhooks/maplerad', paymentController.mapleradWebhook);
 apiRouter.post('/webhooks/paystack', paymentController.paystackWebhook);
 apiRouter.post('/webhooks/korapay', paymentController.korapayWebhook);
 apiRouter.post('/webhooks/fincra', paymentController.fincraWebhook);
+apiRouter.post('/payments/fincra/webhook', paymentController.fincraWebhook);
+apiRouter.post('/payments/fincra-webhook', paymentController.fincraWebhook);
+apiRouter.post('/fincra/webhook', paymentController.fincraWebhook);
 apiRouter.get('/payments/vault-accounts', paymentController.getVaultAccounts);
 apiRouter.post('/payments/provision-commercial-account', paymentController.provisionCommercialAccount);
 apiRouter.post('/payments/fincra/initialize-escrow-deposit', paymentController.initializeHighValueDeposit);
@@ -178,8 +194,9 @@ apiRouter.get('/system/outbound-ip', async (req, res) => {
   }
 });
 
-// 8. Paystack / Maplerad Bank Settlements, Balance Sync & Instant Withdrawals
 apiRouter.get('/wallet/balance', paymentController.getWalletBalance);
+apiRouter.get('/wallet/sync-transfers', paymentController.syncInboundTransfersEndpoint);
+apiRouter.post('/wallet/sync-transfers', paymentController.syncInboundTransfersEndpoint);
 apiRouter.get('/wallet/crypto-address', paymentController.getUserCryptoAddress);
 apiRouter.get('/payments/paystack-banks', paymentController.getPaystackBanks);
 apiRouter.get('/payments/resolve-account', paymentController.resolvePaystackAccount);
@@ -189,6 +206,7 @@ apiRouter.get('/payments/crypto/resolve-recipient', paymentController.resolveCry
 apiRouter.post('/payments/crypto/transfer-platform', paymentController.transferPlatformCrypto);
 apiRouter.get('/payments/beneficiaries', paymentController.getUserBeneficiaries);
 apiRouter.post('/payments/beneficiaries', paymentController.saveUserBeneficiary);
+apiRouter.delete('/payments/beneficiaries', paymentController.deleteUserBeneficiary);
 apiRouter.post('/payments/reconcile', paymentController.adminReconcileBalance);
 apiRouter.post('/payments/register-and-credit', paymentController.adminRegisterAndCreditUser);
 apiRouter.get('/fx/spread-rates', paymentController.getFxSpreadRates);
@@ -275,8 +293,7 @@ apiRouter.get('/ledger/transactions', ledgerController.getMasterLedger);
 apiRouter.get('/ledger/stats', ledgerController.getLedgerStats);
 apiRouter.get('/bills/transactions', ledgerController.getUtilityTransactions);
 
-// 15. Chat Oversight & Anti-Circumvention
-apiRouter.get('/chat/oversight', chatOversightController.getChatOversight);
+// 15. Chat Oversight & Anti-Circumvention handled by directChatController at line 260
 
 // 16. Broadcast & Push Communications
 apiRouter.post('/broadcast/send', broadcastController.sendBroadcast);
@@ -368,4 +385,14 @@ apiRouter.get('/admin/fincra/virtual-accounts', fincraAdminController.getFincraV
 apiRouter.post('/admin/fincra/virtual-accounts/create', fincraAdminController.createAdminVirtualAccount);
 apiRouter.get('/admin/fincra/payouts', fincraAdminController.getFincraPayouts);
 apiRouter.post('/admin/fincra/payouts/disburse', fincraAdminController.disburseAdminPayout);
+apiRouter.post('/admin/fincra/payouts/refund', fincraAdminController.refundFincraPayout);
+apiRouter.get('/admin/fincra/collections', fincraAdminController.getFincraCollections);
+apiRouter.post('/admin/fincra/collections/reconcile', fincraAdminController.reconcileFincraCollection);
+apiRouter.post('/admin/fincra/quotes/generate', fincraAdminController.generateFincraQuote);
+apiRouter.post('/admin/fincra/conversions', fincraAdminController.executeFincraConversion);
+apiRouter.get('/admin/fincra/beneficiaries', fincraAdminController.getFincraBeneficiaries);
+apiRouter.post('/admin/fincra/beneficiaries', fincraAdminController.createFincraBeneficiary);
+apiRouter.get('/admin/fincra/resolve-account', fincraAdminController.resolveFincraAccount);
+apiRouter.post('/admin/fincra/resolve-account', fincraAdminController.resolveFincraAccount);
+apiRouter.get('/admin/fincra/banks', fincraAdminController.getFincraBanks);
 

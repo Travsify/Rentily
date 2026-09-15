@@ -496,7 +496,8 @@ class _VerificationModalState extends State<VerificationModal> {
         ? user.officeAddress!
         : '${user.state ?? "Lagos"}, Nigeria';
     final state = user.state ?? 'Lagos';
-    final bank = (user.bankName != null && user.bankName!.isNotEmpty) ? user.bankName! : '9PSB (Rentilly)';
+    final rawBank = (user.bankName != null && user.bankName!.isNotEmpty) ? user.bankName! : 'Wema Bank';
+    final bank = rawBank.replaceAll(RegExp(r'\s*\([Ff]incra\)', caseSensitive: false), '').replaceAll(RegExp(r'Fincra\s*', caseSensitive: false), '').trim();
     final acc = (user.accountNumber != null && user.accountNumber!.isNotEmpty && user.accountNumber != 'null') ? user.accountNumber! : '';
     // True account pending = verified but no real account yet provisioned
     final bool accountPending = acc.isEmpty || acc.startsWith('78');
@@ -558,7 +559,7 @@ class _VerificationModalState extends State<VerificationModal> {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Please re-verify your details or start the KYB/KYC process again to activate your live 9PSB settlement account and Dollar Card.',
+                  'Please re-verify your details or start the KYB/KYC process again to activate your dedicated settlement account and Dollar Card.',
                   style: GoogleFonts.plusJakartaSans(fontSize: 11, color: const Color(0xFFB45309), height: 1.3),
                 ),
                 const SizedBox(height: 14),
@@ -742,7 +743,7 @@ class _VerificationModalState extends State<VerificationModal> {
               ),
               _buildAuditItem(
                 'DEDICATED COMMISSIONS ACCOUNT',
-                acc.isNotEmpty ? '$acc ($bank)' : 'Provisioning your 9PSB account...',
+                acc.isNotEmpty ? '$acc ($bank)' : 'Provisioning your Fincra account...',
                 Icons.account_balance_rounded,
               ),
               // Only show Confirm DOB button when verified but account not yet provisioned
@@ -864,7 +865,7 @@ class _VerificationModalState extends State<VerificationModal> {
       if (res.statusCode == 200 && data['status'] == true && data['accountNumber'] != null) {
         final updatedUser = user.copyWith(
           accountNumber: data['accountNumber'],
-          bankName: data['bankName'] ?? '9PSB (Rentilly)',
+          bankName: data['bankName'] ?? 'Wema Bank (Fincra)',
           dob: formattedDob,
           rekycRequired: false,
         );
@@ -878,7 +879,7 @@ class _VerificationModalState extends State<VerificationModal> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'Dedicated Rentilly Account Active: ${data['accountNumber']} (${data['bankName'] ?? '9PSB'}) 🎉',
+                'Dedicated Rentilly Account Active: ${data['accountNumber']} (${data['bankName'] ?? 'Wema Bank (Fincra)'}) 🎉',
                 style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold),
               ),
               backgroundColor: const Color(0xFF16A34A),

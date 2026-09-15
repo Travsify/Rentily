@@ -10,6 +10,7 @@ class ApiService {
   static const String baseUrl = AppConstants.apiBaseUrl;
 
   static final Map<String, (DateTime, List<Property>)> _propertiesMemoryCache = {};
+  static void clearCache() => _propertiesMemoryCache.clear();
 
   // 1. Fetch Properties Feed with optional purpose/search/ownerId/status/state/lga/type filters from live API
   static Future<List<Property>> fetchProperties({
@@ -567,6 +568,7 @@ class ApiService {
     required String disco,
     required String meterNumber,
     String meterType = 'prepaid',
+    String? email,
   }) async {
     try {
       final response = await http.post(
@@ -576,6 +578,7 @@ class ApiService {
           'disco': disco,
           'meterNumber': meterNumber,
           'meterType': meterType,
+          if (email != null && email.isNotEmpty) 'email': email.trim(),
         }),
       ).timeout(const Duration(seconds: 15));
 
@@ -594,6 +597,113 @@ class ApiService {
         'message': 'Unable to connect to DisCo meter verification server.',
       };
     }
+  }
+
+  /// Live Validate a Cable TV Smartcard / IUC Number (DSTV, GOTV, Startimes)
+  static Future<Map<String, dynamic>> validateCableSmartcard({
+    required String provider,
+    required String smartcardNumber,
+    String? email,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/bills/cable/validate'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'provider': provider,
+          'smartcardNumber': smartcardNumber,
+          if (email != null && email.isNotEmpty) 'email': email.trim(),
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body) as Map<String, dynamic>;
+      } else {
+        final err = json.decode(response.body);
+        return {
+          'status': false,
+          'message': err['message'] ?? err['error'] ?? 'Could not verify smartcard number.',
+        };
+      }
+    } catch (e) {
+      return {
+        'status': false,
+        'message': 'Unable to connect to Cable TV verification server.',
+      };
+    }
+  }
+
+  /// Fetch saved utility beneficiaries for quick one-tap payments
+  static Future<List<Map<String, dynamic>>> fetchUtilityBeneficiaries({
+    required String email,
+    String? category,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/bills/beneficiaries').replace(
+        queryParameters: {
+          'email': email.trim(),
+          if (category != null && category.isNotEmpty) 'category': category.trim(),
+        },
+      );
+      final response = await http.get(uri).timeout(const Duration(seconds: 10));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['status'] == true && data['data'] is List) {
+          return List<Map<String, dynamic>>.from(data['data']);
+        }
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  /// Manually save or update a utility beneficiary
+  static Future<Map<String, dynamic>> saveUtilityBeneficiary({
+    required String email,
+    required String category,
+    required String operator,
+    required String customerNumber,
+    String? beneficiaryName,
+    String? address,
+    String? meterType,
+    double? lastAmount,
+    String? lastPlan,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/bills/beneficiaries'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'email': email.trim(),
+          'category': category,
+          'operator': operator,
+          'customerNumber': customerNumber,
+          if (beneficiaryName != null) 'beneficiaryName': beneficiaryName,
+          if (address != null) 'address': address,
+          if (meterType != null) 'meterType': meterType,
+          if (lastAmount != null) 'lastAmount': lastAmount,
+          if (lastPlan != null) 'lastPlan': lastPlan,
+        }),
+      ).timeout(const Duration(seconds: 10));
+      return json.decode(response.body) as Map<String, dynamic>;
+    } catch (e) {
+      return {'status': false, 'error': e.toString()};
+    }
+  }
+
+  /// Delete a saved utility beneficiary
+  static Future<bool> deleteUtilityBeneficiary({
+    required String email,
+    required String id,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/bills/beneficiaries/$id?email=${Uri.encodeComponent(email.trim())}');
+      final response = await http.delete(uri).timeout(const Duration(seconds: 8));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['status'] == true;
+      }
+    } catch (_) {}
+    return false;
   }
 
   /// Fetches digital legal agreements / leases for a tenant or landlord
@@ -771,7 +881,19 @@ class ApiService {
   static Future<List<Map<String, dynamic>>> fetchCardTransactions(String cardId) async {
     if (cardId.isEmpty) return [];
 
-    // 1. Direct Supabase Cloud REST (Instant 25ms response from cached transactions)
+    // 1. Server API First (Live Maplerad query + merged internal Rentilly liquidations)
+    try {
+      final res = await http.get(Uri.parse('$baseUrl/cards/transactions/$cardId')).timeout(const Duration(seconds: 4));
+      if (res.statusCode == 200) {
+        final d = json.decode(res.body);
+        if (d['status'] == true && d['data'] is List && (d['data'] as List).isNotEmpty) {
+          final listData = d['data'] as List;
+          return listData.map<Map<String, dynamic>>((item) => Map<String, dynamic>.from(item as Map)).toList();
+        }
+      }
+    } catch (_) {}
+
+    // 2. Direct Supabase Cloud REST Fallback
     try {
       final sbRes = await http.get(
         Uri.parse('${AppConstants.supabaseUrl}/rest/v1/system_configs?id=eq.card_tx_$cardId&select=data'),
@@ -785,14 +907,15 @@ class ApiService {
         final List<dynamic> list = json.decode(sbRes.body);
         if (list.isNotEmpty && list[0]['data'] is List) {
           final rawTxs = list[0]['data'] as List;
-          return rawTxs.map((t) {
+          return rawTxs.map<Map<String, dynamic>>((t) {
             // Amounts come in cents from Maplerad — convert to USD dollars
             final amtInCents = (t['amount'] as num?)?.toDouble() ?? 0.0;
-            final amtUsd = (t['amount_in_usd'] as num?)?.toDouble() ?? (amtInCents / 100.0);
+            final amtUsd = (t['amount_in_usd'] as num?)?.toDouble() ??
+                (amtInCents > 50 && t['currency'] == 'USD' ? (amtInCents / 100.0) : amtInCents);
 
             final rawType = (t['type'] ?? t['entry'] ?? '').toString().toUpperCase();
-            final rawDesc = (t['description'] ?? '').toString();
-            final rawMerchantName = (t['merchant'] is Map ? t['merchant']['name'] : null)?.toString() ?? '';
+            final rawDesc = (t['description'] ?? t['merchantName'] ?? '').toString();
+            final rawMerchantName = (t['merchant'] is Map ? t['merchant']['name'] : t['merchantName'])?.toString() ?? '';
             final rawStatus = (t['status'] ?? 'SUCCESS').toString().toUpperCase();
 
             // --- Rebrand "Maplerad" internal operations → "Rentilly" ---
@@ -809,7 +932,6 @@ class ApiService {
                 friendlyName = 'Rentilly Card Services';
               }
             } else if (rawMerchantName.isNotEmpty) {
-              // Real merchant — clean up the name (trim extra spaces from Maplerad merchant strings)
               friendlyName = rawMerchantName.trim().replaceAll(RegExp(r' {2,}'), ' ');
             } else if (rawDesc.isNotEmpty) {
               friendlyName = rawDesc;
@@ -817,7 +939,6 @@ class ApiService {
               friendlyName = amtUsd < 0 || friendlyType == 'DEBIT' ? 'Online Card Purchase' : 'Card Balance Funding';
             }
 
-            // Build a clean merchant map (never expose "Maplerad" to user)
             final cleanMerchant = (t['merchant'] is Map)
                 ? {
                     'name': friendlyName,
@@ -826,7 +947,7 @@ class ApiService {
                   }
                 : {'name': friendlyName};
 
-            return {
+            return <String, dynamic>{
               'id': t['id']?.toString() ?? '',
               'cardId': cardId,
               'amount': amtUsd,
@@ -835,24 +956,11 @@ class ApiService {
               'status': rawStatus == 'FAILED' ? 'DECLINED' : rawStatus,
               'type': friendlyType,
               'merchant': cleanMerchant,
-              'createdAt': t['created_at']?.toString() ?? DateTime.now().toIso8601String(),
-              // Extra flag so UI can show a tooltip on decline fees
+              'createdAt': t['created_at']?.toString() ?? t['date']?.toString() ?? DateTime.now().toIso8601String(),
               'isDeclineFee': rawDesc.toLowerCase().contains('decline fee'),
               'rawDesc': rawDesc,
             };
           }).toList();
-        }
-      }
-    } catch (_) {}
-
-
-    // 2. Server API Fallback
-    try {
-      final res = await http.get(Uri.parse('$baseUrl/cards/transactions/$cardId')).timeout(const Duration(seconds: 4));
-      if (res.statusCode == 200) {
-        final d = json.decode(res.body);
-        if (d['status'] == true && d['data'] is List) {
-          return List<Map<String, dynamic>>.from(d['data']);
         }
       }
     } catch (_) {}

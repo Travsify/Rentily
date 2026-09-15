@@ -54,6 +54,172 @@ export class RentillyApiService {
     return data;
   }
 
+  static async requestAdminOtp(email: string, password: string, harshKey: string): Promise<{ status: boolean; message: string; email: string }> {
+    const res = await fetch(`${activeApiBase}/auth/admin/request-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim(), password: password.trim(), harshKey: harshKey.trim() })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Administrative authentication failed.' }));
+      throw new Error(err.error || 'Administrative authentication failed.');
+    }
+
+    return await res.json();
+  }
+
+  static async verifyAdmin2fa(email: string, code: string, harshKey: string): Promise<{ user: UserProfile; token: string }> {
+    const res = await fetch(`${activeApiBase}/auth/admin/verify-2fa`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim(), code: code.trim(), harshKey: harshKey.trim() })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Invalid or expired 2FA code.' }));
+      throw new Error(err.error || 'Invalid or expired 2FA code.');
+    }
+
+    const data = await res.json();
+    localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, data.token);
+    localStorage.setItem(STORAGE_KEYS.AUTH_USER, JSON.stringify(data.user));
+    return data;
+  }
+
+  static async getAdminMfaStatus(email: string, harshKey: string): Promise<{ status: boolean; configured: boolean; hasSecret: boolean; preferredMethod: 'totp' | 'email' }> {
+    const res = await fetch(`${activeApiBase}/auth/admin/mfa/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim(), harshKey: harshKey.trim() })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Failed to verify MFA status.' }));
+      throw new Error(err.error || 'Failed to verify MFA status.');
+    }
+
+    return await res.json();
+  }
+
+  static async setupAdminTotp(email: string, password: string, harshKey: string, forceNew: boolean = false): Promise<{
+    status: boolean;
+    secret: string;
+    uri: string;
+    qrCodeDataUrl: string;
+    configured: boolean;
+    email: string;
+  }> {
+    const res = await fetch(`${activeApiBase}/auth/admin/mfa/setup`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim(), password: password.trim(), harshKey: harshKey.trim(), forceNew })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Failed to generate Google Authenticator QR setup.' }));
+      throw new Error(err.error || 'Failed to generate Google Authenticator QR setup.');
+    }
+
+    return await res.json();
+  }
+
+  static async verifyAdminTotp(email: string, code: string, harshKey: string): Promise<{ user: UserProfile; token: string }> {
+    const res = await fetch(`${activeApiBase}/auth/admin/mfa/verify-totp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim(), code: code.trim(), harshKey: harshKey.trim() })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Invalid Google Authenticator code.' }));
+      throw new Error(err.error || 'Invalid Google Authenticator code.');
+    }
+
+    const data = await res.json();
+    localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, data.token);
+    localStorage.setItem(STORAGE_KEYS.AUTH_USER, JSON.stringify(data.user));
+    return data;
+  }
+
+  static async getAdminProfile(email?: string, harshKey?: string): Promise<any> {
+    const token = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN) || '';
+    const res = await fetch(`${activeApiBase}/auth/admin/profile`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ email: email || 'info@travsify.com', harshKey })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Failed to fetch admin profile.' }));
+      throw new Error(err.error || 'Failed to fetch admin profile.');
+    }
+
+    return await res.json();
+  }
+
+  static async changeAdminPassword(params: {
+    email: string;
+    currentPassword: string;
+    newPassword: string;
+    harshKey: string;
+  }): Promise<{ status: boolean; message: string }> {
+    const res = await fetch(`${activeApiBase}/auth/admin/change-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params)
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Failed to update admin password.' }));
+      throw new Error(err.error || 'Failed to update admin password.');
+    }
+
+    return await res.json();
+  }
+
+  static async changeAdminHarshKey(params: {
+    email: string;
+    password: string;
+    currentHarshKey: string;
+    newHarshKey: string;
+  }): Promise<{ status: boolean; message: string }> {
+    const res = await fetch(`${activeApiBase}/auth/admin/change-harsh-key`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params)
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Failed to update admin harsh key.' }));
+      throw new Error(err.error || 'Failed to update admin harsh key.');
+    }
+
+    return await res.json();
+  }
+
+  static async testAdminTotpSync(params: {
+    email: string;
+    harshKey: string;
+    code: string;
+  }): Promise<{ status: boolean; valid: boolean; message: string }> {
+    const res = await fetch(`${activeApiBase}/auth/admin/mfa/test-sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params)
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Verification failed.' }));
+      throw new Error(err.error || 'Verification failed.');
+    }
+
+    return await res.json();
+  }
+
   static getCurrentUser(): UserProfile | null {
     try {
       const user = localStorage.getItem(STORAGE_KEYS.AUTH_USER);

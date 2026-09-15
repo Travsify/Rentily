@@ -24,12 +24,11 @@ import '../../services/notification_service.dart';
 import '../shared/notification_center_screen.dart';
 import '../shared/chat_inbox_screen.dart';
 import '../inspections/inspections_screen.dart';
+import '../home/property_detail_screen.dart';
 import '../../widgets/biometric_prompt_modal.dart';
 
 class LandlordDashboardScreen extends StatefulWidget {
-  final VoidCallback? onSwitchToTenant;
-
-  const LandlordDashboardScreen({super.key, this.onSwitchToTenant});
+  const LandlordDashboardScreen({super.key});
 
   @override
   State<LandlordDashboardScreen> createState() => _LandlordDashboardScreenState();
@@ -55,29 +54,41 @@ class _LandlordDashboardScreenState extends State<LandlordDashboardScreen> {
         children: [
           _loadedTabs.contains(0)
               ? _LandlordPortfolioTab(
-                  onSwitchToTenant: widget.onSwitchToTenant,
                   onNavigateToTab: switchTab,
                 )
               : const SizedBox.shrink(),
           _loadedTabs.contains(1) ? const LandlordPropertiesScreen() : const SizedBox.shrink(),
           _loadedTabs.contains(2) ? const LandlordWalletScreen() : const SizedBox.shrink(),
           _loadedTabs.contains(3) ? const InspectionsScreen() : const SizedBox.shrink(),
-          _loadedTabs.contains(4) ? LandlordProfileScreen(onSwitchToTenant: widget.onSwitchToTenant) : const SizedBox.shrink(),
+          _loadedTabs.contains(4) ? const LandlordProfileScreen() : const SizedBox.shrink(),
         ],
       ),
       bottomNavigationBar: LandlordBottomBar(
         currentIndex: _currentIndex,
         onTap: switchTab,
       ),
+      floatingActionButton: SizedBox(
+        width: 44,
+        height: 44,
+        child: FloatingActionButton(
+          onPressed: () => QuickUtilitiesModal.show(context),
+          backgroundColor: AppColors.accentOrange,
+          foregroundColor: Colors.white,
+          elevation: 3,
+          shape: const CircleBorder(),
+          tooltip: 'Bill Payment',
+          child: const Icon(Icons.bolt_rounded, size: 22),
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 }
 
 class _LandlordPortfolioTab extends StatefulWidget {
-  final VoidCallback? onSwitchToTenant;
   final ValueChanged<int>? onNavigateToTab;
 
-  const _LandlordPortfolioTab({this.onSwitchToTenant, this.onNavigateToTab});
+  const _LandlordPortfolioTab({this.onNavigateToTab});
 
   @override
   State<_LandlordPortfolioTab> createState() => _LandlordPortfolioTabState();
@@ -132,15 +143,30 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
       final results = await Future.wait([
         ApiService.fetchProperties(ownerId: user.id),
         ApiService.fetchLandlordEscrowSummary(email: user.email, ownerId: user.id),
+        ApiService.fetchLiveBalance(user.email),
       ]);
       final myProps = results[0] as List<Property>;
       final summary = results[1] as Map<String, dynamic>;
+      final liveBalData = results[2] as Map<String, dynamic>?;
       final liveEscrow = (summary['totalEscrowVolume'] as num?)?.toDouble() ??
                    (summary['activeEscrowBalance'] as num?)?.toDouble() ?? 0.0;
 
+      UserProfile effectiveUser = user;
+      if (liveBalData != null) {
+        final serverBal = (liveBalData['walletBalance'] as num?)?.toDouble() ?? user.walletBalance;
+        final serverUsdtBal = (liveBalData['usdtBalance'] as num?)?.toDouble() ?? user.usdtBalance;
+        final serverAccNo = liveBalData['accountNumber']?.toString() ?? user.accountNumber;
+        effectiveUser = user.copyWith(
+          walletBalance: serverBal,
+          usdtBalance: serverUsdtBal,
+          accountNumber: serverAccNo,
+        );
+        await AuthService.updateUser(effectiveUser);
+      }
+
       if (mounted) {
         setState(() {
-          _user = user;
+          _user = effectiveUser;
           _properties = myProps;
           _escrowBalance = liveEscrow;
           _isLoading = false;
@@ -180,8 +206,9 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
     final landlordId = IdUtils.formatOpsId(_user?.id, isPartner: false);
     final operationalBalance = _user?.walletBalance ?? 0.0;
     final escrowBalance = _escrowBalance;
-    final accountNumber = _user?.accountNumber ?? (_user?.isVerified == true ? 'Pending 9PSB NUBAN' : 'Pending Verification');
-    final bankName = _user?.bankName ?? '9PSB (Rentilly)';
+    final rawBank = _user?.bankName ?? 'Wema Bank';
+    final bankName = rawBank.replaceAll(RegExp(r'\s*\([Ff]incra\)', caseSensitive: false), '').replaceAll(RegExp(r'Fincra\s*', caseSensitive: false), '').trim();
+    final accountNumber = _user?.accountNumber ?? (_user?.isVerified == true ? 'Generating NUBAN...' : 'Pending Verification');
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
@@ -682,55 +709,70 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
                   )
                 else
                   ..._properties.take(3).map((prop) {
-                  return Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppColors.borderDark),
-                    ),
-                    child: Row(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: Image.network(
-                            prop.images.isNotEmpty ? prop.images[0] : 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800',
-                            width: 60,
-                            height: 60,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(prop.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold)),
-                              const SizedBox(height: 2),
-                              Text('${prop.neighborhood}, ${prop.state}', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary)),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Text('₦${_currencyFormat.format(prop.basePrice)}', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w900, color: AppColors.primary)),
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFF0FDF4),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      'ACTIVE UNIT',
-                                      style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: const Color(0xFF16A34A)),
-                                    ),
-                                  ),
-                                ],
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => PropertyDetailScreen(property: prop)),
+                      );
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.borderDark),
+                      ),
+                      child: Row(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: Image.network(
+                              prop.images.isNotEmpty ? prop.images[0] : 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800',
+                              width: 60,
+                              height: 60,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                width: 60,
+                                height: 60,
+                                color: AppColors.backgroundDark,
+                                child: const Icon(Icons.apartment_rounded, color: AppColors.textMuted),
                               ),
-                            ],
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(prop.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold)),
+                                const SizedBox(height: 2),
+                                Text('${prop.neighborhood}, ${prop.state}', style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textSecondary)),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    Text('₦${_currencyFormat.format(prop.basePrice)}', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w900, color: AppColors.primary)),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF0FDF4),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        'ACTIVE UNIT',
+                                        style: GoogleFonts.plusJakartaSans(fontSize: 8, fontWeight: FontWeight.bold, color: const Color(0xFF16A34A)),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.arrow_forward_ios_rounded, size: 12, color: AppColors.textMuted),
+                        ],
+                      ),
                     ),
                   );
                 }),

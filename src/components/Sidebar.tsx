@@ -116,6 +116,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const sections: NavSection[] = [
     {
+      title: 'SECURITY & AUTHORITY',
+      items: [
+        {
+          id: 'admin_profile',
+          label: 'Admin Profile & MFA Hub',
+          icon: ShieldCheck,
+          badge: 'Google MFA',
+          badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30 font-bold'
+        }
+      ]
+    },
+    {
       title: 'OPERATIONS & PROPERTIES',
       items: [
 
