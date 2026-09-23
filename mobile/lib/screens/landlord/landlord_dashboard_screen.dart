@@ -206,8 +206,12 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
     final landlordId = IdUtils.formatOpsId(_user?.id, isPartner: false);
     final operationalBalance = _user?.walletBalance ?? 0.0;
     final escrowBalance = _escrowBalance;
-    final rawBank = _user?.bankName ?? 'Wema Bank';
-    final bankName = rawBank.replaceAll(RegExp(r'\s*\([Ff]incra\)', caseSensitive: false), '').replaceAll(RegExp(r'Fincra\s*', caseSensitive: false), '').trim();
+    final rawBank = _user?.bankName ?? 'Rentilly Escrow';
+    final bankName = rawBank
+        .replaceAll(RegExp(r'\s*\([Ff]incra\)', caseSensitive: false), '')
+        .replaceAll(RegExp(r'Fincra\s*', caseSensitive: false), '')
+        .replaceAll(RegExp(r'Wema Bank(\s*\(Rentilly Escrow\))?', caseSensitive: false), 'Rentilly Escrow')
+        .trim();
     final accountNumber = _user?.accountNumber ?? (_user?.isVerified == true ? 'Generating NUBAN...' : 'Pending Verification');
 
     return Scaffold(

@@ -36,11 +36,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
   // Corporate controllers
   final TextEditingController _businessNameController = TextEditingController();
   final TextEditingController _cacNumberController = TextEditingController();
+  final TextEditingController _tinNumberController = TextEditingController();
+  final TextEditingController _signatoryRoleController = TextEditingController();
   final TextEditingController _officeStreetController = TextEditingController();
   final TextEditingController _officeLandmarkController = TextEditingController();
   final TextEditingController _managingPartnerIdController = TextEditingController();
+  final TextEditingController _referralCodeController = TextEditingController();
 
   late String _selectedRole; // 'renter', 'partner', 'owner'
+  String _buyerType = 'personal'; // 'personal' or 'corporate'
   String _selectedState = 'Lagos';
   String _selectedLga = 'Eti-Osa';
   bool _obscurePassword = true;
@@ -72,9 +76,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _cityAreaController.dispose();
     _businessNameController.dispose();
     _cacNumberController.dispose();
+    _tinNumberController.dispose();
+    _signatoryRoleController.dispose();
     _officeStreetController.dispose();
     _officeLandmarkController.dispose();
     _managingPartnerIdController.dispose();
+    _referralCodeController.dispose();
     super.dispose();
   }
 
@@ -90,7 +97,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (_step == 1) return 'Landlord Details';
       return 'Security & Credentials';
     } else {
-      if (_step == 1) return 'Personal Details';
+      if (_step == 1) {
+        return _buyerType == 'corporate' ? 'Corporate Buyer Entity' : 'Personal Details';
+      }
       return 'Security & Credentials';
     }
   }
@@ -105,7 +114,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (_step == 1) return 'Enter your property owner name & region';
       return 'Set your login credentials and secure password';
     } else {
-      if (_step == 1) return 'Enter your legal name, phone number, and state';
+      if (_step == 1) {
+        return _buyerType == 'corporate'
+            ? 'Enter company CAC, tax ID & authorized signatory details'
+            : 'Enter your legal name, phone number, and state';
+      }
       return 'Set your password and login credentials';
     }
   }
@@ -149,7 +162,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         setState(() => _step = 3);
         return;
       }
-    } else {
+    } else if (_selectedRole == 'owner') {
       if (_step == 1) {
         if (_nameController.text.trim().isEmpty) {
           setState(() => _errorMessage = 'Please enter your Full Legal Name.');
@@ -170,6 +183,64 @@ class _RegisterScreenState extends State<RegisterScreen> {
         }
         setState(() => _step = 2);
         return;
+      }
+    } else {
+      // Renter / Buyer Role
+      if (_step == 1) {
+        if (_buyerType == 'corporate') {
+          if (_businessNameController.text.trim().isEmpty) {
+            setState(() => _errorMessage = 'Please enter your Registered Company / Business Name (CAC).');
+            return;
+          }
+          if (_cacNumberController.text.trim().isEmpty) {
+            setState(() => _errorMessage = 'Please enter your CAC Registration Number (RC / BN).');
+            return;
+          }
+          if (_nameController.text.trim().isEmpty) {
+            setState(() => _errorMessage = 'Please enter Authorized Signatory / Director Name.');
+            return;
+          }
+          if (_phoneController.text.trim().isEmpty) {
+            setState(() => _errorMessage = 'Please enter official contact phone number.');
+            return;
+          }
+          final formattedP = PhoneUtils.tryFormatToE164(_phoneController.text);
+          if (formattedP == null || !PhoneUtils.isValidE164(formattedP)) {
+            setState(() => _errorMessage = 'Please enter a valid mobile number (e.g. 08012345678 or +2348012345678).');
+            return;
+          }
+          if (_officeStreetController.text.trim().isEmpty) {
+            setState(() => _errorMessage = 'Please enter your corporate office address.');
+            return;
+          }
+          if (_cityAreaController.text.trim().isEmpty) {
+            setState(() => _errorMessage = 'Please enter your City, Town, or Commercial District.');
+            return;
+          }
+          setState(() => _step = 2);
+          return;
+        } else {
+          // Personal Buyer / Renter
+          if (_nameController.text.trim().isEmpty) {
+            setState(() => _errorMessage = 'Please enter your Full Legal Name.');
+            return;
+          }
+          if (_phoneController.text.trim().isEmpty) {
+            setState(() => _errorMessage = 'Please enter your mobile phone number.');
+            return;
+          }
+          final formattedP = PhoneUtils.tryFormatToE164(_phoneController.text);
+          if (formattedP == null || !PhoneUtils.isValidE164(formattedP)) {
+            setState(() => _errorMessage = 'Please enter a valid mobile number (e.g. 08012345678 or +2348012345678).');
+            return;
+          }
+          if (_cityAreaController.text.trim().isEmpty) {
+            setState(() => _errorMessage = 'Please enter your City, Town, or Area.');
+            return;
+          }
+          setState(() => _step = 2);
+          return;
+        }
       }
     }
 
@@ -195,9 +266,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void _handleRegister() async {
-    final name = _nameController.text.trim();
     final email = _emailController.text.trim();
-    final phone = _phoneController.text.trim();
     final password = _passwordController.text.trim();
 
     if (email.isEmpty || password.isEmpty) {
@@ -246,13 +315,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final area = _cityAreaController.text.trim();
     
     String? fullOfficeAddress;
-    if (effectiveRole == 'partner') {
+    if (effectiveRole == 'partner' || (effectiveRole == 'renter' && _buyerType == 'corporate')) {
       fullOfficeAddress = '$street${landmark.isNotEmpty ? ", Near $landmark" : ""}${area.isNotEmpty ? ", $area" : ""}, $_selectedLga LGA, $_selectedState State';
     }
 
     final locationState = '${area.isNotEmpty ? "$area, " : ""}$_selectedLga LGA, $_selectedState State';
     final cleanPhone = PhoneUtils.tryFormatToE164(phone) ?? (phone.startsWith('0') ? '+234${phone.substring(1)}' : phone);
-    final cleanName = name.isNotEmpty ? name : (_businessNameController.text.trim().isNotEmpty ? _businessNameController.text.trim() : 'User');
+    
+    String cleanName = name;
+    if (effectiveRole == 'renter' && _buyerType == 'corporate') {
+      cleanName = _businessNameController.text.trim().isNotEmpty ? _businessNameController.text.trim() : (name.isNotEmpty ? name : 'Corporate User');
+    } else if (cleanName.isEmpty) {
+      cleanName = _businessNameController.text.trim().isNotEmpty ? _businessNameController.text.trim() : 'User';
+    }
 
     // 1. Dispatch OTP code to user's email for registration verification
     final otpRes = await OtpService.sendOtp(
@@ -286,10 +361,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
           phoneNumber: cleanPhone,
           password: password,
           role: effectiveRole,
+          buyerType: effectiveRole == 'renter' ? _buyerType : (effectiveRole == 'partner' ? 'corporate' : 'personal'),
           state: locationState,
-          businessName: effectiveRole == 'partner' ? _businessNameController.text.trim() : null,
-          cacNumber: effectiveRole == 'partner' ? _cacNumberController.text.trim() : null,
+          businessName: (effectiveRole == 'partner' || (effectiveRole == 'renter' && _buyerType == 'corporate')) ? _businessNameController.text.trim() : null,
+          cacNumber: (effectiveRole == 'partner' || (effectiveRole == 'renter' && _buyerType == 'corporate')) ? _cacNumberController.text.trim() : null,
+          tinNumber: (effectiveRole == 'renter' && _buyerType == 'corporate') ? _tinNumberController.text.trim() : null,
           officeAddress: fullOfficeAddress,
+          signatoryName: (effectiveRole == 'renter' && _buyerType == 'corporate') ? name : null,
+          signatoryRole: (effectiveRole == 'renter' && _buyerType == 'corporate') ? _signatoryRoleController.text.trim() : null,
+          signatoryPhone: (effectiveRole == 'renter' && _buyerType == 'corporate') ? cleanPhone : null,
+          referralCode: _referralCodeController.text.trim().isNotEmpty ? _referralCodeController.text.trim().toUpperCase() : null,
         );
 
         if (mounted) setState(() => _isLoading = false);
@@ -924,84 +1005,324 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  // STEP 1 FOR RENTER: Personal Details
+  // STEP 1 FOR RENTER / HOME BUYER: Personal or Corporate Details
   Widget _buildRenterDetailsStep() {
+    final currentLgas = NigerianStatesLgas.getLgasForState(_selectedState);
+    final effectiveLga = currentLgas.contains(_selectedLga) ? _selectedLga : currentLgas.first;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Full Legal Name
-        Text('FULL LEGAL NAME (As on Bank Account)', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
-        const SizedBox(height: 6),
-        TextField(
-          controller: _nameController,
-          textCapitalization: TextCapitalization.words,
-          style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-          decoration: _buildInputDecoration('e.g. Femi Adesanya', Icons.person_outline_rounded),
+        // Buyer Persona Segmented Toggle
+        Container(
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    setState(() {
+                      _buyerType = 'personal';
+                      _errorMessage = null;
+                    });
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      color: _buyerType == 'personal' ? Colors.white : Colors.transparent,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: _buyerType == 'personal'
+                          ? [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.06),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.person_outline_rounded,
+                          size: 16,
+                          color: _buyerType == 'personal' ? AppColors.primary : AppColors.textSecondary,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Personal Buyer',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: _buyerType == 'personal' ? AppColors.primary : AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    setState(() {
+                      _buyerType = 'corporate';
+                      _errorMessage = null;
+                    });
+                  },
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      color: _buyerType == 'corporate' ? Colors.white : Colors.transparent,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: _buyerType == 'corporate'
+                          ? [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.06),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.business_rounded,
+                          size: 16,
+                          color: _buyerType == 'corporate' ? AppColors.primary : AppColors.textSecondary,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Corporate Buyer',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: _buyerType == 'corporate' ? AppColors.primary : AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
 
-        // Phone Number
-        Text('PHONE NUMBER (NIGERIA)', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
-        const SizedBox(height: 6),
-        TextField(
-          controller: _phoneController,
-          keyboardType: TextInputType.phone,
-          style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-          decoration: _buildInputDecoration('0812 345 6789', Icons.phone_android_rounded),
-        ),
-        const SizedBox(height: 14),
+        if (_buyerType == 'personal') ...[
+          // Full Legal Name
+          Text('FULL LEGAL NAME (As on Bank Account)', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+          const SizedBox(height: 6),
+          TextField(
+            controller: _nameController,
+            textCapitalization: TextCapitalization.words,
+            style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+            decoration: _buildInputDecoration('e.g. Femi Adesanya', Icons.person_outline_rounded),
+          ),
+          const SizedBox(height: 14),
 
-        // State of Residence (Full Width)
-        Text('STATE OF RESIDENCE', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
-        const SizedBox(height: 6),
-        DropdownButtonFormField<String>(
-          isExpanded: true,
-          value: _selectedState,
-          dropdownColor: Colors.white,
-          style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-          decoration: _buildInputDecoration('Select State', Icons.location_on_outlined),
-          items: NigerianStatesLgas.states.map((s) => DropdownMenuItem(value: s, child: Text(s, overflow: TextOverflow.ellipsis, maxLines: 1))).toList(),
-          onChanged: (val) {
-            if (val != null) {
-              setState(() {
-                _selectedState = val;
-                final lgas = NigerianStatesLgas.getLgasForState(val);
-                _selectedLga = lgas.contains(_selectedLga) ? _selectedLga : lgas.first;
-              });
-            }
-          },
-        ),
-        const SizedBox(height: 14),
+          // Phone Number
+          Text('PHONE NUMBER (NIGERIA)', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+          const SizedBox(height: 6),
+          TextField(
+            controller: _phoneController,
+            keyboardType: TextInputType.phone,
+            style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+            decoration: _buildInputDecoration('0812 345 6789', Icons.phone_android_rounded),
+          ),
+          const SizedBox(height: 14),
 
-        // Local Government Area (LGA) (Full Width)
-        Text('LOCAL GOVERNMENT AREA (LGA)', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
-        const SizedBox(height: 6),
-        DropdownButtonFormField<String>(
-          isExpanded: true,
-          value: NigerianStatesLgas.getLgasForState(_selectedState).contains(_selectedLga)
-              ? _selectedLga
-              : NigerianStatesLgas.getLgasForState(_selectedState).first,
-          dropdownColor: Colors.white,
-          style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-          decoration: _buildInputDecoration('Select LGA', Icons.account_balance_rounded),
-          items: NigerianStatesLgas.getLgasForState(_selectedState)
-              .map((l) => DropdownMenuItem(value: l, child: Text(l, overflow: TextOverflow.ellipsis, maxLines: 1)))
-              .toList(),
-          onChanged: (val) {
-            if (val != null) setState(() => _selectedLga = val);
-          },
-        ),
-        const SizedBox(height: 14),
+          // State of Residence (Full Width)
+          Text('STATE OF RESIDENCE', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+          const SizedBox(height: 6),
+          DropdownButtonFormField<String>(
+            isExpanded: true,
+            value: _selectedState,
+            dropdownColor: Colors.white,
+            style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+            decoration: _buildInputDecoration('Select State', Icons.location_on_outlined),
+            items: NigerianStatesLgas.states.map((s) => DropdownMenuItem(value: s, child: Text(s, overflow: TextOverflow.ellipsis, maxLines: 1))).toList(),
+            onChanged: (val) {
+              if (val != null) {
+                setState(() {
+                  _selectedState = val;
+                  final lgas = NigerianStatesLgas.getLgasForState(val);
+                  _selectedLga = lgas.contains(_selectedLga) ? _selectedLga : lgas.first;
+                });
+              }
+            },
+          ),
+          const SizedBox(height: 14),
 
-        // City / Town / Area / Estate (Typed)
-        Text('CITY / TOWN / AREA / ESTATE', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
-        const SizedBox(height: 6),
-        TextField(
-          controller: _cityAreaController,
-          textCapitalization: TextCapitalization.words,
-          style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-          decoration: _buildInputDecoration('e.g. Lekki Phase 1 or Bodija or Maitama', Icons.location_city_rounded),
-        ),
+          // Local Government Area (LGA) (Full Width)
+          Text('LOCAL GOVERNMENT AREA (LGA)', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+          const SizedBox(height: 6),
+          DropdownButtonFormField<String>(
+            isExpanded: true,
+            value: effectiveLga,
+            dropdownColor: Colors.white,
+            style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+            decoration: _buildInputDecoration('Select LGA', Icons.account_balance_rounded),
+            items: currentLgas
+                .map((l) => DropdownMenuItem(value: l, child: Text(l, overflow: TextOverflow.ellipsis, maxLines: 1)))
+                .toList(),
+            onChanged: (val) {
+              if (val != null) setState(() => _selectedLga = val);
+            },
+          ),
+          const SizedBox(height: 14),
+
+          // City / Town / Area / Estate (Typed)
+          Text('CITY / TOWN / AREA / ESTATE', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+          const SizedBox(height: 6),
+          TextField(
+            controller: _cityAreaController,
+            textCapitalization: TextCapitalization.words,
+            style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+            decoration: _buildInputDecoration('e.g. Lekki Phase 1 or Bodija or Maitama', Icons.location_city_rounded),
+          ),
+        ] else ...[
+          // Corporate Buyer Form Fields
+          // Registered Company Name
+          Text('REGISTERED COMPANY / BUSINESS NAME (CAC)', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+          const SizedBox(height: 6),
+          TextField(
+            controller: _businessNameController,
+            textCapitalization: TextCapitalization.words,
+            style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+            decoration: _buildInputDecoration('e.g. Davsop Global Logistics Limited', Icons.business_rounded),
+          ),
+          const SizedBox(height: 14),
+
+          // CAC Registration Number
+          Text('CAC REGISTRATION NUMBER (RC / BN)', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+          const SizedBox(height: 6),
+          TextField(
+            controller: _cacNumberController,
+            textCapitalization: TextCapitalization.characters,
+            style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+            decoration: _buildInputDecoration('e.g. RC-1849201 or BN-2938102', Icons.badge_outlined),
+          ),
+          const SizedBox(height: 14),
+
+          // Tax Identification Number (TIN)
+          Text('TAX IDENTIFICATION NUMBER (TIN - OPTIONAL)', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+          const SizedBox(height: 6),
+          TextField(
+            controller: _tinNumberController,
+            keyboardType: TextInputType.text,
+            style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+            decoration: _buildInputDecoration('e.g. 23940192-0001 (For WHT Invoicing)', Icons.receipt_long_rounded),
+          ),
+          const SizedBox(height: 14),
+
+          // Authorized Signatory Full Name
+          Text('AUTHORIZED SIGNATORY / DIRECTOR FULL LEGAL NAME', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+          const SizedBox(height: 6),
+          TextField(
+            controller: _nameController,
+            textCapitalization: TextCapitalization.words,
+            style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+            decoration: _buildInputDecoration('e.g. David S. Adeleke', Icons.person_outline_rounded),
+          ),
+          const SizedBox(height: 14),
+
+          // Signatory Role / Title
+          Text('SIGNATORY DESIGNATION / ROLE (OPTIONAL)', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+          const SizedBox(height: 6),
+          TextField(
+            controller: _signatoryRoleController,
+            textCapitalization: TextCapitalization.words,
+            style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+            decoration: _buildInputDecoration('e.g. Managing Director / Legal Counsel', Icons.work_outline_rounded),
+          ),
+          const SizedBox(height: 14),
+
+          // Official Contact Phone Number
+          Text('OFFICIAL CONTACT PHONE NUMBER', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+          const SizedBox(height: 6),
+          TextField(
+            controller: _phoneController,
+            keyboardType: TextInputType.phone,
+            style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+            decoration: _buildInputDecoration('0705 029 9636 or 0802 384 2014', Icons.phone_android_rounded),
+          ),
+          const SizedBox(height: 14),
+
+          // Corporate Office Street Address
+          Text('REGISTERED OFFICE STREET ADDRESS', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+          const SizedBox(height: 6),
+          TextField(
+            controller: _officeStreetController,
+            textCapitalization: TextCapitalization.words,
+            style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+            decoration: _buildInputDecoration('e.g. 74, Lawal Bus stop, Governor\'s Road, Ikotun', Icons.storefront_rounded),
+          ),
+          const SizedBox(height: 14),
+
+          // State of Operation (Full Width)
+          Text('STATE OF OPERATION / HEADQUARTERS', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+          const SizedBox(height: 6),
+          DropdownButtonFormField<String>(
+            isExpanded: true,
+            value: _selectedState,
+            dropdownColor: Colors.white,
+            style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+            decoration: _buildInputDecoration('Select State', Icons.location_on_outlined),
+            items: NigerianStatesLgas.states.map((s) => DropdownMenuItem(value: s, child: Text(s, overflow: TextOverflow.ellipsis, maxLines: 1))).toList(),
+            onChanged: (val) {
+              if (val != null) {
+                setState(() {
+                  _selectedState = val;
+                  final lgas = NigerianStatesLgas.getLgasForState(val);
+                  _selectedLga = lgas.contains(_selectedLga) ? _selectedLga : lgas.first;
+                });
+              }
+            },
+          ),
+          const SizedBox(height: 14),
+
+          // LGA (Full Width)
+          Text('LOCAL GOVERNMENT AREA (LGA)', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+          const SizedBox(height: 6),
+          DropdownButtonFormField<String>(
+            isExpanded: true,
+            value: effectiveLga,
+            dropdownColor: Colors.white,
+            style: GoogleFonts.plusJakartaSans(fontSize: 12.5, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+            decoration: _buildInputDecoration('Select LGA', Icons.account_balance_rounded),
+            items: currentLgas
+                .map((l) => DropdownMenuItem(value: l, child: Text(l, overflow: TextOverflow.ellipsis, maxLines: 1)))
+                .toList(),
+            onChanged: (val) {
+              if (val != null) setState(() => _selectedLga = val);
+            },
+          ),
+          const SizedBox(height: 14),
+
+          // City / Commercial District (Typed)
+          Text('CITY / COMMERCIAL DISTRICT', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+          const SizedBox(height: 6),
+          TextField(
+            controller: _cityAreaController,
+            textCapitalization: TextCapitalization.words,
+            style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+            decoration: _buildInputDecoration('e.g. Ikotun / Alimosho or Victoria Island', Icons.location_city_rounded),
+          ),
+        ],
       ],
     );
   }
@@ -1343,6 +1664,40 @@ class _RegisterScreenState extends State<RegisterScreen> {
             enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.borderDark)),
             focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
           ),
+        ),
+        const SizedBox(height: 14),
+
+        // Referral Code (Optional)
+        Text('REFERRAL CODE (OPTIONAL)', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+        const SizedBox(height: 6),
+        TextField(
+          controller: _referralCodeController,
+          textCapitalization: TextCapitalization.characters,
+          style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w700, letterSpacing: 1.2),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: const Color(0xFFF8FAFC),
+            prefixIcon: const Icon(Icons.card_giftcard_rounded, size: 18, color: AppColors.primary),
+            hintText: 'e.g. RENT8821',
+            hintStyle: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textMuted, letterSpacing: 0),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.borderDark)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.borderDark)),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Row(
+          children: [
+            const Icon(Icons.stars_rounded, size: 12, color: Color(0xFF10B981)),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(
+                'Get ₦1,000 instant welcome reward & referrer receives ₦500 upon KYC completion.',
+                style: GoogleFonts.plusJakartaSans(fontSize: 9.5, color: const Color(0xFF059669), fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 14),
 

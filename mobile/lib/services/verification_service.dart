@@ -66,12 +66,12 @@ class VerificationService {
       if (response.statusCode == 200 && (data['status'] == true || data['success'] == true)) {
         final isProcessing = data['processing'] == true || data['accountNumber'] == null || data['accountNumber'] == '';
         final accNum = data['accountNumber']?.toString() ?? '';
-        String rawBank = data['bankName']?.toString() ?? 'Wema Bank (Fincra)';
+        String rawBank = data['bankName']?.toString() ?? 'Rentilly Escrow';
         final cleanBank = rawBank.contains('(') ? rawBank.split('(')[0].trim() : rawBank;
 
         final serverBal = (data['walletBalance'] as num?)?.toDouble() ?? currentUser?.walletBalance ?? 0.0;
         final serverUsdt = (data['usdtBalance'] as num?)?.toDouble() ?? currentUser?.usdtBalance ?? 0.0;
-        final failReason = data['reason']?.toString() ?? data['message']?.toString() ?? 'Fincra virtual account generation is pending validation with NIBSS.';
+        final failReason = data['reason']?.toString() ?? data['message']?.toString() ?? 'Rentilly virtual account generation is pending validation with NIBSS.';
 
         final updatedUser = (currentUser ?? UserProfile(
           id: userId,
@@ -88,7 +88,7 @@ class VerificationService {
           cacNumber: isPartner ? (cacNumber ?? currentUser?.cacNumber) : currentUser?.cacNumber,
           ninNumber: idType == 'nin' ? idNumber : currentUser?.ninNumber,
           accountNumber: accNum.isNotEmpty ? accNum : null,
-          bankName: isProcessing ? 'Wema Bank (Fincra Processing)' : cleanBank,
+          bankName: isProcessing ? 'Rentilly Escrow' : cleanBank,
           walletBalance: serverBal,
           usdtBalance: serverUsdt,
         );

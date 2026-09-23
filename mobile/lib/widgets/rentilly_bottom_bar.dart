@@ -48,6 +48,7 @@ class RentillyBottomBar extends StatelessWidget {
         ],
       ),
       child: SafeArea(
+        top: false,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
           child: Row(

@@ -6,6 +6,14 @@ export interface UserProfile {
   fullName: string;
   phoneNumber: string;
   role: UserRole;
+  buyerType?: 'personal' | 'corporate';
+  businessName?: string;
+  cacNumber?: string;
+  tinNumber?: string;
+  officeAddress?: string;
+  signatoryName?: string;
+  signatoryRole?: string;
+  signatoryPhone?: string;
   isVerified: boolean;
   ninNumber?: string;
   bvnVerified?: boolean;
@@ -221,9 +229,38 @@ export type AdminTab =
   | 'support_agents'
   | 'integrations'
   | 'feature_flags'
+  | 'referrals'
   | 'supabase_config'
   | 'flutter_api'
   | 'admin_profile';
+
+export interface ReferralConfig {
+  enabled: boolean;
+  instantEarning: boolean;
+  signupBonusAmount: number;
+  referrerBonusAmount: number;
+  requireKycForPayout: boolean;
+  updatedAt?: string;
+}
+
+export interface ReferralRecord {
+  id: string;
+  referrerId: string;
+  referrerEmail: string;
+  referrerName: string;
+  referrerCode: string;
+  refereeId: string;
+  refereeEmail: string;
+  refereeName: string;
+  refereeBuyerType?: string;
+  referrerRewardAmount: number;
+  refereeRewardAmount: number;
+  referrerRewardStatus: 'paid' | 'pending_kyc' | 'disabled';
+  refereeRewardStatus: 'paid' | 'pending_kyc' | 'disabled';
+  kycCompleted: boolean;
+  createdAt: string;
+  paidAt?: string;
+}
 
 export interface LegalDispatch {
   id: string;

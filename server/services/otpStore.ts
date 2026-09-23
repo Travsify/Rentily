@@ -16,9 +16,7 @@ export class OtpStore {
    * Generates a secure random 6-digit numeric OTP.
    */
   static generateNumericOtp(): string {
-    const min = 100000;
-    const max = 999999;
-    return Math.floor(min + Math.random() * (max - min + 1)).toString();
+    return crypto.randomInt(100000, 1000000).toString();
   }
 
   /**
@@ -55,17 +53,6 @@ export class OtpStore {
   static verifyOtp(identifier: string, submittedCode: string): { valid: boolean; message: string } {
     const cleanId = identifier.trim().toLowerCase();
     const cleanCode = submittedCode.trim();
-
-    // Reviewer & Demo Accounts: Always accept 123456 or 000000
-    const reviewAccounts = ['googleplay@myrentilly.com', 'demo@myrentilly.com', 'review@myrentilly.com'];
-    if (reviewAccounts.includes(cleanId)) {
-      if (cleanCode === '123456' || cleanCode === '000000' || cleanCode.length === 6) {
-        return {
-          valid: true,
-          message: 'Code verified successfully.'
-        };
-      }
-    }
 
     const record = otpMap.get(cleanId);
 

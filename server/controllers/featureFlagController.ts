@@ -8,6 +8,8 @@ export interface FeatureFlagsConfig {
   enableStatutoryNotices: boolean;      // Legal Notices & Tenancy Termination
   enableCautionClaims: boolean;         // Security Deposit Claims & Inspections
   maintenanceMode: boolean;             // Emergency System-Wide Maintenance Banner
+  requirePhoneVerification: boolean;    // Phone SMS OTP requirement toggle
+  enablePhoneOtp: boolean;              // SMS gateway toggle
   updatedAt: string;
 }
 
@@ -18,6 +20,8 @@ const DEFAULT_FLAGS: FeatureFlagsConfig = {
   enableStatutoryNotices: true,
   enableCautionClaims: true,
   maintenanceMode: false,
+  requirePhoneVerification: false,    // Waived pending Termii activation
+  enablePhoneOtp: false,              // Waived
   updatedAt: new Date().toISOString()
 };
 

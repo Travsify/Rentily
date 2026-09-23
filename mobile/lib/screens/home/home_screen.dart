@@ -62,8 +62,8 @@ class _HomeScreenState extends State<HomeScreen> {
     },
     {
       'tag': 'LIVING VAULTS',
-      'title': 'Earn 11.5% Yield on Your Rent Savings',
-      'description': 'Save automatically towards your next annual rent renewal with inflation hedge.',
+      'title': 'Earn 2.5% Yield on Your Rent Savings',
+      'description': 'Save automatically towards your next annual rent renewal with 2.5% yield to beat inflation.',
       'icon': Icons.trending_up_rounded,
       'color': AppColors.accentOrange,
     },
@@ -187,8 +187,12 @@ class _HomeScreenState extends State<HomeScreen> {
     final String firstName = _user?.firstName ?? 'User';
     final double balance = _user?.walletBalance ?? 0.00;
     final String? accNum = _user?.accountNumber;
-    final rawBank = _user?.bankName ?? 'Wema Bank';
-    final String bank = rawBank.replaceAll(RegExp(r'\s*\([Ff]incra\)', caseSensitive: false), '').replaceAll(RegExp(r'Fincra\s*', caseSensitive: false), '').trim();
+    final rawBank = _user?.bankName ?? 'Rentilly Escrow';
+    final String bank = rawBank
+        .replaceAll(RegExp(r'\s*\([Ff]incra\)', caseSensitive: false), '')
+        .replaceAll(RegExp(r'Fincra\s*', caseSensitive: false), '')
+        .replaceAll(RegExp(r'Wema Bank(\s*\(Rentilly Escrow\))?', caseSensitive: false), 'Rentilly Escrow')
+        .trim();
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
@@ -852,7 +856,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     subtitle: 'Target Savings',
                     icon: Icons.savings_rounded,
                     color: AppColors.primaryLight,
-                    badge: '11.5% Yield',
+                    badge: '2.5% Yield',
                     onTap: () {
                       MainNavigationScreen.of(context)?.switchTab(3);
                     },
@@ -1109,69 +1113,87 @@ class _HomeScreenState extends State<HomeScreen> {
                     final b = _heroBanners[index];
                     final Color color = b['color'] as Color;
 
-                    return Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 2),
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: AppColors.borderDark),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.02),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: color.withValues(alpha: 0.1),
-                              shape: BoxShape.circle,
+                    return InkWell(
+                      onTap: () {
+                        if (index == 1) {
+                          // Living Vaults
+                          MainNavigationScreen.of(context)?.switchTab(3);
+                        } else if (index == 0) {
+                          // Anti-Agent Search / Listings
+                          MainNavigationScreen.of(context)?.switchTab(1);
+                        } else if (index == 2) {
+                          // Bills & Disco
+                          Navigator.of(context).push(
+                            MaterialPageRoute(builder: (_) => const BillsScreen()),
+                          );
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(18),
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 2),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: AppColors.borderDark),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.02),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
                             ),
-                            child: Icon(b['icon'] as IconData, size: 22, color: color),
-                          ),
-                          const SizedBox(width: 14),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  b['tag'],
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 8.5,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: 1.1,
-                                    color: color,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  b['title'],
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppColors.textPrimary,
-                                  ),
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  b['description'],
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: GoogleFonts.plusJakartaSans(
-                                    fontSize: 10,
-                                    color: AppColors.textSecondary,
-                                  ),
-                                ),
-                              ],
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: color.withValues(alpha: 0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(b['icon'] as IconData, size: 22, color: color),
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    b['tag'],
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 8.5,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 1.1,
+                                      color: color,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    b['title'],
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    b['description'],
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 10,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Icon(Icons.chevron_right_rounded, size: 18, color: color),
+                          ],
+                        ),
                       ),
                     );
                   },

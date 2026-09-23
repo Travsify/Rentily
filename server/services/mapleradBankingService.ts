@@ -405,7 +405,7 @@ export class MapleradBankingService {
           address: params.address,
           chain: params.chain || 'solana',
           coin: 'usdt',
-          funding_source: 'USD'
+          funding_source: 'USDT'
         })
       });
 

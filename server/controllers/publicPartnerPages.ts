@@ -49,7 +49,7 @@ export async function renderPartnerVerificationPage(req: Request, res: Response)
             email: p.email,
             fullName: p.full_name || '',
             role: p.role || 'partner',
-            isVerified: p.is_verified ?? true,
+            isVerified: Boolean(p.is_verified && p.cac_number),
             businessName: p.business_name || '',
             cacNumber: p.cac_number || '',
             state: p.state || 'Lagos',
@@ -62,9 +62,9 @@ export async function renderPartnerVerificationPage(req: Request, res: Response)
 
   const businessName = user?.businessName || user?.fullName || 'Accredited Corporate Partner';
   const repName = user?.fullName || businessName || 'Principal Broker';
-  const cacNumber = user?.cacNumber ? `RC: ${user.cacNumber}` : 'Verified Corporate Mandate';
+  const cacNumber = user?.cacNumber ? `RC: ${user.cacNumber}` : 'Pending Corporate KYB';
   const partnerCode = user?.id ? formatOpsId(user.id) : (partnerIdStr || 'RNT-P01');
-  const isVerified = user?.isVerified ?? true;
+  const isVerified = Boolean(user?.isVerified && user?.cacNumber);
   const state = user?.state || 'Lagos';
 
   res.send(`
@@ -602,7 +602,7 @@ export async function renderReKycPage(req: Request, res: Response) {
   const currentBvn = user?.bvn || '';
   const currentNin = user?.ninNumber || '';
   const currentAccount = user?.accountNumber || '';
-  const currentBank = user?.bankName || 'Wema Bank (Fincra)';
+  const currentBank = user?.bankName || 'Rentilly Escrow';
 
   res.send(`
     <!DOCTYPE html>
@@ -641,11 +641,11 @@ export async function renderReKycPage(req: Request, res: Response) {
         ${isAlreadyApproved ? `
           <div class="badge-icon">✅</div>
           <h1>ACCOUNT VERIFIED & ACTIVE</h1>
-          <div class="tagline">Dedicated Fincra Settlement & Dollar Card Active</div>
+          <div class="tagline">Dedicated Escrow Settlement & Dollar Card Active</div>
 
           <div style="background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 18px; padding: 24px; text-align: center; margin-top: 20px;">
             <p style="font-size: 13px; color: #a7f3d0; margin-bottom: 14px; line-height: 1.5;">
-              Your Rentilly dedicated Fincra settlement account is fully verified and active.
+              Your Rentilly dedicated escrow settlement account is fully verified and active.
             </p>
             <div style="font-size: 11px; text-transform: uppercase; color: #94a3b8; font-weight: 700;">Dedicated Account Number</div>
             <div class="result-acc" style="display: block;">${currentAccount}</div>
@@ -663,13 +663,13 @@ export async function renderReKycPage(req: Request, res: Response) {
         ` : `
           <div class="badge-icon">🛡️</div>
           <h1>ACCOUNT UPGRADE & ACTIVATION</h1>
-          <div class="tagline">Dedicated Fincra Settlement & Dollar Card</div>
+          <div class="tagline">Dedicated Escrow Settlement & Dollar Card</div>
 
           <div class="safe-banner">
             <span style="font-size: 20px;">🛡️</span>
             <div>
               <strong>Your Funds Are 100% Secure.</strong><br>
-              Your current wallet balance of <strong>₦${currentBalance.toLocaleString()}</strong> will automatically link to your dedicated Fincra settlement account.
+              Your current wallet balance of <strong>₦${currentBalance.toLocaleString()}</strong> will automatically link to your dedicated escrow settlement account.
             </div>
           </div>
 
@@ -695,7 +695,7 @@ export async function renderReKycPage(req: Request, res: Response) {
             <div class="form-group">
               <label>Bank Verification Number (BVN) <span style="color: #10b981;">*</span></label>
               <input type="text" id="bvn" placeholder="Enter 11-digit BVN" value="${currentBvn}" maxlength="11" required />
-              <span style="font-size: 10px; color: #64748b; margin-top: 4px; display: block;">Required by the Central Bank of Nigeria & NIBSS for dedicated Fincra account issuance.</span>
+              <span style="font-size: 10px; color: #64748b; margin-top: 4px; display: block;">Required by the Central Bank of Nigeria & NIBSS for dedicated account issuance.</span>
             </div>
 
             <div class="form-group">
@@ -717,10 +717,10 @@ export async function renderReKycPage(req: Request, res: Response) {
           <div id="resultBox" class="result-box">
             <div style="font-size: 40px; margin-bottom: 8px;">🎉</div>
             <h2 style="color: #ffffff; font-size: 18px; font-weight: 800;">Dedicated Account Activated!</h2>
-            <p style="color: #94a3b8; font-size: 12px; margin-top: 4px;">Your dedicated Fincra settlement account is active and permanently attached to your profile.</p>
+            <p style="color: #94a3b8; font-size: 12px; margin-top: 4px;">Your dedicated escrow settlement account is active and permanently attached to your profile.</p>
 
             <div class="result-acc" id="accDisplay">----------</div>
-            <div style="font-size: 13px; font-weight: 700; color: #38bdf8;" id="bankDisplay">Wema Bank (Fincra)</div>
+            <div style="font-size: 13px; font-weight: 700; color: #38bdf8;" id="bankDisplay">Rentilly Escrow</div>
 
             <div style="margin-top: 16px; padding: 12px; background: rgba(16, 185, 129, 0.1); border-radius: 10px; font-size: 12px; color: #a7f3d0;">
               💳 Virtual Dollar Card: <strong>Active</strong><br>
@@ -1215,7 +1215,7 @@ export async function renderTransactionReceiptPage(req: Request, res: Response) 
   if (rawTitle.toLowerCase().includes('virtual card') || rawTitle.toLowerCase().includes('card')) {
     rail = 'Rentilly Platinum Virtual USD Card • Maplerad Liquidation Rail';
   } else if (rawTitle.toLowerCase().includes('wema')) {
-    rail = 'Wema Bank Settlement Rail (Fincra Institutional Partner)';
+    rail = 'Wema Bank Settlement Rail (Rentilly Institutional Escrow)';
   } else if (rawTitle.toLowerCase().includes('opay')) {
     rail = 'Opay Microfinance Bank Transfer Rail';
   } else if (rawTitle.toLowerCase().includes('flutterwave')) {
@@ -1614,8 +1614,15 @@ export async function renderTransactionReceiptPage(req: Request, res: Response) 
               <span class="row-val">${escapeHtml(rail)}</span>
             </div>
 
+            ${!isCredit && (tx?.recipientBank || tx?.bankName || tx?.destinationBank) ? `
+              <div class="grid-row">
+                <span class="row-lbl">Recipient Bank Name</span>
+                <span class="row-val">${escapeHtml(tx.recipientBank || tx.bankName || tx.destinationBank)}</span>
+              </div>
+            ` : ''}
+
             <div class="grid-row">
-              <span class="row-lbl">Timestamp (WAT)</span>
+              <span class="row-lbl">Timestamp (GMT+1)</span>
               <span class="row-val">${escapeHtml(dateFormatted)}</span>
             </div>
 
@@ -1638,11 +1645,14 @@ export async function renderTransactionReceiptPage(req: Request, res: Response) 
           </div>
         `}
 
-        <div class="action-row">
-          <button class="btn-print" onclick="window.print()">
+        <div class="action-row" style="display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap;">
+          <button class="btn-print" style="flex: 1; min-width: 140px;" onclick="window.print()">
             📄 Print / Save PDF
           </button>
-          <a class="btn-secondary" href="https://myrentilly.com">
+          <button class="btn-secondary" style="flex: 1; min-width: 140px; border-color: #10b981; color: #34d399;" onclick="downloadReceiptImage()">
+            📸 Save as Image
+          </button>
+          <a class="btn-secondary" style="padding: 13px 14px;" href="https://myrentilly.com">
             Rentilly App
           </a>
         </div>
@@ -1654,6 +1664,7 @@ export async function renderTransactionReceiptPage(req: Request, res: Response) 
         </div>
       </div>
 
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
       <script>
         function updateClock() {
           const now = new Date();
@@ -1675,6 +1686,23 @@ export async function renderTransactionReceiptPage(req: Request, res: Response) 
           if (input && input.value.trim()) {
             window.location.href = '/verify-receipt/' + encodeURIComponent(input.value.trim());
           }
+        }
+
+        function downloadReceiptImage() {
+          const card = document.querySelector('.receipt-card');
+          const actions = document.querySelector('.action-row');
+          if (!card) return;
+          if (actions) actions.style.display = 'none';
+          html2canvas(card, { scale: 2, backgroundColor: '#0f172a' }).then(canvas => {
+            if (actions) actions.style.display = 'flex';
+            const link = document.createElement('a');
+            link.download = 'Rentilly_Receipt_${escapeHtml(cleanRef || "tx")}.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+          }).catch(err => {
+            if (actions) actions.style.display = 'flex';
+            alert('Could not generate receipt image: ' + err.message);
+          });
         }
       </script>
     </body>

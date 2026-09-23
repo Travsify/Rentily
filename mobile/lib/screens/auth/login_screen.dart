@@ -199,30 +199,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       final isPartner = user != null && user.isPartner;
       final isLandlord = user != null && user.isLandlord;
 
-      // Google Play Reviewer & Demo Account: Bypass 2FA OTP modal directly into app
-      final cleanEmail = email.toLowerCase().trim();
-      final isReviewUser = cleanEmail == 'googleplay@myrentilly.com' ||
-          cleanEmail == 'demo@myrentilly.com' ||
-          cleanEmail == 'review@myrentilly.com';
-
-      if (isReviewUser) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool('rentilly_biometrics_enabled', false);
-        await PushNotificationService.setUserTags();
-
-        if (!mounted) return;
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) => MainNavigationScreen(
-              initialPartnerMode: isPartner,
-              initialLandlordMode: isLandlord,
-            ),
-          ),
-          (route) => false,
-        );
-        return;
-      }
-
       // 1. Dispatch high-security 6-digit OTP via Resend API
       setState(() => _isLoading = true);
       await OtpService.sendOtp(
@@ -860,35 +836,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 14),
               side: const BorderSide(color: AppColors.primary, width: 1.5),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        // Google Play Reviewer / Demo Access Quick Fill
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: _isLoading
-                ? null
-                : () {
-                    setState(() {
-                      _emailController.text = 'googleplay@myrentilly.com';
-                      _passwordController.text = 'RentillyReview2026!';
-                      _errorMessage = null;
-                    });
-                    _handlePasswordLogin();
-                  },
-            icon: const Icon(Icons.verified_user_outlined, size: 18, color: Color(0xFF0D5C46)),
-            label: Text(
-              'Google Play Reviewer / Demo Access (1-Tap)',
-              style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF0D5C46)),
-            ),
-            style: OutlinedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 13),
-              backgroundColor: const Color(0xFF0D5C46).withValues(alpha: 0.05),
-              side: const BorderSide(color: Color(0xFF0D5C46), width: 1.2),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
           ),

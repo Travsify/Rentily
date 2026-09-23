@@ -446,10 +446,10 @@ class _SmartSalarySplitterModalState extends State<SmartSalarySplitterModal> {
                   items: widget.userVaults.isNotEmpty
                       ? widget.userVaults.map((v) {
                           final title = v['title'] as String;
-                          final y = v['yieldRate'] ?? v['yieldNote'] ?? '8.0% yield';
+                          final y = v['yieldRate'] ?? v['yieldNote'] ?? '2.5% yield';
                           return DropdownMenuItem(value: title, child: Text('$title ($y)'));
                         }).toList()
-                      : [const DropdownMenuItem(value: 'Annual Rent Stash', child: Text('Annual Rent Stash (8.0% yield)'))],
+                      : [const DropdownMenuItem(value: 'Annual Rent Stash', child: Text('Annual Rent Stash (2.5% yield)'))],
                   onChanged: (v) => setState(() => _targetVaultTitle = v!),
                 ),
                 const SizedBox(height: 18),

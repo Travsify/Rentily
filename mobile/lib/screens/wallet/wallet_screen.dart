@@ -24,6 +24,7 @@ import '../../widgets/transaction_receipt_modal.dart';
 import '../../widgets/statement_export_modal.dart';
 import '../../widgets/currency_swap_modal.dart';
 import '../cards/cards_screen.dart';
+import '../referrals/referral_screen.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key});
@@ -45,7 +46,7 @@ class _WalletScreenState extends State<WalletScreen> {
   double _fxUsdToEur = 0.91;
   double _cardIssuanceFeeUsd = 3.00;
   String? _usdtTronAddress;
-  String _activeAccountTab = 'DAILY'; // 'DAILY' (Fincra NGN) | 'USDT' (TRC20)
+  String _activeAccountTab = 'DAILY'; // 'DAILY' (Rentilly NGN) | 'USDT' (TRC20)
   Map<String, dynamic>? _vaultAccounts;
   bool _isProvisioningCommercial = false;
   Timer? _liveBalanceSyncTimer;
@@ -282,7 +283,7 @@ class _WalletScreenState extends State<WalletScreen> {
           } catch (_) {}
         }(),
 
-        // 6. User Funding Vaults (Daily 9PSB, Commercial Wema Bank Escrow, USDT TRC20)
+        // 6. User Funding Vaults (Daily 9PSB, Commercial Rentilly Escrow, USDT TRC20)
         () async {
           try {
             final vaults = await ApiService.fetchVaultAccounts(u.email);
@@ -315,7 +316,7 @@ class _WalletScreenState extends State<WalletScreen> {
         final vaults = await ApiService.fetchVaultAccounts(_user!.email);
         final updatedUser = _user!.copyWith(
           commercialAccountNumber: res['account']['accountNumber']?.toString(),
-          commercialBankName: res['account']['bankName']?.toString() ?? 'Wema Bank',
+          commercialBankName: res['account']['bankName']?.toString() ?? 'Rentilly Escrow',
         );
         await AuthService.updateUser(updatedUser);
         try {
@@ -331,7 +332,7 @@ class _WalletScreenState extends State<WalletScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                '🎉 High-Value Escrow Vault Activated: ${res['account']['accountNumber']} (Wema Bank)',
+                '🎉 High-Value Escrow Vault Activated: ${res['account']['accountNumber']} (Rentilly Escrow)',
                 style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
               ),
               backgroundColor: const Color(0xFF16A34A),
@@ -622,7 +623,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 const SizedBox(height: 20),
                 const Icon(Icons.account_balance_wallet_outlined, size: 48, color: AppColors.accentOrange),
                 const SizedBox(height: 12),
-                Text('Personal TRC20 Wallet Pending', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                Text('Personal USDT TRC20 Wallet Pending', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                 const SizedBox(height: 8),
                 Text(
                   'Your dedicated TRON (TRC20) deposit address is automatically generated once your Rentilly Tier 1 account verification is completed.',
@@ -755,7 +756,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   icon: const Icon(Icons.copy_rounded, size: 16),
-                  label: const Text('Copy TRC20 Address'),
+                  label: const Text('Copy USDT Deposit Address'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: Colors.white,
@@ -788,8 +789,12 @@ class _WalletScreenState extends State<WalletScreen> {
     const String effectiveCurrency = 'NGN';
     final String symbol = '₦';
     final double balance = _user?.walletBalance ?? 0.00;
-    final rawBank = _user?.bankName ?? 'Wema Bank';
-    final String bank = rawBank.replaceAll(RegExp(r'\s*\([Ff]incra\)', caseSensitive: false), '').replaceAll(RegExp(r'Fincra\s*', caseSensitive: false), '').trim();
+    final rawBank = _user?.bankName ?? 'Rentilly Escrow';
+    final String bank = rawBank
+        .replaceAll(RegExp(r'\s*\([Ff]incra\)', caseSensitive: false), '')
+        .replaceAll(RegExp(r'Fincra\s*', caseSensitive: false), '')
+        .replaceAll(RegExp(r'Wema Bank(\s*\(Rentilly Escrow\))?', caseSensitive: false), 'Rentilly Escrow')
+        .trim();
     final String? accNum = _user?.accountNumber;
     const String accountLabel = 'DEDICATED NUBAN ACCOUNT';
 
@@ -1089,7 +1094,7 @@ class _WalletScreenState extends State<WalletScreen> {
 
                     // Display View Based on Active Tab
                     if (_activeAccountTab == 'DAILY') ...[
-                      // 1. Dedicated Fincra Wema Bank Vault
+                      // 1. Dedicated Wema Bank Escrow Vault
                       if (accNum != null)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -1275,7 +1280,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Text(
-                                    'TRC20',
+                                    'TRON',
                                     style: GoogleFonts.plusJakartaSans(
                                       fontSize: 8.5,
                                       fontWeight: FontWeight.w900,
@@ -1286,7 +1291,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    'TRON NETWORK ADDRESS',
+                                    'TRON (TRC20) NETWORK ADDRESS',
                                     style: GoogleFonts.plusJakartaSans(
                                       fontSize: 8,
                                       fontWeight: FontWeight.bold,
@@ -1467,6 +1472,10 @@ class _WalletScreenState extends State<WalletScreen> {
 
               // 3. Living Wallet Actions Hub (Add Money, Swap, Withdraw, Statement, Vault)
               _buildLivingWalletActionsHub(),
+              const SizedBox(height: 14),
+
+              // 4. Referral & Rewards Hub
+              _buildReferralHubBanner(),
               const SizedBox(height: 22),
 
               // Rentilly Virtual Dollar Card Section (Controlled Dynamically by Admin Remote Feature Flags)
@@ -1957,6 +1966,99 @@ class _WalletScreenState extends State<WalletScreen> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildReferralHubBanner() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () {
+          HapticFeedback.lightImpact();
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => ReferralScreen(user: _user),
+            ),
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF0F172A), Color(0xFF1E293B)],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(9),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.card_giftcard_rounded, color: AppColors.primary, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          'Refer & Earn ₦500',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981),
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                          child: Text(
+                            '₦1,000 BONUS',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 7.5,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Give ₦1,000 to friends, earn ₦500 per verified sign up.',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xFF94A3B8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white70, size: 13),
+            ],
+          ),
+        ),
       ),
     );
   }

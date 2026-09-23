@@ -826,18 +826,18 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
       return;
     }
 
-    // Branch 2: USDT On-chain Transfer to TRC20 Address
+    // Branch 2: USDT On-chain Transfer to External Crypto Address (Solana SPL)
     if (_withdrawalMode == 'USDT' && (_usdtDestinationType == 'ONCHAIN' || _usdtDestinationType == 'CRYPTO')) {
       final cryptoAddr = _cryptoAddressController.text.trim();
-      if (cryptoAddr.length < 30 || !cryptoAddr.startsWith('T')) {
-        setState(() => _errorMessage = 'Please enter a valid TRON TRC20 wallet address (starts with T).');
+      if (cryptoAddr.length < 32) {
+        setState(() => _errorMessage = 'Please enter a valid crypto wallet address (Solana SPL / 32-44 characters).');
         return;
       }
 
       if (!mounted) return;
       final authorized = await PaymentSecurityService.authorizeTransaction(
         context,
-        title: 'Transfer $entered USDT (TRC20)',
+        title: 'Transfer $entered USDT (Solana SPL)',
         amount: entered,
         recipient: '${cryptoAddr.substring(0, 6)}...${cryptoAddr.substring(cryptoAddr.length - 6)}',
       );
@@ -861,7 +861,8 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
             'email': currentUser.email,
             'address': cryptoAddr,
             'cryptoAddress': cryptoAddr,
-            'chain': 'TRC20',
+            'chain': 'solana',
+            'network': 'solana',
             'amountUsdt': entered,
             'feeUsdt': _usdtFeeAmount,
             'netPayoutUsdt': _usdtNetPayoutAmount,
@@ -884,7 +885,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
             'currency': 'USDT',
             'isCredit': false,
             'sender': currentUser.fullName.isNotEmpty ? currentUser.fullName : 'Rentilly User',
-            'beneficiary': 'TRC20 Wallet',
+            'beneficiary': 'Solana Wallet',
             'status': 'SUCCESSFUL',
             'date': DateTime.now().toIso8601String(),
           };
@@ -897,10 +898,10 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
           // Save crypto beneficiary
           BeneficiaryService.saveBeneficiary(
             userEmail: currentUser.email,
-            accountName: 'TRC20 Wallet (${cryptoAddr.substring(0, 6)}...)',
+            accountName: 'Solana Wallet (${cryptoAddr.substring(0, 6)}...)',
             accountNumber: cryptoAddr,
-            bankName: 'TRON TRC20',
-            bankCode: 'TRON',
+            bankName: 'Solana SPL',
+            bankCode: 'SOLANA',
             type: 'crypto',
             cryptoAddress: cryptoAddr,
           );
@@ -912,7 +913,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
             metadata: {
               'amount': '\$$entered USDT',
               'address': cryptoAddr,
-              'network': 'TRON TRC20',
+              'network': 'Solana SPL',
             },
           );
 
@@ -1207,7 +1208,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
                             Icon(Icons.currency_bitcoin_rounded, size: 14, color: _withdrawalMode == 'USDT' ? const Color(0xFF00E676) : AppColors.textMuted),
                             const SizedBox(width: 6),
                             Text(
-                              'USDT (TRC20)',
+                              'USDT (Solana)',
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.bold,
@@ -1848,14 +1849,14 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
             ]
             // 2. If On-Chain Crypto Address chosen
             else if (_withdrawalMode == 'USDT' && (_usdtDestinationType == 'ONCHAIN' || _usdtDestinationType == 'CRYPTO')) ...[
-              Text('RECIPIENT TRON / TRC20 ADDRESS', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+              Text('RECIPIENT SOLANA / SPL USDT ADDRESS', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
               const SizedBox(height: 6),
               TextField(
                 controller: _cryptoAddressController,
                 style: GoogleFonts.firaCode(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
                 decoration: InputDecoration(
-                  hintText: 'T...',
-                  hintStyle: GoogleFonts.firaCode(fontSize: 12, color: AppColors.textMuted),
+                  hintText: 'Enter Solana SPL USDT address...',
+                  hintStyle: GoogleFonts.firaCode(fontSize: 11, color: AppColors.textMuted),
                   filled: true,
                   fillColor: const Color(0xFFF9FAFB),
                   prefixIcon: const Icon(Icons.account_balance_wallet_rounded, size: 18, color: AppColors.primary),
@@ -1866,8 +1867,8 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
                       final scanned = await QRScannerScreen.startScan(
                         context,
                         mode: QRScannerMode.cryptoAddress,
-                        title: 'Scan USDT Address',
-                        instruction: 'Align recipient TRON (TRC20) QR code',
+                        title: 'Scan Solana Address',
+                        instruction: 'Align recipient Solana SPL QR code',
                       );
                       if (scanned != null && scanned.trim().isNotEmpty) {
                         setState(() {

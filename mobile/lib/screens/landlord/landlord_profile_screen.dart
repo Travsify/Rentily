@@ -78,8 +78,12 @@ class _LandlordProfileScreenState extends State<LandlordProfileScreen> {
   void _showSavedAccountsModal() {
     if (_user == null) return;
     final accNumber = _user?.accountNumber ?? '';
-    final rawBank = _user?.bankName ?? 'Wema Bank';
-    final bankName = rawBank.replaceAll(RegExp(r'\s*\([Ff]incra\)', caseSensitive: false), '').replaceAll(RegExp(r'Fincra\s*', caseSensitive: false), '').trim();
+    final rawBank = _user?.bankName ?? 'Rentilly Escrow';
+    final bankName = rawBank
+        .replaceAll(RegExp(r'\s*\([Ff]incra\)', caseSensitive: false), '')
+        .replaceAll(RegExp(r'Fincra\s*', caseSensitive: false), '')
+        .replaceAll(RegExp(r'Wema Bank(\s*\(Rentilly Escrow\))?', caseSensitive: false), 'Rentilly Escrow')
+        .trim();
     final commAcc = _user?.commercialAccountNumber ?? '';
     final commBank = _user?.commercialBankName ?? '';
 

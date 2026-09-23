@@ -19,6 +19,7 @@ import '../auth/register_screen.dart';
 import '../main_navigation_screen.dart';
 import '../agreements/tenancy_agreements_screen.dart';
 import '../support/support_chat_screen.dart';
+import '../referrals/referral_screen.dart';
 import '../../widgets/partner_legal_modal.dart';
 import '../../services/api_service.dart';
 import '../../constants/nigerian_states_cities.dart';
@@ -796,7 +797,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 16),
+
+              // REWARDS & REFERRALS
+              Text(
+                'REWARDS & REFERRALS',
+                style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 10),
+
+              _buildMenuTile(
+                Icons.card_giftcard_rounded,
+                'Refer & Earn Cash (₦500)',
+                'Give ₦1,000 signup bonus to friends & earn ₦500 per invite',
+                trailing: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(color: const Color(0xFFDCFCE7), borderRadius: BorderRadius.circular(6)),
+                  child: Text('₦1,000 BONUS', style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w900, color: const Color(0xFF16A34A))),
+                ),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ReferralScreen(user: _currentUser),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
 
               // 1. SECURITY & AUTHORIZATION SETTINGS
               Text(
@@ -1256,7 +1283,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const Divider(height: 18),
                   _buildStatusRow('Dedicated Account', _currentUser?.accountNumber ?? 'Pending (Add Date of Birth)'),
                   const Divider(height: 18),
-                  _buildStatusRow('Settlement Bank', _currentUser?.bankName ?? 'Wema Bank (Fincra)'),
+                  _buildStatusRow('Settlement Bank', _currentUser?.bankName ?? 'Rentilly Escrow'),
                   const Divider(height: 18),
                   _buildStatusRow('Identity Verification', isApproved ? 'Level 2 Verified Tier 🛡️' : 'Pending Verification'),
                   if (_currentUser?.phoneNumber != null && _currentUser!.phoneNumber.isNotEmpty) ...[
@@ -1447,7 +1474,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text('Dedicated Rentilly Escrow Account', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                        Text('${_currentUser?.accountNumber ?? "Pending Fincra"} • ${_currentUser?.fullName ?? "Rentilly User"}', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+                        Text('${_currentUser?.accountNumber ?? "Pending Escrow NUBAN"} • ${_currentUser?.fullName ?? "Rentilly User"}', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
                       ],
                     ),
                   ),

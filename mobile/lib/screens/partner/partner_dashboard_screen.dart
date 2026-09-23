@@ -216,8 +216,8 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
     final cacNumber = (_user?.cacNumber != null && _user!.cacNumber!.trim().isNotEmpty)
         ? _user!.cacNumber!.trim()
         : (isVerified ? 'CAC Verified' : 'Pending CAC KYB');
-    final accountNumber = _user?.accountNumber ?? (isVerified ? 'Pending Fincra NUBAN' : 'Pending KYB');
-    final bankName = _user?.bankName ?? 'Wema Bank (Fincra)';
+    final accountNumber = _user?.accountNumber ?? (isVerified ? 'Pending Escrow NUBAN' : 'Pending KYB');
+    final bankName = _user?.bankName ?? 'Rentilly Escrow';
     final partnerId = IdUtils.formatOpsId(_user?.id, isPartner: true);
     final operationalBalance = _user?.walletBalance ?? 0.0;
     final escrowCommission = _escrowCommission;

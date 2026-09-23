@@ -86,15 +86,15 @@ class _VaultsScreenState extends State<VaultsScreen> {
     final categories = [
       {
         'name': 'Annual Rent Stash',
-        'desc': 'Save towards yearly rent renewal',
-        'yield': '7.0% p.a.',
-        'yieldNote': '5.0% - 8.0% APY',
+        'desc': 'Save towards yearly rent renewal with 2.5% annual yield to beat inflation',
+        'yield': '2.5% p.a.',
+        'yieldNote': '2.5% Annual Yield',
       },
       {
         'name': 'Living Utility & Target Stash',
-        'desc': 'Power tokens, water, data, & maintenance',
-        'yield': '5.0% p.a.',
-        'yieldNote': 'Max 5.0% APY',
+        'desc': 'Power tokens, water, data, & maintenance with 2.5% annual yield',
+        'yield': '2.5% p.a.',
+        'yieldNote': '2.5% Annual Yield',
       },
       {
         'name': 'Caution Deposit & Service Fund',
@@ -379,7 +379,7 @@ class _VaultsScreenState extends State<VaultsScreen> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            '5.0% - 8.0% ANNUAL YIELD',
+                            '2.5% ANNUAL YIELD',
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 8,
                               fontWeight: FontWeight.bold,
@@ -400,7 +400,7 @@ class _VaultsScreenState extends State<VaultsScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Disciplined living reserves. Caution deposit protection is strictly interest-free (0%); annual rent stashes earn 5% to 8% yield.',
+                      'Disciplined living reserves. Caution deposit protection is strictly interest-free (0%); annual rent stashes earn 2.5% annual yield to beat inflation.',
                       style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: Colors.white.withValues(alpha: 0.8)),
                     ),
                   ],
@@ -602,7 +602,7 @@ class _VaultsScreenState extends State<VaultsScreen> {
                     final double saved = ((v['saved'] ?? 0.0) as num).toDouble();
                     final double target = ((v['target'] ?? 0.0) as num).toDouble();
                     final double progress = target > 0 ? (saved / target).clamp(0.0, 1.0) : 0.0;
-                    final yieldStr = v['yieldRate'] ?? (v['yieldNote'] ?? '5.0% p.a.');
+                    final yieldStr = v['yieldRate'] ?? (v['yieldNote'] ?? '2.5% p.a.');
 
                     return Container(
                       margin: const EdgeInsets.only(bottom: 12),

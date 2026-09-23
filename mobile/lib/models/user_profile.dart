@@ -17,12 +17,17 @@ class UserProfile {
   final String? state;
 
   // Partner / Corporate Vetting Fields
+  final String buyerType; // 'personal' or 'corporate'
   final String? businessName;
   final String? cacNumber;
   final String? taxId;
+  final String? tinNumber;
   final String? officeAddress;
   final String? officeUtilityBillUrl;
   final String? officeBannerPhotoUrl;
+  final String? signatoryName;
+  final String? signatoryRole;
+  final String? signatoryPhone;
   final String partnerStatus; // 'unverified', 'pending_review', 'verified'
   final bool rekycRequired;
   final String? dob;
@@ -31,6 +36,7 @@ class UserProfile {
   final int mapleradTier;
   final String? lasreraNumber;
   final String? cryptoId;
+  final String? referralCode;
 
   UserProfile({
     required this.id,
@@ -38,6 +44,7 @@ class UserProfile {
     required this.fullName,
     required this.phoneNumber,
     required this.role,
+    this.buyerType = 'personal',
     this.isVerified = false,
     this.ninNumber,
     this.bvn,
@@ -53,9 +60,13 @@ class UserProfile {
     this.businessName,
     this.cacNumber,
     this.taxId,
+    this.tinNumber,
     this.officeAddress,
     this.officeUtilityBillUrl,
     this.officeBannerPhotoUrl,
+    this.signatoryName,
+    this.signatoryRole,
+    this.signatoryPhone,
     this.partnerStatus = 'unverified',
     this.rekycRequired = false,
     this.dob,
@@ -63,7 +74,26 @@ class UserProfile {
     this.mapleradTier = 0,
     this.lasreraNumber,
     this.cryptoId,
+    this.referralCode,
   });
+
+  /// Auto-linked deterministic or assigned Referral Code
+  String get displayReferralCode {
+    if (referralCode != null && referralCode!.trim().isNotEmpty) {
+      return referralCode!.trim().toUpperCase();
+    }
+    final raw = (email.isNotEmpty ? email : fullName).toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
+    final prefix = raw.length >= 4 ? raw.substring(0, 4) : 'RENT';
+    int hash = 5381;
+    final str = '${email}_rentilly_ref';
+    for (int i = 0; i < str.length; i++) {
+      hash = ((hash << 5) + hash) + str.codeUnitAt(i);
+      hash &= 0xFFFFFFFF;
+    }
+    final suffix = hash.abs().toRadixString(36).toUpperCase().padLeft(4, '0');
+    final cleanSuffix = suffix.length >= 4 ? suffix.substring(suffix.length - 4) : suffix;
+    return '$prefix$cleanSuffix';
+  }
 
   /// Auto-linked deterministic or assigned Crypto ID
   String get displayCryptoId {
@@ -80,8 +110,8 @@ class UserProfile {
 
   // Role detection getters — role is the sole source of truth.
   // businessName/cacNumber do NOT promote a user to partner; role must be
-  // explicitly 'partner'. This prevents landlords with company info (e.g. an
-  // Ltd. registered as owner/landlord) from being routed to the partner UI.
+  // explicitly 'partner'. This prevents corporate renters/buyers or landlords
+  // from being routed to the partner UI.
   bool get isPartner => role.toLowerCase() == 'partner';
 
   bool get isLandlord =>
@@ -89,12 +119,14 @@ class UserProfile {
 
   bool get isConsumer => !isPartner && !isLandlord;
 
+  bool get isCorporateBuyer => buyerType.toLowerCase() == 'corporate' || (businessName != null && businessName!.trim().isNotEmpty && isConsumer);
+
   // Extract real first name or corporate business name
   String get firstName {
-    if (role == 'partner') {
+    if (isPartner || isCorporateBuyer) {
       if (businessName != null && businessName!.isNotEmpty) return businessName!;
       if (fullName.isNotEmpty && fullName.toLowerCase() != 'info' && fullName.toLowerCase() != 'user') return fullName;
-      return 'Corporate Partner';
+      return isPartner ? 'Corporate Partner' : 'Corporate Buyer';
     }
     final trimmed = fullName.trim();
     if (trimmed.isEmpty || trimmed.toLowerCase() == 'info' || trimmed.toLowerCase() == 'user') {
@@ -122,14 +154,13 @@ class UserProfile {
     rawName = _sanitizeName(rawName, rawEmail);
 
     final rawRole = json['role']?.toString() ?? 'renter';
-    final businessName = json['businessName']?.toString() ?? json['business_name']?.toString();
+    final businessName = json['businessName']?.toString() ?? json['business_name']?.toString() ?? json['companyName']?.toString() ?? json['company_name']?.toString();
+    final buyerType = json['buyerType']?.toString() ?? json['buyer_type']?.toString() ?? ((businessName != null && businessName.trim().isNotEmpty && rawRole == 'renter') ? 'corporate' : 'personal');
 
-    // Corporate Partner check:
-    // If user has a corporate business name, or is explicitly role 'partner'
-    final bool isCorporatePartner = rawRole == 'partner' ||
-        (businessName != null && businessName.trim().isNotEmpty && businessName.trim().toLowerCase() != 'null');
+    final bool isPartnerRole = rawRole.toLowerCase() == 'partner';
+    final effectiveRole = isPartnerRole ? 'partner' : rawRole;
 
-    final effectiveRole = isCorporatePartner ? 'partner' : rawRole;
+    final tinVal = json['tinNumber']?.toString() ?? json['tin_number']?.toString() ?? json['taxId']?.toString() ?? json['tax_id']?.toString();
 
     return UserProfile(
       id: json['id']?.toString() ?? '',
@@ -137,6 +168,7 @@ class UserProfile {
       fullName: rawName,
       phoneNumber: json['phoneNumber']?.toString() ?? json['phone_number']?.toString() ?? '',
       role: effectiveRole,
+      buyerType: buyerType,
       isVerified: json['isVerified'] ?? json['is_verified'] ?? false,
       ninNumber: json['ninNumber']?.toString() ?? json['nin_number']?.toString(),
       bvnVerified: json['bvnVerified'] ?? json['bvn_verified'] ?? false,
@@ -150,11 +182,15 @@ class UserProfile {
       state: json['state']?.toString() ?? 'Lagos',
       businessName: businessName,
       cacNumber: json['cacNumber']?.toString() ?? json['cac_number']?.toString(),
-      taxId: json['taxId']?.toString() ?? json['tax_id']?.toString() ?? json['tinNumber']?.toString() ?? json['tin_number']?.toString(),
+      taxId: tinVal,
+      tinNumber: tinVal,
       officeAddress: json['officeAddress']?.toString() ?? json['office_address']?.toString(),
       officeUtilityBillUrl: json['officeUtilityBillUrl']?.toString() ?? json['office_utility_bill_url']?.toString(),
       officeBannerPhotoUrl: json['officeBannerPhotoUrl']?.toString() ?? json['office_banner_photo_url']?.toString(),
-      partnerStatus: isCorporatePartner ? 'verified' : (json['partnerStatus']?.toString() ?? json['partner_status']?.toString() ?? 'unverified'),
+      signatoryName: json['signatoryName']?.toString() ?? json['signatory_name']?.toString() ?? json['authorized_signatory_name']?.toString(),
+      signatoryRole: json['signatoryRole']?.toString() ?? json['signatory_role']?.toString() ?? json['authorized_signatory_role']?.toString(),
+      signatoryPhone: json['signatoryPhone']?.toString() ?? json['signatory_phone']?.toString() ?? json['authorized_signatory_phone']?.toString(),
+      partnerStatus: isPartnerRole ? 'verified' : (json['partnerStatus']?.toString() ?? json['partner_status']?.toString() ?? 'unverified'),
       rekycRequired: json['rekycRequired'] ?? json['rekyc_required'] ?? false,
       dob: json['dob']?.toString(),
       bvn: json['bvn']?.toString() ?? json['bvn_number']?.toString(),
@@ -162,6 +198,7 @@ class UserProfile {
       mapleradTier: (json['mapleradTier'] as num?)?.toInt() ?? 0,
       lasreraNumber: json['lasreraNumber']?.toString() ?? json['lasrera_number']?.toString(),
       cryptoId: json['cryptoId']?.toString() ?? json['crypto_id']?.toString(),
+      referralCode: json['referralCode']?.toString() ?? json['referral_code']?.toString(),
     );
   }
 
@@ -172,6 +209,7 @@ class UserProfile {
       'fullName': fullName,
       'phoneNumber': phoneNumber,
       'role': role,
+      'buyerType': buyerType,
       'isVerified': isVerified,
       'ninNumber': ninNumber,
       'bvn': bvn,
@@ -187,9 +225,13 @@ class UserProfile {
       'businessName': businessName,
       'cacNumber': cacNumber,
       'taxId': taxId,
+      'tinNumber': tinNumber,
       'officeAddress': officeAddress,
       'officeUtilityBillUrl': officeUtilityBillUrl,
       'officeBannerPhotoUrl': officeBannerPhotoUrl,
+      'signatoryName': signatoryName,
+      'signatoryRole': signatoryRole,
+      'signatoryPhone': signatoryPhone,
       'partnerStatus': partnerStatus,
       'rekycRequired': rekycRequired,
       'dob': dob,
@@ -197,6 +239,7 @@ class UserProfile {
       'mapleradTier': mapleradTier,
       'lasreraNumber': lasreraNumber,
       'cryptoId': cryptoId,
+      'referralCode': referralCode,
     };
   }
 
@@ -206,6 +249,7 @@ class UserProfile {
     String? fullName,
     String? phoneNumber,
     String? role,
+    String? buyerType,
     bool? isVerified,
     String? ninNumber,
     String? bvn,
@@ -221,9 +265,13 @@ class UserProfile {
     String? businessName,
     String? cacNumber,
     String? taxId,
+    String? tinNumber,
     String? officeAddress,
     String? officeUtilityBillUrl,
     String? officeBannerPhotoUrl,
+    String? signatoryName,
+    String? signatoryRole,
+    String? signatoryPhone,
     String? partnerStatus,
     bool? rekycRequired,
     String? dob,
@@ -231,6 +279,7 @@ class UserProfile {
     int? mapleradTier,
     String? lasreraNumber,
     String? cryptoId,
+    String? referralCode,
   }) {
     return UserProfile(
       id: id ?? this.id,
@@ -238,6 +287,7 @@ class UserProfile {
       fullName: fullName ?? this.fullName,
       phoneNumber: phoneNumber ?? this.phoneNumber,
       role: role ?? this.role,
+      buyerType: buyerType ?? this.buyerType,
       isVerified: isVerified ?? this.isVerified,
       ninNumber: ninNumber ?? this.ninNumber,
       bvn: bvn ?? this.bvn,
@@ -253,9 +303,13 @@ class UserProfile {
       businessName: businessName ?? this.businessName,
       cacNumber: cacNumber ?? this.cacNumber,
       taxId: taxId ?? this.taxId,
+      tinNumber: tinNumber ?? this.tinNumber,
       officeAddress: officeAddress ?? this.officeAddress,
       officeUtilityBillUrl: officeUtilityBillUrl ?? this.officeUtilityBillUrl,
       officeBannerPhotoUrl: officeBannerPhotoUrl ?? this.officeBannerPhotoUrl,
+      signatoryName: signatoryName ?? this.signatoryName,
+      signatoryRole: signatoryRole ?? this.signatoryRole,
+      signatoryPhone: signatoryPhone ?? this.signatoryPhone,
       partnerStatus: partnerStatus ?? this.partnerStatus,
       rekycRequired: rekycRequired ?? this.rekycRequired,
       dob: dob ?? this.dob,
@@ -263,6 +317,7 @@ class UserProfile {
       mapleradTier: mapleradTier ?? this.mapleradTier,
       lasreraNumber: lasreraNumber ?? this.lasreraNumber,
       cryptoId: cryptoId ?? this.cryptoId,
+      referralCode: referralCode ?? this.referralCode,
     );
   }
 }

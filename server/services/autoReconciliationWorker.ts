@@ -690,11 +690,11 @@ export class AutoReconciliationWorker {
                 userName: targetUser.full_name || 'Valued User',
                 category: 'wallet',
                 title: `Bank Transfer Received: ₦${amount.toLocaleString()}`,
-                message: `Your Rentilly Wema Bank Account received ₦${amount.toLocaleString()} from ${senderName}. New Balance: ₦${(creditRes.newBalance ?? 0).toLocaleString()}.`,
+                message: `Your Rentilly Escrow Account received ₦${amount.toLocaleString()} from ${senderName}. New Balance: ₦${(creditRes.newBalance ?? 0).toLocaleString()}.`,
                 metadata: {
                   amount,
                   reference: ref,
-                  bankName: 'Wema Bank (Fincra)',
+                  bankName: 'Rentilly Escrow',
                   sender: senderName,
                   date: col.createdAt || new Date().toISOString()
                 }

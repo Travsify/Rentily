@@ -624,6 +624,13 @@ export async function withdrawCrypto(req: Request, res: Response) {
       chain: targetChain,
     });
 
+    if (!cryptoRes.success) {
+      return res.status(400).json({
+        status: false,
+        error: cryptoRes.message || 'Crypto withdrawal failed to dispatch to blockchain network. Please verify your Solana SPL address.'
+      });
+    }
+
     const newBalUsdt = Math.max(0, Number((currentBalUsdt - numUsdt).toFixed(2)));
 
     // Record in TransactionStore with currency USDT
@@ -642,7 +649,7 @@ export async function withdrawCrypto(req: Request, res: Response) {
       beneficiary: `${address.substring(0, 8)}...${address.substring(address.length - 6)} (${targetChain.toUpperCase()})`,
       recipientAccount: address,
       recipientBank: `Blockchain (${targetChain.toUpperCase()})`,
-      status: cryptoRes.success ? 'SUCCESSFUL' : 'PROCESSING',
+      status: 'SUCCESSFUL',
       date: new Date().toISOString(),
     });
 
@@ -1203,8 +1210,8 @@ export async function flutterwaveWebhook(req: Request, res: Response) {
     // 1. Verify Flutterwave signature header (verif-hash)
     const secretHash = process.env.FLUTTERWAVE_SECRET_HASH || 'rentilly_secure_flw_hash_2026';
     const signature = req.headers['verif-hash'];
-    if (signature && signature !== secretHash) {
-      console.warn('[FLW Webhook] ⚠️ Invalid verif-hash signature received:', signature);
+    if (!signature || signature !== secretHash) {
+      console.warn('[FLW Webhook] ⚠️ Invalid or missing verif-hash signature received:', signature);
       return res.status(401).json({ error: 'Unauthorized webhook call: signature mismatch' });
     }
 
@@ -1645,7 +1652,7 @@ export async function mapleradWebhook(req: Request, res: Response) {
               metadata: {
                 amount: amountPaid,
                 reference: ref,
-                bankName: 'Wema Bank (Fincra)',
+                bankName: 'Rentilly Escrow',
                 sender: sender,
                 date: new Date().toISOString()
               }
@@ -1762,6 +1769,16 @@ export async function mapleradWebhook(req: Request, res: Response) {
 // 4e. Paystack Webhook Listener (Inflows to Commercial Dedicated Accounts & Charges)
 export async function paystackWebhook(req: Request, res: Response) {
   try {
+    const paystackSecret = process.env.PAYSTACK_SECRET_KEY;
+    const paystackSignature = req.headers['x-paystack-signature'];
+    if (paystackSecret && paystackSignature) {
+      const hash = crypto.createHmac('sha512', paystackSecret).update(JSON.stringify(req.body || {})).digest('hex');
+      if (hash !== paystackSignature) {
+        console.warn('[Paystack Webhook] ⚠️ Invalid signature received:', paystackSignature);
+        return res.status(401).json({ error: 'Unauthorized webhook call: signature mismatch' });
+      }
+    }
+
     const event = req.body?.event;
     const data = req.body?.data;
 
@@ -1794,6 +1811,18 @@ export async function paystackWebhook(req: Request, res: Response) {
         targetUser = prof;
       }
 
+      if (!targetUser && cleanEmail) {
+        const localUser = await UserStore.findByEmail(cleanEmail);
+        if (localUser) {
+          targetUser = {
+            id: localUser.id,
+            email: localUser.email,
+            full_name: localUser.fullName,
+            wallet_balance: localUser.walletBalance || 0
+          };
+        }
+      }
+
       if (targetUser) {
         const creditRes = await AtomicLedgerService.creditWalletAtomic({
           userId: targetUser.id,
@@ -1807,6 +1836,33 @@ export async function paystackWebhook(req: Request, res: Response) {
         console.log(`[Paystack Webhook] ✅ Credited ₦${amountPaid.toLocaleString()} to ${targetUser.email}`);
 
         if (creditRes.success && !creditRes.alreadyProcessed) {
+          // Update local UserStore & TransactionStore only on non-duplicate execution
+          const userInStore = await UserStore.findByEmail(targetUser.email);
+          if (userInStore) {
+            const updatedBal = (userInStore.walletBalance || 0) + amountPaid;
+            await UserStore.upsertUser({
+              ...userInStore,
+              walletBalance: updatedBal,
+              updatedAt: new Date().toISOString()
+            });
+
+            TransactionStore.addTransaction({
+              id: require('crypto').randomUUID(),
+              userId: userInStore.id,
+              email: userInStore.email,
+              title: `Wema Bank Inbound Deposit (${senderName || 'NIP Transfer'})`,
+              description: `Inbound Bank Transfer via Dedicated Account (${dedicatedAcc || '9816975551'})`,
+              type: 'credit',
+              category: 'deposit',
+              amount: amountPaid,
+              currency: 'NGN',
+              isCredit: true,
+              reference: ref,
+              status: 'SUCCESSFUL',
+              date: new Date().toISOString()
+            });
+          }
+
           const newBal = creditRes.newBalance ?? (Number(targetUser.wallet_balance || 0) + amountPaid);
 
           // Dispatch notifications
@@ -1841,6 +1897,17 @@ export async function paystackWebhook(req: Request, res: Response) {
 // 4f. Korapay Webhook Listener (Inflows to Korapay Accounts & Dynamic Checkouts)
 export async function korapayWebhook(req: Request, res: Response) {
   try {
+    const koraSecret = process.env.KORAPAY_SECRET_KEY;
+    const koraSignature = req.headers['x-korapay-signature'];
+    if (koraSecret && koraSignature) {
+      const crypto = require('crypto');
+      const hash = crypto.createHmac('sha256', koraSecret).update(JSON.stringify(req.body || {})).digest('hex');
+      if (hash !== koraSignature) {
+        console.warn('[Korapay Webhook] ⚠️ Invalid signature received:', koraSignature);
+        return res.status(401).json({ error: 'Unauthorized webhook call: signature mismatch' });
+      }
+    }
+
     const event = req.body?.event;
     const data = req.body?.data;
 
@@ -1868,6 +1935,18 @@ export async function korapayWebhook(req: Request, res: Response) {
         targetUser = prof;
       }
 
+      if (!targetUser && cleanEmail) {
+        const localUser = await UserStore.findByEmail(cleanEmail);
+        if (localUser) {
+          targetUser = {
+            id: localUser.id,
+            email: localUser.email,
+            full_name: localUser.fullName,
+            wallet_balance: localUser.walletBalance || 0
+          };
+        }
+      }
+
       if (targetUser) {
         const creditRes = await AtomicLedgerService.creditWalletAtomic({
           userId: targetUser.id,
@@ -1881,6 +1960,32 @@ export async function korapayWebhook(req: Request, res: Response) {
         console.log(`[Korapay Webhook] ✅ Credited ₦${amountPaid.toLocaleString()} to ${targetUser.email}`);
 
         if (creditRes.success && !creditRes.alreadyProcessed) {
+          const userInStore = await UserStore.findByEmail(targetUser.email);
+          if (userInStore) {
+            const updatedBal = (userInStore.walletBalance || 0) + amountPaid;
+            await UserStore.upsertUser({
+              ...userInStore,
+              walletBalance: updatedBal,
+              updatedAt: new Date().toISOString()
+            });
+
+            TransactionStore.addTransaction({
+              id: require('crypto').randomUUID(),
+              userId: userInStore.id,
+              email: userInStore.email,
+              title: `Korapay Inbound Deposit (${senderName})`,
+              description: `Commercial Rail Deposit (Ref: ${ref})`,
+              type: 'credit',
+              category: 'deposit',
+              amount: amountPaid,
+              currency: 'NGN',
+              isCredit: true,
+              reference: ref,
+              status: 'SUCCESSFUL',
+              date: new Date().toISOString()
+            });
+          }
+
           const newBal = creditRes.newBalance ?? (Number(targetUser.wallet_balance || 0) + amountPaid);
 
           NotificationDispatcher.dispatch({
@@ -2347,7 +2452,7 @@ export async function provisionCommercialAccount(req: Request, res: Response) {
           if (fincraRes.status && fincraRes.data?.accountNumber) {
             fincraData = {
               accountNumber: fincraRes.data.accountNumber,
-              bankName: 'Wema Bank (Rentilly)',
+              bankName: 'Rentilly Escrow',
               bankCode: '035',
               accountName: fincraRes.data.accountName || prof.full_name,
               provider: 'fincra',
@@ -2435,7 +2540,7 @@ export async function getVaultAccounts(req: Request, res: Response) {
         .maybeSingle();
 
       let fincraAcc = fincraConfig?.data?.accountNumber;
-      let fincraBank = fincraConfig?.data?.bankName || 'Wema Bank (Rentilly)';
+      let fincraBank = fincraConfig?.data?.bankName || 'Rentilly Escrow';
       let fincraName = fincraConfig?.data?.accountName || prof?.full_name || 'Rentilly Escrow Client';
 
       if (!fincraAcc) {
@@ -2455,7 +2560,7 @@ export async function getVaultAccounts(req: Request, res: Response) {
             });
             if (fincraRes.status && fincraRes.data?.accountNumber) {
               fincraAcc = fincraRes.data.accountNumber;
-              fincraBank = 'Wema Bank (Rentilly)';
+              fincraBank = 'Rentilly Escrow';
               fincraName = fincraRes.data.accountName || prof.full_name;
               await supabase.from('system_configs').upsert({
                 id: `fincra_va_${email}`,
@@ -2494,7 +2599,7 @@ export async function getVaultAccounts(req: Request, res: Response) {
       if (fincraAcc) {
         dailyVault = {
           vaultType: 'fincra_wema',
-          title: 'Dedicated Wema Bank Vault (Fincra)',
+          title: 'Dedicated Rentilly Escrow Vault',
           tag: 'Zero Limits & Instant Inflows',
           accountNumber: fincraAcc,
           accountName: fincraName,
@@ -2507,7 +2612,7 @@ export async function getVaultAccounts(req: Request, res: Response) {
         };
       } else {
         const dailyAcc = mapleConfig?.data?.accountNumber || prof?.account_number;
-        const dailyBank = mapleConfig?.data?.bankName || prof?.bank_name || 'Wema Bank (Fincra)';
+        const dailyBank = mapleConfig?.data?.bankName || prof?.bank_name || 'Rentilly Escrow';
         const dailyTier = mapleConfig?.data?.tier ?? (prof?.account_number ? 1 : 0);
 
         dailyVault = {
@@ -2645,7 +2750,19 @@ export async function payBill(req: Request, res: Response) {
     if (!cleanEmail) {
       return res.status(400).json({ error: 'User email is required to process bills.' });
     }
-    const numAmount = Number(amount || 0);
+
+    const targetCustomer = (customerNumber || req.body.phoneNumber || req.body.meterNumber || req.body.smartcardNumber || req.body.accountNumber || '').toString().trim();
+    if (!targetCustomer) {
+      return res.status(400).json({ error: 'Customer identifier (phone number, meter number, or smartcard number) is required.' });
+    }
+
+    let numAmount = Number(amount || 0);
+    if (numAmount <= 0 && plan && typeof plan === 'string' && plan.includes('₦')) {
+      const priceMatch = plan.replace(/,/g, '').match(/₦\s*([0-9]+)/);
+      if (priceMatch && priceMatch[1]) {
+        numAmount = Number(priceMatch[1]);
+      }
+    }
 
     if (numAmount <= 0) {
       return res.status(400).json({ error: 'Please specify a valid payment amount.' });
@@ -2686,50 +2803,51 @@ export async function payBill(req: Request, res: Response) {
     let tokenOutput: string | undefined;
     let unitsOutput: string | undefined;
 
+    const cat = (category || 'electricity').toString().toLowerCase().trim();
     const opRaw = (operator || '').toString().trim();
     const opClean = opRaw.toUpperCase().includes('AIRTEL') ? 'Airtel' :
                     opRaw.toUpperCase().includes('GLO') ? 'Glo' :
                     opRaw.toUpperCase().includes('9MOBILE') || opRaw.toUpperCase().includes('ETISALAT') ? '9mobile' :
                     opRaw.toUpperCase().includes('MTN') ? 'MTN' : (opRaw || 'MTN');
 
-    if (category === 'airtime') {
+    if (cat === 'airtime') {
       title = `${opClean} Airtime Top-Up (₦${numAmount.toLocaleString()})`;
       type = `${opClean} Airtime Recharge`;
       serviceResult = await FlutterwaveBillsService.purchaseAirtime({
-        phoneNumber: customerNumber,
+        phoneNumber: targetCustomer,
         amount: numAmount,
         operator: opClean,
         email: cleanEmail,
       });
-    } else if (category === 'data') {
+    } else if (cat === 'data') {
       title = `${opClean} Data Bundle (${plan || 'Data'})`;
       type = `${opClean} Mobile Data`;
       serviceResult = await FlutterwaveBillsService.purchaseData({
-        phoneNumber: customerNumber,
+        phoneNumber: targetCustomer,
         amount: numAmount,
         plan: plan || 'Data Bundle',
         operator: opClean,
         email: cleanEmail,
       });
-    } else if (category === 'electricity') {
+    } else if (cat === 'electricity') {
       const meterType = (req.body.meterType || (plan || '').toLowerCase().includes('postpaid') ? 'postpaid' : 'prepaid') as 'prepaid' | 'postpaid';
       const isPostpaid = meterType === 'postpaid';
       title = `${operator || 'DisCo'} ${isPostpaid ? 'Postpaid Electricity Settlement' : 'Prepaid Electricity Token'}`;
       type = isPostpaid ? 'Postpaid Electricity Payment' : 'Prepaid Electricity Token';
       serviceResult = await FlutterwaveBillsService.purchaseElectricity({
         disco: operator || 'IKEDC',
-        meterNumber: customerNumber,
+        meterNumber: targetCustomer,
         amount: numAmount,
         meterType,
         email: cleanEmail,
       });
       tokenOutput = serviceResult.data?.token;
       unitsOutput = serviceResult.data?.units;
-    } else if (category === 'cable') {
+    } else if (cat === 'cable') {
       title = `${operator || 'DSTV'} Cable TV Subscription`;
       type = 'Cable TV Renewal';
       serviceResult = await FlutterwaveBillsService.purchaseCable({
-        smartcardNumber: customerNumber,
+        smartcardNumber: targetCustomer,
         bouquet: plan || 'Bouquet',
         amount: numAmount,
         provider: operator || 'DSTV',
@@ -2742,7 +2860,7 @@ export async function payBill(req: Request, res: Response) {
         data: {
           txRef: `RENTILLY_UTIL_${Date.now()}`,
           amount: numAmount,
-          customer: customerNumber,
+          customer: targetCustomer,
           status: 'SUCCESSFUL',
         }
       };
@@ -2764,7 +2882,7 @@ export async function payBill(req: Request, res: Response) {
         isCredit: false,
         reference: txRef,
         sender: `${profUser?.business_name || profUser?.full_name || memUser?.businessName || memUser?.fullName || 'Rentilly User'} (Rentilly Wallet)`,
-        beneficiary: customerNumber,
+        beneficiary: targetCustomer,
         status: 'SUCCESSFUL',
         token: tokenOutput,
         units: unitsOutput,
@@ -2777,13 +2895,13 @@ export async function payBill(req: Request, res: Response) {
         userName: profUser?.full_name || profUser?.business_name || memUser?.fullName || memUser?.businessName || 'Valued Partner',
         category: 'utilities',
         title: `${title} — Successful`,
-        message: `Your utility payment of ₦${numAmount.toLocaleString()} (${type}) for ${customerNumber} has been delivered successfully.${tokenOutput ? ` Token: ${tokenOutput}` : ''}`,
+        message: `Your utility payment of ₦${numAmount.toLocaleString()} (${type}) for ${targetCustomer} has been delivered successfully.${tokenOutput ? ` Token: ${tokenOutput}` : ''}`,
         metadata: {
           reference: txRef,
-          category,
+          category: cat,
           token: tokenOutput,
           units: unitsOutput,
-          customer: customerNumber
+          customer: targetCustomer
         }
       });
 
@@ -2808,7 +2926,7 @@ export async function payBill(req: Request, res: Response) {
             amount: numAmount,
             type: 'DEBIT',
             flw_ref: txRef,
-            narration: `${title} (${customerNumber})`,
+            narration: `${title} (${targetCustomer})`,
             created_at: new Date().toISOString(),
           });
         } catch (sbErr: any) {
@@ -2827,10 +2945,10 @@ export async function payBill(req: Request, res: Response) {
 
       // Auto-save beneficiary for instant one-tap utility payments
       UtilityBeneficiaryService.saveBeneficiary(cleanEmail, {
-        category,
+        category: cat,
         operator: opClean || operator,
-        customerNumber,
-        beneficiaryName: req.body.beneficiaryName || req.body.customerName || (category === 'electricity' ? req.body.verifiedName : undefined),
+        customerNumber: targetCustomer,
+        beneficiaryName: req.body.beneficiaryName || req.body.customerName || (cat === 'electricity' ? req.body.verifiedName : undefined),
         address: req.body.address || req.body.verifiedAddress,
         meterType: req.body.meterType,
         lastAmount: numAmount,
@@ -3466,7 +3584,7 @@ export async function autoCaptureInboundTransfers(targetEmail?: string): Promise
               data: {
                 tier: 'Commercial Institutional Tier',
                 bankCode: '035',
-                bankName: 'Wema Bank (Rentilly)',
+                bankName: 'Rentilly Escrow',
                 provider: 'fincra',
                 accountName: `FIN-${matchedUser.full_name || 'Rentilly User'}`,
                 accountNumber: vaAccNo,
@@ -3516,7 +3634,7 @@ export async function autoCaptureInboundTransfers(targetEmail?: string): Promise
 
       // 3. Credit the Matched User Atomically
       if (matchedUser) {
-        const narration = `Inbound Bank Deposit via Wema Bank (Fincra) from ${senderName}`;
+        const narration = `Inbound Bank Deposit from ${senderName} (Rentilly Escrow)`;
         const creditRes = await AtomicLedgerService.creditWalletAtomic({
           userId: matchedUser.id,
           email: matchedUser.email,
@@ -3562,7 +3680,7 @@ export async function autoCaptureInboundTransfers(targetEmail?: string): Promise
               status: 'completed',
               flw_ref: ref,
               tx_ref: ref,
-              narration: `Inbound Bank Deposit from ${senderName} (Wema Bank Escrow)`,
+              narration: `Inbound Bank Deposit from ${senderName} (Rentilly Escrow)`,
               created_at: col.createdAt || new Date().toISOString()
             }, { onConflict: 'flw_ref' });
           } catch (wErr: any) {
@@ -3576,7 +3694,7 @@ export async function autoCaptureInboundTransfers(targetEmail?: string): Promise
               userId: matchedUser.id,
               email: matchedUser.email,
               title: `Inbound Bank Deposit (${senderName})`,
-              description: 'Wema Bank Dedicated Escrow Transfer',
+              description: 'Rentilly Escrow Dedicated Transfer',
               type: 'credit',
               category: 'deposit',
               amount,
@@ -3586,7 +3704,7 @@ export async function autoCaptureInboundTransfers(targetEmail?: string): Promise
               sender: senderName,
               beneficiary: matchedUser.full_name || matchedUser.email,
               recipientAccount: col.accountNumber || matchedUser.account_number,
-              recipientBank: 'Wema Bank',
+              recipientBank: 'Rentilly Escrow',
               status: 'SUCCESSFUL',
               date: col.createdAt || new Date().toISOString()
             });
@@ -3599,11 +3717,11 @@ export async function autoCaptureInboundTransfers(targetEmail?: string): Promise
             userName: matchedUser.full_name || 'Valued User',
             category: 'wallet',
             title: `Bank Transfer Received: ₦${amount.toLocaleString()}`,
-            message: `Your Rentilly Wema Bank Account received ₦${amount.toLocaleString()} from ${senderName}. New Balance: ₦${(creditRes.newBalance ?? 0).toLocaleString()}.`,
+            message: `Your Rentilly Escrow Account received ₦${amount.toLocaleString()} from ${senderName}. New Balance: ₦${(creditRes.newBalance ?? 0).toLocaleString()}.`,
             metadata: {
               amount,
               reference: ref,
-              bankName: 'Wema Bank (Fincra)',
+              bankName: 'Rentilly Escrow',
               sender: senderName,
               date: col.createdAt || new Date().toISOString()
             }
@@ -3686,7 +3804,7 @@ export async function syncFincraTransactionsForUser(cleanEmail: string) {
                 amount,
                 flwRef: ref,
                 txRef: ref,
-                narration: `Inbound Bank Transfer from ${senderName} (Wema Bank Rail)`
+                narration: `Inbound Bank Transfer from ${senderName} (Rentilly Escrow)`
               });
 
               if (creditRes.success && !creditRes.alreadyProcessed) {
@@ -3699,7 +3817,7 @@ export async function syncFincraTransactionsForUser(cleanEmail: string) {
                     userId: prof.id,
                     email: prof.email,
                     title: `Inbound Bank Deposit (${senderName})`,
-                    description: 'Wema Bank Dedicated Escrow Transfer',
+                    description: 'Rentilly Escrow Dedicated Transfer',
                     type: 'credit',
                     category: 'deposit',
                     amount,
@@ -3709,7 +3827,7 @@ export async function syncFincraTransactionsForUser(cleanEmail: string) {
                     sender: senderName,
                     beneficiary: prof.full_name || prof.email,
                     recipientAccount: prof.account_number,
-                    recipientBank: 'Wema Bank',
+                    recipientBank: 'Rentilly Escrow',
                     status: 'SUCCESSFUL',
                     date: col.createdAt || new Date().toISOString()
                   });
@@ -3721,11 +3839,11 @@ export async function syncFincraTransactionsForUser(cleanEmail: string) {
                   userName: prof.full_name || 'Valued User',
                   category: 'wallet',
                   title: `Bank Transfer Received: ₦${amount.toLocaleString()}`,
-                  message: `Your Rentilly Wema Bank Account received ₦${amount.toLocaleString()} from ${senderName}. New Balance: ₦${(creditRes.newBalance ?? 0).toLocaleString()}.`,
+                  message: `Your Rentilly Escrow Account received ₦${amount.toLocaleString()} from ${senderName}. New Balance: ₦${(creditRes.newBalance ?? 0).toLocaleString()}.`,
                   metadata: {
                     amount,
                     reference: ref,
-                    bankName: 'Wema Bank (Fincra)',
+                    bankName: 'Rentilly Escrow',
                     sender: senderName,
                     date: col.createdAt || new Date().toISOString()
                   }
@@ -3775,14 +3893,14 @@ export async function syncFincraTransactionsForUser(cleanEmail: string) {
           id: `FINCRA_TX_${ref}`,
           userId: r.user_id || user?.id || `usr_${cleanEmail}`,
           email: cleanEmail,
-          title: narration || 'High-Value Escrow Deposit (Wema Bank)',
+          title: narration || 'High-Value Escrow Deposit (Rentilly Escrow)',
           type: 'Electronic Bank Inbound Deposit',
           category: 'deposit',
           amount,
           isCredit: true,
           reference: ref,
           beneficiary: user?.fullName || cleanEmail,
-          recipientBank: 'Wema Bank Commercial Rail',
+          recipientBank: 'Rentilly Escrow',
           status: (r.status || 'SUCCESSFUL').toUpperCase() === 'COMPLETED' ? 'SUCCESSFUL' : 'SUCCESSFUL',
           date: r.created_at || new Date().toISOString()
         });
@@ -3907,7 +4025,7 @@ export async function getWalletBalance(req: Request, res: Response) {
         const fincraAcc = fincraRes.data?.accountNumber || fincraRes.data?.accountInformation?.accountNumber;
         if (fincraRes.status && fincraAcc) {
           accountNumber = fincraAcc;
-          bankName = 'Wema Bank (Fincra)';
+          bankName = 'Rentilly Escrow';
 
           if (supabase && dbUser?.id) {
             await supabase
@@ -3920,7 +4038,7 @@ export async function getWalletBalance(req: Request, res: Response) {
             app: 'rentilly',
             accountNumber: fincraAcc,
             virtualAccountId: fincraRes.data?._id || fincraRes.data?.virtualAccountId || '',
-            bankName: 'Wema Bank (Fincra)',
+            bankName: 'Rentilly Escrow',
             bankCode: '035',
             userId: dbUser?.id,
             userEmail: cleanEmail,
@@ -4093,7 +4211,7 @@ export async function adminRegisterAndCreditUser(req: Request, res: Response) {
 
     // Also upsert into Supabase for persistence
     if (supabase) {
-      await supabase.from('users').upsert({
+      await supabase.from('profiles').upsert({
         id: resolvedId,
         email: cleanEmail,
         full_name: userRecord.fullName,
@@ -4177,9 +4295,9 @@ export async function adminRegisterAndCreditUser(req: Request, res: Response) {
 
       // Update in Supabase
       if (supabase) {
-        const { data: sbUser } = await supabase.from('users').select('wallet_balance').eq('email', cleanEmail).single();
+        const { data: sbUser } = await supabase.from('profiles').select('wallet_balance').eq('email', cleanEmail).single();
         const sbBal = (sbUser as any)?.wallet_balance ?? 0;
-        await supabase.from('users').update({ wallet_balance: sbBal + amount }).eq('email', cleanEmail);
+        await supabase.from('profiles').update({ wallet_balance: sbBal + amount }).eq('email', cleanEmail);
 
         await supabase.from('transactions').upsert({
           id: `FLW_TX_${flwTx.id}`,

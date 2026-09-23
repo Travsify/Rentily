@@ -66,6 +66,12 @@ export async function releaseEscrowPayout(req: Request, res: Response) {
     const payoutReference = `PAYOUT-RENTILLY-${Date.now()}`;
     const payoutReleasedAt = new Date().toISOString();
 
+    // Idempotency check: prevent duplicate payouts
+    const existingInStore = TransactionStore.getTransactionById(id);
+    if (existingInStore && (existingInStore.status === 'released_to_owner' || (existingInStore as any).escrow_status === 'released_to_owner')) {
+      return res.status(400).json({ error: 'Escrow payout has already been released for this transaction.' });
+    }
+
     // 1. Always update in local/in-memory TransactionStore
     TransactionStore.updateTransactionStatus(id, 'released_to_owner', payoutReference);
 
@@ -184,7 +190,7 @@ export async function releaseEscrowPayout(req: Request, res: Response) {
         sender: 'Rentilly Escrow Protocol',
         beneficiary: ownerProfile.full_name || ownerProfile.fullName || ownerProfile.email,
         recipientAccount: ownerProfile.account_number || ownerProfile.accountNumber || '',
-        recipientBank: ownerProfile.bank_name || ownerProfile.bankName || 'Wema Bank',
+        recipientBank: ownerProfile.bank_name || ownerProfile.bankName || 'Rentilly Escrow',
         status: 'SUCCESSFUL',
         date: payoutReleasedAt
       });
@@ -557,12 +563,13 @@ export async function payRentEscrow(req: Request, res: Response) {
 
         // 5. Create active digital tenancy agreement in legal_agreements
         try {
-          const ownerUid = property?.owner_id || property?.ownerId || (ownerProfile ? ownerProfile.id : null);
-          const ownerMail = ownerProfile?.email || property?.owner_email || property?.ownerEmail;
+          const ownerUid = property?.owner_id || property?.ownerId || ownerId;
+          const ownerMail = property?.owner_email || property?.ownerEmail || `${ownerUid}@myrentilly.com`;
+          const effectiveTenantId = tenantProfId || cleanEmail;
           await supabase.from('legal_agreements').insert({
             property_id: propertyId,
-            tenant_id: tenantId,
-            renter_id: tenantId,
+            tenant_id: effectiveTenantId,
+            renter_id: effectiveTenantId,
             tenant_email: cleanEmail,
             tenant_name: tenantName || 'Tenant',
             owner_id: ownerUid,

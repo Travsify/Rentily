@@ -55,17 +55,6 @@ class _Login2faModalState extends State<Login2faModal> {
     super.initState();
     _startTimer();
 
-    // Auto-fill reviewer demo OTP
-    final cleanEmail = widget.email.toLowerCase().trim();
-    if (cleanEmail == 'googleplay@myrentilly.com' ||
-        cleanEmail == 'demo@myrentilly.com' ||
-        cleanEmail == 'review@myrentilly.com') {
-      const demo = '123456';
-      for (int i = 0; i < 6; i++) {
-        _controllers[i].text = demo[i];
-      }
-    }
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_focusNodes[0].canRequestFocus) {
         _focusNodes[0].requestFocus();
@@ -136,18 +125,6 @@ class _Login2faModalState extends State<Login2faModal> {
     final code = _controllers.map((c) => c.text.trim()).join();
     if (code.length != 6) {
       setState(() => _errorMessage = 'Please enter the complete 6-digit code.');
-      return;
-    }
-
-    final cleanEmail = widget.email.toLowerCase().trim();
-    final isReview = cleanEmail == 'googleplay@myrentilly.com' ||
-        cleanEmail == 'demo@myrentilly.com' ||
-        cleanEmail == 'review@myrentilly.com';
-
-    // Immediate bypass for Google Play Reviewer demo code
-    if (isReview && (code == '123456' || code == '000000')) {
-      Navigator.of(context).pop(true);
-      widget.onVerified();
       return;
     }
 

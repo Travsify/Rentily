@@ -386,7 +386,7 @@ class _VerificationModalState extends State<VerificationModal> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text('DEDICATED ESCROW VAULT', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: const Color(0xFF16A34A))),
-                            Text('${user.accountNumber} • ${user.bankName ?? "Flutterwave MFB"}', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w900, color: const Color(0xFF14532D))),
+                            Text('${user.accountNumber} • ${user.bankName ?? "Rentilly Escrow"}', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.w900, color: const Color(0xFF14532D))),
                           ],
                         ),
                       ),
@@ -496,8 +496,12 @@ class _VerificationModalState extends State<VerificationModal> {
         ? user.officeAddress!
         : '${user.state ?? "Lagos"}, Nigeria';
     final state = user.state ?? 'Lagos';
-    final rawBank = (user.bankName != null && user.bankName!.isNotEmpty) ? user.bankName! : 'Wema Bank';
-    final bank = rawBank.replaceAll(RegExp(r'\s*\([Ff]incra\)', caseSensitive: false), '').replaceAll(RegExp(r'Fincra\s*', caseSensitive: false), '').trim();
+    final rawBank = (user.bankName != null && user.bankName!.isNotEmpty) ? user.bankName! : 'Rentilly Escrow';
+    final bank = rawBank
+        .replaceAll(RegExp(r'\s*\([Ff]incra\)', caseSensitive: false), '')
+        .replaceAll(RegExp(r'Fincra\s*', caseSensitive: false), '')
+        .replaceAll(RegExp(r'Wema Bank(\s*\(Rentilly Escrow\))?', caseSensitive: false), 'Rentilly Escrow')
+        .trim();
     final acc = (user.accountNumber != null && user.accountNumber!.isNotEmpty && user.accountNumber != 'null') ? user.accountNumber! : '';
     // True account pending = verified but no real account yet provisioned
     final bool accountPending = acc.isEmpty || acc.startsWith('78');
@@ -743,7 +747,7 @@ class _VerificationModalState extends State<VerificationModal> {
               ),
               _buildAuditItem(
                 'DEDICATED COMMISSIONS ACCOUNT',
-                acc.isNotEmpty ? '$acc ($bank)' : 'Provisioning your Fincra account...',
+                acc.isNotEmpty ? '$acc ($bank)' : 'Provisioning your Rentilly Escrow account...',
                 Icons.account_balance_rounded,
               ),
               // Only show Confirm DOB button when verified but account not yet provisioned
@@ -865,7 +869,7 @@ class _VerificationModalState extends State<VerificationModal> {
       if (res.statusCode == 200 && data['status'] == true && data['accountNumber'] != null) {
         final updatedUser = user.copyWith(
           accountNumber: data['accountNumber'],
-          bankName: data['bankName'] ?? 'Wema Bank (Fincra)',
+          bankName: data['bankName'] ?? 'Rentilly Escrow',
           dob: formattedDob,
           rekycRequired: false,
         );
@@ -879,7 +883,7 @@ class _VerificationModalState extends State<VerificationModal> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'Dedicated Rentilly Account Active: ${data['accountNumber']} (${data['bankName'] ?? 'Wema Bank (Fincra)'}) 🎉',
+                'Dedicated Rentilly Account Active: ${data['accountNumber']} (${data['bankName'] ?? 'Rentilly Escrow'}) 🎉',
                 style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold),
               ),
               backgroundColor: const Color(0xFF16A34A),

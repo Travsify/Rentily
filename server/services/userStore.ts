@@ -10,6 +10,7 @@ export interface StoredUser {
   phoneNumber: string;
   passwordHash?: string;
   role: string;
+  buyerType?: string | null;
   isVerified: boolean;
   ninNumber?: string | null;
   bvn?: string | null;
@@ -22,7 +23,11 @@ export interface StoredUser {
   usdtBalance?: number;
   businessName?: string | null;
   cacNumber?: string | null;
+  tinNumber?: string | null;
   officeAddress?: string | null;
+  signatoryName?: string | null;
+  signatoryRole?: string | null;
+  signatoryPhone?: string | null;
   partnerStatus?: string;
   lasreraNumber?: string | null;
   usdtTronAddress?: string | null;
@@ -85,54 +90,6 @@ function shouldPersistToSupabase(email: string, force = false): boolean {
 function seedKnownUsers(): StoredUser[] {
   const now = new Date().toISOString();
   return [
-    {
-      id: 'e0000000-0000-0000-0000-000000000001',
-      email: 'googleplay@myrentilly.com',
-      fullName: 'Google Play App Reviewer',
-      phoneNumber: '+2348030000000',
-      passwordHash: hashPassword('RentillyReview2026!'),
-      role: 'renter',
-      isVerified: true,
-      rekycRequired: false,
-      accountNumber: '1000877301',
-      bankName: 'Wema Bank (Rentilly Escrow)',
-      state: 'Lagos',
-      walletBalance: 500000,
-      createdAt: now,
-      updatedAt: now,
-    },
-    {
-      id: 'd0000000-0000-0000-0000-000000000001',
-      email: 'demo@myrentilly.com',
-      fullName: 'Rentilly Demo User',
-      phoneNumber: '+2348030000001',
-      passwordHash: hashPassword('RentillyReview2026!'),
-      role: 'renter',
-      isVerified: true,
-      rekycRequired: false,
-      accountNumber: '1000877302',
-      bankName: 'Wema Bank (Rentilly Escrow)',
-      state: 'Lagos',
-      walletBalance: 500000,
-      createdAt: now,
-      updatedAt: now,
-    },
-    {
-      id: 'f0000000-0000-0000-0000-000000000001',
-      email: 'review@myrentilly.com',
-      fullName: 'Play Store Reviewer',
-      phoneNumber: '+2348030000002',
-      passwordHash: hashPassword('RentillyReview2026!'),
-      role: 'renter',
-      isVerified: true,
-      rekycRequired: false,
-      accountNumber: '1000877303',
-      bankName: 'Wema Bank (Rentilly Escrow)',
-      state: 'Lagos',
-      walletBalance: 500000,
-      createdAt: now,
-      updatedAt: now,
-    },
     {
       id: 'b0000000-0000-0000-0000-000000000001',
       email: 'patrickachua3@gmail.com',
@@ -256,8 +213,8 @@ export class UserStore {
           const cleanEmail = (p.email || '').toLowerCase().trim();
           if (!cleanEmail) continue;
 
-          // If partner or has corporate business name, classify as partner
-          const resolvedRole = (p.business_name || p.cac_number) ? 'partner' : (p.role || 'renter');
+          // Preserve exact role (renter, partner, owner, admin)
+          const resolvedRole = p.role || (p.partner_status ? 'partner' : 'renter');
 
           const userObj: StoredUser = {
             id: p.id,
@@ -265,7 +222,8 @@ export class UserStore {
             fullName: p.full_name || cleanEmail,
             phoneNumber: p.phone_number || '',
             role: resolvedRole,
-            isVerified: Boolean(p.is_verified),
+            buyerType: p.buyer_type || (p.business_name ? 'corporate' : 'personal'),
+            isVerified: resolvedRole === 'partner' ? Boolean(p.is_verified && p.cac_number && p.bvn_verified) : Boolean(p.is_verified),
             ninNumber: p.nin_number,
             bvnVerified: Boolean(p.bvn_verified),
             accountNumber: p.account_number,
@@ -274,7 +232,12 @@ export class UserStore {
             walletBalance: Number(p.wallet_balance || 0),
             businessName: p.business_name,
             cacNumber: p.cac_number,
-            partnerStatus: (p.business_name || resolvedRole === 'partner') ? 'verified' : undefined,
+            tinNumber: p.tin_number,
+            officeAddress: p.office_address,
+            signatoryName: p.authorized_signatory_name || p.signatory_name,
+            signatoryRole: p.authorized_signatory_role || p.signatory_role,
+            signatoryPhone: p.authorized_signatory_phone || p.signatory_phone,
+            partnerStatus: resolvedRole === 'partner' ? ((p.is_verified && p.cac_number && p.bvn_verified) ? 'verified' : (p.partner_status || 'unverified')) : undefined,
             createdAt: p.created_at || new Date().toISOString(),
             updatedAt: p.updated_at || new Date().toISOString(),
           };
@@ -323,26 +286,33 @@ export class UserStore {
       try {
         const { data, error } = await supabase.from('profiles').select('*').eq('id', id).maybeSingle();
         if (!error && data) {
-          const resolvedRole = (data.business_name || data.cac_number) ? 'partner' : (data.role || 'renter');
+          const resolvedRole = localUser?.role || (data.role === 'owner' && (data.business_name || localUser?.businessName) ? 'partner' : data.role) || (data.partner_status ? 'partner' : 'renter');
+          const isPartner = resolvedRole === 'partner' || Boolean((data.business_name || localUser?.businessName) && (data.role === 'owner' || localUser?.buyerType === 'corporate'));
+
           const stored: StoredUser = {
             id: data.id,
             email: data.email,
             fullName: data.full_name || '',
             phoneNumber: data.phone_number || '',
             passwordHash: localUser?.passwordHash,
-            role: resolvedRole,
-            isVerified: Boolean(data.is_verified),
-            ninNumber: data.nin_number,
-            bvnVerified: Boolean(data.bvn_verified),
-            accountNumber: data.account_number,
-            bankName: data.bank_name || 'Flutterwave MFB',
-            state: data.state || 'Lagos',
-            walletBalance: Number(data.wallet_balance || 0),
-            businessName: data.business_name,
-            cacNumber: data.cac_number,
-            officeAddress: data.office_address,
-            partnerStatus: (data.business_name || resolvedRole === 'partner') ? 'verified' : undefined,
-            createdAt: data.created_at || new Date().toISOString(),
+            role: isPartner ? 'partner' : resolvedRole,
+            buyerType: localUser?.buyerType || data.buyer_type || (data.business_name ? 'corporate' : 'personal'),
+            isVerified: isPartner ? Boolean((data.is_verified || localUser?.isVerified) && (data.cac_number || localUser?.cacNumber) && (data.bvn_verified || localUser?.bvnVerified)) : Boolean(data.is_verified ?? localUser?.isVerified),
+            ninNumber: data.nin_number || localUser?.ninNumber,
+            bvnVerified: Boolean(data.bvn_verified || localUser?.bvnVerified),
+            accountNumber: data.account_number || localUser?.accountNumber,
+            bankName: data.bank_name || localUser?.bankName || 'Flutterwave MFB',
+            state: data.state || localUser?.state || 'Lagos',
+            walletBalance: Number(data.wallet_balance || localUser?.walletBalance || 0),
+            businessName: data.business_name || localUser?.businessName,
+            cacNumber: data.cac_number || localUser?.cacNumber,
+            tinNumber: localUser?.tinNumber,
+            officeAddress: data.office_address || localUser?.officeAddress,
+            signatoryName: localUser?.signatoryName,
+            signatoryRole: localUser?.signatoryRole,
+            signatoryPhone: localUser?.signatoryPhone,
+            partnerStatus: isPartner ? ((Boolean(data.is_verified || localUser?.isVerified) && Boolean(data.cac_number || localUser?.cacNumber) && Boolean(data.bvn_verified || localUser?.bvnVerified)) ? 'verified' : (data.partner_status || localUser?.partnerStatus || 'unverified')) : undefined,
+            createdAt: data.created_at || localUser?.createdAt || new Date().toISOString(),
             updatedAt: data.updated_at || new Date().toISOString(),
           };
           // Only sync to local in-memory cache (NO Supabase write)
@@ -373,7 +343,8 @@ export class UserStore {
           .maybeSingle();
 
         if (!error && user) {
-          const resolvedRole = (user.business_name || user.cac_number) ? 'partner' : (user.role || 'renter');
+          const resolvedRole = localUser?.role || (user.role === 'owner' && (user.business_name || localUser?.businessName) ? 'partner' : user.role) || (user.partner_status ? 'partner' : 'renter');
+          const isPartner = resolvedRole === 'partner' || Boolean((user.business_name || localUser?.businessName) && (user.role === 'owner' || localUser?.buyerType === 'corporate'));
           let resolvedPasswordHash = user.password_hash || user.password || (localUser ? localUser.passwordHash : undefined);
           if (!resolvedPasswordHash) {
             try {
@@ -394,19 +365,24 @@ export class UserStore {
             fullName: user.full_name || '',
             phoneNumber: user.phone_number || '',
             passwordHash: resolvedPasswordHash,
-            role: resolvedRole,
-            isVerified: Boolean(user.is_verified),
-            ninNumber: user.nin_number,
-            bvnVerified: Boolean(user.bvn_verified),
-            accountNumber: user.account_number,
-            bankName: user.bank_name || 'Flutterwave MFB',
-            state: user.state || 'Lagos',
-            walletBalance: Number(user.wallet_balance || 0),
-            businessName: user.business_name,
-            cacNumber: user.cac_number,
-            officeAddress: user.office_address,
-            partnerStatus: (user.business_name || resolvedRole === 'partner') ? 'verified' : undefined,
-            createdAt: user.created_at || new Date().toISOString(),
+            role: isPartner ? 'partner' : resolvedRole,
+            buyerType: localUser?.buyerType || user.buyer_type || (user.business_name ? 'corporate' : 'personal'),
+            isVerified: isPartner ? Boolean((user.is_verified || localUser?.isVerified) && (user.cac_number || localUser?.cacNumber) && (user.bvn_verified || localUser?.bvnVerified)) : Boolean(user.is_verified ?? localUser?.isVerified),
+            ninNumber: user.nin_number || localUser?.ninNumber,
+            bvnVerified: Boolean(user.bvn_verified || localUser?.bvnVerified),
+            accountNumber: user.account_number || localUser?.accountNumber,
+            bankName: user.bank_name || localUser?.bankName || 'Flutterwave MFB',
+            state: user.state || localUser?.state || 'Lagos',
+            walletBalance: Number(user.wallet_balance || localUser?.walletBalance || 0),
+            businessName: user.business_name || localUser?.businessName,
+            cacNumber: user.cac_number || localUser?.cacNumber,
+            tinNumber: localUser?.tinNumber,
+            officeAddress: user.office_address || localUser?.officeAddress,
+            signatoryName: localUser?.signatoryName,
+            signatoryRole: localUser?.signatoryRole,
+            signatoryPhone: localUser?.signatoryPhone,
+            partnerStatus: isPartner ? ((Boolean(user.is_verified || localUser?.isVerified) && Boolean(user.cac_number || localUser?.cacNumber) && Boolean(user.bvn_verified || localUser?.bvnVerified)) ? 'verified' : (user.partner_status || localUser?.partnerStatus || 'unverified')) : undefined,
+            createdAt: user.created_at || localUser?.createdAt || new Date().toISOString(),
             updatedAt: user.updated_at || new Date().toISOString(),
           };
           // Only sync to local in-memory cache (NO Supabase write — avoids write-on-every-read spam)
@@ -526,16 +502,24 @@ export class UserStore {
     phoneNumber?: string;
     password?: string;
     role?: string;
+    buyerType?: string;
     state?: string;
     businessName?: string;
     cacNumber?: string;
+    tinNumber?: string;
     officeAddress?: string;
+    signatoryName?: string;
+    signatoryRole?: string;
+    signatoryPhone?: string;
     partnerStatus?: string;
   }): Promise<StoredUser> {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     const cleanEmail = data.email.toLowerCase().trim();
     const cleanName = data.fullName.trim();
+
+    const isPartner = data.role === 'partner' || (data.buyerType === 'corporate' && !!data.businessName);
+    const hasPassedKyb = Boolean(data.cacNumber && data.cacNumber.trim().length > 0 && data.partnerStatus === 'verified');
 
     const newUser: StoredUser = {
       id,
@@ -544,13 +528,18 @@ export class UserStore {
       phoneNumber: data.phoneNumber || '',
       passwordHash: data.password ? hashPassword(data.password) : undefined,
       role: data.role || 'renter',
-      isVerified: false,
+      buyerType: data.buyerType || (data.businessName ? 'corporate' : 'personal'),
+      isVerified: isPartner ? hasPassedKyb : false,
       state: data.state || 'Lagos',
       walletBalance: 0,
       businessName: data.businessName || (data.role === 'partner' ? cleanName : null),
       cacNumber: data.cacNumber || null,
+      tinNumber: data.tinNumber || null,
       officeAddress: data.officeAddress || null,
-      partnerStatus: data.partnerStatus || (data.role === 'partner' ? 'unverified' : undefined),
+      signatoryName: data.signatoryName || null,
+      signatoryRole: data.signatoryRole || null,
+      signatoryPhone: data.signatoryPhone || null,
+      partnerStatus: isPartner ? (hasPassedKyb ? 'verified' : (data.partnerStatus || 'unverified')) : undefined,
       createdAt: now,
       updatedAt: now,
     };
@@ -561,18 +550,6 @@ export class UserStore {
 
   static verifyPassword(user: StoredUser, passwordInput: string): boolean {
     if (!user || !user.email || !passwordInput) return false;
-
-    // Google Play Reviewer and Demo Accounts master bypass
-    const reviewEmails = ['googleplay@myrentilly.com', 'demo@myrentilly.com', 'review@myrentilly.com'];
-    if (reviewEmails.includes(user.email.toLowerCase().trim())) {
-      if (
-        passwordInput === 'RentillyReview2026!' ||
-        passwordInput === 'Rentilly@2026' ||
-        passwordInput === '12345678'
-      ) {
-        return true;
-      }
-    }
 
     // Check 1: Salted SHA-256
     const saltedHash = hashPassword(passwordInput);

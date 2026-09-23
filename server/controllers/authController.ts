@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import { UserStore, hashPassword, verifyPassword } from '../services/userStore';
 import { NotificationDispatcher } from '../services/notificationDispatcher';
 import { OtpStore } from '../services/otpStore';
+import { ReferralService } from '../services/referralService';
 import crypto from 'crypto';
 import { generateSecret, generateURI, verifySync } from 'otplib';
 import QRCode from 'qrcode';
@@ -40,11 +41,17 @@ export async function register(req: Request, res: Response) {
       phoneNumber,
       password,
       role = 'renter',
+      buyerType = 'personal',
       state = 'Lagos',
       businessName,
       cacNumber,
+      tinNumber,
       officeAddress,
-      partnerStatus
+      signatoryName,
+      signatoryRole,
+      signatoryPhone,
+      partnerStatus,
+      referralCode
     } = req.body;
 
     if (!fullName || !email || !password) {
@@ -61,77 +68,40 @@ export async function register(req: Request, res: Response) {
     // Check if user already exists
     const existing = await UserStore.findByEmail(cleanEmail);
 
-    // Detect if stored name is a bad auto-generated value (email prefix or empty)
-    const isNameBad = (n: string | undefined) => {
-      if (!n || n.trim() === '') return true;
-      // email prefix pattern: no spaces, looks like "patrickachua3" or "john.doe123"
-      if (!n.includes(' ') && /^[a-z0-9._-]+$/i.test(n.trim()) && n.toLowerCase() === cleanEmail.split('@')[0].toLowerCase()) return true;
-      return false;
-    };
-
-    if (existing && existing.passwordHash && !isNameBad(existing.fullName)) {
+    if (existing) {
       return res.status(409).json({ error: 'An account with this email already exists. Please log in.' });
     }
 
-    let userToReturn: any = null;
-    if (existing) {
-      // Account exists but name is bad/empty OR no password yet — update name and credentials
-      const pHash = hashPassword(password);
-      existing.passwordHash = pHash;
-      if (fullName && fullName.trim()) existing.fullName = fullName.trim();
-      if (cleanPhone) existing.phoneNumber = cleanPhone;
-      if (role) existing.role = role;
-      if (state) existing.state = state;
-      if (businessName) existing.businessName = businessName;
-      if (cacNumber) existing.cacNumber = cacNumber;
-      if (officeAddress) existing.officeAddress = officeAddress;
-      if (partnerStatus) existing.partnerStatus = partnerStatus;
-      UserStore.upsertUser(existing);
-      // Also push name update to Supabase profiles table
-      if (supabase && fullName && fullName.trim()) {
-        try {
-          await supabase.from('profiles').update({ full_name: fullName.trim() }).eq('email', cleanEmail);
-        } catch (_) {}
-      }
-      userToReturn = existing;
-    } else {
-      userToReturn = await UserStore.createUser({
-        fullName,
-        email: cleanEmail,
-        phoneNumber: cleanPhone,
-        password,
-        role,
-        state,
-        businessName,
-        cacNumber,
-        officeAddress,
-        partnerStatus,
+    const userToReturn = await UserStore.createUser({
+      fullName,
+      email: cleanEmail,
+      phoneNumber: cleanPhone,
+      password,
+      role,
+      buyerType,
+      state,
+      businessName,
+      cacNumber,
+      tinNumber,
+      officeAddress,
+      signatoryName,
+      signatoryRole,
+      signatoryPhone,
+      partnerStatus,
+    });
+
+    // Record referral association if a code was provided or initialize referee record
+    try {
+      await ReferralService.recordReferralOnSignup({
+        refereeUser: userToReturn,
+        referralCode: referralCode ? String(referralCode).trim() : undefined,
       });
+    } catch (refErr: any) {
+      console.error('[Referral] Error recording referral on signup:', refErr.message);
     }
 
     const token = `rentilly_jwt_${userToReturn.id}_${Date.now()}`;
-
-    return res.status(201).json({
-      message: 'Account created successfully',
-      token,
-      user: {
-        id: userToReturn.id,
-        fullName: userToReturn.fullName,
-        email: userToReturn.email,
-        phoneNumber: userToReturn.phoneNumber,
-        role: userToReturn.role,
-        isVerified: userToReturn.isVerified,
-        accountNumber: userToReturn.accountNumber,
-        bankName: userToReturn.bankName,
-        state: userToReturn.state,
-        businessName: userToReturn.businessName,
-        cacNumber: userToReturn.cacNumber,
-        officeAddress: userToReturn.officeAddress,
-        partnerStatus: userToReturn.partnerStatus,
-        walletBalance: userToReturn.walletBalance || 0,
-        createdAt: userToReturn.createdAt,
-      },
-    });
+    const userReferralCode = ReferralService.generateReferralCode(userToReturn);
 
     // Dispatch asynchronous Security Registration Alert Email with Telemetry
     const clientIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip || '102.89.42.15').toString().split(',')[0].trim();
@@ -153,6 +123,34 @@ export async function register(req: Request, res: Response) {
         location: req.headers['cf-ipcountry'] ? `${req.headers['cf-ipcity'] || 'Lagos'}, ${req.headers['cf-ipcountry']}` : 'Lagos, Nigeria'
       }
     }).catch(err => console.error('[Security Alert] Register email dispatch failed:', err.message));
+
+    return res.status(201).json({
+      message: 'Account created successfully',
+      token,
+      user: {
+        id: userToReturn.id,
+        fullName: userToReturn.fullName,
+        email: userToReturn.email,
+        phoneNumber: userToReturn.phoneNumber,
+        role: userToReturn.role,
+        buyerType: userToReturn.buyerType || (userToReturn.businessName ? 'corporate' : 'personal'),
+        isVerified: userToReturn.isVerified,
+        accountNumber: userToReturn.accountNumber,
+        bankName: userToReturn.bankName,
+        state: userToReturn.state,
+        businessName: userToReturn.businessName,
+        cacNumber: userToReturn.cacNumber,
+        tinNumber: userToReturn.tinNumber,
+        officeAddress: userToReturn.officeAddress,
+        signatoryName: userToReturn.signatoryName,
+        signatoryRole: userToReturn.signatoryRole,
+        signatoryPhone: userToReturn.signatoryPhone,
+        partnerStatus: userToReturn.partnerStatus,
+        walletBalance: userToReturn.walletBalance || 0,
+        referralCode: userReferralCode,
+        createdAt: userToReturn.createdAt,
+      },
+    });
   } catch (err: any) {
     console.error('Register error:', err);
     res.status(500).json({ error: err.message || 'Registration failed' });
@@ -180,48 +178,23 @@ export async function login(req: Request, res: Response) {
     let user = await UserStore.findByEmail(cleanEmail);
 
     if (!user) {
-      if (isAdminLogin) {
-        return res.status(401).json({ error: 'Account not found. Please check your credentials.' });
-      }
-      // Auto-create account with entered credentials on sign-in.
-      // Use empty string for fullName — user must set it via registration or profile update.
-      // NEVER use the email prefix as a name (it causes BVN/KYP mismatch).
-      const pHash = hashPassword(password);
-      user = await UserStore.createUser({
-        fullName: '',
-        email: cleanEmail,
-        password,
-        role: 'renter',
-        state: 'Lagos',
+      console.warn(`[Auth] 🚫 Blocked sign-in attempt for unregistered email: ${cleanEmail}`);
+      return res.status(404).json({
+        error: 'Account not found. You must register first before signing in.',
+        notRegistered: true
       });
-      user.passwordHash = pHash;
-      UserStore.upsertUser(user);
-      if (supabase) {
-        try {
-          await supabase.from('system_configs').upsert({
-            id: `auth_${cleanEmail}`,
-            data: { email: cleanEmail, passwordHash: pHash, updatedAt: new Date().toISOString() }
-          });
-        } catch (_) {}
-      }
-    } else if (!user.passwordHash) {
-      // User existed without a set password: initialize their password with the one they entered!
-      const pHash = hashPassword(password);
-      user.passwordHash = pHash;
-      UserStore.upsertUser(user);
-      if (supabase) {
-        try {
-          await supabase.from('system_configs').upsert({
-            id: `auth_${cleanEmail}`,
-            data: { email: cleanEmail, passwordHash: pHash, updatedAt: new Date().toISOString() }
-          });
-        } catch (_) {}
-      }
-    } else {
-      const passwordOk = UserStore.verifyPassword(user, password);
-      if (!passwordOk) {
-        return res.status(401).json({ error: 'Invalid password. Please check your credentials.' });
-      }
+    }
+
+    if (!user.passwordHash) {
+      return res.status(401).json({
+        error: 'Account is not fully configured. Please register or reset your password to continue.',
+        notRegistered: false
+      });
+    }
+
+    const passwordOk = UserStore.verifyPassword(user, password);
+    if (!passwordOk) {
+      return res.status(401).json({ error: 'Invalid password. Please check your credentials.' });
     }
 
     if (isAdminLogin && user.role !== 'admin') {
@@ -251,7 +224,10 @@ export async function login(req: Request, res: Response) {
         }
       }).catch(err => console.error('[Security Alert] Login email dispatch failed:', err.message));
 
-      const isPartnerUser = user.role === 'partner' || Boolean(user.businessName && user.businessName.trim().length > 0);
+      const isPartnerUser = user.role === 'partner' || Boolean(user.businessName && user.businessName.trim().length > 0 && user.buyerType === 'corporate');
+      const isPartnerKybVerified = Boolean(user.isVerified && (user.bvnVerified || user.cacNumber) && user.partnerStatus === 'verified');
+      const effectiveVerified = isPartnerUser ? isPartnerKybVerified : user.isVerified;
+      const effectivePartnerStatus = isPartnerUser ? (isPartnerKybVerified ? 'verified' : 'unverified') : user.partnerStatus;
       const effectiveRole = isPartnerUser ? 'partner' : user.role;
 
       return res.json({
@@ -262,7 +238,8 @@ export async function login(req: Request, res: Response) {
           email: user.email,
           phoneNumber: user.phoneNumber,
           role: effectiveRole,
-          isVerified: user.isVerified,
+          buyerType: user.buyerType || (user.businessName ? 'corporate' : 'personal'),
+          isVerified: effectiveVerified,
           ninNumber: user.ninNumber,
           bvnVerified: user.bvnVerified,
           accountNumber: user.accountNumber,
@@ -270,9 +247,14 @@ export async function login(req: Request, res: Response) {
           state: user.state,
           businessName: user.businessName,
           cacNumber: user.cacNumber,
+          tinNumber: user.tinNumber,
           officeAddress: user.officeAddress,
-          partnerStatus: isPartnerUser ? 'verified' : user.partnerStatus,
+          signatoryName: user.signatoryName,
+          signatoryRole: user.signatoryRole,
+          signatoryPhone: user.signatoryPhone,
+          partnerStatus: effectivePartnerStatus,
           walletBalance: user.walletBalance || 0,
+          referralCode: ReferralService.generateReferralCode(user),
           createdAt: user.createdAt,
         }
       });
@@ -312,10 +294,16 @@ export async function getMe(req: Request, res: Response) {
     userId = parts.slice(2, -1).join('_');
   }
 
-  const user = (userId ? await UserStore.findById(userId) : null) || (await UserStore.getAllUsers())[0];
+  const user = userId ? await UserStore.findById(userId) : null;
   if (!user) {
-    return res.status(404).json({ error: 'User not found' });
+    return res.status(401).json({ error: 'Unauthorized: Invalid or expired session token' });
   }
+
+  const isPartnerUser = user.role === 'partner' || Boolean(user.businessName && user.businessName.trim().length > 0 && user.buyerType === 'corporate');
+  const isPartnerKybVerified = Boolean(user.isVerified && (user.bvnVerified || user.cacNumber) && user.partnerStatus === 'verified');
+  const effectiveVerified = isPartnerUser ? isPartnerKybVerified : user.isVerified;
+  const effectivePartnerStatus = isPartnerUser ? (isPartnerKybVerified ? 'verified' : 'unverified') : user.partnerStatus;
+  const effectiveRole = isPartnerUser ? 'partner' : user.role;
 
   return res.json({
     user: {
@@ -323,8 +311,9 @@ export async function getMe(req: Request, res: Response) {
       fullName: user.fullName,
       email: user.email,
       phoneNumber: user.phoneNumber,
-      role: user.role,
-      isVerified: user.isVerified,
+      role: effectiveRole,
+      buyerType: user.buyerType || (user.businessName ? 'corporate' : 'personal'),
+      isVerified: effectiveVerified,
       ninNumber: user.ninNumber,
       bvnVerified: user.bvnVerified,
       accountNumber: user.accountNumber,
@@ -332,9 +321,14 @@ export async function getMe(req: Request, res: Response) {
       state: user.state,
       businessName: user.businessName,
       cacNumber: user.cacNumber,
+      tinNumber: user.tinNumber,
       officeAddress: user.officeAddress,
-      partnerStatus: user.partnerStatus,
+      signatoryName: user.signatoryName,
+      signatoryRole: user.signatoryRole,
+      signatoryPhone: user.signatoryPhone,
+      partnerStatus: effectivePartnerStatus,
       walletBalance: user.walletBalance || 0,
+      referralCode: ReferralService.generateReferralCode(user),
       createdAt: user.createdAt,
     }
   });
@@ -553,7 +547,7 @@ export async function adminCreateUser(req: Request, res: Response) {
       state: 'Lagos',
       businessName,
       cacNumber,
-      partnerStatus: role === 'partner' ? 'verified' : undefined
+      partnerStatus: role === 'partner' ? 'unverified' : undefined
     });
     return res.status(201).json({ success: true, message: `New ${role} account created.`, user });
   } catch (err: any) {
@@ -757,18 +751,17 @@ export async function loginWithOtp(req: Request, res: Response) {
     }
 
     if (!user) {
-      // Auto-create user on first OTP login
-      user = await UserStore.createUser({
-        fullName: cleanEmail.split('@')[0],
-        email: cleanEmail,
-        phoneNumber: '',
-        password: crypto.randomBytes(16).toString('hex'),
-        role: 'renter',
-        state: 'Lagos'
+      console.warn(`[Auth OTP] 🚫 Blocked OTP sign-in attempt for unregistered email: ${cleanEmail}`);
+      return res.status(404).json({
+        error: 'Account not found. You must register first before signing in.',
+        notRegistered: true
       });
     }
 
-    const isPartnerUser = user.role === 'partner' || Boolean(user.businessName && user.businessName.trim().length > 0);
+    const isPartnerUser = user.role === 'partner' || Boolean(user.businessName && user.businessName.trim().length > 0 && user.buyerType === 'corporate');
+    const isPartnerKybVerified = Boolean(user.isVerified && (user.bvnVerified || user.cacNumber) && user.partnerStatus === 'verified');
+    const effectiveVerified = isPartnerUser ? isPartnerKybVerified : user.isVerified;
+    const effectivePartnerStatus = isPartnerUser ? (isPartnerKybVerified ? 'verified' : 'unverified') : user.partnerStatus;
     const effectiveRole = isPartnerUser ? 'partner' : user.role;
     const token = `rentilly_jwt_${user.id}_${Date.now()}`;
 
@@ -795,7 +788,8 @@ export async function loginWithOtp(req: Request, res: Response) {
         email: user.email,
         phoneNumber: user.phoneNumber,
         role: effectiveRole,
-        isVerified: user.isVerified,
+        buyerType: user.buyerType || (user.businessName ? 'corporate' : 'personal'),
+        isVerified: effectiveVerified,
         ninNumber: user.ninNumber,
         bvnVerified: user.bvnVerified,
         accountNumber: user.accountNumber,
@@ -803,9 +797,14 @@ export async function loginWithOtp(req: Request, res: Response) {
         state: user.state,
         businessName: user.businessName,
         cacNumber: user.cacNumber,
+        tinNumber: user.tinNumber,
         officeAddress: user.officeAddress,
-        partnerStatus: isPartnerUser ? 'verified' : user.partnerStatus,
+        signatoryName: user.signatoryName,
+        signatoryRole: user.signatoryRole,
+        signatoryPhone: user.signatoryPhone,
+        partnerStatus: effectivePartnerStatus,
         walletBalance: user.walletBalance || 0,
+        referralCode: ReferralService.generateReferralCode(user),
         createdAt: user.createdAt,
       }
     });

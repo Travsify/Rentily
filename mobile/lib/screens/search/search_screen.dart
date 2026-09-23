@@ -86,7 +86,7 @@ class _SearchScreenState extends State<SearchScreen> {
     if (q.contains('vault') || q.contains('save') || q.contains('stash') || q.contains('yield') || q.contains('target')) {
       actions.add({
         'title': 'Living Vaults (Target Savings)',
-        'subtitle': 'Lock funds aside with up to 11.5% annual yield for rent or bills',
+        'subtitle': 'Lock funds aside with 2.5% annual yield to beat inflation for rent or bills',
         'icon': Icons.savings_rounded,
         'color': AppColors.accentOrange,
         'onTap': () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const VaultsScreen())),
@@ -139,7 +139,7 @@ class _SearchScreenState extends State<SearchScreen> {
         'subtitle': 'LCC Lekki Toll Gate, Lekki-Ikoyi Link Bridge & Cowry Transit',
         'icon': Icons.toll_rounded,
         'color': const Color(0xFF8B5CF6),
-        'onTap': () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const BillsScreen(initialCategory: 'tolls'))),
+        'onTap': () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const BillsScreen(initialCategory: 'toll'))),
       });
     }
 
@@ -168,22 +168,48 @@ class _SearchScreenState extends State<SearchScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Title
-              Text(
-                'Universal Smart Search',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Search properties, transfer money, living vaults, or pay utility bills.',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 11,
-                  color: AppColors.textSecondary,
-                ),
+              // Title with back button
+              Row(
+                children: [
+                  if (Navigator.of(context).canPop()) ...[
+                    GestureDetector(
+                      onTap: () => Navigator.of(context).pop(),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        margin: const EdgeInsets.only(right: 12),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceDark,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppColors.borderDark),
+                        ),
+                        child: const Icon(Icons.arrow_back_rounded, size: 20, color: AppColors.textPrimary),
+                      ),
+                    ),
+                  ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Universal Smart Search',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Search properties, transfer money, living vaults, or pay utility bills.',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
 

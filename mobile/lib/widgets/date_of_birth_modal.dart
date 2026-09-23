@@ -142,7 +142,7 @@ class _DateOfBirthModalState extends State<DateOfBirthModal> {
 
       if (res.statusCode == 200 && data['status'] == true) {
         final newAccount = data['accountNumber']?.toString() ?? widget.user.accountNumber;
-        final newBank = data['bankName']?.toString() ?? widget.user.bankName ?? 'Wema Bank (Fincra)';
+        final newBank = data['bankName']?.toString() ?? widget.user.bankName ?? 'Rentilly Escrow';
 
         final updatedUser = widget.user.copyWith(
           dob: dobStr,

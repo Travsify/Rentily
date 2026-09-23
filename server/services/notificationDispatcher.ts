@@ -38,7 +38,7 @@ export class NotificationDispatcher {
   private static buildHtmlEmail(event: NotificationEvent): string {
     const { userName, title, category, message, metadata } = event;
     const displayName = userName && userName.trim().length > 0 ? userName.trim() : 'Valued User';
-    const dateStr = metadata?.date || new Date().toLocaleString('en-NG', { timeZone: 'Africa/Lagos', dateStyle: 'medium', timeStyle: 'short' });
+    const dateStr = metadata?.date || (new Date().toLocaleString('en-NG', { timeZone: 'Africa/Lagos', dateStyle: 'medium', timeStyle: 'short' }) + ' (GMT+1)');
 
     let categoryPillColor = '#10B981';
     let categoryPillBg = 'rgba(16, 185, 129, 0.15)';

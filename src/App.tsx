@@ -29,6 +29,7 @@ import { MapleradTab } from './components/MapleradTab';
 import { FincraTab } from './components/FincraTab';
 import { IntegrationsTab } from './components/IntegrationsTab';
 import { FeatureFlagsTab } from './components/FeatureFlagsTab';
+import { ReferralsTab } from './components/ReferralsTab';
 import { SupabaseConfigTab } from './components/SupabaseConfigTab';
 import { FlutterApiDocsTab } from './components/FlutterApiDocsTab';
 import { AdminProfileTab } from './components/AdminProfileTab';
@@ -353,6 +354,10 @@ export default function App() {
 
           {currentTab === 'feature_flags' && (
             <FeatureFlagsTab />
+          )}
+
+          {currentTab === 'referrals' && (
+            <ReferralsTab />
           )}
 
           {currentTab === 'supabase_config' && (

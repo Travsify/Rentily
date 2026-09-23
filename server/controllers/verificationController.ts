@@ -5,6 +5,7 @@ import { FincraService } from '../services/fincraService';
 import { UserStore, type StoredUser } from '../services/userStore';
 import { MapleradBankingService } from '../services/mapleradBankingService';
 import { NotificationDispatcher } from '../services/notificationDispatcher';
+import { ReferralService } from '../services/referralService';
 import { supabase } from '../supabaseClient';
 
 // 1. Verify NIN
@@ -145,7 +146,7 @@ export async function verifyAndProvision(req: Request, res: Response) {
       const accNo = fincraRes.data?.accountNumber || fincraRes.data?.accountInformation?.accountNumber;
       if (fincraRes.status && accNo) {
         accountNumber = accNo;
-        bankName = 'Wema Bank (Fincra)';
+        bankName = 'Rentilly Escrow';
         console.log(`[verifyAndProvision] ✅ Fincra Virtual Account provisioned: ${accountNumber} (${bankName}) for ${cleanEmail}`);
 
         if (supabase) {
@@ -153,7 +154,7 @@ export async function verifyAndProvision(req: Request, res: Response) {
             id: `fincra_va_${cleanEmail}`,
             data: {
               accountNumber,
-              bankName: 'Wema Bank (Fincra)',
+              bankName: 'Rentilly Escrow',
               bankCode: '035',
               accountName: (isPartner && partnerBizName.length > 0) ? partnerBizName : cleanName,
               provider: 'fincra',
@@ -170,7 +171,7 @@ export async function verifyAndProvision(req: Request, res: Response) {
     // C. Fallback to Maplerad account if Fincra is initializing
     if (!accountNumber && mapleRes.accountNumber) {
       accountNumber = mapleRes.accountNumber;
-      bankName = 'Wema Bank (Fincra)';
+      bankName = 'Rentilly Escrow';
       console.log(`[verifyAndProvision] ✅ Account provisioned: ${accountNumber} (${bankName}) for ${cleanEmail}`);
     }
 
@@ -189,12 +190,13 @@ export async function verifyAndProvision(req: Request, res: Response) {
       cacNumber: isPartner ? (cacNumber || existing?.cacNumber) : (existing?.cacNumber ?? null),
       officeAddress: officeAddress || existing?.officeAddress,
       state: state || existing?.state || 'Lagos',
-      isVerified: !isProcessing,
+      isVerified: !isProcessing && (isPartner ? Boolean(cacNumber && bvnToUse) : true),
+      partnerStatus: isPartner ? (!isProcessing && cacNumber ? 'verified' : 'unverified') : undefined,
       bvnVerified: !isProcessing,
       bvn: bvnToUse,
       ninNumber: idType === 'nin' ? idNumber : existing?.ninNumber,
       accountNumber: accountNumber || (existing?.accountNumber ?? null),
-      bankName: accountNumber ? bankName : (existing?.bankName || 'Wema Bank (Fincra Processing)'),
+      bankName: accountNumber ? bankName : (existing?.bankName || 'Rentilly Escrow'),
       role: role || existing?.role || (isPartner ? 'partner' : 'renter'),
       walletBalance: currentBalance, // PRESERVE EXACT WALLET BALANCE
       usdtBalance: currentUsdtBalance,
@@ -213,7 +215,7 @@ export async function verifyAndProvision(req: Request, res: Response) {
             bvn_verified: !isProcessing,
             nin_number: idType === 'nin' ? idNumber : undefined,
             account_number: accountNumber || existing?.accountNumber || null,
-            bank_name: accountNumber ? bankName : (existing?.bankName || 'Wema Bank (Fincra Processing)'),
+            bank_name: accountNumber ? bankName : (existing?.bankName || 'Rentilly Escrow'),
             business_name: isPartner ? partnerBizName : undefined,
             cac_number: isPartner ? cacNumber : undefined,
             office_address: officeAddress || existing?.officeAddress || undefined,
@@ -227,6 +229,11 @@ export async function verifyAndProvision(req: Request, res: Response) {
 
     // Step 4: Dispatch Push & Email Notification (Strictly Rentilly branded)
     if (!isProcessing) {
+      // Process Referral & Signup Rewards (₦1,000 Signup + ₦500 Referrer)
+      ReferralService.processKycRewards(updatedUser.id, cleanEmail).catch(err => {
+        console.error('[Referral] Failed to process KYC rewards for', cleanEmail, err.message);
+      });
+
       NotificationDispatcher.dispatch({
         userId: updatedUser.id,
         email: cleanEmail,
@@ -430,7 +437,7 @@ export async function syncNuban(req: Request, res: Response) {
     });
 
     let accountNumber = mapleRes.accountNumber;
-    let bankName = '9PSB (Rentilly)';
+    let bankName = 'Rentilly Escrow';
 
     if (!accountNumber) {
       return res.status(200).json({
@@ -528,7 +535,7 @@ export async function requestReKyc(req: Request, res: Response) {
           UserStore.upsertUserForced({
             ...memUser,
             accountNumber: mapleRes.accountNumber,
-            bankName: 'Wema Bank (Fincra)',
+            bankName: 'Rentilly Escrow',
             isVerified: true
           });
         }
@@ -539,7 +546,7 @@ export async function requestReKyc(req: Request, res: Response) {
               .from('profiles')
               .update({
                 account_number: mapleRes.accountNumber,
-                bank_name: 'Wema Bank (Fincra)',
+                bank_name: 'Rentilly Escrow',
                 rekyc_required: false,
                 is_verified: true,
                 updated_at: new Date().toISOString()
@@ -681,7 +688,7 @@ export async function completeMapleradKyc(req: Request, res: Response) {
     }
 
     const accountNumber = result.accountNumber;
-    const bankName = 'Wema Bank (Fincra)';
+    const bankName = 'Rentilly Escrow';
 
     // Update in-memory user cache with real dedicated account
     if (existing) {
@@ -725,6 +732,13 @@ export async function completeMapleradKyc(req: Request, res: Response) {
           data: { rekycRequired: false, accountNumber, bankName, updatedAt: new Date().toISOString() }
         });
       } catch (_) {}
+    }
+
+    // Process Referral & Signup Rewards (₦1,000 Signup + ₦500 Referrer)
+    if (existing?.id) {
+      ReferralService.processKycRewards(existing.id, cleanEmail).catch(err => {
+        console.error('[Referral] Failed to process KYC rewards for', cleanEmail, err.message);
+      });
     }
 
     NotificationDispatcher.dispatch({
@@ -917,7 +931,7 @@ export async function syncPartnerFincraAccount(req: Request, res: Response) {
 
     const accNo = result.data?.accountNumber || result.data?.accountInformation?.accountNumber;
     if (result.status && accNo) {
-      const bankName = `${result.data?.bankName || result.data?.accountInformation?.bankName || 'Wema Bank'} (Rentilly)`;
+      const bankName = 'Rentilly Escrow';
 
       if (supabase) {
         await supabase.from('system_configs').upsert({

@@ -163,12 +163,36 @@ apiRouter.post('/bills/validate-meter', paymentController.validateDiscoMeter);
 apiRouter.post('/payments/validate-meter', paymentController.validateDiscoMeter);
 apiRouter.post('/bills/electricity/validate', paymentController.validateDiscoMeter);
 apiRouter.get('/bills/electricity/discos', paymentController.getSupportedDiscos);
+apiRouter.get('/bills/discos', paymentController.getSupportedDiscos);
 apiRouter.post('/bills/purchase-electricity', paymentController.purchaseElectricityToken);
 apiRouter.post('/bills/cable/validate', paymentController.validateCableSmartcard);
+apiRouter.post('/payments/cable/validate', paymentController.validateCableSmartcard);
+apiRouter.post('/payments/validate-cable', paymentController.validateCableSmartcard);
 apiRouter.get('/bills/beneficiaries', paymentController.getUtilityBeneficiaries);
 apiRouter.post('/bills/beneficiaries', paymentController.saveUtilityBeneficiary);
-apiRouter.delete('/bills/beneficiaries/:id', paymentController.deleteUtilityBeneficiary);
+apiRouter.get('/bills/categories', (req, res) => {
+  res.json({
+    status: true,
+    data: [
+      { id: 'electricity', name: 'Electricity (Prepaid / Postpaid)', icon: 'zap' },
+      { id: 'airtime', name: 'Airtime VTU', icon: 'phone' },
+      { id: 'data', name: 'Mobile Internet Data', icon: 'wifi' },
+      { id: 'cable', name: 'Cable TV (DSTV / GOTV / Startimes)', icon: 'tv' }
+    ]
+  });
+});
+apiRouter.get('/bills/providers', paymentController.getSupportedDiscos);
+apiRouter.post('/bills/validate-customer', async (req, res) => {
+  const { category, type } = req.body || {};
+  if (category === 'cable' || type === 'cable') {
+    return paymentController.validateCableSmartcard(req, res);
+  }
+  return paymentController.validateDiscoMeter(req, res);
+});
 apiRouter.post('/payments/pay-bill', paymentController.payBill);
+apiRouter.post('/bills/pay-bill', paymentController.payBill);
+apiRouter.post('/bills/pay', paymentController.payBill);
+apiRouter.post('/bills/purchase', paymentController.payBill);
 apiRouter.get('/payments/transactions', paymentController.getUserTransactions);
 apiRouter.post('/webhooks/flutterwave', paymentController.flutterwaveWebhook);
 apiRouter.post('/webhooks/maplerad', paymentController.mapleradWebhook);
@@ -395,4 +419,15 @@ apiRouter.post('/admin/fincra/beneficiaries', fincraAdminController.createFincra
 apiRouter.get('/admin/fincra/resolve-account', fincraAdminController.resolveFincraAccount);
 apiRouter.post('/admin/fincra/resolve-account', fincraAdminController.resolveFincraAccount);
 apiRouter.get('/admin/fincra/banks', fincraAdminController.getFincraBanks);
+
+// 31. Referral & Growth Rewards Engine
+import * as referralController from '../controllers/referralController';
+apiRouter.get('/referrals/config', referralController.getReferralConfig);
+apiRouter.get('/referrals/validate', referralController.validateReferralCode);
+apiRouter.post('/referrals/validate', referralController.validateReferralCode);
+apiRouter.get('/referrals/stats/:identifier', referralController.getUserReferralStats);
+apiRouter.get('/referrals/stats', referralController.getUserReferralStats);
+apiRouter.get('/admin/referrals/list', referralController.getAdminReferralsList);
+apiRouter.get('/admin/referrals/config', referralController.getReferralConfig);
+apiRouter.post('/admin/referrals/config', referralController.updateReferralConfig);
 

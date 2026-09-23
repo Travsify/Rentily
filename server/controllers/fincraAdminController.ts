@@ -95,7 +95,7 @@ export async function getFincraOverview(_req: Request, res: Response) {
         id: acc._id || acc.id,
         accountNumber: accNum,
         accountName: acc.accountInformation?.accountName || acc.accountName || acc.KYCInformation?.businessName || acc.KYCInformation?.bvnName || 'Rentilly Commercial Client',
-        bankName: acc.accountInformation?.bankName || acc.bankName || 'Wema Bank',
+        bankName: acc.accountInformation?.bankName || acc.bankName || 'Rentilly Escrow',
         bankCode: acc.accountInformation?.bankCode || acc.bankCode || '035',
         currency: acc.currency || 'NGN',
         status: acc.status,
@@ -228,7 +228,7 @@ export async function createAdminVirtualAccount(req: Request, res: Response) {
         id: `fincra_va_${cleanEmail}`,
         data: {
           accountNumber: result.data.accountNumber,
-          bankName: result.data.bankName || 'Wema Bank (Rentilly)',
+          bankName: result.data.bankName || 'Rentilly Escrow',
           bankCode: '035',
           accountName: result.data.accountName || `${firstName} ${lastName}`,
           provider: 'fincra',
@@ -239,7 +239,7 @@ export async function createAdminVirtualAccount(req: Request, res: Response) {
 
       await supabase.from('profiles').update({
         account_number: result.data.accountNumber,
-        bank_name: 'Wema Bank (Rentilly)'
+        bank_name: 'Rentilly Escrow'
       }).eq('email', cleanEmail);
     }
 
@@ -372,7 +372,7 @@ export async function reconcileFincraCollection(req: Request, res: Response) {
         reference,
         sender: matched?.payeeName || 'Fincra Commercial Bank Rail',
         beneficiary: prof.full_name || prof.email,
-        recipientBank: 'Wema Bank Commercial Rail',
+        recipientBank: 'Rentilly Escrow',
         status: 'SUCCESSFUL',
         date: new Date().toISOString()
       });

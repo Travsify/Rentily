@@ -25,10 +25,16 @@ class AuthService {
     required String phoneNumber,
     required String password,
     String role = 'renter',
+    String buyerType = 'personal',
     String state = 'Lagos',
     String? businessName,
     String? cacNumber,
+    String? tinNumber,
     String? officeAddress,
+    String? signatoryName,
+    String? signatoryRole,
+    String? signatoryPhone,
+    String? referralCode,
   }) async {
     return signUp(
       fullName: fullName,
@@ -36,10 +42,16 @@ class AuthService {
       phoneNumber: phoneNumber,
       password: password,
       role: role,
+      buyerType: buyerType,
       state: state,
       businessName: businessName,
       cacNumber: cacNumber,
+      tinNumber: tinNumber,
       officeAddress: officeAddress,
+      signatoryName: signatoryName,
+      signatoryRole: signatoryRole,
+      signatoryPhone: signatoryPhone,
+      referralCode: referralCode,
     );
   }
 
@@ -49,10 +61,16 @@ class AuthService {
     required String password,
     required String phoneNumber,
     required String role,
+    String buyerType = 'personal',
     String? state,
     String? businessName,
     String? cacNumber,
+    String? tinNumber,
     String? officeAddress,
+    String? signatoryName,
+    String? signatoryRole,
+    String? signatoryPhone,
+    String? referralCode,
   }) async {
     final cleanEmail = email.trim().toLowerCase();
     final cleanPhone = phoneNumber.trim();
@@ -64,13 +82,10 @@ class AuthService {
       };
     }
 
-    // NOTE: We no longer do a Supabase pre-check for existing email/phone here.
-    // The server handles this correctly:
-    //   - If email exists with a GOOD name: returns 409 "please log in"
-    //   - If email exists with a BAD/empty name (ghost account): overwrites name and proceeds
-    // A mobile-side Supabase check would block users with ghost accounts from fixing their name.
+    final cleanReferralCode = (referralCode != null && referralCode.trim().isNotEmpty)
+        ? referralCode.trim().toUpperCase()
+        : null;
 
-    // Layer 1: Direct Supabase Cloud REST API (Primary Instant Database)
     // Layer 1: Render Core API (Primary Auth Authority - Computes & Stores Salted Password Hash)
     try {
       final response = await http.post(
@@ -82,10 +97,16 @@ class AuthService {
           'password': password,
           'phoneNumber': cleanPhone,
           'role': role,
+          'buyerType': buyerType,
           'state': state ?? 'Lagos',
           'businessName': businessName,
           'cacNumber': cacNumber,
+          'tinNumber': tinNumber,
           'officeAddress': officeAddress,
+          'signatoryName': signatoryName,
+          'signatoryRole': signatoryRole,
+          'signatoryPhone': signatoryPhone,
+          'referralCode': cleanReferralCode,
         }),
       ).timeout(const Duration(seconds: 15));
 
@@ -125,11 +146,17 @@ class AuthService {
           'email': cleanEmail,
           'phone_number': cleanPhone,
           'role': role,
+          'buyer_type': buyerType,
           'is_verified': false,
           'state': state ?? 'Lagos',
           'business_name': businessName,
           'cac_number': cacNumber,
+          'tin_number': tinNumber,
           'office_address': officeAddress,
+          'authorized_signatory_name': signatoryName,
+          'authorized_signatory_role': signatoryRole,
+          'authorized_signatory_phone': signatoryPhone,
+          'referral_code': cleanReferralCode,
         }),
       ).timeout(const Duration(seconds: 8));
 
@@ -144,11 +171,17 @@ class AuthService {
           'email': cleanEmail,
           'phoneNumber': cleanPhone,
           'role': role,
+          'buyerType': buyerType,
           'isVerified': false,
           'state': state ?? 'Lagos',
           'businessName': businessName,
           'cacNumber': cacNumber,
+          'tinNumber': tinNumber,
           'officeAddress': officeAddress,
+          'signatoryName': signatoryName,
+          'signatoryRole': signatoryRole,
+          'signatoryPhone': signatoryPhone,
+          'referralCode': cleanReferralCode,
           'createdAt': DateTime.now().toIso8601String(),
         };
 
@@ -164,10 +197,16 @@ class AuthService {
             'password': password,
             'phoneNumber': cleanPhone,
             'role': role,
+            'buyerType': buyerType,
             'state': state,
             'businessName': businessName,
             'cacNumber': cacNumber,
+            'tinNumber': tinNumber,
             'officeAddress': officeAddress,
+            'signatoryName': signatoryName,
+            'signatoryRole': signatoryRole,
+            'signatoryPhone': signatoryPhone,
+            'referralCode': cleanReferralCode,
           }),
         ).catchError((_) => http.Response('', 500));
 
@@ -689,7 +728,7 @@ class AuthService {
       userMap['isVerified'] = userMap['isVerified'] == true || userMap['is_verified'] == true;
       userMap['bvnVerified'] = userMap['bvnVerified'] == true || userMap['bvn_verified'] == true;
       userMap['accountNumber'] = userMap['accountNumber'] ?? userMap['account_number'];
-      userMap['bankName'] = userMap['bankName'] ?? userMap['bank_name'] ?? 'Flutterwave MFB';
+      userMap['bankName'] = userMap['bankName'] ?? userMap['bank_name'] ?? 'Rentilly Escrow';
     } else {
       userMap['role'] = userMap['role'] ?? 'renter';
       userMap['businessName'] = userMap['businessName'] ?? userMap['business_name'];
@@ -698,7 +737,7 @@ class AuthService {
       userMap['isVerified'] = userMap['isVerified'] == true || userMap['is_verified'] == true;
       userMap['bvnVerified'] = userMap['bvnVerified'] == true || userMap['bvn_verified'] == true;
       userMap['accountNumber'] = userMap['accountNumber'] ?? userMap['account_number'];
-      userMap['bankName'] = userMap['bankName'] ?? userMap['bank_name'] ?? 'Flutterwave MFB';
+      userMap['bankName'] = userMap['bankName'] ?? userMap['bank_name'] ?? 'Rentilly Escrow';
     }
 
     if (userMap['avatarUrl'] == null || (userMap['avatarUrl'] as String).isEmpty) {
@@ -790,5 +829,70 @@ class AuthService {
         'message': 'Network error. Please check your connection.',
       };
     }
+  }
+
+  // 11. Validate Referral Code
+  static Future<Map<String, dynamic>> validateReferralCode(String code) async {
+    final cleanCode = code.trim().toUpperCase();
+    if (cleanCode.isEmpty) {
+      return {'valid': false, 'message': 'Please enter a referral code'};
+    }
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/referrals/validate?code=$cleanCode'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 8));
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      }
+      return {'valid': false, 'message': 'Invalid referral code'};
+    } catch (_) {
+      return {'valid': true, 'message': 'Code accepted'};
+    }
+  }
+
+  // 12. Fetch User Referral Stats & Earnings
+  static Future<Map<String, dynamic>> getReferralStats(String userIdentifier) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/referrals/stats/${Uri.encodeComponent(userIdentifier)}'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      }
+    } catch (_) {}
+    return {
+      'referralCode': 'RENTILLY',
+      'shareLink': 'https://myrentilly.com',
+      'totalReferrals': 0,
+      'successfulReferrals': 0,
+      'pendingReferrals': 0,
+      'totalEarned': 0,
+      'recentReferrals': []
+    };
+  }
+
+  // 13. Fetch Global Referral Config
+  static Future<Map<String, dynamic>> getReferralConfig() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/referrals/config'),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 8));
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      }
+    } catch (_) {}
+    return {
+      'enabled': true,
+      'instantEarning': true,
+      'signupBonusAmount': 1000,
+      'referrerBonusAmount': 500,
+      'requireKycForPayout': true
+    };
   }
 }

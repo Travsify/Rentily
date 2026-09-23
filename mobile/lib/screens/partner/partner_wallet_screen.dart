@@ -292,7 +292,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                 Text('Personal TRC20 Wallet Pending', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                 const SizedBox(height: 8),
                 Text(
-                  'Your dedicated TRON (TRC20) deposit address is automatically generated once your Rentilly Fincra Tier 1 account verification is completed.',
+                  'Your dedicated TRON (TRC20) deposit address is automatically generated once your Rentilly SafeVault Tier 1 account verification is completed.',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary),
                 ),
@@ -498,7 +498,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
     final double operationalBalance = _user?.walletBalance ?? 0.00;
     final escrowCommission = _escrowCommission;
     final accountNumber = _user?.accountNumber ?? 'Pending KYC';
-    final bankName = _user?.bankName ?? 'Wema Bank (Fincra)';
+    final bankName = _user?.bankName ?? 'Rentilly Escrow';
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
@@ -898,7 +898,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                                               const Icon(Icons.info_outline_rounded, size: 13, color: AppColors.accentOrange),
                                               const SizedBox(width: 5),
                                               Text(
-                                                'Pending Fincra • Tap to complete KYB ⚡',
+                                                'Pending Escrow NUBAN • Tap to complete KYB ⚡',
                                                 style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.accentOrange),
                                               ),
                                             ],
@@ -1281,7 +1281,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                                             const Icon(Icons.info_outline_rounded, size: 13, color: AppColors.accentOrange),
                                             const SizedBox(width: 5),
                                             Text(
-                                              'Pending Fincra • Tap to complete KYB ⚡',
+                                              'Pending Escrow NUBAN • Tap to complete KYB ⚡',
                                               style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.accentOrange),
                                             ),
                                           ],

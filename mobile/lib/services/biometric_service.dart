@@ -12,7 +12,7 @@ class BiometricService {
       final bool canAuthenticate = canAuthenticateWithBiometrics || await _auth.isDeviceSupported();
       return canAuthenticate;
     } catch (_) {
-      return true;
+      return false;
     }
   }
 
@@ -23,7 +23,7 @@ class BiometricService {
   static Future<bool> authenticate({String? reason}) async {
     try {
       final available = await isBiometricAvailable();
-      if (!available) return true;
+      if (!available) return false;
 
       final authFuture = _auth.authenticate(
         localizedReason: reason ?? 'Scan your fingerprint or face to authenticate into Rentilly',
@@ -37,9 +37,6 @@ class BiometricService {
 
       return await authFuture.timeout(const Duration(seconds: 30), onTimeout: () => false);
     } on PlatformException catch (e) {
-      if (e.code == 'NotAvailable' || e.code == 'PasscodeNotSet') {
-        return true;
-      }
       return false;
     } catch (_) {
       return false;

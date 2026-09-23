@@ -16,6 +16,7 @@ import '../../widgets/landlord_bottom_bar.dart';
 import '../../widgets/statement_export_modal.dart';
 import '../../widgets/transaction_receipt_modal.dart';
 import '../../services/statement_pdf_service.dart';
+import '../main_navigation_screen.dart';
 
 class CardsScreen extends StatefulWidget {
   const CardsScreen({super.key});
@@ -2664,17 +2665,44 @@ class _CardsScreenState extends State<CardsScreen> {
     if (role == 'partner') {
       return PartnerBottomBar(
         currentIndex: 2, // Wallet / Cards tab
-        onTap: (i) => Navigator.pop(context),
+        onTap: (i) {
+          if (i == 2) {
+            Navigator.pop(context);
+          } else {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => MainNavigationScreen(initialIndex: i, initialPartnerMode: true)),
+              (route) => false,
+            );
+          }
+        },
       );
     } else if (role == 'owner' || role == 'landlord') {
       return LandlordBottomBar(
         currentIndex: 2,
-        onTap: (i) => Navigator.pop(context),
+        onTap: (i) {
+          if (i == 2) {
+            Navigator.pop(context);
+          } else {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => MainNavigationScreen(initialIndex: i, initialLandlordMode: true)),
+              (route) => false,
+            );
+          }
+        },
       );
     } else {
       return RentillyBottomBar(
         currentIndex: 3,
-        onTap: (i) => Navigator.pop(context),
+        onTap: (i) {
+          if (i == 3) {
+            Navigator.pop(context);
+          } else {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (_) => MainNavigationScreen(initialIndex: i)),
+              (route) => false,
+            );
+          }
+        },
       );
     }
   }

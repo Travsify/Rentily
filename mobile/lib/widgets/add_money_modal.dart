@@ -84,8 +84,12 @@ class _AddMoneyModalState extends State<AddMoneyModal> {
   }
 
   void _copyAllDetails(BuildContext context) {
-    final rawBank = widget.user.bankName ?? 'Wema Bank';
-    final bank = rawBank.replaceAll(RegExp(r'\s*\([Ff]incra\)', caseSensitive: false), '').replaceAll(RegExp(r'Fincra\s*', caseSensitive: false), '').trim();
+    final rawBank = widget.user.bankName ?? 'Rentilly Escrow';
+    final bank = rawBank
+        .replaceAll(RegExp(r'\s*\([Ff]incra\)', caseSensitive: false), '')
+        .replaceAll(RegExp(r'Fincra\s*', caseSensitive: false), '')
+        .replaceAll(RegExp(r'Wema Bank(\s*\(Rentilly Escrow\))?', caseSensitive: false), 'Rentilly Escrow')
+        .trim();
     final accNum = widget.user.accountNumber ?? 'Pending Dedicated Issuance';
     final isPartner = widget.user.role == 'partner';
     final name = isPartner
@@ -207,8 +211,12 @@ class _AddMoneyModalState extends State<AddMoneyModal> {
 
   @override
   Widget build(BuildContext context) {
-    final rawBank = widget.user.bankName ?? 'Wema Bank';
-    final bankName = rawBank.replaceAll(RegExp(r'\s*\([Ff]incra\)', caseSensitive: false), '').replaceAll(RegExp(r'Fincra\s*', caseSensitive: false), '').trim();
+    final rawBank = widget.user.bankName ?? 'Rentilly Escrow';
+    final bankName = rawBank
+        .replaceAll(RegExp(r'\s*\([Ff]incra\)', caseSensitive: false), '')
+        .replaceAll(RegExp(r'Fincra\s*', caseSensitive: false), '')
+        .replaceAll(RegExp(r'Wema Bank(\s*\(Rentilly Escrow\))?', caseSensitive: false), 'Rentilly Escrow')
+        .trim();
     final accountNumber = widget.user.accountNumber ?? 'Generating NUBAN...';
     final isPartner = widget.user.role == 'partner';
     final name = isPartner

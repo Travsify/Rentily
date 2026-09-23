@@ -22,7 +22,8 @@ import {
   Scale,
   Activity,
   Globe,
-  Landmark
+  Landmark,
+  Gift
 } from 'lucide-react';
 import type { AdminTab } from '../types';
 
@@ -252,7 +253,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         },
         {
           id: 'fincra',
-          label: 'Fincra Master Ledger',
+          label: 'SafeVault Master Ledger',
           icon: Landmark,
           badge: 'Wema 035',
           badgeColor: 'bg-blue-500/20 text-blue-400 border-blue-500/30'
@@ -275,6 +276,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           label: 'Platform Tariffs & Fees',
           icon: Sliders,
           badge: '₦50 / ₦100'
+        },
+        {
+          id: 'referrals',
+          label: 'Referrals & Rewards',
+          icon: Gift,
+          badge: '₦1k / ₦500',
+          badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
         },
         {
           id: 'legal',

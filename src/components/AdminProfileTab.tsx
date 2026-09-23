@@ -309,7 +309,7 @@ export const AdminProfileTab: React.FC = () => {
               <span>Whitelisted IPv4: 69.62.127.50</span>
             </p>
             <p className="text-[11px] text-slate-400">
-              Direct connection to Maplerad Treasury &amp; Fincra Settlement Rails.
+              Direct connection to Maplerad Treasury &amp; SafeVault Settlement Rails.
             </p>
           </div>
           <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px]">

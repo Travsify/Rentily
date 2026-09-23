@@ -197,10 +197,10 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                 const SizedBox(height: 20),
                 const Icon(Icons.account_balance_wallet_outlined, size: 48, color: AppColors.accentOrange),
                 const SizedBox(height: 12),
-                Text('Personal TRC20 Wallet Pending', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                Text('Personal Solana Wallet Pending', style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                 const SizedBox(height: 8),
                 Text(
-                  'Your dedicated TRON (TRC20) deposit address is automatically generated once your Rentilly Tier 1 account verification is completed.',
+                  'Your dedicated Solana (SPL) deposit address is automatically generated once your Rentilly Tier 1 account verification is completed.',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary),
                 ),
@@ -253,7 +253,7 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      'TRON (TRC20) NETWORK ONLY',
+                      'SOLANA (SPL) NETWORK ONLY',
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 10,
                         fontWeight: FontWeight.w900,
@@ -265,12 +265,12 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
               ),
               const SizedBox(height: 12),
               Text(
-                'Deposit USDT via TRON Network',
+                'Deposit USDT via Solana Network',
                 style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
               ),
               const SizedBox(height: 6),
               Text(
-                'Send only Tether USD (USDT) on the TRON (TRC20) blockchain to this address. Inbound deposits are credited to your Rentilly balance at live market exchange rates.',
+                'Send only Tether USD (USDT) on the Solana (SPL) blockchain to this address. Inbound deposits are credited to your Rentilly balance at live market exchange rates.',
                 textAlign: TextAlign.center,
                 style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
               ),
@@ -473,8 +473,12 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
     final double operationalBalance = effectiveCurrency == 'NGN' ? (_user?.walletBalance ?? 0.0) : 0.00;
     final escrowBalance = _escrowBalance;
     final accountNumber = effectiveCurrency == 'NGN' ? (_user?.accountNumber ?? '') : '';
-    final rawBank = _user?.bankName ?? 'Wema Bank';
-    final cleanBank = rawBank.replaceAll(RegExp(r'\s*\([Ff]incra\)', caseSensitive: false), '').replaceAll(RegExp(r'Fincra\s*', caseSensitive: false), '').trim();
+    final rawBank = _user?.bankName ?? 'Rentilly Escrow';
+    final cleanBank = rawBank
+        .replaceAll(RegExp(r'\s*\([Ff]incra\)', caseSensitive: false), '')
+        .replaceAll(RegExp(r'Fincra\s*', caseSensitive: false), '')
+        .replaceAll(RegExp(r'Wema Bank(\s*\(Rentilly Escrow\))?', caseSensitive: false), 'Rentilly Escrow')
+        .trim();
     final bankName = effectiveCurrency == 'USD' 
         ? 'Lead Bank (USA) • ACH/Wire' 
         : effectiveCurrency == 'GBP' 

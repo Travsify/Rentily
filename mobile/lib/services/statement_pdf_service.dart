@@ -31,14 +31,21 @@ class StatementPdfService {
   // Helper to sanitize any string from unsupported PDF unicode glyphs
   static String _sanitizePdfText(dynamic text) {
     if (text == null) return '';
-    return text.toString()
+    String s = text.toString()
         .replaceAll('₦', 'NGN ')
         .replaceAll('\$', 'USD ')
         .replaceAll('£', 'GBP ')
         .replaceAll('€', 'EUR ')
         .replaceAll('•', '|')
+        .replaceAll('·', '-')
         .replaceAll('—', '-')
-        .replaceAll('–', '-');
+        .replaceAll('–', '-')
+        .replaceAll('…', '...')
+        .replaceAll('“', '"')
+        .replaceAll('”', '"')
+        .replaceAll('‘', "'")
+        .replaceAll('’', "'");
+    return s.replaceAll(RegExp(r'[^\x20-\x7E\xA0-\xFF]'), '');
   }
 
   static String _formatCurrencyPrefix(String curr) {
@@ -64,7 +71,7 @@ class StatementPdfService {
       ignoreMargins: true,
       child: pw.Center(
         child: pw.Transform.rotate(
-          angle: math.pi / 6,
+          angle: -math.pi / 6,
           child: pw.Column(
             mainAxisSize: pw.MainAxisSize.min,
             crossAxisAlignment: pw.CrossAxisAlignment.center,
@@ -159,19 +166,63 @@ class StatementPdfService {
         ? (isCredit ? 'CARD INFLOW (CREDIT)' : 'ONLINE CARD PURCHASE (DEBIT)')
         : 'TOTAL TRANSACTION VALUE';
     final heroPrefix = isCardTx ? (isCredit ? '+' : '-') : '';
-    final date = transaction['date'] != null
-        ? _dateFormat.format(DateTime.tryParse(transaction['date'].toString()) ?? DateTime.now())
-        : _dateFormat.format(DateTime.now());
+    final isDebit = !isCredit;
+    final rawDate = DateTime.tryParse(transaction['date']?.toString() ?? transaction['createdAt']?.toString() ?? '') ?? DateTime.now();
+    final gmtPlus1 = rawDate.toUtc().add(const Duration(hours: 1));
+    final date = _dateFormat.format(gmtPlus1);
     final status = _sanitizePdfText((transaction['status'] ?? 'SUCCESSFUL').toString().toUpperCase());
-    final beneficiary = _sanitizePdfText(transaction['beneficiary'] ?? user.fullName);
-    final sender = _sanitizePdfText(transaction['sender'] ?? 'Electronic Banking Settlement');
-    final displayBank = _sanitizePdfText(
-      transaction['recipientBank'] ??
-      transaction['bankName'] ??
-      user.bankName ??
-      (isCredit ? 'Wema Bank (Rentilly)' : 'Commercial Settlement Rail')
+
+    // Parse recipient name & account number from description if present
+    final rawDesc = (transaction['title'] ?? transaction['description'] ?? transaction['narration'] ?? '').toString();
+    String? extractedAccount;
+    String? extractedBeneficiary;
+
+    final accountRegex = RegExp(r'\((\d{10})\)|[-–:]\s*(\d{10})|\b(\d{10})\b');
+    final match = accountRegex.firstMatch(rawDesc);
+    if (match != null) {
+      extractedAccount = match.group(1) ?? match.group(2) ?? match.group(3);
+    }
+
+    final nameMatch = RegExp(r'(?:Payout to|Transfer to|Payment to|Disbursement to)\s+([^(–-]+)', caseSensitive: false).firstMatch(rawDesc);
+    if (nameMatch != null) {
+      extractedBeneficiary = nameMatch.group(1)?.trim();
+    }
+
+    final beneficiary = _sanitizePdfText(
+      transaction['recipientBeneficiary'] ??
+      transaction['recipientName'] ??
+      transaction['beneficiary'] ??
+      transaction['receiverName'] ??
+      transaction['customerName'] ??
+      extractedBeneficiary ??
+      (isCredit ? user.fullName : (transaction['beneficiary'] ?? user.fullName))
     );
-    final displayAccount = _sanitizePdfText(transaction['recipientAccount'] ?? user.accountNumber ?? '');
+
+    final displayAccount = _sanitizePdfText(
+      transaction['destinationAccount'] ??
+      transaction['destinationAccountNumber'] ??
+      transaction['recipientAccount'] ??
+      transaction['beneficiaryAccount'] ??
+      transaction['accountNumber'] ??
+      transaction['account_number'] ??
+      extractedAccount ??
+      (isCredit ? (user.accountNumber ?? '') : '')
+    );
+
+    // Capture receiver's destination bank for outbound debits vs Rentilly Escrow for inbound credits
+    String resolvedBank = '';
+    if (isCredit) {
+      resolvedBank = transaction['recipientBank'] ?? transaction['bankName'] ?? user.bankName ?? 'Rentilly Escrow';
+    } else {
+      resolvedBank = transaction['destinationBank'] ??
+          transaction['recipientBank'] ??
+          transaction['bankName'] ??
+          transaction['bank_name'] ??
+          transaction['bank']?['name'] ??
+          'Wema Bank';
+    }
+    final displayBank = _sanitizePdfText(resolvedBank.replaceAll(RegExp(r'\(?fincra[^)]*\)?', caseSensitive: false), '').trim());
+    final sender = _sanitizePdfText(transaction['sender'] ?? 'Electronic Banking Settlement');
     final logoImage = await _getLogoImage();
 
     pdf.addPage(
@@ -257,7 +308,7 @@ class StatementPdfService {
                   ),
                 ],
               ),
-              pw.Divider(thickness: 1, color: PdfColors.grey300, height: 24),
+              pw.SizedBox(height: 18),
 
               // Hero Amount Card
               pw.Container(
@@ -327,25 +378,26 @@ class StatementPdfService {
                 _buildPdfDetailRow('Settlement Status', status == 'SUCCESS' ? 'SETTLED / COMPLETED' : status),
               ] else ...[
                 _buildPdfDetailRow('Transaction Description', title),
-                if ((transaction['description'] ?? transaction['remark'] ?? transaction['reason']) != null &&
-                    (transaction['description'] ?? transaction['remark'] ?? transaction['reason']).toString().trim().isNotEmpty &&
-                    !(transaction['description'] ?? transaction['remark'] ?? transaction['reason']).toString().trim().toLowerCase().contains('rentilly payout'))
+                if ((transaction['description'] ?? transaction['remark'] ?? transaction['reason'] ?? transaction['narration']) != null &&
+                    (transaction['description'] ?? transaction['remark'] ?? transaction['reason'] ?? transaction['narration']).toString().trim().isNotEmpty &&
+                    !(transaction['description'] ?? transaction['remark'] ?? transaction['reason'] ?? transaction['narration']).toString().trim().toLowerCase().contains('rentilly payout'))
                   _buildPdfDetailRow(
                     'Remark / Narration',
-                    _sanitizePdfText((transaction['description'] ?? transaction['remark'] ?? transaction['reason']).toString().trim())
+                    _sanitizePdfText((transaction['description'] ?? transaction['remark'] ?? transaction['reason'] ?? transaction['narration']).toString().trim())
                   ),
                 _buildPdfDetailRow('Transaction Reference', txRef.replaceAll('FINCRA_', 'RTLY_').replaceAll('fincra_', 'rtly_')),
                 _buildPdfDetailRow('Transaction Nature', isCredit ? 'CREDIT (+) - Inbound Bank Settlement' : 'DEBIT (-) - Outbound Bank Transfer Payout'),
-                _buildPdfDetailRow('Transaction Category', type),
+                _buildPdfDetailRow('Transaction Category', type.toLowerCase()),
                 _buildPdfDetailRow(isCredit ? 'Sender / Source' : 'Originating Account', isCredit ? sender : '${user.fullName} (Rentilly Escrow Vault)'),
                 _buildPdfDetailRow(isCredit ? 'Beneficiary Name' : 'Recipient Beneficiary', beneficiary),
                 if (displayAccount.isNotEmpty)
                   _buildPdfDetailRow(isCredit ? 'Receiving Virtual Account' : 'Destination Account Number', displayAccount),
-                _buildPdfDetailRow(isCredit ? 'Receiving Partner Bank' : 'Destination Bank', displayBank.replaceAll(RegExp(r'\(?fincra[^)]*\)?', caseSensitive: false), '').trim()),
-                if (feeAmount > 0) ...[
+                _buildPdfDetailRow(isCredit ? 'Receiving Partner Bank' : 'Destination Bank', displayBank),
+                if (feeAmount > 0 || isDebit) ...[
                   _buildPdfDetailRow('Principal Transfer Amount', '$currPrefix${_currencyFormat.format(amount)}'),
-                  _buildPdfDetailRow('Processing Fee', '$currPrefix${_currencyFormat.format(feeAmount)}'),
-                  _buildPdfDetailRow('Total Settlement Debited', '$currPrefix${_currencyFormat.format(rawAmount)}'),
+                  if (feeAmount > 0)
+                    _buildPdfDetailRow('Processing Fee', '$currPrefix${_currencyFormat.format(feeAmount)}'),
+                  _buildPdfDetailRow('Total Settlement Debited', '$currPrefix${_currencyFormat.format(rawAmount > 0 ? rawAmount : (amount + feeAmount))}'),
                 ],
                 _buildPdfDetailRow('Settlement Category', 'Rentilly Escrow Protected'),
                 _buildPdfDetailRow('Timestamp (UTC+1)', date),
@@ -401,6 +453,25 @@ class StatementPdfService {
     return pdf.save();
   }
 
+  // 1b. Generate High-Definition Certified Receipt Image (PNG) directly rasterized from the PDF Document
+  static Future<Uint8List> generateReceiptImageBytes({
+    required Map<String, dynamic> transaction,
+    required UserProfile user,
+    String currency = 'NGN',
+    double dpi = 288.0,
+  }) async {
+    final pdfBytes = await generateReceiptPdf(
+      transaction: transaction,
+      user: user,
+      currency: currency,
+    );
+    await for (final page in Printing.raster(pdfBytes, pages: [0], dpi: dpi)) {
+      final imageBytes = await page.toPng();
+      return imageBytes;
+    }
+    throw Exception('Failed to rasterize receipt PDF into high-definition image.');
+  }
+
   // 2. Generate Certified Bank-Grade Statement of Account (Multi-Currency)
   static Future<Uint8List> generateStatementPdf({
     required UserProfile user,
@@ -414,8 +485,9 @@ class StatementPdfService {
     final currPrefix = _formatCurrencyPrefix(currency);
     final start = fromDate != null ? DateFormat('dd MMM yyyy').format(fromDate) : '01 Aug 2026';
     final end = toDate != null ? DateFormat('dd MMM yyyy').format(toDate) : DateFormat('dd MMM yyyy').format(DateTime.now());
-    final generatedAt = DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.now());
-    final partnerBank = _sanitizePdfText(user.bankName ?? 'Flutterwave MFB');
+    final nowGmtPlus1 = DateTime.now().toUtc().add(const Duration(hours: 1));
+    final generatedAt = '${DateFormat('dd MMM yyyy, hh:mm a').format(nowGmtPlus1)} (GMT+1)';
+    final partnerBank = _sanitizePdfText(user.bankName ?? 'Rentilly Escrow');
 
     double totalInflow = 0;
     double totalOutflow = 0;
@@ -557,7 +629,7 @@ class StatementPdfService {
                       children: [
                         pw.Text('COLLECTION COORDINATES', style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold, color: PdfColors.grey600)),
                         pw.SizedBox(height: 2),
-                        pw.Text('Account Number: ${user.accountNumber ?? "Pending Fincra"}', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold)),
+                        pw.Text('Account Number: ${user.accountNumber ?? "Pending Escrow NUBAN"}', style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold)),
                         pw.Text('Settlement Bank: $partnerBank', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey800)),
                         pw.Text('Account Type: Escrow / Wallet ($currency)', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey800)),
                         pw.Text('Generated: $generatedAt', style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey600)),
@@ -620,8 +692,11 @@ class StatementPdfService {
                   ),
                   // Table Rows
                   ...filtered.map((tx) {
-                    final d = tx['date'] != null
-                        ? DateFormat('dd/MM/yy hh:mm a').format(DateTime.tryParse(tx['date'].toString()) ?? DateTime.now())
+                    final rawD = tx['date'] != null
+                        ? DateTime.tryParse(tx['date'].toString())
+                        : (tx['createdAt'] != null ? DateTime.tryParse(tx['createdAt'].toString()) : null);
+                    final d = rawD != null
+                        ? '${DateFormat('dd/MM/yy hh:mm a').format(rawD.toUtc().add(const Duration(hours: 1)))} (WAT)'
                         : 'Recent';
                     final title = _sanitizePdfText(tx['title'] ?? tx['type'] ?? 'Escrow Settlement');
                     final ref = _sanitizePdfText(tx['reference'] ?? tx['id'] ?? '');
@@ -721,7 +796,8 @@ class StatementPdfService {
     final primaryColor = PdfColor.fromHex('#0B4F3F');
     final start = fromDate != null ? DateFormat('dd MMM yyyy').format(fromDate) : '01 Aug 2026';
     final end = toDate != null ? DateFormat('dd MMM yyyy').format(toDate) : DateFormat('dd MMM yyyy').format(DateTime.now());
-    final generatedAt = DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.now());
+    final nowGmtPlus1 = DateTime.now().toUtc().add(const Duration(hours: 1));
+    final generatedAt = '${DateFormat('dd MMM yyyy, hh:mm a').format(nowGmtPlus1)} (GMT+1)';
 
     final last4 = cardDetails?['last4']?.toString() ?? '8842';
     final cardHolder = cardDetails?['name']?.toString() ?? user.fullName;
@@ -907,8 +983,11 @@ class StatementPdfService {
                     ],
                   ),
                   ...cardTransactions.map((tx) {
-                    final d = tx['date'] != null
-                        ? DateFormat('dd/MM/yy hh:mm a').format(DateTime.tryParse(tx['date'].toString()) ?? DateTime.now())
+                    final rawD = tx['date'] != null
+                        ? DateTime.tryParse(tx['date'].toString())
+                        : (tx['createdAt'] != null ? DateTime.tryParse(tx['createdAt'].toString()) : null);
+                    final d = rawD != null
+                        ? '${DateFormat('dd/MM/yy hh:mm a').format(rawD.toUtc().add(const Duration(hours: 1)))} (WAT)'
                         : 'Recent';
                     final merchant = _sanitizePdfText(tx['merchant'] ?? tx['title'] ?? 'International Merchant POS');
                     final cat = _sanitizePdfText(tx['category'] ?? tx['type'] ?? 'Subscription / POS');
@@ -1026,10 +1105,24 @@ class StatementPdfService {
     return pw.Padding(
       padding: const pw.EdgeInsets.symmetric(vertical: 4.5),
       child: pw.Row(
-        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          pw.Text(label, style: const pw.TextStyle(fontSize: 9.5, color: PdfColors.grey700)),
-          pw.Text(value, style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: PdfColors.black)),
+          pw.Expanded(
+            flex: 4,
+            child: pw.Text(
+              label,
+              style: const pw.TextStyle(fontSize: 9.5, color: PdfColors.grey700),
+            ),
+          ),
+          pw.SizedBox(width: 8),
+          pw.Expanded(
+            flex: 6,
+            child: pw.Text(
+              value,
+              textAlign: pw.TextAlign.right,
+              style: pw.TextStyle(fontSize: 9.5, fontWeight: pw.FontWeight.bold, color: PdfColors.black),
+            ),
+          ),
         ],
       ),
     );
@@ -1112,7 +1205,9 @@ class StatementPdfService {
   }) async {
     final pdfBytes = await generateReceiptPdf(transaction: transaction, user: user, currency: currency);
     final tempDir = await getTemporaryDirectory();
-    final file = File('${tempDir.path}/Rentilly_Receipt_${DateTime.now().millisecondsSinceEpoch}.pdf');
+    final rawRef = (transaction['reference'] ?? transaction['id'] ?? DateTime.now().millisecondsSinceEpoch).toString();
+    final safeName = 'Rentilly_Receipt_${rawRef.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_')}.pdf';
+    final file = File('${tempDir.path}/$safeName');
     await file.writeAsBytes(pdfBytes);
 
     final currPrefix = _formatCurrencyPrefix(currency);
@@ -1121,6 +1216,87 @@ class StatementPdfService {
       text: 'Rentilly Escrow Receipt - $currPrefix${_currencyFormat.format((transaction['amount'] as num?)?.toDouble() ?? 0.0)}',
       subject: 'Rentilly Transaction Receipt',
     );
+  }
+
+  // 5b. Share Receipt as Image (PNG) - 100% Uniform with Certified PDF Receipt
+  static Future<void> shareReceiptImage({
+    required Map<String, dynamic> transaction,
+    required UserProfile user,
+    String currency = 'NGN',
+    Uint8List? imageBytes,
+  }) async {
+    Uint8List? finalBytes = imageBytes;
+    if (finalBytes == null) {
+      try {
+        finalBytes = await generateReceiptImageBytes(
+          transaction: transaction,
+          user: user,
+          currency: currency,
+        );
+      } catch (e) {
+        debugPrint('Fallback raster error: $e');
+      }
+    }
+
+    if (finalBytes == null) {
+      throw Exception('Could not render receipt image.');
+    }
+
+    final tempDir = await getTemporaryDirectory();
+    final rawRef = (transaction['reference'] ?? transaction['id'] ?? DateTime.now().millisecondsSinceEpoch).toString();
+    final safeRef = rawRef.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+    final file = File('${tempDir.path}/Rentilly_Receipt_$safeRef.png');
+    await file.writeAsBytes(finalBytes);
+
+    final rawAmount = (transaction['amount'] as num?)?.toDouble() ?? 0.0;
+    final currPrefix = _formatCurrencyPrefix(currency);
+    final amountText = ' - $currPrefix${_currencyFormat.format(rawAmount)}';
+    await Share.shareXFiles(
+      [XFile(file.path, mimeType: 'image/png')],
+      text: 'Rentilly Transaction Receipt ($rawRef)$amountText',
+      subject: 'Rentilly Transaction Receipt',
+    );
+  }
+
+  // 5c. Save Receipt as Image (PNG) to local device
+  static Future<String?> saveReceiptImageToDevice({
+    required Map<String, dynamic> transaction,
+    required UserProfile user,
+    String currency = 'NGN',
+    Uint8List? imageBytes,
+  }) async {
+    Uint8List? finalBytes = imageBytes;
+    if (finalBytes == null) {
+      try {
+        finalBytes = await generateReceiptImageBytes(
+          transaction: transaction,
+          user: user,
+          currency: currency,
+        );
+      } catch (e) {
+        debugPrint('Fallback raster error: $e');
+      }
+    }
+
+    if (finalBytes == null) {
+      throw Exception('Could not render receipt image.');
+    }
+
+    final rawRef = (transaction['reference'] ?? transaction['id'] ?? DateTime.now().millisecondsSinceEpoch).toString();
+    final safeRef = rawRef.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+    final fileName = 'Rentilly_Receipt_$safeRef.png';
+
+    Directory? targetDir;
+    try {
+      targetDir = await getApplicationDocumentsDirectory();
+    } catch (_) {
+      targetDir = await getTemporaryDirectory();
+    }
+
+    final savedFile = File('${targetDir.path}/$fileName');
+    await savedFile.writeAsBytes(finalBytes);
+
+    return savedFile.path;
   }
 
   static Future<void> shareStatement({
