@@ -501,6 +501,10 @@ export class NotificationDispatcher {
           pushDispatched = true;
         }
       }
+    } catch (pushErr: any) {
+      console.warn('[NotificationDispatcher] Push dispatch notice:', pushErr?.message || pushErr);
+    }
+
     // 4. Dispatch Termii SMS Notification (if enabled by user, with ₦20 fee billing)
     try {
       const targetEmail = (event.email || '').trim().toLowerCase();
