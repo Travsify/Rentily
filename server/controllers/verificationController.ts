@@ -79,7 +79,8 @@ export async function verifyAndProvision(req: Request, res: Response) {
 
     const cleanEmail = (email || '').toString().trim().toLowerCase();
     const isPartner = role === 'partner' || (businessName && businessName.trim().length > 0);
-    const bvnToUse = (bvn && bvn.length === 11) ? bvn : (idType === 'bvn' ? idNumber : (idNumber || ''));
+    // IMPORTANT: Only use a real BVN — never fall back to NIN as BVN (different registries, causes NIBSS rejection)
+    const bvnToUse = (bvn && bvn.length === 11) ? bvn : (idType === 'bvn' ? idNumber : '');
 
     // Step 1: Prembly / Identitypass Live Registry Verification
     let premblyResult: any = { status: true };
@@ -656,11 +657,13 @@ export async function completeMapleradKyc(req: Request, res: Response) {
     const cleanBvn = (bvn || existing?.bvn || '').toString().replace(/\D/g, '');
     const cleanNin = (nin || existing?.ninNumber || '').toString().replace(/\D/g, '');
 
-    if (cleanBvn.length !== 11) {
-      return res.status(400).json({ status: false, error: 'Valid 11-digit Bank Verification Number (BVN) is required.' });
-    }
-    if (cleanNin.length !== 11) {
-      return res.status(400).json({ status: false, error: 'Valid 11-digit National Identity Number (NIN) is required.' });
+
+    // Require EITHER a valid BVN or a valid NIN — never trap users who only have one
+    const hasBvn = cleanBvn.length === 11;
+    const hasNin = cleanNin.length === 11;
+
+    if (!hasBvn && !hasNin) {
+      return res.status(400).json({ status: false, error: 'Please provide either a valid 11-digit BVN or a valid 11-digit NIN to complete verification.' });
     }
 
     const cleanName = fullName || existing?.fullName || 'Rentilly User';

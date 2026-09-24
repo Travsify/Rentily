@@ -126,7 +126,7 @@ export async function verifyOtp(req: Request, res: Response) {
     // If code is supplied, check verification; if phone-only or waived, approve
     if (code) {
       const verification = OtpStore.verifyOtp(identifier, code);
-      if (!verification.valid && !cleanPhone) {
+      if (!verification.valid) {
         return res.status(400).json({
           status: false,
           message: verification.message

@@ -70,7 +70,10 @@ function saveCautionDeposits(deposits: CautionDeposit[]): void {
   _cautionCache = deposits;
   try {
     const file = getCautionFilePath();
-    fs.writeFileSync(file, JSON.stringify(deposits, null, 2), 'utf-8');
+    // Atomic write: write to temp file then rename to prevent JSON corruption on crash
+    const tmpFile = file + '.tmp.' + Date.now();
+    fs.writeFileSync(tmpFile, JSON.stringify(deposits, null, 2), 'utf-8');
+    fs.renameSync(tmpFile, file);
   } catch (err) {
     console.error('Failed to save caution deposits:', err);
   }
@@ -150,6 +153,26 @@ export async function resolveCautionDeposit(req: Request, res: Response) {
       deducted = Number(landlordShare || 0);
       refunded = Number(tenantShare || 0);
       item.status = 'partially_deducted';
+    }
+
+    // Financial Invariant Check: landlordShare + tenantShare must equal the held cautionAmount
+    // This prevents fund minting (credits exceeding what was ever deposited)
+    const totalDistributed = Math.round((deducted + refunded) * 100);
+    const expectedTotal = Math.round(item.cautionAmount * 100);
+    if (totalDistributed !== expectedTotal) {
+      return res.status(400).json({
+        error: `Financial invariant violation: deducted (₦${deducted.toLocaleString()}) + refunded (₦${refunded.toLocaleString()}) = ₦${(deducted + refunded).toLocaleString()} but caution amount is ₦${item.cautionAmount.toLocaleString()}. The total distribution must exactly equal the held caution deposit.`,
+        code: 'FINANCIAL_INVARIANT_VIOLATION'
+      });
+    }
+
+    // Idempotency Check: Prevent double-resolution of already settled deposits
+    if (item.resolvedAt) {
+      return res.status(409).json({
+        error: `This caution deposit was already resolved on ${new Date(item.resolvedAt).toLocaleString()}. Duplicate resolution prevented.`,
+        code: 'ALREADY_RESOLVED',
+        resolvedAt: item.resolvedAt
+      });
     }
 
     item.deductedAmount = deducted;

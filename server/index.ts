@@ -1,5 +1,5 @@
-import express from 'express';
-import type { Request, Response } from 'express';
+﻿import express from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
@@ -20,6 +20,36 @@ import { UserStore } from './services/userStore';
 
 import dns from 'dns';
 dotenv.config();
+
+// ─── Crash Guard: Catch unhandled promise rejections & exceptions before they kill the process ───
+process.on('unhandledRejection', (reason: any) => {
+  console.error('[⚡ Server] Unhandled Promise Rejection (caught — process kept alive):', reason?.message || reason);
+});
+
+process.on('uncaughtException', (err: Error) => {
+  console.error('[⚡ Server] Uncaught Exception (caught — process kept alive):', err.message, err.stack);
+});
+
+// ─── Graceful Shutdown on SIGTERM / SIGINT ───
+function gracefulShutdown(signal: string) {
+  console.log(`[⚡ Server] Received ${signal}. Initiating graceful shutdown...`);
+  if (httpServer) {
+    httpServer.close(() => {
+      console.log('[⚡ Server] All connections closed. Process exiting cleanly.');
+      process.exit(0);
+    });
+    // Force-kill after 8s if connections don't drain
+    setTimeout(() => {
+      console.warn('[⚡ Server] Force-exiting after 8s drain timeout.');
+      process.exit(1);
+    }, 8000);
+  } else {
+    process.exit(0);
+  }
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 // Force IPv4 resolution first globally across all outbound network connections
 // This ensures external APIs (Maplerad, Paystack) see the whitelisted IPv4 (69.62.127.50)
@@ -61,6 +91,13 @@ if (proxyUrl) {
 
 const app = express();
 const PORT = process.env.PORT || 4000;
+
+// Declare httpServer at module scope so gracefulShutdown can reference it
+let httpServer: ReturnType<typeof app.listen>;
+
+// PM2 Cluster Guard: Only run background workers on the primary instance (instance 0)
+// Prevents duplicate reconciliation / polling in cluster mode
+const isPrimaryWorker = !process.env.NODE_APP_INSTANCE || process.env.NODE_APP_INSTANCE === '0';
 
 app.use(cors({ origin: '*' }));
 app.use(express.json({ limit: '10mb' }));
@@ -116,7 +153,7 @@ if (fs.existsSync(publicPath)) {
 const distPath = path.join(process.cwd(), 'dist');
 if (fs.existsSync(distPath)) {
   app.use(express.static(distPath));
-  app.use((req: Request, res: Response, next) => {
+  app.use((req: Request, res: Response, next: NextFunction) => {
     if (req.path.startsWith('/api')) {
       return res.status(404).json({ error: `API route ${req.path} not found` });
     }
@@ -142,6 +179,17 @@ if (fs.existsSync(distPath)) {
   });
 }
 
+// 5. Global Express Error Middleware — catches any thrown errors in route handlers
+app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
+  console.error('[⚡ Server] Express route error:', err?.message || err, err?.stack);
+  if (!res.headersSent) {
+    res.status(500).json({
+      error: 'Internal server error. Our team has been notified.',
+      code: 'INTERNAL_SERVER_ERROR'
+    });
+  }
+});
+
 // Function to hydrate all stores from Supabase on boot
 async function hydrateAllStores() {
   console.log('[Supabase Overhaul] Hydrating all data stores from Supabase Cloud...');
@@ -160,7 +208,7 @@ async function hydrateAllStores() {
 
 // Start Server
 if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, async () => {
+  httpServer = app.listen(PORT, async () => {
     console.log(`=================================================`);
     console.log(`🚀 Rentilly Admin Backend running on port ${PORT}`);
     console.log(`🛡️ KYP Verification & Escrow Engine Active`);
@@ -170,8 +218,16 @@ if (process.env.NODE_ENV !== 'test') {
     // Hydrate everything from Supabase Cloud (Zero Ephemeral Character)
     await hydrateAllStores();
 
-    // Start Autonomous Omni-Sync Worker (Reconciles all fintechs every 5s)
-    AutoReconciliationWorker.start();
+    // Signal PM2 that the process is ready (enables wait_ready in ecosystem.config)
+    process.send?.('ready');
+
+    // Start Autonomous Omni-Sync Worker (Reconciles all fintechs every 10s)
+    // Only runs on the primary PM2 cluster instance to prevent duplicate polling
+    if (isPrimaryWorker) {
+      AutoReconciliationWorker.start();
+    } else {
+      console.log(`[⚡ Server] Worker instance ${process.env.NODE_APP_INSTANCE} — AutoReconciliationWorker skipped (primary only).`);
+    }
   });
 }
 

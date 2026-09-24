@@ -33,13 +33,13 @@ export const CreatorBountiesAdminTab: React.FC<{ onOpenPublicPortal: () => void 
 
   const handleSaveEdit = (id: string) => {
     let payout = 0;
-    if (editStatus === 'qualified_500k') payout = 150000;
-    else if (editStatus === 'qualified_100k') payout = 50000;
-    else if (editStatus === 'qualified_25k') payout = 15000;
-    else if (editStatus === 'grand_prize') payout = 300000;
+    if (editStatus === 'grand_prize') payout = 200000;
+    else if (editStatus === 'qualified_500k') payout = 150000;
+    else if (editStatus === 'qualified_100k') payout = 100000;
+    else if (editStatus === 'qualified_25k') payout = 10000;
     else if (editStatus === 'paid') {
       const existing = submissions.find((s) => s.id === id);
-      payout = existing?.payoutAmount || 15000;
+      payout = existing?.payoutAmount || 10000;
     }
 
     CreatorBountyService.updateSubmission(id, {
@@ -149,6 +149,9 @@ export const CreatorBountiesAdminTab: React.FC<{ onOpenPublicPortal: () => void 
                     <td className="py-3 px-4">
                       <div className="font-bold text-white">{sub.creatorName}</div>
                       <div className="text-emerald-400 font-semibold">{sub.handle}</div>
+                      {sub.referralCode && (
+                        <div className="text-[10px] text-amber-300 font-mono">Ref: {sub.referralCode}</div>
+                      )}
                       <div className="text-[11px] text-slate-400">{sub.phone}</div>
                     </td>
                     <td className="py-3 px-4">
@@ -202,10 +205,10 @@ export const CreatorBountiesAdminTab: React.FC<{ onOpenPublicPortal: () => void 
                           className="px-2 py-1 bg-slate-950 border border-emerald-500 rounded text-xs text-white"
                         >
                           <option value="under_review">Under Review</option>
-                          <option value="qualified_25k">Qualified ₦15k (25k views)</option>
-                          <option value="qualified_100k">Qualified ₦50k (100k views)</option>
-                          <option value="qualified_500k">Qualified ₦150k (500k views)</option>
-                          <option value="grand_prize">Grand Champion ₦300k</option>
+                          <option value="qualified_25k">Top 20 Prize (₦10,000)</option>
+                          <option value="qualified_100k">3rd Place (₦100,000)</option>
+                          <option value="qualified_500k">2nd Place (₦150,000)</option>
+                          <option value="grand_prize">1st Place Grand Champion (₦200,000)</option>
                           <option value="paid">PAID OUT</option>
                         </select>
                       ) : (

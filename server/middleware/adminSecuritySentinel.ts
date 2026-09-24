@@ -163,7 +163,7 @@ export function adminSecuritySentinel(req: Request, res: Response, next: NextFun
   // 0. Air-Gapped Domain Enforcement: Super Admin endpoints are strictly isolated to wealth.myrentilly.com
   const host = (req.headers['x-forwarded-host'] || req.headers.host || '').toString().toLowerCase();
   const isLocal = host.includes('localhost') || host.includes('127.0.0.1');
-  const isWealth = host.startsWith('wealth.myrentilly.com');
+  const isWealth = host.split(':')[0] === 'wealth.myrentilly.com';
 
   if (!isWealth && !isLocal) {
     console.warn(`🛑 [Air-Gap Security] Blocked Super Admin access attempt from unauthorized host: ${host} (IP: ${ip})`);

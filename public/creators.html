@@ -65,7 +65,7 @@
     <div class="max-w-5xl mx-auto text-center relative z-10">
       <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold tracking-wide uppercase mb-6">
         <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-        <span>🔥 Nationwide Creator Challenge • ₦500,000+ Cash Prize Pool</span>
+        <span>🔥 Nationwide Creator Challenge • ₦650,000+ Prize Pool</span>
       </div>
 
       <h1 class="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white mb-6 leading-tight">
@@ -77,25 +77,67 @@
 
       <p class="text-slate-300 text-base sm:text-lg max-w-2xl mx-auto mb-8 leading-relaxed">
         Post your Rentilly video on TikTok, Instagram Reels, or YouTube Shorts. Drop your live URL below,
-        track your views on the live chart, and claim instant bank bonuses up to <strong>₦300,000</strong>.
+        track your views on the live chart, and win: <strong>₦200k</strong> Grand Champion, <strong>₦150k</strong> 2nd, <strong>₦100k</strong> 3rd, and <strong>₦10,000 each for the Top 20 videos</strong>!
       </p>
 
-      <!-- Bounty Tiers Bar -->
-      <div class="inline-flex flex-wrap items-center justify-center gap-3 sm:gap-6 bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl">
-        <div class="flex items-center gap-2 text-xs font-semibold text-slate-300">
-          <span class="text-emerald-400 font-bold">Tier 1:</span> 25k Views = <strong class="text-white">₦15,000</strong>
+      <!-- Prize Cards Row -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-4xl mx-auto mb-8">
+        <div class="bg-gradient-to-b from-yellow-500/20 to-slate-900 border-2 border-yellow-500/60 rounded-2xl p-4 text-center">
+          <span class="text-xs font-extrabold text-yellow-300 uppercase block mb-1">🥇 1st Place</span>
+          <div class="text-2xl sm:text-3xl font-black text-white">₦200,000</div>
+          <span class="text-[11px] text-yellow-400/80">Grand Champion</span>
         </div>
-        <div class="hidden sm:block text-slate-700">•</div>
-        <div class="flex items-center gap-2 text-xs font-semibold text-slate-300">
-          <span class="text-amber-400 font-bold">Tier 2:</span> 100k Views = <strong class="text-white">₦50,000</strong>
+        <div class="bg-gradient-to-b from-slate-400/20 to-slate-900 border border-slate-400/50 rounded-2xl p-4 text-center">
+          <span class="text-xs font-extrabold text-slate-300 uppercase block mb-1">🥈 2nd Place</span>
+          <div class="text-2xl sm:text-3xl font-black text-white">₦150,000</div>
+          <span class="text-[11px] text-slate-400">Runner Up</span>
         </div>
-        <div class="hidden sm:block text-slate-700">•</div>
-        <div class="flex items-center gap-2 text-xs font-semibold text-slate-300">
-          <span class="text-purple-400 font-bold">Tier 3:</span> 500k Views = <strong class="text-white">₦150,000</strong>
+        <div class="bg-gradient-to-b from-amber-600/20 to-slate-900 border border-amber-600/50 rounded-2xl p-4 text-center">
+          <span class="text-xs font-extrabold text-amber-400 uppercase block mb-1">🥉 3rd Place</span>
+          <div class="text-2xl sm:text-3xl font-black text-white">₦100,000</div>
+          <span class="text-[11px] text-amber-500/80">3rd Position</span>
         </div>
-        <div class="hidden sm:block text-slate-700">•</div>
-        <div class="flex items-center gap-2 text-xs font-semibold text-slate-300">
-          <span class="text-yellow-400 font-bold">Grand Champion:</span> <strong class="text-white">₦300,000</strong>
+        <div class="bg-gradient-to-b from-emerald-500/20 to-slate-900 border border-emerald-500/50 rounded-2xl p-4 text-center">
+          <span class="text-xs font-extrabold text-emerald-400 uppercase block mb-1">🎁 Top 20 Videos</span>
+          <div class="text-2xl sm:text-3xl font-black text-white">₦10,000 <span class="text-xs font-normal text-slate-300">ea.</span></div>
+          <span class="text-[11px] text-emerald-400/80">Ranks 4th – 20th</span>
+        </div>
+      </div>
+
+      <!-- Bio Link Generator Widget -->
+      <div class="max-w-2xl mx-auto bg-slate-900/90 border border-amber-500/40 rounded-2xl p-5 shadow-2xl backdrop-blur-xl text-left">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <span class="text-amber-400 text-base">🔗</span>
+            <span class="text-xs font-extrabold text-white uppercase tracking-wider">Creator Bio Link &amp; Referral Kit</span>
+          </div>
+          <span class="text-[11px] text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+            Earn Double
+          </span>
+        </div>
+        <p class="text-xs text-slate-400 mb-4">
+          Download Rentilly on Google Play Store, sign up to grab your referral code, enter it below to generate your personal tracking link, and paste it on your TikTok/Instagram bio!
+        </p>
+
+        <div class="flex flex-col sm:flex-row gap-2">
+          <input
+            id="bioRefInput"
+            type="text"
+            placeholder="Enter Rentilly Referral Code (e.g. TUNDE24)"
+            class="flex-1 px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 uppercase font-mono focus:outline-none focus:border-amber-400"
+          />
+          <button
+            onclick="generateAndCopyBioLink()"
+            id="btnBioGen"
+            class="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-amber-500/20 transition flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+          >
+            <span>📋 Copy Bio Link</span>
+          </button>
+        </div>
+
+        <div id="bioResultBox" class="hidden mt-3 p-3 bg-slate-950 border border-emerald-500/30 rounded-xl flex items-center justify-between gap-2">
+          <span id="bioResultText" class="text-xs font-mono text-emerald-300 truncate"></span>
+          <span class="text-[10px] text-slate-400 uppercase font-bold shrink-0">Copied!</span>
         </div>
       </div>
     </div>
@@ -209,29 +251,29 @@
           </div>
         </div>
 
-        <!-- Contest Tiers Col -->
+        <!-- Contest Prizes Col -->
         <div>
-          <h4 class="text-xs font-black uppercase tracking-wider text-white mb-4">Cash Bounties</h4>
+          <h4 class="text-xs font-black uppercase tracking-wider text-white mb-4">Official Prizes</h4>
           <ul class="space-y-2.5 text-xs text-slate-400">
             <li class="flex justify-between items-center">
-              <span>Tier 1 (25k Views)</span>
-              <strong class="text-emerald-400">₦15,000</strong>
+              <span>🥇 1st Place Champion</span>
+              <strong class="text-yellow-400 font-bold">₦200,000</strong>
             </li>
             <li class="flex justify-between items-center">
-              <span>Tier 2 (100k Views)</span>
-              <strong class="text-amber-400">₦50,000</strong>
+              <span>🥈 2nd Place</span>
+              <strong class="text-slate-200 font-bold">₦150,000</strong>
             </li>
             <li class="flex justify-between items-center">
-              <span>Tier 3 (500k Views)</span>
-              <strong class="text-purple-400">₦150,000</strong>
+              <span>🥉 3rd Place</span>
+              <strong class="text-amber-400 font-bold">₦100,000</strong>
             </li>
             <li class="flex justify-between items-center">
-              <span>Grand Champion (#1)</span>
-              <strong class="text-yellow-400">₦300,000</strong>
+              <span>🎁 Ranks 4th – 20th</span>
+              <strong class="text-emerald-400 font-bold">₦10,000 each</strong>
             </li>
             <li class="flex justify-between items-center pt-1 border-t border-slate-800">
-              <span>Direct Property Listing</span>
-              <strong class="text-emerald-400">₦5,000 / listing</strong>
+              <span>App Referrals</span>
+              <strong class="text-amber-300">Earn per sign-up</strong>
             </li>
           </ul>
         </div>
@@ -360,12 +402,12 @@
     let currentFilter = 'all';
 
     const INITIAL_SEEDS = [
-      { id: 'sub_1', creatorName: 'Tunde Adeleke', handle: '@tunde_reels', platform: 'tiktok', videoUrl: 'https://www.tiktok.com/@tunde_reels', claimedViews: 142500, verifiedViews: 142500, bountyStatus: 'qualified_100k', payoutAmount: 50000 },
-      { id: 'sub_2', creatorName: 'Amaka Eze', handle: '@amakavibes', platform: 'instagram', videoUrl: 'https://www.instagram.com/reel/C892_akj12/', claimedViews: 98400, verifiedViews: 98400, bountyStatus: 'qualified_25k', payoutAmount: 15000 },
-      { id: 'sub_3', creatorName: 'Femi (Ibadan Corper)', handle: '@femi_nysc', platform: 'tiktok', videoUrl: 'https://www.tiktok.com/@femi_nysc', claimedViews: 64200, verifiedViews: 64200, bountyStatus: 'qualified_25k', payoutAmount: 15000 },
-      { id: 'sub_4', creatorName: 'Kemi Real Estate', handle: '@kemi_homes', platform: 'youtube', videoUrl: 'https://youtube.com/shorts/C1BWBH_5wwc', claimedViews: 41800, verifiedViews: 41800, bountyStatus: 'qualified_25k', payoutAmount: 15000 },
-      { id: 'sub_5', creatorName: 'Naija Tech Bro', handle: '@chidi_tech', platform: 'tiktok', videoUrl: 'https://www.tiktok.com/@chidi_tech', claimedViews: 28900, verifiedViews: 28900, bountyStatus: 'qualified_25k', payoutAmount: 15000 },
-      { id: 'sub_6', creatorName: 'Zainab Lifestyle', handle: '@zainab_creatives', platform: 'instagram', videoUrl: 'https://www.instagram.com/reel/C899_z182/', claimedViews: 19500, verifiedViews: 19500, bountyStatus: 'under_review', payoutAmount: 0 }
+      { id: 'sub_1', creatorName: 'Tunde Adeleke', handle: '@tunde_reels', referralCode: 'TUNDE24', platform: 'tiktok', videoUrl: 'https://www.tiktok.com/@tunde_reels', claimedViews: 142500, verifiedViews: 142500, bountyStatus: 'grand_prize', payoutAmount: 200000 },
+      { id: 'sub_2', creatorName: 'Amaka Eze', handle: '@amakavibes', referralCode: 'AMAKA99', platform: 'instagram', videoUrl: 'https://www.instagram.com/reel/C892_akj12/', claimedViews: 98400, verifiedViews: 98400, bountyStatus: 'qualified_500k', payoutAmount: 150000 },
+      { id: 'sub_3', creatorName: 'Femi (Ibadan Corper)', handle: '@femi_nysc', referralCode: 'FEMI_NYSC', platform: 'tiktok', videoUrl: 'https://www.tiktok.com/@femi_nysc', claimedViews: 64200, verifiedViews: 64200, bountyStatus: 'qualified_100k', payoutAmount: 100000 },
+      { id: 'sub_4', creatorName: 'Kemi Real Estate', handle: '@kemi_homes', referralCode: 'KEMI_PROP', platform: 'youtube', videoUrl: 'https://youtube.com/shorts/C1BWBH_5wwc', claimedViews: 41800, verifiedViews: 41800, bountyStatus: 'qualified_25k', payoutAmount: 10000 },
+      { id: 'sub_5', creatorName: 'Naija Tech Bro', handle: '@chidi_tech', referralCode: 'TECHBRO', platform: 'tiktok', videoUrl: 'https://www.tiktok.com/@chidi_tech', claimedViews: 28900, verifiedViews: 28900, bountyStatus: 'qualified_25k', payoutAmount: 10000 },
+      { id: 'sub_6', creatorName: 'Zainab Lifestyle', handle: '@zainab_creatives', referralCode: 'ZAINAB22', platform: 'instagram', videoUrl: 'https://www.instagram.com/reel/C899_z182/', claimedViews: 19500, verifiedViews: 19500, bountyStatus: 'qualified_25k', payoutAmount: 10000 }
     ];
 
     function getData() {
@@ -381,6 +423,19 @@
       }
     }
 
+    function generateAndCopyBioLink() {
+      const code = (document.getElementById('bioRefInput').value || '').trim().toUpperCase();
+      const domain = 'https://contest.myrentilly.com';
+      const link = code ? domain + '?ref=' + encodeURIComponent(code) : domain;
+      navigator.clipboard.writeText(link).then(() => {
+        const resBox = document.getElementById('bioResultBox');
+        const resText = document.getElementById('bioResultText');
+        resText.innerText = link;
+        resBox.classList.remove('hidden');
+        if (typeof confetti === 'function') confetti({ particleCount: 50, spread: 70 });
+      });
+    }
+
     function render() {
       const data = getData();
       data.sort((a, b) => (b.verifiedViews || b.claimedViews) - (a.verifiedViews || a.claimedViews));
@@ -388,11 +443,11 @@
       // Stats
       const totalViews = data.reduce((s, i) => s + (i.verifiedViews || i.claimedViews), 0);
       const totalPaid = data.filter(i => i.bountyStatus === 'paid').reduce((s, i) => s + (i.payoutAmount || 0), 0);
-      const qualified = data.filter(i => i.bountyStatus.startsWith('qualified') || i.bountyStatus === 'grand_prize' || i.bountyStatus === 'paid').length;
+      const inTop20 = Math.min(data.length, 20);
 
       document.getElementById('statTotalViews').innerText = totalViews.toLocaleString();
       document.getElementById('statTotalSubmissions').innerText = data.length;
-      document.getElementById('statQualified').innerText = qualified;
+      document.getElementById('statQualified').innerText = inTop20 + ' / 20';
       document.getElementById('statPaidOut').innerText = '₦' + totalPaid.toLocaleString();
 
       // Top 3 Podium
@@ -402,31 +457,33 @@
 
       const podiumHtml = `
         ${top2 ? `
-        <div class="order-2 md:order-1 bg-slate-900 border border-slate-700/80 rounded-2xl p-6 text-center shadow-xl md:-translate-y-2">
-          <div class="w-10 h-10 rounded-full bg-slate-300 text-slate-950 font-black text-sm flex items-center justify-center mx-auto mb-3">#2</div>
+        <div class="order-2 md:order-1 bg-slate-900 border-2 border-slate-400/60 rounded-2xl p-6 text-center shadow-xl md:-translate-y-2">
+          <div class="w-10 h-10 rounded-full bg-slate-300 text-slate-950 font-black text-sm flex items-center justify-center mx-auto mb-3">🥈</div>
+          <div class="text-xs font-black text-slate-200 uppercase mb-1">₦150,000 PRIZE</div>
           <h3 class="font-extrabold text-white text-lg truncate">${top2.creatorName}</h3>
           <p class="text-xs text-emerald-400 font-semibold mb-3">${top2.handle}</p>
           <div class="text-2xl font-black text-slate-200">${(top2.verifiedViews || top2.claimedViews).toLocaleString()} <span class="text-xs text-slate-400">views</span></div>
-          <a href="${top2.videoUrl}" target="_blank" class="mt-4 inline-block text-xs text-emerald-400 hover:underline font-bold">Watch Drop ↗</a>
+          <a href="${top2.videoUrl}" target="_blank" class="mt-4 inline-block text-xs text-emerald-400 hover:underline font-bold">Watch Video ↗</a>
         </div>` : ''}
 
         ${top1 ? `
-        <div class="order-1 md:order-2 bg-gradient-to-b from-amber-500/20 via-slate-900 to-slate-950 border-2 border-amber-500/70 rounded-2xl p-8 text-center shadow-2xl relative md:-translate-y-6">
-          <div class="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-amber-500 text-slate-950 font-black text-[10px] uppercase rounded-full">LEADER</div>
-          <div class="w-14 h-14 rounded-full bg-amber-400 text-slate-950 font-black text-xl flex items-center justify-center mx-auto mb-3 shadow-lg shadow-amber-500/30">#1</div>
+        <div class="order-1 md:order-2 bg-gradient-to-b from-yellow-500/20 via-slate-900 to-slate-950 border-2 border-yellow-500 rounded-2xl p-8 text-center shadow-2xl relative md:-translate-y-6">
+          <div class="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3.5 py-0.5 bg-yellow-500 text-slate-950 font-black text-[10px] uppercase rounded-full shadow-lg">1ST PLACE • ₦200,000</div>
+          <div class="w-14 h-14 rounded-full bg-yellow-400 text-slate-950 font-black text-xl flex items-center justify-center mx-auto mb-3 shadow-lg shadow-yellow-500/30">🥇</div>
           <h3 class="font-black text-white text-xl truncate">${top1.creatorName}</h3>
-          <p class="text-xs text-amber-400 font-bold mb-4">${top1.handle}</p>
-          <div class="text-3xl font-black text-white">${(top1.verifiedViews || top1.claimedViews).toLocaleString()} <span class="text-sm text-amber-300">views</span></div>
-          <a href="${top1.videoUrl}" target="_blank" class="mt-5 inline-block px-4 py-2 rounded-xl bg-amber-500/20 text-amber-300 text-xs font-bold border border-amber-500/40">Watch Winning Video ↗</a>
+          <p class="text-xs text-yellow-300 font-bold mb-4">${top1.handle}</p>
+          <div class="text-3xl font-black text-white">${(top1.verifiedViews || top1.claimedViews).toLocaleString()} <span class="text-sm text-yellow-300">views</span></div>
+          <a href="${top1.videoUrl}" target="_blank" class="mt-5 inline-block px-4 py-2 rounded-xl bg-yellow-500 text-slate-950 font-black text-xs shadow-lg hover:bg-yellow-400">Watch Leading Video ↗</a>
         </div>` : ''}
 
         ${top3 ? `
-        <div class="order-3 bg-slate-900 border border-amber-800/40 rounded-2xl p-6 text-center shadow-xl">
-          <div class="w-10 h-10 rounded-full bg-amber-700 text-amber-100 font-black text-sm flex items-center justify-center mx-auto mb-3">#3</div>
+        <div class="order-3 bg-slate-900 border-2 border-amber-600/60 rounded-2xl p-6 text-center shadow-xl">
+          <div class="w-10 h-10 rounded-full bg-amber-700 text-amber-100 font-black text-sm flex items-center justify-center mx-auto mb-3">🥉</div>
+          <div class="text-xs font-black text-amber-400 uppercase mb-1">₦100,000 PRIZE</div>
           <h3 class="font-extrabold text-white text-lg truncate">${top3.creatorName}</h3>
           <p class="text-xs text-emerald-400 font-semibold mb-3">${top3.handle}</p>
           <div class="text-2xl font-black text-amber-200">${(top3.verifiedViews || top3.claimedViews).toLocaleString()} <span class="text-xs text-slate-400">views</span></div>
-          <a href="${top3.videoUrl}" target="_blank" class="mt-4 inline-block text-xs text-emerald-400 hover:underline font-bold">Watch Drop ↗</a>
+          <a href="${top3.videoUrl}" target="_blank" class="mt-4 inline-block text-xs text-emerald-400 hover:underline font-bold">Watch Video ↗</a>
         </div>` : ''}
       `;
       document.getElementById('podiumContainer').innerHTML = podiumHtml;
@@ -439,31 +496,37 @@
         return matchesPlatform && matchesSearch;
       });
 
-      const tableRows = filtered.map((sub, idx) => `
-        <tr class="hover:bg-slate-800/40 transition">
-          <td class="py-4 px-6 font-mono font-bold ${idx === 0 ? 'text-amber-400' : idx === 1 ? 'text-slate-300' : idx === 2 ? 'text-amber-600' : 'text-slate-500'}">#${idx + 1}</td>
-          <td class="py-4 px-6">
-            <div class="font-bold text-white">${sub.creatorName}</div>
-            <div class="text-xs text-emerald-400 font-semibold">${sub.handle}</div>
-          </td>
-          <td class="py-4 px-6 uppercase text-xs font-semibold text-slate-400">${sub.platform}</td>
-          <td class="py-4 px-6 text-right font-black text-white text-base">${(sub.verifiedViews || sub.claimedViews).toLocaleString()}</td>
-          <td class="py-4 px-6 text-center">
-            <span class="px-2.5 py-1 text-[11px] font-bold rounded-full ${
-              sub.bountyStatus === 'qualified_100k' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' :
-              sub.bountyStatus === 'qualified_25k' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' :
-              sub.bountyStatus === 'qualified_500k' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40' :
-              sub.bountyStatus === 'paid' ? 'bg-green-500/30 text-green-200 border border-green-500' :
-              'bg-slate-800 text-slate-400'
-            }">
-              ${sub.bountyStatus.replace('_', ' ').toUpperCase()}
-            </span>
-          </td>
-          <td class="py-4 px-6 text-right">
-            <a href="${sub.videoUrl}" target="_blank" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-300 text-xs font-bold transition">Watch ↗</a>
-          </td>
-        </tr>
-      `).join('');
+      const tableRows = filtered.map((sub, idx) => {
+        let rankColor = idx === 0 ? 'text-yellow-400' : idx === 1 ? 'text-slate-300' : idx === 2 ? 'text-amber-500' : idx < 20 ? 'text-emerald-400' : 'text-slate-500';
+        let badgeHtml = '';
+        if (idx === 0) {
+          badgeHtml = '<span class="px-2.5 py-1 rounded-full text-[11px] font-black bg-yellow-500/20 text-yellow-300 border border-yellow-500/40">🥇 ₦200,000 Champion</span>';
+        } else if (idx === 1) {
+          badgeHtml = '<span class="px-2.5 py-1 rounded-full text-[11px] font-black bg-slate-300/20 text-slate-200 border border-slate-300/40">🥈 ₦150,000 2nd</span>';
+        } else if (idx === 2) {
+          badgeHtml = '<span class="px-2.5 py-1 rounded-full text-[11px] font-black bg-amber-600/20 text-amber-400 border border-amber-600/40">🥉 ₦100,000 3rd</span>';
+        } else if (idx < 20) {
+          badgeHtml = '<span class="px-2.5 py-1 rounded-full text-[11px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">🎁 ₦10,000 Top 20</span>';
+        } else {
+          badgeHtml = '<span class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-800 text-slate-400">Competing</span>';
+        }
+        return `
+          <tr class="hover:bg-slate-800/40 transition">
+            <td class="py-4 px-6 font-mono font-bold ${rankColor}">#${idx + 1}</td>
+            <td class="py-4 px-6">
+              <div class="font-bold text-white">${sub.creatorName}</div>
+              <div class="text-xs text-emerald-400 font-semibold">${sub.handle}</div>
+              ${sub.referralCode ? `<div class="text-[10px] text-amber-300 font-mono mt-0.5">Ref: ${sub.referralCode}</div>` : ''}
+            </td>
+            <td class="py-4 px-6 uppercase text-xs font-semibold text-slate-400">${sub.platform}</td>
+            <td class="py-4 px-6 text-right font-black text-white text-base">${(sub.verifiedViews || sub.claimedViews).toLocaleString()}</td>
+            <td class="py-4 px-6 text-center">${badgeHtml}</td>
+            <td class="py-4 px-6 text-right">
+              <a href="${sub.videoUrl}" target="_blank" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-300 text-xs font-bold transition">Watch ↗</a>
+            </td>
+          </tr>
+        `;
+      }).join('');
 
       document.getElementById('tableBody').innerHTML = tableRows || '<tr><td colspan="6" class="py-10 text-center text-slate-500">No submissions found.</td></tr>';
     }
@@ -512,8 +575,8 @@
 
       const views = newSub.claimedViews;
       if (views >= 500000) { newSub.bountyStatus = 'qualified_500k'; newSub.payoutAmount = 150000; }
-      else if (views >= 100000) { newSub.bountyStatus = 'qualified_100k'; newSub.payoutAmount = 50000; }
-      else if (views >= 25000) { newSub.bountyStatus = 'qualified_25k'; newSub.payoutAmount = 15000; }
+      else if (views >= 100000) { newSub.bountyStatus = 'qualified_100k'; newSub.payoutAmount = 100000; }
+      else if (views >= 25000) { newSub.bountyStatus = 'qualified_25k'; newSub.payoutAmount = 10000; }
 
       const all = getData();
       all.push(newSub);
@@ -540,7 +603,16 @@
       }
     }
 
-    window.onload = render;
+    window.addEventListener('DOMContentLoaded', () => {
+      // Auto-fill referral code from URL ?ref=CODE
+      const urlParams = new URLSearchParams(window.location.search);
+      const ref = urlParams.get('ref');
+      if (ref) {
+        const bioInput = document.getElementById('bioRefInput');
+        if (bioInput) bioInput.value = ref.toUpperCase();
+      }
+      render();
+    });
   </script>
 </body>
 </html>

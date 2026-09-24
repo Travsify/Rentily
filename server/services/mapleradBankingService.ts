@@ -58,20 +58,40 @@ export class MapleradBankingService {
   }
 
   /**
-   * Normalizes any incoming Date of Birth to strict DD-MM-YYYY format
+   * Normalizes any incoming Date of Birth to strict DD-MM-YYYY format.
+   * Handles: ISO 8601 (1990-05-20T00:00:00.000Z), YYYY-MM-DD, DD-MM-YYYY, DD/MM/YYYY, DD.MM.YYYY
    */
   static normalizeDob(raw?: string): string {
     if (!raw || !raw.trim()) return '01-01-1990';
-    const cleaned = raw.trim().replace(/[\/\.]/g, '-');
+    let input = raw.trim();
+
+    // Strip ISO 8601 time component if present (e.g. "1990-05-20T00:00:00.000Z" -> "1990-05-20")
+    if (input.includes('T')) {
+      input = input.split('T')[0];
+    }
+
+    const cleaned = input.replace(/[\/\.]/g, '-');
     const parts = cleaned.split('-');
     if (parts.length === 3) {
       if (parts[0].length === 4) {
         // YYYY-MM-DD -> DD-MM-YYYY
-        return `${parts[2].padStart(2, '0')}-${parts[1].padStart(2, '0')}-${parts[0]}`;
+        return parts[2].padStart(2, '0') + '-' + parts[1].padStart(2, '0') + '-' + parts[0];
       }
-      // DD-MM-YYYY
-      return `${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}-${parts[2]}`;
+      // DD-MM-YYYY already
+      return parts[0].padStart(2, '0') + '-' + parts[1].padStart(2, '0') + '-' + parts[2];
     }
+
+    // Last resort: try Date constructor
+    try {
+      const d = new Date(raw.trim());
+      if (!isNaN(d.getTime())) {
+        const day = String(d.getUTCDate()).padStart(2, '0');
+        const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+        const year = d.getUTCFullYear();
+        return day + '-' + month + '-' + year;
+      }
+    } catch (_) {}
+
     return cleaned;
   }
 
