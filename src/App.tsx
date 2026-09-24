@@ -10,6 +10,10 @@ import { PropertyModal } from './components/PropertyModal';
 import { InspectionsTab } from './components/InspectionsTab';
 import { EscrowTab } from './components/EscrowTab';
 import { LegalAgreementsTab } from './components/LegalAgreementsTab';
+import { LegalConsoleTab } from './components/LegalConsoleTab';
+import { LegalPurchasesSalesTab } from './components/LegalPurchasesSalesTab';
+import { LegalTitleAuditsTab } from './components/LegalTitleAuditsTab';
+import { LegalDisputeDeskTab } from './components/LegalDisputeDeskTab';
 import { FraudBlacklistTab } from './components/FraudBlacklistTab';
 import { SupportDeskTab } from './components/SupportDeskTab';
 import { LiveSupportChatTab } from './components/LiveSupportChatTab';
@@ -273,6 +277,30 @@ export default function App() {
               transactions={transactions}
               onReleasePayout={handleReleaseEscrowPayout}
             />
+          )}
+
+          {currentTab === 'legal_console' && (
+            <LegalConsoleTab
+              agreements={legalAgreements}
+              properties={properties}
+            />
+          )}
+
+          {currentTab === 'legal_purchases_sales' && (
+            <LegalPurchasesSalesTab
+              agreements={legalAgreements}
+              properties={properties}
+            />
+          )}
+
+          {currentTab === 'legal_title_audits' && (
+            <LegalTitleAuditsTab
+              properties={properties}
+            />
+          )}
+
+          {currentTab === 'legal_dispute_desk' && (
+            <LegalDisputeDeskTab />
           )}
 
           {currentTab === 'legal' && (

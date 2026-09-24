@@ -173,6 +173,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
       ]
     },
     {
+      title: 'LEGAL OPERATIONS & CONVEYANCING',
+      items: [
+        {
+          id: 'legal_console',
+          label: 'Legal Operations Hub',
+          icon: Scale,
+          badge: 'Master',
+          badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+        },
+        {
+          id: 'legal_purchases_sales',
+          label: 'Outright Sales & Escrow',
+          icon: Building2,
+          badge: 'Milestone Escrow',
+          badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+        },
+        {
+          id: 'legal_title_audits',
+          label: 'Title Due Diligence & Audits',
+          icon: ShieldCheck,
+          badge: 'Alausa/AGIS'
+        },
+        {
+          id: 'legal_dispute_desk',
+          label: 'Disputes & AMA Arbitration',
+          icon: Scale,
+          badge: 'AMA 2023',
+          badgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/30'
+        },
+        {
+          id: 'legal',
+          label: 'Tenancy Deeds & Waybills',
+          icon: FileText,
+          badge: 'Physical OTP'
+        }
+      ]
+    },
+    {
       title: 'STAKEHOLDERS & GOVERNANCE',
       items: [
         {
@@ -283,12 +321,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           icon: Gift,
           badge: '₦1k / ₦500',
           badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-        },
-        {
-          id: 'legal',
-          label: 'Tenancy Leases (10%/5%)',
-          icon: FileText,
-          badge: 'Contracts'
         }
       ]
     },

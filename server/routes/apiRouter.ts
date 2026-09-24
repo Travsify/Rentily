@@ -5,6 +5,7 @@ import * as kypController from '../controllers/kypController';
 import * as inspectionController from '../controllers/inspectionController';
 import * as escrowController from '../controllers/escrowController';
 import * as legalController from '../controllers/legalController';
+import { verifyDeedByHash } from '../controllers/deedVerificationController';
 import * as analyticsController from '../controllers/analyticsController';
 import * as verificationController from '../controllers/verificationController';
 import * as paymentController from '../controllers/paymentController';
@@ -259,13 +260,43 @@ apiRouter.post('/escrow/pay', escrowController.payRentEscrow);
 apiRouter.get('/escrow/landlord-summary', escrowController.getLandlordEscrowSummary);
 apiRouter.post('/escrow/claims', escrowController.submitEscrowClaim);
 
-// 11. Legal Agreements & Physical Conveyance Dispatches
+// 11. Legal Operations Suite (Global Standard Conveyance, Audits, Disputes & Milestones)
+// 11a. Agreements & Stamping
 apiRouter.get('/legal/agreements', legalController.getLegalAgreements);
+apiRouter.get('/legal/agreements/:id', legalController.getLegalAgreementById);
+apiRouter.post('/legal/agreements', legalController.generateAgreement);
 apiRouter.post('/legal/generate-agreement', legalController.generateAgreement);
+apiRouter.post('/legal/agreements/:id/stamp', legalController.stampAgreement);
+apiRouter.post('/legal/agreements/:id/sign', legalController.signAgreement);
+apiRouter.delete('/legal/agreements/:id', legalController.deleteLegalAgreement);
+
+// 11b. Land Registry Title Audits & Due Diligence
+apiRouter.get('/legal/title-audits', legalController.getTitleAudits);
+apiRouter.post('/legal/title-audits', legalController.createTitleAudit);
+apiRouter.post('/legal/title-audits/:id/verdict', legalController.submitTitleAuditVerdict);
+
+// 11c. Physical Dispatches & Secure Delivery OTP
 apiRouter.get('/legal/dispatches', legalController.getDispatches);
 apiRouter.post('/legal/dispatches', legalController.createOrUpdateDispatch);
 apiRouter.patch('/legal/dispatches/:id', legalController.createOrUpdateDispatch);
+apiRouter.post('/legal/dispatches/:id/request-delivery-otp', legalController.requestDeliveryOtp);
 apiRouter.post('/legal/dispatches/:id/confirm-receipt', legalController.confirmDispatchReceipt);
+
+// 11d. Legal Disputes & Arbitration Desk
+apiRouter.get('/legal/disputes', legalController.getDisputes);
+apiRouter.post('/legal/disputes', legalController.createDispute);
+apiRouter.post('/legal/disputes/:id/resolve', legalController.resolveDispute);
+
+// 11e. Milestone Escrow Sign-Offs & Releases
+apiRouter.get('/legal/escrow-milestones', legalController.getMilestones);
+apiRouter.post('/legal/escrow-milestones', legalController.createMilestonesForTransaction);
+apiRouter.post('/legal/escrow-milestones/:id/clear', legalController.clearMilestone);
+apiRouter.post('/legal/escrow-milestones/:id/execute', legalController.executeMilestone);
+
+// 11f. Immutable Audit Logs & Public Deed Verification
+apiRouter.get('/legal/audit-logs', legalController.getLegalAuditLogs);
+apiRouter.get('/legal/verify-deed/:hash', verifyDeedByHash);
+apiRouter.get('/verify-deed/:hash', verifyDeedByHash);
 
 // 12. Partner & User Support / Dispute Tickets (legacy one-way tickets)
 apiRouter.post('/support/tickets', supportController.submitTicket);

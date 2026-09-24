@@ -161,6 +161,12 @@ export interface Transaction {
   createdAt: string;
 }
 
+// ==========================================
+// LEGAL OPERATIONS SUITE TYPES (GLOBAL STANDARD)
+// ==========================================
+
+export type AgreementType = 'tenancy_agreement' | 'contract_of_sale' | 'deed_of_assignment' | 'power_of_attorney' | 'residential_lease';
+
 export interface LegalAgreement {
   id: string;
   propertyId: string;
@@ -172,21 +178,38 @@ export interface LegalAgreement {
   landlordName?: string;
   tenantId?: string;
   tenantName?: string;
-  agreementType: 'tenancy_agreement' | 'contract_of_sale' | string;
+  agreementType: AgreementType | string;
   agreementTitle?: string;
   governingLaw?: string;
+  jurisdiction?: string;
   tenancyCommencementDate?: string;
   tenancyExpirationDate?: string;
   annualRent?: number;
   cautionDeposit?: number;
+  considerationAmount?: number;
   landlordSigned?: boolean;
   landlordSignedAt?: string;
   tenantSigned?: boolean;
   tenantSignedAt?: string;
   legalOfficerStamp?: boolean;
-  status: 'drafting' | 'pending_signatures' | 'fully_executed' | 'active' | 'draft' | string;
+  legalOfficerId?: string;
+  legalOfficerName?: string;
+  stampedAt?: string;
   pdfContractUrl?: string;
+  status: 'drafting' | 'pending_signatures' | 'fully_executed' | 'active' | 'draft' | 'cancelled' | string;
+  notes?: string;
+  legalHash?: string;
+  canonicalMetadata?: any;
+  stampSerial?: string;
+  digitalSignature?: string;
+  signatureAlgorithm?: string;
+  sealedAt?: string;
+  qrVerificationUrl?: string;
+  evidenceActCompliance?: boolean;
+  custodyTransferredAt?: string;
+  custodyHolderId?: string;
   createdAt: string;
+  updatedAt?: string;
   // Database fields
   renterId?: string;
   ownerId?: string;
@@ -197,14 +220,133 @@ export interface LegalAgreement {
   endDate?: string;
   signedByRenterAt?: string;
   signedByOwnerAt?: string;
-  updatedAt?: string;
+}
+
+export type TitleAuditVerdict = 'pending' | 'approved' | 'conditional' | 'flagged' | 'rejected';
+
+export interface SurveyBeacon {
+  id: string;
+  beaconNumber: string;
+  northing?: number;
+  easting?: number;
+  lat?: number;
+  lng?: number;
+}
+
+export interface LegalTitleAudit {
+  id: string;
+  propertyId: string;
+  kypId?: string;
+  propertyTitle?: string;
+  propertyLocation?: string;
+  titleDocumentType: string;
+  titleDocumentNumber: string;
+  landRegistry: string;
+  cadastralSurveyNo?: string;
+  surveyBeacons?: SurveyBeacon[];
+  encumbranceStatus: 'unencumbered' | 'mortgaged' | 'lis_pendens' | 'under_investigation' | string;
+  lisPendensDetails?: string;
+  gazettePageRef?: string;
+  titleHealthScore: number; // 0 - 100
+  findings: string;
+  recommendations?: string;
+  verdict: TitleAuditVerdict;
+  legalOfficerId: string;
+  legalOfficerName: string;
+  auditDate: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type DisputeCategory = 
+  | 'breach_of_covenant' 
+  | 'unlawful_eviction' 
+  | 'caution_deposit_retention' 
+  | 'title_defect' 
+  | 'rent_default' 
+  | 'damage_claim' 
+  | 'misrepresentation' 
+  | 'other';
+
+export type DisputeStatus = 
+  | 'filed' 
+  | 'under_review' 
+  | 'mediation' 
+  | 'arbitration' 
+  | 'resolved' 
+  | 'dismissed' 
+  | 'escalated_to_court';
+
+export interface LegalDispute {
+  id: string;
+  agreementId?: string;
+  propertyId?: string;
+  propertyTitle?: string;
+  complainantId: string;
+  complainantName: string;
+  complainantEmail: string;
+  complainantRole: string;
+  respondentId: string;
+  respondentName: string;
+  respondentEmail: string;
+  respondentRole: string;
+  disputeCategory: DisputeCategory;
+  disputeTitle: string;
+  claimAmount: number;
+  description: string;
+  evidenceUrls: string[];
+  status: DisputeStatus;
+  statutoryNoticeType?: string;
+  statutoryNoticeDate?: string;
+  emergencyInterventionActive?: boolean;
+  mediationNotes?: string;
+  arbitrationAwardSummary?: string;
+  msaSettlementUrl?: string;
+  assignedLegalOfficerId?: string;
+  assignedLegalOfficerName?: string;
+  resolvedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type MilestoneStatus = 
+  | 'pending_clearance' 
+  | 'legal_cleared' 
+  | 'rejected' 
+  | 'executed' 
+  | 'disbursed';
+
+export interface LegalEscrowMilestone {
+  id: string;
+  agreementId?: string;
+  propertyId: string;
+  transactionId: string;
+  milestoneNumber: number; // 1 (30%), 2 (40%), 3 (30%)
+  title: string;
+  description?: string;
+  releasePercentage: number;
+  releaseAmountNgn: number;
+  status: MilestoneStatus;
+  conditions: string[];
+  clearedByOfficerId?: string;
+  clearedByOfficerName?: string;
+  clearedAt?: string;
+  executedByOfficerId?: string;
+  executedByOfficerName?: string;
+  payoutTxReference?: string;
+  executedAt?: string;
+  executionNotes?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface LegalDispatch {
   id: string;
   agreementId: string;
+  propertyId?: string;
   propertyTitle: string;
   propertyAddress: string;
+  recipientId?: string;
   recipientName: string;
   recipientEmail: string;
   recipientPhone: string;
@@ -213,18 +355,57 @@ export interface LegalDispatch {
   deliveryState: string;
   deliveryCountry: string;
   isDiaspora: boolean;
-  docusignStatus: 'not_applicable' | 'sent' | 'signed' | 'completed';
+  docusignStatus?: 'not_applicable' | 'sent' | 'signed' | 'completed';
   docusignEnvelopeUrl?: string;
-  courierPartner: 'DHL Express' | 'FedEx' | 'GIG Logistics' | 'Red Star Express' | 'UPS' | 'Internal Dispatch';
+  courierPartner: 'DHL Express' | 'FedEx' | 'GIG Logistics' | 'Red Star Express' | 'UPS' | 'Internal Dispatch' | string;
   waybillNumber: string;
   trackingUrl: string;
-  status: 'drafting' | 'docusign_pending' | 'signed' | 'stamped_and_sealed' | 'dispatched' | 'in_transit' | 'delivered';
+  securityPouchSerial?: string;
+  packagePhotoUrls?: string[];
+  packagePhotoHash?: string;
+  deliveryOtpHash?: string;
+  deliveryOtpPlain?: string;
+  deliveryOtpExpiresAt?: string;
+  deliveryOtpAttempts?: number;
+  deliveryOtpVerifiedAt?: string;
+  status: 'drafting' | 'prepared' | 'sealed' | 'in_transit' | 'out_for_delivery' | 'delivered' | 'failed' | string;
   estimatedDeliveryDate: string;
   dispatchedAt?: string;
   deliveredAt?: string;
   recipientConfirmed: boolean;
   recipientConfirmedAt?: string;
+  custodyCertificateUrl?: string;
   notes?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface LegalOfficerCertificate {
+  id: string;
+  userId: string;
+  fullLegalName: string;
+  nbaEnrolmentNumber: string;
+  barCallYear: number;
+  lawFirmName?: string;
+  sealSerialPrefix?: string;
+  publicKeyPem?: string;
+  certificateFingerprint?: string;
+  isActive: boolean;
+  issuedAt: string;
+  expiresAt?: string;
+  createdAt: string;
+}
+
+export interface LegalAuditLog {
+  id: string;
+  entityType: 'agreement' | 'title_audit' | 'dispatch' | 'dispute' | 'milestone' | 'deed_seal';
+  entityId: string;
+  action: 'create' | 'update' | 'stamp' | 'sign' | 'clear' | 'execute' | 'resolve' | 'verdict' | 'otp_generate' | 'otp_verify' | 'delete';
+  actorId: string;
+  actorEmail: string;
+  actorRole: string;
+  ipAddress?: string;
+  userAgent?: string;
+  changes?: any;
+  createdAt: string;
 }
