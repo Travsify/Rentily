@@ -207,9 +207,9 @@ export default function App() {
     );
   }
 
-  // If public creator leaderboard requested, render portal immediately without requiring admin auth
+  // If public creator leaderboard requested, render portal immediately without requiring admin auth or showing admin login
   if (showPublicCreatorPortal) {
-    return <CreatorLeaderboardPortal onBackToAdmin={() => setShowPublicCreatorPortal(false)} />;
+    return <CreatorLeaderboardPortal />;
   }
 
   // If not logged in, render the Admin Login Page

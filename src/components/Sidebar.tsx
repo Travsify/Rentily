@@ -324,9 +324,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         },
         {
           id: 'creator_bounties',
-          label: 'Creator Bounties & Swarm',
+          label: 'Creator Contest & Bounties',
           icon: Zap,
-          badge: '50+ Swarm',
+          badge: 'Live Contest',
           badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30'
         }
       ]

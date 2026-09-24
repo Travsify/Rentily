@@ -71,11 +71,11 @@ export const CreatorBountiesAdminTab: React.FC<{ onOpenPublicPortal: () => void 
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-black text-white">Creator Bounties &amp; Viral Swarm</h1>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
-              Cluely Playbook Desk
+              Creator Contest Desk
             </span>
           </div>
           <p className="text-xs text-slate-400 mt-1">
-            Manage 50+ creator drops, verify view milestones, and approve instant bank payouts.
+            Manage nationwide creator drops, verify view milestones, and approve instant bank payouts.
           </p>
         </div>
 
