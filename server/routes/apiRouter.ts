@@ -470,3 +470,11 @@ apiRouter.get('/admin/referrals/list', referralController.getAdminReferralsList)
 apiRouter.get('/admin/referrals/config', referralController.getReferralConfig);
 apiRouter.post('/admin/referrals/config', referralController.updateReferralConfig);
 
+// 32. Creator Contest, Leaderboard Automation & Welts Admin Desk
+import { contestController } from '../controllers/contestController';
+apiRouter.get('/contest/submissions', contestController.getSubmissions);
+apiRouter.post('/contest/submissions', contestController.createSubmission);
+apiRouter.put('/contest/submissions/:id', contestController.updateSubmission);
+apiRouter.post('/contest/sync-views', contestController.syncViews);
+apiRouter.post('/contest/admin/login', contestController.adminLogin);
+

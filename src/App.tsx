@@ -40,6 +40,7 @@ import { AdminProfileTab } from './components/AdminProfileTab';
 import { AdminLoginPage } from './components/AdminLoginPage';
 import { CreatorBountiesAdminTab } from './components/CreatorBountiesAdminTab';
 import { CreatorLeaderboardPortal } from './components/CreatorLeaderboardPortal';
+import { WeltsContestAdminDesk } from './components/WeltsContestAdminDesk';
 import { RentillyApiService, checkServerHealth } from './services/api';
 import { supabaseClient } from './services/supabaseClient';
 import type { AdminTab, Property, KYPRecord, Inspection, Transaction, LegalAgreement, UserProfile } from './types';
@@ -47,7 +48,9 @@ import type { AdminTab, Property, KYPRecord, Inspection, Transaction, LegalAgree
 export default function App() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [currentTab, setCurrentTab] = useState<AdminTab>('overview');
+  const isWeltsRoute = window.location.pathname.startsWith('/welts');
   const [showPublicCreatorPortal, setShowPublicCreatorPortal] = useState(() => {
+    if (window.location.pathname.startsWith('/welts')) return false;
     return window.location.hostname.startsWith('contest.') ||
            window.location.pathname.startsWith('/contest') ||
            window.location.pathname.startsWith('/creators') || 
@@ -205,6 +208,11 @@ export default function App() {
         <p className="text-sm font-medium">Connecting to Rentilly Operations Hub...</p>
       </div>
     );
+  }
+
+  // If /welts secret contest admin desk route, render WeltsContestAdminDesk
+  if (isWeltsRoute) {
+    return <WeltsContestAdminDesk />;
   }
 
   // If public creator leaderboard requested, render portal immediately without requiring admin auth or showing admin login

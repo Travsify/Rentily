@@ -48,7 +48,17 @@ export const CreatorLeaderboardPortal: React.FC = () => {
     accountName: '',
   });
 
-  const loadData = () => {
+  const loadData = async () => {
+    try {
+      const res = await fetch('/api/contest/submissions');
+      const json = await res.json();
+      if (json.status && json.submissions && json.submissions.length > 0) {
+        setSubmissions(json.submissions);
+        return;
+      }
+    } catch {
+      // Fallback to local
+    }
     const data = CreatorBountyService.getSubmissions();
     data.sort((a, b) => (b.verifiedViews || b.claimedViews) - (a.verifiedViews || a.claimedViews));
     setSubmissions(data);
@@ -113,6 +123,24 @@ export const CreatorLeaderboardPortal: React.FC = () => {
       accountNumber: formData.accountNumber,
       accountName: formData.accountName,
     });
+
+    fetch('/api/contest/submissions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        creatorName: formData.creatorName,
+        handle: formData.handle.startsWith('@') ? formData.handle : `@${formData.handle}`,
+        platform: formData.platform,
+        videoUrl: formData.videoUrl,
+        referralCode: formData.referralCode,
+        claimedViews: views,
+        phone: formData.phone,
+        followHandle: formData.followHandle,
+        bankName: formData.bankName,
+        accountNumber: formData.accountNumber,
+        accountName: formData.accountName,
+      })
+    }).catch(() => {});
 
     try {
       confetti({
