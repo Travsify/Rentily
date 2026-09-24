@@ -92,6 +92,19 @@ export async function sendBroadcast(req: Request, res: Response) {
       });
     }
 
+    // Dispatch Termii SMS Broadcast if channel is sms or both
+    if (channel === 'sms' || channel === 'both') {
+      const { TermiiService } = await import('../services/termiiService');
+      for (const user of targets) {
+        if (user.phoneNumber) {
+          TermiiService.sendSms({
+            to: user.phoneNumber,
+            message: `[Rentilly Announcement] ${title}: ${message}`
+          }).catch(e => console.warn(`[Broadcast] SMS dispatch error to ${user.phoneNumber}:`, e.message));
+        }
+      }
+    }
+
     // OneSignal Push Notification
     let pushResult: { success: boolean; id?: string; error?: string } = { success: false };
 

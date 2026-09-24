@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { ResendService } from '../services/resendService';
-import { TwilioService } from '../services/twilioService';
+import { TermiiService } from '../services/termiiService';
 import { OtpStore } from '../services/otpStore';
 import { UserStore } from '../services/userStore';
 import { supabase } from '../supabaseClient';
@@ -10,21 +10,10 @@ export async function sendOtp(req: Request, res: Response) {
   try {
     const { email, phoneNumber, userName, channel = 'email', purpose = 'Account Verification' } = req.body;
 
-    // If channel is strictly SMS or only phone number is provided without email, auto-pass immediately
-    if ((channel === 'sms' && !email) || (!email && phoneNumber)) {
-      return res.json({
-        status: true,
-        message: 'Phone verification is temporarily waived. Your phone number is automatically accepted.',
-        phoneVerified: true,
-        isVerified: true,
-        delivery: { sms: { status: true, message: 'Phone verification bypassed (Termii pending)' } }
-      });
-    }
-
     if (!email && !phoneNumber) {
       return res.status(400).json({
         status: false,
-        message: 'Please provide an email address for security verification.'
+        message: 'Please provide an email address or mobile phone number for verification.'
       });
     }
 
@@ -60,7 +49,7 @@ export async function sendOtp(req: Request, res: Response) {
     const deliveryResults: { email?: any; sms?: any } = {};
     let atLeastOneSuccess = false;
 
-    // Dispatch Email via Resend
+    // 1. Dispatch Email via Resend if email is provided
     if (cleanEmail) {
       const emailRes = await ResendService.sendOtpEmail({
         to: cleanEmail,
@@ -72,15 +61,26 @@ export async function sendOtp(req: Request, res: Response) {
       if (emailRes.status) atLeastOneSuccess = true;
     }
 
-    // Phone verification is waived / marked successful
-    deliveryResults.sms = {
-      status: true,
-      message: 'Phone verification bypassed'
-    };
+    // 2. Dispatch Live SMS via Termii if phone number is provided or channel is sms
+    if (cleanPhone) {
+      const smsRes = await TermiiService.sendOtpSms({
+        to: cleanPhone,
+        code,
+        purpose
+      });
+      deliveryResults.sms = smsRes;
+      if (smsRes.status) atLeastOneSuccess = true;
+    }
+
+    const destination = cleanEmail && cleanPhone 
+      ? `${cleanEmail} and ${cleanPhone}`
+      : (cleanEmail || cleanPhone || 'your contact');
 
     return res.json({
-      status: true,
-      message: `Security code sent successfully to ${cleanEmail || 'your email'}.`,
+      status: atLeastOneSuccess,
+      message: atLeastOneSuccess
+        ? `Security code sent successfully to ${destination}.`
+        : 'Failed to deliver verification code. Please check your contact information.',
       expiresAt,
       delivery: deliveryResults
     });

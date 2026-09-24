@@ -37,6 +37,7 @@ class UserProfile {
   final String? lasreraNumber;
   final String? cryptoId;
   final String? referralCode;
+  final bool enableSmsNotifications;
 
   UserProfile({
     required this.id,
@@ -46,6 +47,7 @@ class UserProfile {
     required this.role,
     this.buyerType = 'personal',
     this.isVerified = false,
+    this.enableSmsNotifications = false,
     this.ninNumber,
     this.bvn,
     this.bvnVerified = false,
@@ -199,6 +201,7 @@ class UserProfile {
       lasreraNumber: json['lasreraNumber']?.toString() ?? json['lasrera_number']?.toString(),
       cryptoId: json['cryptoId']?.toString() ?? json['crypto_id']?.toString(),
       referralCode: json['referralCode']?.toString() ?? json['referral_code']?.toString(),
+      enableSmsNotifications: json['enableSmsNotifications'] == true || json['enable_sms_notifications'] == true || json['sms_notifications_enabled'] == true,
     );
   }
 
@@ -211,6 +214,7 @@ class UserProfile {
       'role': role,
       'buyerType': buyerType,
       'isVerified': isVerified,
+      'enableSmsNotifications': enableSmsNotifications,
       'ninNumber': ninNumber,
       'bvn': bvn,
       'bvnVerified': bvnVerified,
@@ -280,6 +284,7 @@ class UserProfile {
     String? lasreraNumber,
     String? cryptoId,
     String? referralCode,
+    bool? enableSmsNotifications,
   }) {
     return UserProfile(
       id: id ?? this.id,
@@ -289,6 +294,7 @@ class UserProfile {
       role: role ?? this.role,
       buyerType: buyerType ?? this.buyerType,
       isVerified: isVerified ?? this.isVerified,
+      enableSmsNotifications: enableSmsNotifications ?? this.enableSmsNotifications,
       ninNumber: ninNumber ?? this.ninNumber,
       bvn: bvn ?? this.bvn,
       bvnVerified: bvnVerified ?? this.bvnVerified,

@@ -14,9 +14,13 @@ dist-ssr
 *.apk
 *.aab
 
-# Environment variables
+# Environment variables & Vault credentials
 .env
-.env*.local
+.env*
+*.env
+rentilly.production.env
+Rentilly_Production_Credentials_Vault.pdf
+export_credentials_pdf.cjs
 
 # Editor directories and files
 .vscode/*

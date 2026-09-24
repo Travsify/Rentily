@@ -10,6 +10,7 @@ export interface UserProfile {
   ninNumber?: string;
   bvnVerified?: boolean;
   avatarUrl?: string;
+  enableSmsNotifications?: boolean;
   createdAt: string;
 }
 

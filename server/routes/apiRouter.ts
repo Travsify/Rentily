@@ -26,6 +26,7 @@ import { getPartnerOnboardedLandlords } from '../controllers/publicPartnerPages'
 import { isSupabaseConfigured, reconfigureSupabase, supabase } from '../supabaseClient';
 import { IdentitypassService } from '../services/identitypassService';
 import { FlutterwaveService } from '../services/flutterwaveService';
+import { TermiiService } from '../services/termiiService';
 import { adminSecuritySentinel, triggerEmergencyLockdown, liftEmergencyLockdown, getSentinelStatus } from '../middleware/adminSecuritySentinel';
 export const apiRouter = Router();
 
@@ -38,8 +39,32 @@ apiRouter.get('/health', (_req, res) => {
     supabaseConnected: isSupabaseConfigured(),
     identitypassConfigured: IdentitypassService.isConfigured(),
     flutterwaveConfigured: FlutterwaveService.isConfigured(),
+    termiiConfigured: TermiiService.isConfigured(),
     timestamp: new Date().toISOString()
   });
+});
+
+// Termii SMS Status & Test Endpoint
+apiRouter.get('/termii/status', async (_req, res) => {
+  const isConfig = TermiiService.isConfigured();
+  const balanceData = await TermiiService.getBalance();
+  res.json({
+    status: isConfig,
+    configured: isConfig,
+    ...balanceData,
+    smsFeePerNotification: 20,
+    timestamp: new Date().toISOString()
+  });
+});
+
+apiRouter.post('/termii/test-sms', async (req, res) => {
+  const { to, message } = req.body;
+  if (!to) return res.status(400).json({ error: 'Recipient phone number is required.' });
+  const result = await TermiiService.sendSms({
+    to,
+    message: message || 'This is a live test SMS from the Rentilly Termii Gateway. (Ref: Rentilly Ops)'
+  });
+  res.json(result);
 });
 
 // 1a. Dynamic Supabase Configuration & Validation

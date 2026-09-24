@@ -823,7 +823,7 @@ export async function updateProfile(req: Request, res: Response) {
     const { 
       email, fullName, phoneNumber, state, avatarUrl, businessName, cacNumber, officeAddress, 
       lasreraNumber, tinNumber, signatoryName, signatoryRole, signatoryPhone, buyerType,
-      bankName, accountNumber
+      bankName, accountNumber, enableSmsNotifications
     } = req.body;
     if (!email) {
       return res.status(400).json({ error: 'Email is required to identify the account.' });
@@ -854,6 +854,7 @@ export async function updateProfile(req: Request, res: Response) {
     if (buyerType) user.buyerType = buyerType;
     if (bankName) user.bankName = bankName;
     if (accountNumber) user.accountNumber = accountNumber;
+    if (enableSmsNotifications !== undefined) user.enableSmsNotifications = Boolean(enableSmsNotifications);
 
     UserStore.upsertUser(user);
 
@@ -873,6 +874,7 @@ export async function updateProfile(req: Request, res: Response) {
         if (officeAddress) update.office_address = officeAddress.trim();
         if (bankName) update.bank_name = bankName;
         if (accountNumber) update.account_number = accountNumber;
+        if (enableSmsNotifications !== undefined) update.enable_sms_notifications = Boolean(enableSmsNotifications);
         if (Object.keys(update).length > 0) {
           await supabase.from('profiles').update(update).eq('email', cleanEmail);
         }
@@ -902,6 +904,7 @@ export async function updateProfile(req: Request, res: Response) {
         signatoryPhone: user.signatoryPhone,
         bankName: user.bankName,
         accountNumber: user.accountNumber,
+        enableSmsNotifications: user.enableSmsNotifications ?? false,
         isVerified: user.isVerified,
         bvnVerified: user.bvnVerified,
         walletBalance: user.walletBalance || 0,

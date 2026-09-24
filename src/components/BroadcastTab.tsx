@@ -132,8 +132,8 @@ export const BroadcastTab: React.FC = () => {
                 className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-emerald-500"
               >
                 <option value="push">📱 In-App Push Notification</option>
-                <option value="sms">💬 SMS Alert (Twilio / Africa's Talking)</option>
-                <option value="both">🔔 Both Push & SMS Alert</option>
+                <option value="sms">💬 SMS Alert (Termii Direct Rail)</option>
+                <option value="both">🔔 Both Push & SMS Alert (Termii)</option>
               </select>
             </div>
           </div>

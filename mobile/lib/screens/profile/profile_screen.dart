@@ -36,6 +36,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoading = true;
   bool _biometricsEnabled = true;
   bool _hasPaymentPin = false;
+  bool _smsNotificationsEnabled = false;
   int _mapleradTier = 0;
   bool _canUpgradeToTier2 = false;
   bool _canUpgradeToTier3 = false;
@@ -59,6 +60,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (mounted) {
       setState(() {
         _currentUser = AuthService.currentUserNotifier.value;
+        if (_currentUser != null) {
+          _smsNotificationsEnabled = _currentUser!.enableSmsNotifications;
+        }
       });
     }
   }
@@ -72,6 +76,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _currentUser = user;
         _biometricsEnabled = bio;
         _hasPaymentPin = hasPin;
+        _smsNotificationsEnabled = user?.enableSmsNotifications ?? false;
         _isLoading = false;
       });
       _loadTierStatus();
@@ -916,6 +921,112 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             backgroundColor: AppColors.primary,
                           ),
                         );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+
+              // SMS Notifications Toggle Card (Termii Direct Rail • ₦20 / SMS)
+              Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: AppColors.borderDark),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0284C7).withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.sms_rounded, size: 20, color: Color(0xFF0284C7)),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Text('SMS Transaction Alerts', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFEF3C7),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text('₦20 / SMS', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.w800, color: const Color(0xFFB45309))),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 2),
+                          Text('Instant SMS delivery for rent, escrow, and move-in passes. Billed at ₦20 per SMS from wallet balance.', style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary)),
+                        ],
+                      ),
+                    ),
+                    Switch.adaptive(
+                      value: _smsNotificationsEnabled,
+                      activeColor: AppColors.primary,
+                      onChanged: (val) async {
+                        if (val) {
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              title: Row(
+                                children: [
+                                  const Icon(Icons.sms_rounded, color: AppColors.primary, size: 22),
+                                  const SizedBox(width: 8),
+                                  Text('Enable SMS Alerts?', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 15)),
+                                ],
+                              ),
+                              content: Text(
+                                'A standard charge of ₦20 will be automatically deducted from your wallet balance for each transactional SMS delivered to your phone number for payments, escrow settlements, and lease notices.',
+                                style: GoogleFonts.plusJakartaSans(fontSize: 12, height: 1.4),
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(ctx, false),
+                                  child: Text('Cancel', style: GoogleFonts.plusJakartaSans(color: Colors.grey)),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.primary,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                  ),
+                                  child: Text('Agree & Enable (₦20/SMS)', style: GoogleFonts.plusJakartaSans(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirm != true) return;
+                        }
+
+                        setState(() => _smsNotificationsEnabled = val);
+                        if (_currentUser != null) {
+                          await ApiService.updateProfile(
+                            email: _currentUser!.email,
+                            enableSmsNotifications: val,
+                          );
+                        }
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                val ? 'SMS alerts enabled (₦20/SMS billed on delivery).' : 'SMS alerts disabled.',
+                                style: GoogleFonts.plusJakartaSans(fontSize: 11),
+                              ),
+                              backgroundColor: AppColors.primary,
+                            ),
+                          );
+                        }
                       },
                     ),
                   ],

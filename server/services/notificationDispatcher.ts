@@ -1,4 +1,7 @@
 import { supabase } from '../supabaseClient';
+import { TermiiService } from './termiiService';
+import { UserStore } from './userStore';
+import { TransactionStore } from './transactionStore';
 
 const DEFAULT_RESEND_KEY = ['re_', 'TDzSXw', 'pG_EiKY', 'cSEVf46', 'LAbtYv5', 'jHs8En'].join('');
 const RESEND_API_KEY = process.env.RESEND_API_KEY || DEFAULT_RESEND_KEY;
@@ -321,12 +324,13 @@ export class NotificationDispatcher {
   }
 
   /**
-   * Dispatches In-App Notification (Database), Instant Email (Resend), AND OneSignal Push.
+   * Dispatches In-App Notification (Database), Instant Email (Resend), OneSignal Push, AND Termii SMS.
    */
-  static async dispatch(event: NotificationEvent): Promise<{ success: boolean; inApp: boolean; email: boolean; push: boolean }> {
+  static async dispatch(event: NotificationEvent): Promise<{ success: boolean; inApp: boolean; email: boolean; push: boolean; sms: boolean }> {
     let inAppSuccess = false;
     let emailSuccess = false;
     let pushSuccess = false;
+    let smsSuccess = false;
 
     // 1. Dispatch In-App Notification (Supabase / Database)
     try {
@@ -497,15 +501,76 @@ export class NotificationDispatcher {
           pushDispatched = true;
         }
       }
-    } catch (e) {
-      console.warn('[NotificationDispatcher] Push notification dispatch notice:', e);
+    // 4. Dispatch Termii SMS Notification (if enabled by user, with ₦20 fee billing)
+    try {
+      const targetEmail = (event.email || '').trim().toLowerCase();
+      let recipientUser: any = null;
+      if (targetEmail) {
+        recipientUser = await UserStore.findByEmail(targetEmail);
+      } else if (event.userId) {
+        recipientUser = await UserStore.findById(event.userId);
+      }
+
+      if (recipientUser && recipientUser.phoneNumber) {
+        const isSmsEnabled = Boolean(recipientUser.enableSmsNotifications);
+        const isCriticalSecurity = event.category === 'security';
+
+        if (isSmsEnabled || isCriticalSecurity) {
+          const currentBal = Number(recipientUser.walletBalance || 0);
+          const SMS_FEE = 20; // ₦20 per transactional SMS
+
+          // Deduct ₦20 fee for transactional/escrow/wallet SMS alerts if user has opted in
+          if (!isCriticalSecurity && isSmsEnabled) {
+            if (currentBal >= SMS_FEE) {
+              const newBal = currentBal - SMS_FEE;
+              await UserStore.upsertUser({
+                ...recipientUser,
+                walletBalance: newBal,
+                updatedAt: new Date().toISOString()
+              });
+
+              TransactionStore.recordTransaction({
+                id: `TX_SMS_${Date.now()}`,
+                userId: recipientUser.id,
+                email: recipientUser.email,
+                title: `SMS Alert: ${event.title}`,
+                type: 'SMS Notification Fee',
+                category: 'utilities',
+                amount: SMS_FEE,
+                isCredit: false,
+                reference: `SMS-${Date.now()}`,
+                status: 'SUCCESSFUL',
+                date: new Date().toISOString()
+              });
+              console.log(`[NotificationDispatcher] 💳 Charged ₦${SMS_FEE} SMS notification fee to ${recipientUser.email} (New Bal: ₦${newBal})`);
+            } else {
+              console.warn(`[NotificationDispatcher] ⚠️ User ${recipientUser.email} opted into SMS but has insufficient wallet balance (₦${currentBal} < ₦${SMS_FEE}).`);
+            }
+          }
+
+          // Dispatch SMS via Termii
+          const smsText = `[Rentilly] ${event.title}: ${event.message}`;
+          const smsRes = await TermiiService.sendSms({
+            to: recipientUser.phoneNumber,
+            message: smsText
+          });
+
+          if (smsRes.status) {
+            smsSuccess = true;
+            console.log(`[NotificationDispatcher] 📱 SMS dispatched to ${recipientUser.phoneNumber} via Termii`);
+          }
+        }
+      }
+    } catch (smsErr: any) {
+      console.warn('[NotificationDispatcher] SMS dispatch notice:', smsErr.message);
     }
 
     return {
-      success: inAppSuccess || emailSuccess || pushSuccess,
+      success: inAppSuccess || emailSuccess || pushSuccess || smsSuccess,
       inApp: inAppSuccess,
       email: emailSuccess,
       push: pushSuccess,
+      sms: smsSuccess,
     };
   }
 }

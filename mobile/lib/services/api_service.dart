@@ -1545,6 +1545,7 @@ class ApiService {
     String? cacNumber,
     String? officeAddress,
     String? lasreraNumber,
+    bool? enableSmsNotifications,
   }) async {
     try {
       final res = await http.patch(
@@ -1560,6 +1561,7 @@ class ApiService {
           if (cacNumber != null) 'cacNumber': cacNumber,
           if (officeAddress != null) 'officeAddress': officeAddress,
           if (lasreraNumber != null) 'lasreraNumber': lasreraNumber,
+          if (enableSmsNotifications != null) 'enableSmsNotifications': enableSmsNotifications,
         }),
       ).timeout(const Duration(seconds: 10));
       if (res.statusCode == 200) return json.decode(res.body);

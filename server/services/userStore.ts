@@ -33,6 +33,7 @@ export interface StoredUser {
   usdtTronAddress?: string | null;
   avatarUrl?: string | null;
   virtualAccountNumber?: string | null;
+  enableSmsNotifications?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -313,6 +314,7 @@ export class UserStore {
             signatoryName: localUser?.signatoryName,
             signatoryRole: localUser?.signatoryRole,
             signatoryPhone: localUser?.signatoryPhone,
+            enableSmsNotifications: Boolean(data.enable_sms_notifications ?? data.sms_notifications_enabled ?? localUser?.enableSmsNotifications ?? false),
             partnerStatus: isPartner ? ((Boolean(data.is_verified || localUser?.isVerified) && Boolean(data.cac_number || localUser?.cacNumber) && Boolean(data.bvn_verified || localUser?.bvnVerified)) ? 'verified' : (data.partner_status || localUser?.partnerStatus || 'unverified')) : undefined,
             createdAt: data.created_at || localUser?.createdAt || new Date().toISOString(),
             updatedAt: data.updated_at || new Date().toISOString(),
@@ -383,6 +385,7 @@ export class UserStore {
             signatoryName: localUser?.signatoryName,
             signatoryRole: localUser?.signatoryRole,
             signatoryPhone: localUser?.signatoryPhone,
+            enableSmsNotifications: Boolean(user.enable_sms_notifications ?? user.sms_notifications_enabled ?? localUser?.enableSmsNotifications ?? false),
             partnerStatus: isPartner ? ((Boolean(user.is_verified || localUser?.isVerified) && Boolean(user.cac_number || localUser?.cacNumber) && Boolean(user.bvn_verified || localUser?.bvnVerified)) ? 'verified' : (user.partner_status || localUser?.partnerStatus || 'unverified')) : undefined,
             createdAt: user.created_at || localUser?.createdAt || new Date().toISOString(),
             updatedAt: user.updated_at || new Date().toISOString(),
@@ -468,6 +471,7 @@ export class UserStore {
         business_name: user.businessName || null,
         cac_number: user.cacNumber || null,
         state: user.state || 'Lagos',
+        enable_sms_notifications: user.enableSmsNotifications ?? false,
         updated_at: new Date().toISOString()
       })).then(({ error }: any) => {
         if (error) {
