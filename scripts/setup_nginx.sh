@@ -2,7 +2,7 @@
 cat << 'EOF' > /etc/nginx/sites-available/rentilly
 server {
     listen 80;
-    server_name api.myrentilly.com;
+    server_name api.myrentilly.com contest.myrentilly.com;
 
     location / {
         proxy_pass http://127.0.0.1:5000;
