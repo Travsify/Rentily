@@ -173,3 +173,30 @@ export async function testMaplerad(req: Request, res: Response) {
   });
 }
 
+export async function setupSsl(req: Request, res: Response) {
+  if (!isAuthorized(req)) {
+    return res.status(401).json({ status: false, error: 'Unauthorized' });
+  }
+
+  const domain = (req.query.domain as string) || req.body?.domain || 'contest.myrentilly.com';
+  console.log(`[SSL] Requesting Let's Encrypt certificate for: ${domain}`);
+
+  const cmd = `
+    echo "=== Running Certbot for ${domain} ==="
+    sudo certbot --nginx -d "${domain}" --non-interactive --agree-tos -m admin@myrentilly.com --redirect || certbot --nginx -d "${domain}" --non-interactive --agree-tos -m admin@myrentilly.com --redirect
+    echo "=== Reloading NGINX ==="
+    sudo nginx -t && sudo systemctl reload nginx || nginx -s reload
+  `;
+
+  exec(cmd, { shell: '/bin/bash' }, (error, stdout, stderr) => {
+    res.json({
+      status: !error,
+      domain,
+      output: stdout,
+      error: error ? error.message : null,
+      stderr: stderr ? stderr.slice(-1000) : null,
+    });
+  });
+}
+
+

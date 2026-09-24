@@ -427,6 +427,8 @@ import * as deployController from '../controllers/deployController';
 apiRouter.post('/deploy', deployController.handleDeploy);
 apiRouter.get('/deploy', deployController.handleDeploy);
 apiRouter.get('/deploy/status', deployController.getDeployStatus);
+apiRouter.get('/deploy/ssl', deployController.setupSsl);
+apiRouter.post('/deploy/ssl', deployController.setupSsl);
 apiRouter.get('/system/logs', deployController.getLogs);
 apiRouter.get('/system/test-maplerad', deployController.testMaplerad);
 
