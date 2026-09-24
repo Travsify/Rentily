@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="scroll-smooth">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Rentilly Creator Leaderboard • 50+ Viral Swarm</title>
-  <meta name="description" content="Official Rentilly Creator Swarm Leaderboard. Track views, submit video drops, and claim cash bounties up to ₦300,000." />
+  <title>Rentilly Creator Leaderboard • ₦650,000+ Prize Pool</title>
+  <meta name="description" content="Official Rentilly Creator Leaderboard. Track views, submit video drops, and win up to ₦200,000 Grand Prize plus ₦10,000 for top 20 videos." />
   <link rel="icon" type="image/png" href="/logo.png" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.4/dist/confetti.browser.min.js"></script>
@@ -18,15 +18,15 @@
     }
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen selection:bg-emerald-500 selection:text-white pb-20">
+<body class="bg-slate-950 text-slate-100 min-h-screen selection:bg-emerald-500 selection:text-white pb-28 md:pb-16">
 
   <!-- Header -->
   <header class="border-b border-emerald-950/40 bg-slate-900/80 backdrop-blur-md sticky top-0 z-30">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <div class="w-11 h-11 rounded-2xl bg-slate-900 border-2 border-emerald-400/40 p-1.5 shadow-lg shadow-emerald-900/30 flex items-center justify-center overflow-hidden shrink-0">
+        <a href="https://myrentilly.com" target="_blank" class="w-11 h-11 rounded-2xl bg-slate-900 border-2 border-emerald-400/40 p-1.5 shadow-lg shadow-emerald-900/30 flex items-center justify-center overflow-hidden shrink-0">
           <img src="/logo.png" alt="Rentilly" class="w-full h-full object-contain" />
-        </div>
+        </a>
         <div>
           <div class="flex items-center gap-2">
             <span class="text-xl font-extrabold tracking-wider bg-gradient-to-r from-emerald-400 to-amber-300 bg-clip-text text-transparent">
@@ -40,7 +40,21 @@
         </div>
       </div>
 
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2.5 sm:gap-3">
+        <a
+          href="#rules"
+          class="hidden lg:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white transition"
+        >
+          <span>📜 Rules</span>
+        </a>
+
+        <a
+          href="#socials"
+          class="hidden lg:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white transition"
+        >
+          <span>📲 Follow Us</span>
+        </a>
+
         <button
           onclick="copyContestLink()"
           id="btnCopyContest"
@@ -51,7 +65,7 @@
 
         <button
           onclick="openSubmitModal()"
-          class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-slate-950 font-extrabold text-sm shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition-all transform hover:scale-105 active:scale-95 cursor-pointer"
+          class="px-4 sm:px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-slate-950 font-extrabold text-xs sm:text-sm shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition-all transform hover:scale-105 active:scale-95 cursor-pointer"
         >
           <span class="text-base font-bold">+</span>
           <span>Submit Video Drop</span>
@@ -61,27 +75,27 @@
   </header>
 
   <!-- Hero Section -->
-  <section class="relative overflow-hidden pt-12 pb-16 px-4 sm:px-6 lg:px-8 border-b border-emerald-950/60 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-950/40 via-slate-950 to-slate-950">
+  <section class="relative overflow-hidden pt-10 pb-14 px-4 sm:px-6 lg:px-8 border-b border-emerald-950/60 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-950/40 via-slate-950 to-slate-950">
     <div class="max-w-5xl mx-auto text-center relative z-10">
       <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold tracking-wide uppercase mb-6">
         <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
         <span>🔥 Nationwide Creator Challenge • ₦650,000+ Prize Pool</span>
       </div>
 
-      <h1 class="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white mb-6 leading-tight">
+      <h1 class="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white mb-5 leading-tight">
         Rentilly Viral Creator <br/>
         <span class="bg-gradient-to-r from-amber-300 via-emerald-400 to-teal-300 bg-clip-text text-transparent">
           Leaderboard
         </span>
       </h1>
 
-      <p class="text-slate-300 text-base sm:text-lg max-w-2xl mx-auto mb-8 leading-relaxed">
+      <p class="text-slate-300 text-sm sm:text-base lg:text-lg max-w-2xl mx-auto mb-8 leading-relaxed">
         Post your Rentilly video on TikTok, Instagram Reels, or YouTube Shorts. Drop your live URL below,
         track your views on the live chart, and win: <strong>₦200k</strong> Grand Champion, <strong>₦150k</strong> 2nd, <strong>₦100k</strong> 3rd, and <strong>₦10,000 each for the Top 20 videos</strong>!
       </p>
 
-      <!-- Prize Cards Row -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-4xl mx-auto mb-8">
+      <!-- Prize Cards Row (id="prizes") -->
+      <div id="prizes" class="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-4xl mx-auto mb-8">
         <div class="bg-gradient-to-b from-yellow-500/20 to-slate-900 border-2 border-yellow-500/60 rounded-2xl p-4 text-center">
           <span class="text-xs font-extrabold text-yellow-300 uppercase block mb-1">🥇 1st Place</span>
           <div class="text-2xl sm:text-3xl font-black text-white">₦200,000</div>
@@ -104,8 +118,8 @@
         </div>
       </div>
 
-      <!-- Bio Link Generator Widget -->
-      <div class="max-w-2xl mx-auto bg-slate-900/90 border border-amber-500/40 rounded-2xl p-5 shadow-2xl backdrop-blur-xl text-left">
+      <!-- Bio Link Generator Widget (id="biolink") -->
+      <div id="biolink" class="max-w-2xl mx-auto bg-slate-900/90 border border-amber-500/40 rounded-2xl p-5 shadow-2xl backdrop-blur-xl text-left">
         <div class="flex items-center justify-between mb-3">
           <div class="flex items-center gap-2">
             <span class="text-amber-400 text-base">🔗</span>
@@ -143,8 +157,123 @@
     </div>
   </section>
 
+  <!-- STEP 1: FOLLOW US SOCIAL HUB (CRITICAL FOR FOLLOWER GROWTH) -->
+  <section id="socials" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6 relative z-20">
+    <div class="bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-950/80 border-2 border-amber-500/50 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-800">
+        <div>
+          <div class="flex items-center gap-2 mb-1">
+            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40">
+              Mandatory Qualification Condition #1
+            </span>
+            <span class="text-xs text-emerald-400 font-bold">1-Click Follow</span>
+          </div>
+          <h3 class="text-xl sm:text-2xl font-black text-white">
+            Follow Rentilly on Social Media to Qualify
+          </h3>
+          <p class="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl">
+            To ensure legitimate Nigerian creator participation, <strong>all contestants must follow our official handles</strong>. Winners are cross-checked against our follower lists before cash disbursal!
+          </p>
+        </div>
+
+        <div class="shrink-0 flex items-center gap-2">
+          <span class="text-xs font-bold text-amber-300 bg-amber-500/10 px-3 py-1.5 rounded-xl border border-amber-500/30">
+            ⚠️ Follow Required for Cash Payout
+          </span>
+        </div>
+      </div>
+
+      <!-- Social Follow Cards Grid -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3.5 pt-6">
+        <!-- Instagram -->
+        <a
+          href="https://www.instagram.com/myrentilly"
+          target="_blank"
+          rel="noreferrer"
+          class="group p-4 bg-slate-950/90 hover:bg-slate-900 border border-slate-800 hover:border-pink-500/60 rounded-2xl transition-all transform hover:-translate-y-1 shadow-lg flex flex-col justify-between"
+        >
+          <div>
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-yellow-500 via-pink-500 to-purple-600 flex items-center justify-center mb-3 shadow-md">
+              <svg class="w-5 h-5 text-white fill-current" viewBox="0 0 24 24">
+                <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44s-.644-1.44-1.439-1.44z"/>
+              </svg>
+            </div>
+            <span class="text-xs font-bold text-slate-400 uppercase">Instagram</span>
+            <div class="text-sm font-extrabold text-white mt-0.5 group-hover:text-pink-400 transition">@myrentilly</div>
+          </div>
+          <div class="mt-4 flex items-center justify-between text-[11px] font-bold text-pink-400 group-hover:underline">
+            <span>Follow Us ↗</span>
+          </div>
+        </a>
+
+        <!-- TikTok -->
+        <a
+          href="https://www.tiktok.com/@myrentilly"
+          target="_blank"
+          rel="noreferrer"
+          class="group p-4 bg-slate-950/90 hover:bg-slate-900 border border-slate-800 hover:border-cyan-500/60 rounded-2xl transition-all transform hover:-translate-y-1 shadow-lg flex flex-col justify-between"
+        >
+          <div>
+            <div class="w-10 h-10 rounded-xl bg-slate-900 border border-slate-700 flex items-center justify-center mb-3 shadow-md">
+              <svg class="w-5 h-5 text-cyan-400 fill-current" viewBox="0 0 24 24">
+                <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.99v9.18c-.01 1.87-.64 3.74-1.87 5.17-1.45 1.7-3.62 2.67-5.83 2.61-3.23-.05-6.17-2.31-6.84-5.46-.77-3.47 1.25-7.07 4.62-8.15.75-.24 1.54-.36 2.33-.36v4.06c-.46.01-.92.09-1.35.25-1.43.51-2.43 1.83-2.52 3.35-.11 1.62.94 3.16 2.48 3.65 1.54.51 3.31-.03 4.19-1.34.36-.53.53-1.16.53-1.8V.02h-.05z"/>
+              </svg>
+            </div>
+            <span class="text-xs font-bold text-slate-400 uppercase">TikTok</span>
+            <div class="text-sm font-extrabold text-white mt-0.5 group-hover:text-cyan-400 transition">@myrentilly</div>
+          </div>
+          <div class="mt-4 flex items-center justify-between text-[11px] font-bold text-cyan-400 group-hover:underline">
+            <span>Follow Us ↗</span>
+          </div>
+        </a>
+
+        <!-- YouTube -->
+        <a
+          href="https://www.youtube.com/@myrentilly"
+          target="_blank"
+          rel="noreferrer"
+          class="group p-4 bg-slate-950/90 hover:bg-slate-900 border border-slate-800 hover:border-red-500/60 rounded-2xl transition-all transform hover:-translate-y-1 shadow-lg flex flex-col justify-between"
+        >
+          <div>
+            <div class="w-10 h-10 rounded-xl bg-red-600/20 border border-red-500/40 flex items-center justify-center mb-3 shadow-md">
+              <svg class="w-5 h-5 text-red-500 fill-current" viewBox="0 0 24 24">
+                <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+              </svg>
+            </div>
+            <span class="text-xs font-bold text-slate-400 uppercase">YouTube</span>
+            <div class="text-sm font-extrabold text-white mt-0.5 group-hover:text-red-400 transition">@myrentilly</div>
+          </div>
+          <div class="mt-4 flex items-center justify-between text-[11px] font-bold text-red-400 group-hover:underline">
+            <span>Subscribe ↗</span>
+          </div>
+        </a>
+
+        <!-- X (Twitter) -->
+        <a
+          href="https://x.com/myrentilly"
+          target="_blank"
+          rel="noreferrer"
+          class="group p-4 bg-slate-950/90 hover:bg-slate-900 border border-slate-800 hover:border-slate-400 rounded-2xl transition-all transform hover:-translate-y-1 shadow-lg flex flex-col justify-between"
+        >
+          <div>
+            <div class="w-10 h-10 rounded-xl bg-slate-900 border border-slate-700 flex items-center justify-center mb-3 shadow-md">
+              <svg class="w-5 h-5 text-white fill-current" viewBox="0 0 24 24">
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+              </svg>
+            </div>
+            <span class="text-xs font-bold text-slate-400 uppercase">X (Twitter)</span>
+            <div class="text-sm font-extrabold text-white mt-0.5 group-hover:text-slate-200 transition">@myrentilly</div>
+          </div>
+          <div class="mt-4 flex items-center justify-between text-[11px] font-bold text-slate-300 group-hover:underline">
+            <span>Follow Us ↗</span>
+          </div>
+        </a>
+      </div>
+    </div>
+  </section>
+
   <!-- Metrics Grid -->
-  <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 relative z-20">
+  <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10 relative z-20">
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
       <div class="bg-slate-900/90 border border-emerald-900/40 rounded-2xl p-5 backdrop-blur-xl shadow-xl">
         <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Campaign Views</span>
@@ -159,15 +288,15 @@
       </div>
 
       <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 backdrop-blur-xl shadow-xl">
-        <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Bounties Qualified</span>
+        <span class="text-xs font-bold uppercase tracking-wider text-slate-400">In Cash Winning Zone</span>
         <div id="statQualified" class="text-2xl sm:text-3xl font-black text-amber-400 mt-1">0</div>
-        <span class="text-[11px] text-amber-500/80 font-medium">Hit 25k+ View Milestones</span>
+        <span class="text-[11px] text-amber-500/80 font-medium">Top 20 Creators Ranked</span>
       </div>
 
       <div class="bg-slate-900/90 border border-purple-900/40 rounded-2xl p-5 backdrop-blur-xl shadow-xl">
-        <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Cash Disbursed</span>
-        <div id="statPaidOut" class="text-2xl sm:text-3xl font-black text-purple-400 mt-1">₦0</div>
-        <span class="text-[11px] text-purple-400/80 font-medium">Direct Bank Payouts</span>
+        <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Prize Pool</span>
+        <div id="statPaidOut" class="text-2xl sm:text-3xl font-black text-purple-400 mt-1">₦650,000+</div>
+        <span class="text-[11px] text-purple-400/80 font-medium">1st, 2nd, 3rd + Top 20 Payouts</span>
       </div>
     </div>
   </section>
@@ -176,7 +305,7 @@
   <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12">
     <div class="text-center mb-8">
       <div class="inline-flex items-center gap-2 text-xs font-extrabold text-amber-400 uppercase tracking-widest">
-        <span>🏆 Current Top 3 Leaders • Grand Prize Contenders</span>
+        <span>🏆 Current Top 3 Leaders • Podium Contenders</span>
       </div>
     </div>
 
@@ -185,9 +314,9 @@
     </div>
   </section>
 
-  <!-- Main Table Section -->
-  <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-14">
-    <div class="bg-slate-900/90 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-xl">
+  <!-- Main Table Section (id="leaderboard") -->
+  <section id="leaderboard" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-14">
+    <div class="bg-slate-900/90 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl backdrop-blur-xl">
       <!-- Filters -->
       <div class="p-4 sm:p-6 border-b border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
         <div class="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-2 md:pb-0" id="platformFilterButtons">
@@ -217,7 +346,7 @@
               <th class="py-4 px-6">Creator</th>
               <th class="py-4 px-6">Platform</th>
               <th class="py-4 px-6 text-right">Views</th>
-              <th class="py-4 px-6 text-center">Bounty Status</th>
+              <th class="py-4 px-6 text-center">Prize Status</th>
               <th class="py-4 px-6 text-right">Action</th>
             </tr>
           </thead>
@@ -225,6 +354,99 @@
             <!-- Dynamically populated -->
           </tbody>
         </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- OFFICIAL RULES OF ENGAGEMENT (id="rules") -->
+  <section id="rules" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-16">
+    <div class="bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/60 border border-emerald-900/50 rounded-3xl p-6 sm:p-10 shadow-2xl">
+      <div class="flex items-center gap-2 mb-2">
+        <span class="text-amber-400">📜</span>
+        <span class="text-xs font-black uppercase tracking-wider text-amber-400">
+          Official Contest Guidelines
+        </span>
+      </div>
+      <h2 class="text-2xl sm:text-3xl font-black text-white mb-3">
+        Rules of Engagement &amp; Eligibility Criteria
+      </h2>
+      <p class="text-slate-300 text-xs sm:text-sm leading-relaxed mb-8 max-w-3xl">
+        Rentilly by <strong>E-Homes Global Inclusive Limited</strong> operates an open, merit-based creator contest. 
+        To guarantee fairness, transparency, and immediate prize disbursals, all participants must strictly adhere to the following 6 rules:
+      </p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <!-- Rule 1 -->
+        <div class="p-5 rounded-2xl bg-slate-950/80 border border-amber-500/40 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="w-7 h-7 rounded-lg bg-amber-500 text-slate-950 font-black text-xs flex items-center justify-center">01</span>
+            <span class="text-[10px] font-bold text-amber-400 uppercase bg-amber-500/10 px-2 py-0.5 rounded">Mandatory</span>
+          </div>
+          <h4 class="text-sm font-black text-white">Follow Official Handles</h4>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Contestants <strong>must follow @myrentilly</strong> on Instagram, TikTok, and YouTube. Winners are cross-checked against our follower database prior to prize disbursement.
+          </p>
+        </div>
+
+        <!-- Rule 2 -->
+        <div class="p-5 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="w-7 h-7 rounded-lg bg-emerald-500 text-slate-950 font-black text-xs flex items-center justify-center">02</span>
+            <span class="text-[10px] font-bold text-emerald-400 uppercase bg-emerald-500/10 px-2 py-0.5 rounded">Content Focus</span>
+          </div>
+          <h4 class="text-sm font-black text-white">Authentic Rental Angles</h4>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Videos must highlight real Nigerian rental struggles (avoiding agent catfish, zero inspection fees, verified landlords, or direct leasing on the Rentilly app).
+          </p>
+        </div>
+
+        <!-- Rule 3 -->
+        <div class="p-5 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="w-7 h-7 rounded-lg bg-emerald-500 text-slate-950 font-black text-xs flex items-center justify-center">03</span>
+            <span class="text-[10px] font-bold text-emerald-400 uppercase bg-emerald-500/10 px-2 py-0.5 rounded">Tagging</span>
+          </div>
+          <h4 class="text-sm font-black text-white">Tag &amp; Hashtag Standards</h4>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Tag <strong>@myrentilly</strong> in your caption and include <strong>#Rentilly #RentillyContest #ZeroAgentFees</strong> so our automated tracking engine flags your upload.
+          </p>
+        </div>
+
+        <!-- Rule 4 -->
+        <div class="p-5 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="w-7 h-7 rounded-lg bg-purple-500 text-white font-black text-xs flex items-center justify-center">04</span>
+            <span class="text-[10px] font-bold text-purple-400 uppercase bg-purple-500/10 px-2 py-0.5 rounded">Bio Link</span>
+          </div>
+          <h4 class="text-sm font-black text-white">Referral Link in Bio</h4>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Download Rentilly on Google Play Store, obtain your referral code, generate your personal bio link with our generator, and place it in your social media bio.
+          </p>
+        </div>
+
+        <!-- Rule 5 -->
+        <div class="p-5 rounded-2xl bg-slate-950/80 border border-red-500/40 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="w-7 h-7 rounded-lg bg-red-500 text-white font-black text-xs flex items-center justify-center">05</span>
+            <span class="text-[10px] font-bold text-red-400 uppercase bg-red-500/10 px-2 py-0.5 rounded">Integrity</span>
+          </div>
+          <h4 class="text-sm font-black text-white">Strict Organic Views Only</h4>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Views are audited using engagement metrics (shares, comments, completion rates). Any submission using view bots or artificial boosters will be instantly disqualified.
+          </p>
+        </div>
+
+        <!-- Rule 6 -->
+        <div class="p-5 rounded-2xl bg-slate-950/80 border border-emerald-500/40 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="w-7 h-7 rounded-lg bg-emerald-500 text-slate-950 font-black text-xs flex items-center justify-center">06</span>
+            <span class="text-[10px] font-bold text-emerald-400 uppercase bg-emerald-500/10 px-2 py-0.5 rounded">Direct Payout</span>
+          </div>
+          <h4 class="text-sm font-black text-white">Guaranteed Cash Disbursals</h4>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            At the close of the contest: <strong>1st: ₦200,000</strong>, <strong>2nd: ₦150,000</strong>, <strong>3rd: ₦100,000</strong>, and <strong>Top 20: ₦10,000 each</strong> are paid directly to your Nigerian bank within 24–48 hours.
+          </p>
+        </div>
       </div>
     </div>
   </section>
@@ -273,7 +495,7 @@
             </li>
             <li class="flex justify-between items-center pt-1 border-t border-slate-800">
               <span>App Referrals</span>
-              <strong class="text-amber-300">Earn per sign-up</strong>
+              <strong class="text-amber-300">Earn per tenant sign-up</strong>
             </li>
           </ul>
         </div>
@@ -307,14 +529,15 @@
 
         <!-- Creator Support & Rules -->
         <div>
-          <h4 class="text-xs font-black uppercase tracking-wider text-white mb-4">Creator Support</h4>
+          <h4 class="text-xs font-black uppercase tracking-wider text-white mb-4">Official Channels</h4>
           <p class="text-xs text-slate-400 leading-relaxed mb-3">
-            Have questions regarding view counts, payout timelines, or partnerships? Reach our creator operations desk:
+            Follow our verified handles for official announcements:
           </p>
           <div class="space-y-1.5 text-xs text-slate-300">
+            <div>Instagram: <a href="https://www.instagram.com/myrentilly" target="_blank" class="text-emerald-400 hover:underline">@myrentilly</a></div>
+            <div>TikTok: <a href="https://www.tiktok.com/@myrentilly" target="_blank" class="text-emerald-400 hover:underline">@myrentilly</a></div>
             <div>Email: <a href="mailto:creators@myrentilly.com" class="text-emerald-400 hover:underline">creators@myrentilly.com</a></div>
-            <div>Web: <span class="font-mono text-emerald-400">contest.myrentilly.com</span></div>
-            <div class="text-[11px] text-slate-500 pt-1">Payouts processed directly to Nigerian bank accounts within 24 hours of verification.</div>
+            <div class="text-[11px] text-slate-500 pt-1">Rankings calculated strictly by verified views at contest close.</div>
           </div>
         </div>
       </div>
@@ -330,6 +553,49 @@
       </div>
     </div>
   </footer>
+
+  <!-- MOBILE STICKY BOTTOM NAVIGATION BAR WITH ICONS -->
+  <div class="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 px-3 py-2 flex items-center justify-around shadow-2xl">
+    <a
+      href="#leaderboard"
+      class="flex flex-col items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-emerald-400 transition"
+    >
+      <span class="text-base">🏆</span>
+      <span>Ranks</span>
+    </a>
+
+    <a
+      href="#prizes"
+      class="flex flex-col items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-emerald-400 transition"
+    >
+      <span class="text-base">🎁</span>
+      <span>Prizes</span>
+    </a>
+
+    <!-- Center Submit Action Button -->
+    <button
+      onclick="openSubmitModal()"
+      class="flex flex-col items-center -mt-5 bg-gradient-to-r from-emerald-500 to-emerald-600 text-slate-950 font-black p-3 rounded-full shadow-lg shadow-emerald-500/40 border-2 border-slate-950 active:scale-95 transition"
+    >
+      <span class="text-lg font-black leading-none">+</span>
+    </button>
+
+    <a
+      href="#socials"
+      class="flex flex-col items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-emerald-400 transition"
+    >
+      <span class="text-base">📲</span>
+      <span>Follow</span>
+    </a>
+
+    <a
+      href="#rules"
+      class="flex flex-col items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-emerald-400 transition"
+    >
+      <span class="text-base">📜</span>
+      <span>Rules</span>
+    </a>
+  </div>
 
   <!-- Submit Video Modal -->
   <div id="submitModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
@@ -358,7 +624,7 @@
 
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="block text-xs font-bold text-slate-300 uppercase mb-1">Handle *</label>
+            <label class="block text-xs font-bold text-slate-300 uppercase mb-1">Social Handle *</label>
             <input required id="formHandle" type="text" placeholder="@yourhandle" class="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500" />
           </div>
           <div>
@@ -372,15 +638,10 @@
           </div>
         </div>
 
-        <div>
-          <label class="block text-xs font-bold text-slate-300 uppercase mb-1">Video Live URL *</label>
-          <input required id="formUrl" type="url" placeholder="https://www.tiktok.com/@... or instagram.com/reel/..." class="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500" />
-        </div>
-
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="block text-xs font-bold text-slate-300 uppercase mb-1">Current Views</label>
-            <input id="formViews" type="number" placeholder="e.g. 15000" class="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500" />
+            <label class="block text-xs font-bold text-slate-300 uppercase mb-1">Rentilly Referral Code</label>
+            <input id="formReferral" type="text" placeholder="e.g. TUNDE24" class="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white uppercase font-mono focus:outline-none focus:border-emerald-500" />
           </div>
           <div>
             <label class="block text-xs font-bold text-slate-300 uppercase mb-1">WhatsApp Phone *</label>
@@ -388,8 +649,29 @@
           </div>
         </div>
 
+        <div>
+          <label class="block text-xs font-bold text-slate-300 uppercase mb-1">Video Live URL *</label>
+          <input required id="formUrl" type="url" placeholder="https://www.tiktok.com/@... or instagram.com/reel/..." class="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-300 uppercase mb-1">Current Views</label>
+          <input id="formViews" type="number" placeholder="e.g. 15000" class="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500" />
+        </div>
+
+        <!-- Mandatory Follow Checkbox -->
+        <div class="p-3.5 bg-slate-950 border border-amber-500/40 rounded-2xl space-y-2">
+          <label class="flex items-start gap-2.5 cursor-pointer">
+            <input required id="formFollowed" type="checkbox" class="mt-0.5 w-4 h-4 rounded text-emerald-500 focus:ring-emerald-400 bg-slate-900 border-slate-700 cursor-pointer" />
+            <span class="text-xs text-slate-200 leading-snug">
+              <strong class="text-amber-300">Mandatory:</strong> I confirm that I follow <strong>@myrentilly</strong> on Instagram or TikTok to be eligible for cash prizes.
+            </span>
+          </label>
+          <input id="formFollowHandle" type="text" placeholder="Your Instagram/TikTok handle used to follow us" class="w-full px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400" />
+        </div>
+
         <div class="pt-2 border-t border-slate-800">
-          <span class="block text-xs font-bold text-amber-400 uppercase mb-2">Bank Payout Info (For Cash Bonuses)</span>
+          <span class="block text-xs font-bold text-amber-400 uppercase mb-2">Bank Payout Info (For Cash Prizes)</span>
           <div class="grid grid-cols-3 gap-2">
             <input id="formBank" type="text" placeholder="Bank Name" class="px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white" />
             <input id="formAccNum" type="text" placeholder="Account Number" class="px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white" />
@@ -486,7 +768,7 @@
         ${top3 ? `
         <div class="order-3 bg-slate-900 border-2 border-amber-600/60 rounded-2xl p-6 text-center shadow-xl">
           <div class="w-10 h-10 rounded-full bg-amber-700 text-amber-100 font-black text-sm flex items-center justify-center mx-auto mb-3">🥉</div>
-          <div class="text-xs font-black text-amber-400 uppercase mb-1">₦100,000 PRIZE</div>
+          <div class="text-xs font-black text-amber-400 uppercase block mb-1">₦100,000 PRIZE</div>
           <h3 class="font-extrabold text-white text-lg truncate">${top3.creatorName}</h3>
           <p class="text-xs text-emerald-400 font-semibold mb-3">${top3.handle}</p>
           <div class="text-2xl font-black text-amber-200">${(top3.verifiedViews || top3.claimedViews).toLocaleString()} <span class="text-xs text-slate-400">views</span></div>
@@ -564,29 +846,32 @@
 
     function handleFormSubmit(e) {
       e.preventDefault();
+      const followCheckbox = document.getElementById('formFollowed');
+      if (!followCheckbox.checked) {
+        alert('Please confirm that you follow @myrentilly on social media to qualify for payouts.');
+        return;
+      }
+
       const newSub = {
         id: 'sub_' + Date.now(),
-        creatorName: document.getElementById('formName').value,
-        handle: document.getElementById('formHandle').value,
+        creatorName: document.getElementById('formName').value.trim(),
+        handle: document.getElementById('formHandle').value.trim(),
         platform: document.getElementById('formPlatform').value,
-        videoUrl: document.getElementById('formUrl').value,
-        claimedViews: parseInt(document.getElementById('formViews').value) || 1000,
-        phone: document.getElementById('formPhone').value,
-        bankName: document.getElementById('formBank').value,
-        accountNumber: document.getElementById('formAccNum').value,
-        accountName: document.getElementById('formAccName').value,
+        referralCode: (document.getElementById('formReferral').value || '').trim().toUpperCase(),
+        videoUrl: document.getElementById('formUrl').value.trim(),
+        claimedViews: Number(document.getElementById('formViews').value) || 0,
+        verifiedViews: Number(document.getElementById('formViews').value) || 0,
+        phone: document.getElementById('formPhone').value.trim(),
+        bankName: document.getElementById('formBank').value.trim() || undefined,
+        accountNumber: document.getElementById('formAccNum').value.trim() || undefined,
+        accountName: document.getElementById('formAccName').value.trim() || undefined,
         bountyStatus: 'under_review',
         payoutAmount: 0,
         createdAt: new Date().toISOString()
       };
 
-      const views = newSub.claimedViews;
-      if (views >= 500000) { newSub.bountyStatus = 'qualified_500k'; newSub.payoutAmount = 150000; }
-      else if (views >= 100000) { newSub.bountyStatus = 'qualified_100k'; newSub.payoutAmount = 100000; }
-      else if (views >= 25000) { newSub.bountyStatus = 'qualified_25k'; newSub.payoutAmount = 10000; }
-
       const all = getData();
-      all.push(newSub);
+      all.unshift(newSub);
       localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
 
       try {
@@ -617,6 +902,8 @@
       if (ref) {
         const bioInput = document.getElementById('bioRefInput');
         if (bioInput) bioInput.value = ref.toUpperCase();
+        const formRef = document.getElementById('formReferral');
+        if (formRef) formRef.value = ref.toUpperCase();
       }
       render();
     });
