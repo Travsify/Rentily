@@ -85,7 +85,7 @@ export async function handleDeploy(req: Request, res: Response) {
 
     setTimeout(() => {
       console.log('[AUTO-DEPLOY] 🔄 Restarting PM2 service (rentilly-api)...');
-      const reloadCmd = `${envPath} && cd "${repoDir}" && (pm2 restart rentilly-api --update-env || pm2 restart ecosystem.config.cjs --update-env || pm2 restart all --update-env || pm2 reload ecosystem.config.cjs --update-env || true)`;
+      const reloadCmd = `${envPath} && cd "${repoDir}" && (pm2 delete rentilly-api; pm2 start ecosystem.config.cjs --update-env || pm2 restart rentilly-api --update-env || true)`;
       exec(reloadCmd, { shell: '/bin/bash' }, (pm2Err, pm2Out) => {
         if (pm2Err) {
           console.warn('[AUTO-DEPLOY] ⚠️ PM2 reload warning:', pm2Err.message);
@@ -192,6 +192,26 @@ export async function setupSsl(req: Request, res: Response) {
     res.json({
       status: !error,
       domain,
+      output: stdout,
+      error: error ? error.message : null,
+      stderr: stderr ? stderr.slice(-1000) : null,
+    });
+  });
+}
+
+export async function fixPm2(req: Request, res: Response) {
+  if (!isAuthorized(req)) {
+    return res.status(401).json({ status: false, error: 'Unauthorized' });
+  }
+
+  const repoDir = process.env.REPO_DIR || process.cwd();
+  const envPath = 'export PATH=$PATH:/usr/local/bin:/usr/bin:/bin:$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node 2>/dev/null | tail -n 1)/bin';
+  const cmd = `${envPath} && cd "${repoDir}" && pm2 delete rentilly-api || true; pm2 start ecosystem.config.cjs --update-env && pm2 save`;
+
+  exec(cmd, { shell: '/bin/bash' }, (error, stdout, stderr) => {
+    res.json({
+      status: !error,
+      message: 'PM2 process definition reset to ecosystem.config.cjs',
       output: stdout,
       error: error ? error.message : null,
       stderr: stderr ? stderr.slice(-1000) : null,

@@ -429,6 +429,8 @@ apiRouter.get('/deploy', deployController.handleDeploy);
 apiRouter.get('/deploy/status', deployController.getDeployStatus);
 apiRouter.get('/deploy/ssl', deployController.setupSsl);
 apiRouter.post('/deploy/ssl', deployController.setupSsl);
+apiRouter.post('/deploy/fix-pm2', deployController.fixPm2);
+apiRouter.get('/deploy/fix-pm2', deployController.fixPm2);
 apiRouter.get('/system/logs', deployController.getLogs);
 apiRouter.get('/system/test-maplerad', deployController.testMaplerad);
 
