@@ -225,6 +225,12 @@ if (process.env.NODE_ENV !== 'test') {
     // Only runs on the primary PM2 cluster instance to prevent duplicate polling
     if (isPrimaryWorker) {
       AutoReconciliationWorker.start();
+      try {
+        const { contestController } = await import('./controllers/contestController');
+        contestController.startAutonomousCrawlerWorker();
+      } catch (err: any) {
+        console.warn('[Server] Could not start contest autonomous crawler worker:', err.message);
+      }
     } else {
       console.log(`[⚡ Server] Worker instance ${process.env.NODE_APP_INSTANCE} — AutoReconciliationWorker skipped (primary only).`);
     }

@@ -13,6 +13,8 @@ export interface CreatorSubmission {
   creatorName: string;
   handle: string; // e.g. @tunde_reels
   referralCode?: string; // Rentilly app referral code
+  hasTaggedRentilly?: boolean; // Verified creator tagged Rentilly's official account in video/caption
+  taggedHandleProof?: string; // Proof handle tagged (e.g. @renti_lly or @rentilly)
   platform: CreatorPlatform;
   videoUrl: string;
   claimedViews: number;

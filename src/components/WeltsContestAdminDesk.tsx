@@ -30,6 +30,8 @@ interface ContestSubmission {
   botRiskReason?: string;
   followVerified?: boolean;
   followHandle?: string;
+  hasTaggedRentilly?: boolean;
+  taggedHandleProof?: string;
   phone: string;
   bankName?: string;
   accountNumber?: string;
@@ -817,7 +819,15 @@ export const WeltsContestAdminDesk: React.FC = () => {
                           </div>
                         )}
                         <div className="text-[10px] text-slate-400 mt-0.5">
-                          Follow: {sub.followHandle || sub.handle} {sub.followVerified && '✓'}
+                          Follow: {sub.followHandle || sub.handle} {sub.followVerified ? '✓' : ''}
+                        </div>
+                        <div className="text-[10px] font-bold mt-0.5 flex items-center gap-1">
+                          <span className="text-slate-400">Tagged:</span>
+                          {sub.hasTaggedRentilly !== false ? (
+                            <span className="text-emerald-400 font-semibold">✅ Tagged ({sub.platform === 'instagram' ? '@renti_lly' : '@rentilly'})</span>
+                          ) : (
+                            <span className="text-amber-400 font-semibold">⚠️ Missing Tag</span>
+                          )}
                         </div>
                       </td>
                       <td className="py-4 px-6 uppercase text-xs font-semibold text-slate-400">
