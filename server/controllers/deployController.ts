@@ -84,8 +84,8 @@ export async function handleDeploy(req: Request, res: Response) {
     });
 
     setTimeout(() => {
-      console.log('[AUTO-DEPLOY] 🔄 Reloading PM2 service (rentilly-api)...');
-      const reloadCmd = `${envPath} && pm2 reload rentilly-api || pm2 restart rentilly-api`;
+      console.log('[AUTO-DEPLOY] 🔄 Restarting PM2 service (rentilly-api)...');
+      const reloadCmd = `${envPath} && pm2 restart rentilly-api --update-env`;
       exec(reloadCmd, { shell: '/bin/bash' }, (pm2Err, pm2Out) => {
         if (pm2Err) {
           console.warn('[AUTO-DEPLOY] ⚠️ PM2 reload warning:', pm2Err.message);
