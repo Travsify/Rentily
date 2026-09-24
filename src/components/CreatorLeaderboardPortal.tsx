@@ -371,6 +371,14 @@ export const CreatorLeaderboardPortal: React.FC = () => {
   };
 
   const scrollToSection = (id: string) => {
+    if (pageView !== 'landing') {
+      navigateTo('landing');
+      setTimeout(() => {
+        const el = document.getElementById(id);
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+      }, 150);
+      return;
+    }
     const el = document.getElementById(id);
     if (el) {
       el.scrollIntoView({ behavior: 'smooth' });
@@ -378,7 +386,7 @@ export const CreatorLeaderboardPortal: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-emerald-500 selection:text-white flex flex-col justify-between pb-24 md:pb-12">
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-emerald-500 selection:text-white flex flex-col justify-between pb-28 md:pb-12">
       <div>
         {/* Toast Notification */}
         {toastMessage && (
@@ -390,37 +398,38 @@ export const CreatorLeaderboardPortal: React.FC = () => {
 
         {/* Top Header - Public Only */}
         <header className="border-b border-emerald-950/40 bg-slate-900/80 backdrop-blur-md sticky top-0 z-30">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-            <div className="flex items-center gap-3.5">
-              <a href="https://myrentilly.com" target="_blank" rel="noreferrer" className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-slate-900 border-2 border-emerald-400/40 p-1.5 shadow-lg shadow-emerald-900/30 flex items-center justify-center overflow-hidden shrink-0">
+          <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between">
+            <div className="flex items-center gap-2 sm:gap-3.5">
+              <a href="https://myrentilly.com" target="_blank" rel="noreferrer" className="flex items-center gap-2 sm:gap-3">
+                <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl sm:rounded-2xl bg-slate-900 border-2 border-emerald-400/40 p-1 sm:p-1.5 shadow-lg shadow-emerald-900/30 flex items-center justify-center overflow-hidden shrink-0">
                   <img src="/logo.png" alt="Rentilly" className="w-full h-full object-contain" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl font-extrabold tracking-wider bg-gradient-to-r from-emerald-400 to-amber-300 bg-clip-text text-transparent">
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <span className="text-base sm:text-xl font-extrabold tracking-wider bg-gradient-to-r from-emerald-400 to-amber-300 bg-clip-text text-transparent">
                       RENTILLY
                     </span>
-                    <span className="px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-full">
+                    <span className="hidden xs:inline-block px-2 py-0.5 text-[9px] sm:text-[10px] font-mono font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-full">
                       CREATOR CONTEST
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-400">Open to All Nigerian Creators &amp; Influencers</p>
+                  <p className="hidden md:block text-[11px] text-slate-400">Open to All Nigerian Creators &amp; Influencers</p>
                 </div>
               </a>
             </div>
 
-            <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-1.5 sm:gap-3">
               {pageView === 'landing' ? (
                 <>
                   <button
                     onClick={() => navigateTo('leaderboard')}
-                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-emerald-500/20 hover:from-amber-500/30 hover:to-emerald-500/30 text-amber-300 border border-amber-500/40 text-xs font-extrabold tracking-wide transition cursor-pointer shadow-lg shadow-amber-950/40"
+                    className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-amber-500/20 to-emerald-500/20 hover:from-amber-500/30 hover:to-emerald-500/30 text-amber-300 border border-amber-500/40 text-xs font-extrabold tracking-wide transition cursor-pointer shadow-lg shadow-amber-950/40"
                     title="Open Dedicated Leaderboard Page"
                   >
-                    <Trophy className="w-4 h-4 text-amber-400" />
-                    <span>Leaderboard</span>
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping ml-0.5" />
+                    <Trophy className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />
+                    <span className="hidden sm:inline">Leaderboard</span>
+                    <span className="sm:hidden text-xs">Board</span>
+                    <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-400 animate-ping ml-0.5" />
                   </button>
 
                   <button
@@ -443,14 +452,15 @@ export const CreatorLeaderboardPortal: React.FC = () => {
                 <>
                   <button
                     onClick={() => navigateTo('landing')}
-                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition cursor-pointer"
+                    className="flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-4 py-2 sm:py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition cursor-pointer"
                   >
-                    <span>← Back to Contest Rules</span>
+                    <span className="hidden sm:inline">← Back to Contest Rules</span>
+                    <span className="sm:hidden text-xs">← Rules</span>
                   </button>
                   <button
                     onClick={handleManualRefresh}
                     disabled={isRefreshing}
-                    className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition cursor-pointer"
+                    className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3.5 py-2 sm:py-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition cursor-pointer"
                     title="Refresh Live Leaderboard Views"
                   >
                     <RotateCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -461,10 +471,11 @@ export const CreatorLeaderboardPortal: React.FC = () => {
 
               <button
                 onClick={() => setIsSubmitModalOpen(true)}
-                className="px-4 sm:px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-slate-950 font-extrabold text-xs sm:text-sm shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition-all transform hover:scale-105 active:scale-95 cursor-pointer"
+                className="px-3 sm:px-6 py-2 sm:py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-slate-950 font-extrabold text-xs sm:text-sm shadow-lg shadow-emerald-500/20 flex items-center gap-1.5 sm:gap-2 transition-all transform hover:scale-105 active:scale-95 cursor-pointer shrink-0"
               >
-                <Plus className="w-4 h-4 stroke-[3]" />
-                <span>Submit Video Drop</span>
+                <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[3]" />
+                <span className="hidden sm:inline">Submit Video Drop</span>
+                <span className="sm:hidden text-xs">Submit</span>
               </button>
             </div>
           </div>
@@ -522,18 +533,18 @@ export const CreatorLeaderboardPortal: React.FC = () => {
             </section>
 
             {/* 3-WEEK CONTEST COUNTDOWN & APPROVED TOPIC ANNOUNCEMENT BANNER */}
-            <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6 mb-8 relative z-25">
-              <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-950 via-slate-900 to-teal-950 border-2 border-emerald-500/50 p-6 sm:p-8 shadow-2xl shadow-emerald-950/60 backdrop-blur-xl">
+            <section className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 -mt-6 mb-8 relative z-25">
+              <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-950 via-slate-900 to-teal-950 border-2 border-emerald-500/50 p-4 sm:p-8 shadow-2xl shadow-emerald-950/60 backdrop-blur-xl">
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                   <div className="space-y-2.5">
                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-xs font-black uppercase tracking-wider">
                       <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
                       Season {cycleConfig.season || 1} • 3-Week Creator Sprint
                     </div>
-                    <h2 className="text-2xl sm:text-3xl font-black text-white">
+                    <h2 className="text-xl sm:text-3xl font-black text-white">
                       {cycleConfig.isActive ? 'Contest Sprint Closes In:' : 'Season Review In Progress'}
                     </h2>
-                    <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-amber-300 font-extrabold bg-amber-500/15 border border-amber-500/40 px-3.5 py-1.5 rounded-xl w-fit">
+                    <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-amber-300 font-extrabold bg-amber-500/15 border border-amber-500/40 px-3 py-1.5 rounded-xl w-fit">
                       <span>🎯 Mandatory Video Scope:</span>
                       <span className="text-white underline decoration-amber-400">Renters &amp; Property Purchase Only</span>
                     </div>
@@ -544,23 +555,23 @@ export const CreatorLeaderboardPortal: React.FC = () => {
 
                   {/* Countdown Digital Blocks (Visible if Active) */}
                   {cycleConfig.isActive ? (
-                    <div className="flex flex-col items-center gap-2">
-                      <div className="grid grid-cols-4 gap-2 sm:gap-3 text-center">
-                        <div className="bg-slate-950/90 border border-emerald-500/40 rounded-2xl p-3 sm:p-4 min-w-[70px] sm:min-w-[85px] shadow-lg">
-                          <div className="text-2xl sm:text-4xl font-black text-white font-mono">{timeLeft.days}</div>
-                          <div className="text-[10px] sm:text-xs font-bold text-emerald-400 uppercase tracking-wider mt-1">Days</div>
+                    <div className="flex flex-col items-center gap-2 w-full sm:w-auto">
+                      <div className="grid grid-cols-4 gap-1.5 sm:gap-3 text-center w-full sm:w-auto">
+                        <div className="bg-slate-950/90 border border-emerald-500/40 rounded-xl sm:rounded-2xl p-2 sm:p-4 min-w-[58px] sm:min-w-[85px] shadow-lg">
+                          <div className="text-xl sm:text-4xl font-black text-white font-mono">{timeLeft.days}</div>
+                          <div className="text-[9px] sm:text-xs font-bold text-emerald-400 uppercase tracking-wider mt-0.5 sm:mt-1">Days</div>
                         </div>
-                        <div className="bg-slate-950/90 border border-emerald-500/40 rounded-2xl p-3 sm:p-4 min-w-[70px] sm:min-w-[85px] shadow-lg">
-                          <div className="text-2xl sm:text-4xl font-black text-white font-mono">{timeLeft.hours}</div>
-                          <div className="text-[10px] sm:text-xs font-bold text-emerald-400 uppercase tracking-wider mt-1">Hours</div>
+                        <div className="bg-slate-950/90 border border-emerald-500/40 rounded-xl sm:rounded-2xl p-2 sm:p-4 min-w-[58px] sm:min-w-[85px] shadow-lg">
+                          <div className="text-xl sm:text-4xl font-black text-white font-mono">{timeLeft.hours}</div>
+                          <div className="text-[9px] sm:text-xs font-bold text-emerald-400 uppercase tracking-wider mt-0.5 sm:mt-1">Hours</div>
                         </div>
-                        <div className="bg-slate-950/90 border border-emerald-500/40 rounded-2xl p-3 sm:p-4 min-w-[70px] sm:min-w-[85px] shadow-lg">
-                          <div className="text-2xl sm:text-4xl font-black text-white font-mono">{timeLeft.minutes}</div>
-                          <div className="text-[10px] sm:text-xs font-bold text-emerald-400 uppercase tracking-wider mt-1">Mins</div>
+                        <div className="bg-slate-950/90 border border-emerald-500/40 rounded-xl sm:rounded-2xl p-2 sm:p-4 min-w-[58px] sm:min-w-[85px] shadow-lg">
+                          <div className="text-xl sm:text-4xl font-black text-white font-mono">{timeLeft.minutes}</div>
+                          <div className="text-[9px] sm:text-xs font-bold text-emerald-400 uppercase tracking-wider mt-0.5 sm:mt-1">Mins</div>
                         </div>
-                        <div className="bg-slate-950/90 border border-emerald-500/40 rounded-2xl p-3 sm:p-4 min-w-[70px] sm:min-w-[85px] shadow-lg">
-                          <div className="text-2xl sm:text-4xl font-black text-emerald-300 font-mono animate-pulse">{timeLeft.seconds}</div>
-                          <div className="text-[10px] sm:text-xs font-bold text-emerald-400 uppercase tracking-wider mt-1">Secs</div>
+                        <div className="bg-slate-950/90 border border-emerald-500/40 rounded-xl sm:rounded-2xl p-2 sm:p-4 min-w-[58px] sm:min-w-[85px] shadow-lg">
+                          <div className="text-xl sm:text-4xl font-black text-emerald-300 font-mono animate-pulse">{timeLeft.seconds}</div>
+                          <div className="text-[9px] sm:text-xs font-bold text-emerald-400 uppercase tracking-wider mt-0.5 sm:mt-1">Secs</div>
                         </div>
                       </div>
                       <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
@@ -578,7 +589,7 @@ export const CreatorLeaderboardPortal: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setIsSubmitModalOpen(true)}
-                    className="px-6 py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/30 transition transform hover:-translate-y-0.5 active:scale-95 flex items-center justify-center gap-2 cursor-pointer shrink-0"
+                    className="w-full sm:w-auto px-6 py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/30 transition transform hover:-translate-y-0.5 active:scale-95 flex items-center justify-center gap-2 cursor-pointer shrink-0"
                   >
                     <Plus className="w-4 h-4 stroke-[3]" />
                     <span>Submit Video Drop</span>
@@ -588,10 +599,10 @@ export const CreatorLeaderboardPortal: React.FC = () => {
             </section>
 
             {/* DEDICATED LEADERBOARD GATEWAY CARD (SEPARATE PAGE PROMPT) */}
-            <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12">
-              <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-950/80 border-2 border-amber-500/60 rounded-3xl p-6 sm:p-8 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-6">
-                <div className="flex items-center gap-5">
-                  <div className="w-16 h-16 rounded-2xl bg-amber-500/20 border-2 border-amber-400 flex items-center justify-center text-3xl shrink-0 shadow-xl shadow-amber-950/60">
+            <section className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 mb-12">
+              <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-950/80 border-2 border-amber-500/60 rounded-3xl p-5 sm:p-8 shadow-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5 w-full md:w-auto">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-amber-500/20 border-2 border-amber-400 flex items-center justify-center text-2xl sm:text-3xl shrink-0 shadow-xl shadow-amber-950/60">
                     🏆
                   </div>
                   <div>
@@ -599,11 +610,11 @@ export const CreatorLeaderboardPortal: React.FC = () => {
                       <span className="text-xs font-black uppercase text-amber-400 tracking-wider">
                         Dedicated Leaderboard Page
                       </span>
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                      <span className="px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
                         Live Auto-Refresh
                       </span>
                     </div>
-                    <h3 className="text-xl sm:text-2xl font-black text-white">
+                    <h3 className="text-lg sm:text-2xl font-black text-white">
                       Official Creator Leaderboard &amp; Position Checker
                     </h3>
                     <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-xl leading-relaxed">
@@ -615,7 +626,7 @@ export const CreatorLeaderboardPortal: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => navigateTo('leaderboard')}
-                  className="px-6 py-4 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 text-slate-950 font-black text-xs sm:text-sm uppercase tracking-wider shadow-xl shadow-amber-500/30 transition transform hover:scale-105 active:scale-95 flex items-center gap-2 shrink-0 cursor-pointer"
+                  className="w-full md:w-auto px-6 py-4 rounded-2xl bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 text-slate-950 font-black text-xs sm:text-sm uppercase tracking-wider shadow-xl shadow-amber-500/30 transition transform hover:scale-105 active:scale-95 flex items-center justify-center gap-2 shrink-0 cursor-pointer"
                 >
                   <Trophy className="w-4 h-4 text-slate-950" />
                   <span>Open Full Leaderboard Page ↗</span>
@@ -1077,9 +1088,103 @@ export const CreatorLeaderboardPortal: React.FC = () => {
               </div>
             </div>
 
-            {/* LEADERBOARD TABLE */}
+            {/* LEADERBOARD CARDS & TABLE (100% RESPONSIVE) */}
             <div className="bg-slate-900/90 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl backdrop-blur-xl">
-              <div className="overflow-x-auto">
+              {/* MOBILE CARDS FEED (< md screens) */}
+              <div className="md:hidden divide-y divide-slate-800/80">
+                {filtered.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-2xl mx-auto mb-3 shadow-lg shadow-emerald-950/50">
+                      🏆
+                    </div>
+                    <h3 className="text-base font-black text-white mb-1.5">
+                      Season {cycleConfig.season || 1} Leaderboard Live!
+                    </h3>
+                    <p className="text-xs text-slate-300 mb-5 leading-relaxed">
+                      Zero dummy data. All 20 prize slots are vacant! Post on <strong>Renters</strong> or <strong>Property Purchase</strong> and win <strong>₦200,000</strong>!
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setIsSubmitModalOpen(true)}
+                      className="inline-flex items-center gap-1.5 px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/25 active:scale-95 cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4 stroke-[3]" />
+                      <span>Submit Video Drop</span>
+                    </button>
+                  </div>
+                ) : (
+                  filtered.map((sub, idx) => {
+                    const isTop3 = idx < 3;
+                    return (
+                      <div key={sub.id} className="p-4 space-y-3 bg-slate-900/40 hover:bg-slate-800/40 transition">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span
+                              className={`font-mono font-black text-xs px-2.5 py-0.5 rounded-lg border ${
+                                idx === 0
+                                  ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/40'
+                                  : idx === 1
+                                  ? 'bg-slate-300/10 text-slate-200 border-slate-300/40'
+                                  : idx === 2
+                                  ? 'bg-amber-600/10 text-amber-400 border-amber-600/40'
+                                  : idx < 20
+                                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                                  : 'bg-slate-800 text-slate-400 border-slate-700'
+                              }`}
+                            >
+                              #{idx + 1}
+                            </span>
+                            <span className="uppercase font-bold text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300">
+                              {getPlatformLabel(sub.platform)}
+                            </span>
+                            {sub.hasTaggedRentilly && (
+                              <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/30">
+                                🏷️ Tagged
+                              </span>
+                            )}
+                          </div>
+                          <div>{getRankBadge(idx)}</div>
+                        </div>
+
+                        <div>
+                          <div className="font-extrabold text-white text-base flex items-center gap-1.5">
+                            <span className="truncate">{sub.creatorName}</span>
+                            {isTop3 && <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />}
+                          </div>
+                          <div className="text-xs text-emerald-400 font-semibold">{sub.handle}</div>
+                          {sub.referralCode && (
+                            <div className="text-[10px] text-amber-300 font-mono mt-0.5">
+                              Ref: {sub.referralCode}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center justify-between pt-2 border-t border-slate-800/80">
+                          <div>
+                            <span className="text-[10px] uppercase font-bold text-slate-400 block">Verified Views</span>
+                            <span className="font-mono font-black text-white text-base">
+                              {(sub.verifiedViews || sub.claimedViews).toLocaleString()}
+                            </span>
+                          </div>
+
+                          <a
+                            href={sub.videoUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold text-xs transition active:scale-95 cursor-pointer shrink-0"
+                          >
+                            <Play className="w-3.5 h-3.5 fill-emerald-400 text-emerald-400" />
+                            <span>Watch Drop</span>
+                          </a>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* DESKTOP TABLE (>= md screens) */}
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead className="bg-slate-950/90 text-slate-400 text-xs uppercase tracking-wider border-b border-slate-800">
                     <tr>
@@ -1297,43 +1402,59 @@ export const CreatorLeaderboardPortal: React.FC = () => {
           </div>
         </footer>
 
-        {/* MOBILE STICKY BOTTOM NAVIGATION BAR WITH ICONS */}
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-800 px-2 py-2 flex items-center justify-around shadow-2xl">
+        {/* MOBILE STICKY BOTTOM NAVIGATION BAR WITH ICONS (100% RESPONSIVE) */}
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-slate-950/95 backdrop-blur-xl border-t border-slate-800/80 px-2 sm:px-4 py-2 flex items-center justify-around shadow-[0_-8px_30px_rgba(0,0,0,0.7)] pb-[calc(0.5rem+env(safe-area-inset-bottom,0px))]">
           <button
-            onClick={() => navigateTo('leaderboard')}
-            className="flex flex-col items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-emerald-400 transition"
+            type="button"
+            onClick={() => {
+              if (pageView !== 'landing') navigateTo('landing');
+              else window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            className={`flex flex-col items-center gap-1 text-[10px] font-bold transition cursor-pointer ${
+              pageView === 'landing' ? 'text-emerald-400 font-extrabold' : 'text-slate-400 hover:text-white'
+            }`}
           >
-            <Trophy className="w-4 h-4 text-amber-400" />
-            <span>Ranks</span>
+            <Sparkles className="w-4 h-4" />
+            <span>Contest</span>
           </button>
 
           <button
-            onClick={() => scrollToSection('prizes')}
-            className="flex flex-col items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-emerald-400 transition"
+            type="button"
+            onClick={() => navigateTo('leaderboard')}
+            className={`flex flex-col items-center gap-1 text-[10px] font-bold transition cursor-pointer relative ${
+              pageView === 'leaderboard' ? 'text-amber-400 font-extrabold' : 'text-slate-400 hover:text-white'
+            }`}
           >
-            <Gift className="w-4 h-4 text-emerald-400" />
-            <span>Prizes</span>
+            <Trophy className="w-4 h-4 text-amber-400" />
+            <span>Leaderboard</span>
+            {pageView === 'leaderboard' && (
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping absolute -top-0.5 right-1.5" />
+            )}
           </button>
 
           {/* Central Pulsing Submit Button */}
           <button
+            type="button"
             onClick={() => setIsSubmitModalOpen(true)}
-            className="flex flex-col items-center -mt-5 bg-gradient-to-r from-emerald-500 to-emerald-600 text-slate-950 font-black p-3 rounded-full shadow-lg shadow-emerald-500/40 border-2 border-slate-950 active:scale-95 transition"
+            className="flex items-center justify-center -mt-6 bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-black p-3.5 rounded-full shadow-xl shadow-emerald-500/50 border-4 border-slate-950 active:scale-95 transition cursor-pointer"
+            title="Submit Video Drop"
           >
             <Plus className="w-5 h-5 stroke-[3]" />
           </button>
 
           <button
-            onClick={() => scrollToSection('socials')}
-            className="flex flex-col items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-emerald-400 transition"
+            type="button"
+            onClick={() => scrollToSection('prizes')}
+            className="flex flex-col items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-emerald-400 transition cursor-pointer"
           >
-            <Share2 className="w-4 h-4 text-pink-400" />
-            <span>Follow</span>
+            <Gift className="w-4 h-4 text-emerald-400" />
+            <span>Prizes</span>
           </button>
 
           <button
+            type="button"
             onClick={() => scrollToSection('rules')}
-            className="flex flex-col items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-emerald-400 transition"
+            className="flex flex-col items-center gap-1 text-[10px] font-bold text-slate-400 hover:text-cyan-400 transition cursor-pointer"
           >
             <BookOpen className="w-4 h-4 text-cyan-400" />
             <span>Rules</span>
@@ -1343,7 +1464,7 @@ export const CreatorLeaderboardPortal: React.FC = () => {
         {/* Submission Modal */}
         {isSubmitModalOpen && (
           <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl sm:rounded-3xl max-w-lg w-full p-4 sm:p-8 shadow-2xl relative max-h-[92vh] overflow-y-auto m-2">
               <button
                 onClick={() => setIsSubmitModalOpen(false)}
                 className="absolute top-5 right-5 text-slate-400 hover:text-white p-1 rounded-lg bg-slate-800"

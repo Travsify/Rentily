@@ -1,4 +1,4 @@
-﻿import express from 'express';
+import express from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -215,11 +215,11 @@ if (process.env.NODE_ENV !== 'test') {
     console.log(`📦 Supabase Live Connection: ${isSupabaseConfigured() ? 'Connected ✅' : 'Waiting for Credentials ⚡'}`);
     console.log(`=================================================`);
 
+    // Signal PM2 immediately that the HTTP server is listening
+    process.send?.('ready');
+
     // Hydrate everything from Supabase Cloud (Zero Ephemeral Character)
     await hydrateAllStores();
-
-    // Signal PM2 that the process is ready (enables wait_ready in ecosystem.config)
-    process.send?.('ready');
 
     // Start Autonomous Omni-Sync Worker (Reconciles all fintechs every 10s)
     // Only runs on the primary PM2 cluster instance to prevent duplicate polling

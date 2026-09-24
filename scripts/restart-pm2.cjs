@@ -7,10 +7,10 @@ if (process.platform === 'win32') {
 
 console.log('[Postbuild] Checking PM2 and reloading server processes...');
 const restartCommands = [
-  'pm2 reload ecosystem.config.cjs --update-env',
   'pm2 restart rentilly-api --update-env',
+  'pm2 restart ecosystem.config.cjs --update-env',
   'pm2 restart all --update-env',
-  'npx --yes pm2 reload ecosystem.config.cjs --update-env',
+  'pm2 reload ecosystem.config.cjs --update-env',
   'npx --yes pm2 restart rentilly-api --update-env',
   'npx --yes pm2 restart all --update-env',
   '/usr/local/bin/pm2 restart all',
