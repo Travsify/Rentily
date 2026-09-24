@@ -102,15 +102,22 @@ export async function addToBlacklist(req: Request, res: Response) {
 export async function checkBlacklist(req: Request, res: Response) {
   try {
     const source = req.method === 'POST' ? req.body : req.query;
-    const { phoneNumber, bvn, nin, bankAccountNumber } = source || {};
-    const all = _blacklistCache;
+    const normalizePhone = (p: string) => {
+      const clean = p.replace(/\D/g, '');
+      return clean.length >= 10 ? clean.slice(-10) : clean;
+    };
+
+    const targetPhone = phoneNumber ? normalizePhone(phoneNumber.toString()) : null;
+    const targetBvn = bvn ? bvn.toString().trim() : null;
+    const targetNin = nin ? nin.toString().trim() : null;
+    const targetAcc = bankAccountNumber ? bankAccountNumber.toString().trim() : null;
 
     const matched = all.filter(entry => {
       if (!entry.isActive) return false;
-      if (phoneNumber && entry.phoneNumber && entry.phoneNumber.includes(phoneNumber.toString())) return true;
-      if (bvn && entry.bvn && entry.bvn === bvn.toString()) return true;
-      if (nin && entry.nin && entry.nin === nin.toString()) return true;
-      if (bankAccountNumber && entry.bankAccountNumber && entry.bankAccountNumber === bankAccountNumber.toString()) return true;
+      if (targetPhone && entry.phoneNumber && normalizePhone(entry.phoneNumber) === targetPhone) return true;
+      if (targetBvn && entry.bvn && entry.bvn.trim() === targetBvn) return true;
+      if (targetNin && entry.nin && entry.nin.trim() === targetNin) return true;
+      if (targetAcc && entry.bankAccountNumber && entry.bankAccountNumber.trim() === targetAcc) return true;
       return false;
     });
 

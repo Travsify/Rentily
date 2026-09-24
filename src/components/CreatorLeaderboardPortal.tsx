@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { 
   Copy,
   Trophy, 
-  Flame, 
   Sparkles, 
   Plus, 
   Search, 
@@ -208,8 +207,8 @@ export const CreatorLeaderboardPortal: React.FC = () => {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
             <div className="flex items-center gap-3.5">
               <a href="https://myrentilly.com" target="_blank" rel="noreferrer" className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-emerald-950 border-2 border-amber-500/80 p-2 shadow-lg shadow-emerald-900/40 flex items-center justify-center">
-                  <Flame className="w-6 h-6 text-amber-400" />
+                <div className="w-11 h-11 rounded-2xl bg-slate-900 border-2 border-emerald-400/40 p-1.5 shadow-lg shadow-emerald-900/30 flex items-center justify-center overflow-hidden shrink-0">
+                  <img src="/logo.png" alt="Rentilly" className="w-full h-full object-contain" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
@@ -678,8 +677,8 @@ export const CreatorLeaderboardPortal: React.FC = () => {
             {/* Brand Col */}
             <div className="md:col-span-1 space-y-4">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-emerald-950 border border-amber-500/60 flex items-center justify-center">
-                  <Flame className="w-5 h-5 text-amber-400" />
+                <div className="w-10 h-10 rounded-xl bg-slate-900 border border-emerald-400/30 p-1 flex items-center justify-center overflow-hidden shrink-0">
+                  <img src="/logo.png" alt="Rentilly" className="w-full h-full object-contain" />
                 </div>
                 <span className="text-lg font-black tracking-wider text-white">RENTILLY</span>
               </div>
@@ -788,13 +787,20 @@ export const CreatorLeaderboardPortal: React.FC = () => {
               <X className="w-5 h-5" />
             </button>
 
-            <div className="flex items-center gap-2 mb-1">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
-              <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">
-                Leaderboard Drop
-              </span>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-slate-950 border border-emerald-500/30 p-1 shrink-0 overflow-hidden flex items-center justify-center">
+                <img src="/logo.png" alt="Rentilly" className="w-full h-full object-contain" />
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">
+                    Leaderboard Drop
+                  </span>
+                </div>
+                <h2 className="text-xl font-black text-white">Submit Your Video Link</h2>
+              </div>
             </div>
-            <h2 className="text-xl font-black text-white mb-2">Submit Your Video Link</h2>
             <p className="text-xs text-slate-400 mb-6">
               Drop your live video link so our view tracker starts ranking your video on the leaderboard.
             </p>

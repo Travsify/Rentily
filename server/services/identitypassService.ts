@@ -74,10 +74,11 @@ export class IdentitypassService {
     }
 
     try {
+      const cleanNin = ninNumber.replace(/\D/g, '').trim();
       const response = await fetch(`${resolveBaseUrl()}/identitypass/verification/nin`, {
         method: 'POST',
         headers: this.getHeaders(),
-        body: JSON.stringify({ number: ninNumber.trim(), number_nin: ninNumber.trim() })
+        body: JSON.stringify({ number: cleanNin, number_nin: cleanNin })
       });
 
       const resJson: any = await response.json();
@@ -127,6 +128,7 @@ export class IdentitypassService {
     raw?: any;
     message?: string;
   }> {
+    const cleanBvn = bvnNumber.replace(/\D/g, '').trim();
     if (!this.isConfigured()) {
       return {
         status: true,
@@ -136,7 +138,7 @@ export class IdentitypassService {
           fullName: 'Verified Property Owner (BVN Match)',
           phone: '+2348000000000',
           dateOfBirth: '1982-11-04',
-          bvn: bvnNumber
+          bvn: cleanBvn
         },
         message: 'Identitypass demo mode (Live API key pending in Settings)'
       };
@@ -146,7 +148,7 @@ export class IdentitypassService {
       const response = await fetch(`${resolveBaseUrl()}/identitypass/verification/bvn`, {
         method: 'POST',
         headers: this.getHeaders(),
-        body: JSON.stringify({ number: bvnNumber.trim() })
+        body: JSON.stringify({ number: cleanBvn })
       });
 
       const resJson: any = await response.json();
@@ -161,7 +163,7 @@ export class IdentitypassService {
             fullName: `${bvnData.firstName || ''} ${bvnData.lastName || ''}`.trim(),
             phone: bvnData.phoneNumber1 || bvnData.phone_number || '',
             dateOfBirth: bvnData.dateOfBirth || bvnData.dob || '',
-            bvn: bvnNumber
+            bvn: cleanBvn
           },
           raw: resJson
         };
@@ -193,12 +195,13 @@ export class IdentitypassService {
     raw?: any;
     message?: string;
   }> {
+    const cleanRc = rcNumber.replace(/^(RC|BN|IT|LLP)[\s-]*/i, '').trim();
     if (!this.isConfigured()) {
       return {
         status: true,
         data: {
           companyName: companyName || 'Rentilly Prime Estates Limited',
-          rcNumber: rcNumber,
+          rcNumber: cleanRc || rcNumber,
           companyType: 'Private Company Limited by Shares (LTD)',
           registrationDate: '2018-04-20',
           address: 'Plot 14, Admiralty Way, Lekki Phase 1, Lagos',
@@ -211,7 +214,7 @@ export class IdentitypassService {
       const response = await fetch(`${resolveBaseUrl()}/identitypass/verification/cac`, {
         method: 'POST',
         headers: this.getHeaders(),
-        body: JSON.stringify({ rc_number: rcNumber.trim(), company_name: companyName })
+        body: JSON.stringify({ rc_number: cleanRc || rcNumber.trim(), company_name: companyName })
       });
 
       const resJson: any = await response.json();

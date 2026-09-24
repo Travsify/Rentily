@@ -225,11 +225,11 @@ export async function login(req: Request, res: Response) {
         }
       }).catch(err => console.error('[Security Alert] Login email dispatch failed:', err.message));
 
-      const isPartnerUser = user.role === 'partner' || Boolean(user.businessName && user.businessName.trim().length > 0 && user.buyerType === 'corporate');
+      const isPartnerUser = user.role === 'partner';
       const isPartnerKybVerified = Boolean(user.isVerified && (user.bvnVerified || user.cacNumber) && user.partnerStatus === 'verified');
       const effectiveVerified = isPartnerUser ? isPartnerKybVerified : user.isVerified;
-      const effectivePartnerStatus = isPartnerUser ? (isPartnerKybVerified ? 'verified' : 'unverified') : user.partnerStatus;
-      const effectiveRole = isPartnerUser ? 'partner' : user.role;
+      const effectivePartnerStatus = isPartnerUser ? (isPartnerKybVerified ? 'verified' : 'unverified') : (user.partnerStatus || 'unverified');
+      const effectiveRole = user.role;
 
       return res.json({
         token,
@@ -300,11 +300,11 @@ export async function getMe(req: Request, res: Response) {
     return res.status(401).json({ error: 'Unauthorized: Invalid or expired session token' });
   }
 
-  const isPartnerUser = user.role === 'partner' || Boolean(user.businessName && user.businessName.trim().length > 0 && user.buyerType === 'corporate');
+  const isPartnerUser = user.role === 'partner';
   const isPartnerKybVerified = Boolean(user.isVerified && (user.bvnVerified || user.cacNumber) && user.partnerStatus === 'verified');
   const effectiveVerified = isPartnerUser ? isPartnerKybVerified : user.isVerified;
-  const effectivePartnerStatus = isPartnerUser ? (isPartnerKybVerified ? 'verified' : 'unverified') : user.partnerStatus;
-  const effectiveRole = isPartnerUser ? 'partner' : user.role;
+  const effectivePartnerStatus = isPartnerUser ? (isPartnerKybVerified ? 'verified' : 'unverified') : (user.partnerStatus || 'unverified');
+  const effectiveRole = user.role;
 
   return res.json({
     user: {
@@ -759,11 +759,11 @@ export async function loginWithOtp(req: Request, res: Response) {
       });
     }
 
-    const isPartnerUser = user.role === 'partner' || Boolean(user.businessName && user.businessName.trim().length > 0 && user.buyerType === 'corporate');
+    const isPartnerUser = user.role === 'partner';
     const isPartnerKybVerified = Boolean(user.isVerified && (user.bvnVerified || user.cacNumber) && user.partnerStatus === 'verified');
     const effectiveVerified = isPartnerUser ? isPartnerKybVerified : user.isVerified;
-    const effectivePartnerStatus = isPartnerUser ? (isPartnerKybVerified ? 'verified' : 'unverified') : user.partnerStatus;
-    const effectiveRole = isPartnerUser ? 'partner' : user.role;
+    const effectivePartnerStatus = isPartnerUser ? (isPartnerKybVerified ? 'verified' : 'unverified') : (user.partnerStatus || 'unverified');
+    const effectiveRole = user.role;
     const token = `rentilly_jwt_${user.id}_${Date.now()}`;
 
     // Dispatch Login Alert
@@ -820,7 +820,11 @@ export async function loginWithOtp(req: Request, res: Response) {
 // Critical for users whose name was auto-set from email prefix.
 export async function updateProfile(req: Request, res: Response) {
   try {
-    const { email, fullName, phoneNumber, state, avatarUrl, businessName, cacNumber, officeAddress, lasreraNumber } = req.body;
+    const { 
+      email, fullName, phoneNumber, state, avatarUrl, businessName, cacNumber, officeAddress, 
+      lasreraNumber, tinNumber, signatoryName, signatoryRole, signatoryPhone, buyerType,
+      bankName, accountNumber
+    } = req.body;
     if (!email) {
       return res.status(400).json({ error: 'Email is required to identify the account.' });
     }
@@ -843,6 +847,13 @@ export async function updateProfile(req: Request, res: Response) {
     if (cacNumber) user.cacNumber = cacNumber.trim();
     if (officeAddress) user.officeAddress = officeAddress.trim();
     if (lasreraNumber !== undefined) user.lasreraNumber = lasreraNumber ? lasreraNumber.trim() : null;
+    if (tinNumber !== undefined) user.tinNumber = tinNumber ? tinNumber.trim() : null;
+    if (signatoryName !== undefined) user.signatoryName = signatoryName ? signatoryName.trim() : null;
+    if (signatoryRole !== undefined) user.signatoryRole = signatoryRole ? signatoryRole.trim() : null;
+    if (signatoryPhone !== undefined) user.signatoryPhone = signatoryPhone ? signatoryPhone.trim() : null;
+    if (buyerType) user.buyerType = buyerType;
+    if (bankName) user.bankName = bankName;
+    if (accountNumber) user.accountNumber = accountNumber;
 
     UserStore.upsertUser(user);
 
@@ -860,7 +871,8 @@ export async function updateProfile(req: Request, res: Response) {
         if (businessName) update.business_name = businessName.trim();
         if (cacNumber) update.cac_number = cacNumber.trim();
         if (officeAddress) update.office_address = officeAddress.trim();
-        if (lasreraNumber !== undefined) update.lasrera_number = lasreraNumber ? lasreraNumber.trim() : null;
+        if (bankName) update.bank_name = bankName;
+        if (accountNumber) update.account_number = accountNumber;
         if (Object.keys(update).length > 0) {
           await supabase.from('profiles').update(update).eq('email', cleanEmail);
         }
@@ -878,11 +890,18 @@ export async function updateProfile(req: Request, res: Response) {
         email: user.email,
         phoneNumber: user.phoneNumber,
         role: user.role,
+        buyerType: user.buyerType || (user.businessName ? 'corporate' : 'personal'),
         state: user.state,
         businessName: user.businessName,
         cacNumber: user.cacNumber,
         officeAddress: user.officeAddress,
         lasreraNumber: user.lasreraNumber,
+        tinNumber: user.tinNumber,
+        signatoryName: user.signatoryName,
+        signatoryRole: user.signatoryRole,
+        signatoryPhone: user.signatoryPhone,
+        bankName: user.bankName,
+        accountNumber: user.accountNumber,
         isVerified: user.isVerified,
         bvnVerified: user.bvnVerified,
         walletBalance: user.walletBalance || 0,

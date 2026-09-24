@@ -438,8 +438,18 @@ export class UserStore {
 
     this.saveUsers(users);
 
-    // Persist to Supabase Cloud profiles table (throttled: max 1 write per 30s per user)
-    if (supabase && shouldPersistToSupabase(user.email.toLowerCase().trim())) {
+
+    // Persist to Supabase Cloud profiles table.
+    // Financial/verification-critical fields (walletBalance, isVerified, accountNumber, bvnVerified)
+    // ALWAYS bypass the throttle and force-persist to prevent cloud desync.
+    const isFinancialUpdate = user.walletBalance !== undefined || user.isVerified !== undefined || 
+                              user.accountNumber !== undefined || user.bvnVerified !== undefined;
+    const shouldPersist = isFinancialUpdate || shouldPersistToSupabase(user.email.toLowerCase().trim());
+    if (supabase && shouldPersist) {
+      if (isFinancialUpdate) {
+        // Force-update the throttle timestamp so non-critical fields still get 30s protection
+        _lastSupabasePersist.set(user.email.toLowerCase().trim(), Date.now());
+      }
       const dbRole = (user.role === 'partner' ? 'owner' : (user.role === 'legal_officer' ? 'admin' : user.role)) as any;
       Promise.resolve(supabase.from('profiles').upsert({
         id: user.id,

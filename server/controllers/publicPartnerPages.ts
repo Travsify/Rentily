@@ -5,6 +5,19 @@ import { NotificationDispatcher } from '../services/notificationDispatcher';
 import { supabase } from '../supabaseClient';
 import { TransactionStore } from '../services/transactionStore';
 
+/**
+ * Escapes user-supplied strings before injecting into HTML to prevent XSS.
+ * Must be used for any query-param / user-data value rendered in HTML context.
+ */
+function escapeHtml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 export async function renderPartnerVerificationPage(req: Request, res: Response) {
   const partnerIdStr = String(req.params.id || req.query.id || req.query.partner_id || '').trim();
 
@@ -139,8 +152,8 @@ export async function renderPartnerVerificationPage(req: Request, res: Response)
 
 export function renderLandlordInvitePage(req: Request, res: Response) {
   const { partner_id, firm } = req.query;
-  const partnerCode = String(partner_id || '').trim();
-  const firmName = String(firm || 'Accredited Managing Partner').trim();
+  const partnerCode = escapeHtml(String(partner_id || '').trim());
+  const firmName = escapeHtml(String(firm || 'Accredited Managing Partner').trim());
 
   res.send(`
     <!DOCTYPE html>
@@ -779,7 +792,7 @@ export async function renderReKycPage(req: Request, res: Response) {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  email: '${cleanEmail}' || document.getElementById('email').value,
+                  email: ${JSON.stringify(cleanEmail)} || document.getElementById('email').value,
                   dob: formattedDob,
                   fullName: document.getElementById('fullName').value,
                   bvn: bvnVal,
