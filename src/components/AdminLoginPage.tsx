@@ -25,7 +25,13 @@ interface AdminLoginPageProps {
 }
 
 export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onLoginSuccess }) => {
-  const [loginMode, setLoginMode] = useState<'admin' | 'agent'>('admin');
+  const isWealthDomain = typeof window !== 'undefined' && (
+    window.location.hostname.startsWith('wealth.') ||
+    window.location.hostname.includes('localhost') ||
+    window.location.hostname.includes('127.0.0.1')
+  );
+
+  const [loginMode, setLoginMode] = useState<'admin' | 'agent'>(isWealthDomain ? 'admin' : 'agent');
   const [adminStep, setAdminStep] = useState<'credentials' | 'totp' | 'email_otp'>('credentials');
   const [mfaMethod, setMfaMethod] = useState<'totp' | 'email'>('totp');
 
@@ -326,11 +332,13 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onLoginSuccess }
               <Headphones className="w-6 h-6 text-white" />
             )}
           </div>
-          <h1 className="text-xl font-extrabold text-white tracking-tight">Rentilly Operations Hub</h1>
+          <h1 className="text-xl font-extrabold text-white tracking-tight">
+            {isWealthDomain ? 'Rentilly Sovereign Treasury' : 'Rentilly Operations Hub'}
+          </h1>
           <p className="text-xs text-slate-400 max-w-xs mx-auto">
-            {loginMode === 'admin'
-              ? 'Multi-Factor Operations & Treasury Access Gateway'
-              : 'Zero-Agent Real Estate Support Desk'}
+            {isWealthDomain
+              ? 'Master Treasury & Super Admin 2FA Gateway (Air-Gapped)'
+              : 'Legal Counsel, Dispute Desk & Operations Staff'}
           </p>
         </div>
 
@@ -343,7 +351,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onLoginSuccess }
               loginMode === 'admin' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            Admin 2FA Gateway
+            {isWealthDomain ? 'Executive 2FA Gateway' : 'Super Admin (Air-Gapped)'}
           </button>
           <button
             type="button"
@@ -352,7 +360,7 @@ export const AdminLoginPage: React.FC<AdminLoginPageProps> = ({ onLoginSuccess }
               loginMode === 'agent' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-slate-200'
             }`}
           >
-            Support Agent
+            Legal & Staff Team
           </button>
         </div>
 
