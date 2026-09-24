@@ -109,23 +109,19 @@ apiRouter.post('/auth/register', authController.register);
 apiRouter.post('/auth/login', authController.login);
 apiRouter.post('/auth/login-otp', authController.loginWithOtp);
 
-// 2a. Hardened Military-Grade Admin Authentication & Sentinel Gateway (Sub-Router)
-const adminAuthRouter = Router();
-adminAuthRouter.use(adminSecuritySentinel);
-adminAuthRouter.post('/request-otp', authController.requestAdminOtp);
-adminAuthRouter.post('/verify-2fa', authController.verifyAdmin2fa);
-adminAuthRouter.post('/mfa/status', authController.getAdminMfaStatus);
-adminAuthRouter.post('/mfa/setup', authController.setupAdminTotp);
-adminAuthRouter.post('/mfa/verify-totp', authController.verifyAdminTotp);
-adminAuthRouter.post('/mfa/test-sync', authController.testAdminTotpSync);
-adminAuthRouter.post('/profile', authController.getAdminProfile);
-adminAuthRouter.post('/change-password', authController.changeAdminPassword);
-adminAuthRouter.post('/change-harsh-key', authController.changeAdminHarshKey);
-adminAuthRouter.get('/sentinel/status', getSentinelStatus);
-adminAuthRouter.post('/emergency-lockdown', triggerEmergencyLockdown);
-adminAuthRouter.post('/lift-lockdown', liftEmergencyLockdown);
-
-apiRouter.use('/auth/admin', adminAuthRouter);
+// 2a. Hardened Military-Grade Admin Authentication & Sentinel Gateway
+apiRouter.post('/auth/admin/request-otp', adminSecuritySentinel, authController.requestAdminOtp);
+apiRouter.post('/auth/admin/verify-2fa', adminSecuritySentinel, authController.verifyAdmin2fa);
+apiRouter.post('/auth/admin/mfa/status', adminSecuritySentinel, authController.getAdminMfaStatus);
+apiRouter.post('/auth/admin/mfa/setup', adminSecuritySentinel, authController.setupAdminTotp);
+apiRouter.post('/auth/admin/mfa/verify-totp', adminSecuritySentinel, authController.verifyAdminTotp);
+apiRouter.post('/auth/admin/mfa/test-sync', adminSecuritySentinel, authController.testAdminTotpSync);
+apiRouter.post('/auth/admin/profile', adminSecuritySentinel, authController.getAdminProfile);
+apiRouter.post('/auth/admin/change-password', adminSecuritySentinel, authController.changeAdminPassword);
+apiRouter.post('/auth/admin/change-harsh-key', adminSecuritySentinel, authController.changeAdminHarshKey);
+apiRouter.get('/auth/admin/sentinel/status', adminSecuritySentinel, getSentinelStatus);
+apiRouter.post('/auth/admin/emergency-lockdown', adminSecuritySentinel, triggerEmergencyLockdown);
+apiRouter.post('/auth/admin/lift-lockdown', adminSecuritySentinel, liftEmergencyLockdown);
 apiRouter.get('/auth/me', authController.getMe);
 apiRouter.get('/users', authController.listUsers);
 apiRouter.post('/auth/send-otp', otpController.sendOtp);
