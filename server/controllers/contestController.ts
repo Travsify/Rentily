@@ -33,152 +33,46 @@ export interface ContestSubmission {
 const DATA_DIR = path.join(process.cwd(), 'server', 'data');
 const DATA_FILE = path.join(DATA_DIR, 'contest_submissions.json');
 
-const INITIAL_SEEDS: ContestSubmission[] = [
-  {
-    id: 'sub_seed_1',
-    creatorName: 'Tunde Adeleke',
-    handle: '@tunde_reels',
-    referralCode: 'TUNDE24',
-    platform: 'tiktok',
-    videoUrl: 'https://www.tiktok.com/@tunde_reels/video/7281928391029',
-    claimedViews: 142500,
-    verifiedViews: 142500,
-    likesCount: 11400,
-    commentsCount: 890,
-    sharesCount: 1200,
-    engagementRate: 9.4,
-    botRiskScore: 'low',
-    followVerified: true,
-    followHandle: '@tunde_reels',
-    phone: '+234 803 111 2233',
-    bankName: 'Access Bank',
-    accountNumber: '0123456789',
-    accountName: 'Tunde Adeleke',
-    bountyStatus: 'grand_prize',
-    payoutAmount: 200000,
-    createdAt: new Date(Date.now() - 36 * 3600 * 1000).toISOString(),
-  },
-  {
-    id: 'sub_seed_2',
-    creatorName: 'Amaka Eze',
-    handle: '@amakavibes',
-    referralCode: 'AMAKA99',
-    platform: 'instagram',
-    videoUrl: 'https://www.instagram.com/reel/C892_akj12/',
-    claimedViews: 98400,
-    verifiedViews: 98400,
-    likesCount: 6800,
-    commentsCount: 420,
-    sharesCount: 610,
-    engagementRate: 7.9,
-    botRiskScore: 'low',
-    followVerified: true,
-    followHandle: '@amakavibes',
-    phone: '+234 814 222 3344',
-    bankName: 'GTBank',
-    accountNumber: '0987654321',
-    accountName: 'Amaka Eze',
-    bountyStatus: 'qualified_500k',
-    payoutAmount: 150000,
-    createdAt: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
-  },
-  {
-    id: 'sub_seed_3',
-    creatorName: 'Femi (Ibadan Corper)',
-    handle: '@femi_nysc',
-    referralCode: 'FEMI_NYSC',
-    platform: 'tiktok',
-    videoUrl: 'https://www.tiktok.com/@femi_nysc/video/7281928991201',
-    claimedViews: 64200,
-    verifiedViews: 64200,
-    likesCount: 4100,
-    commentsCount: 310,
-    sharesCount: 290,
-    engagementRate: 7.3,
-    botRiskScore: 'low',
-    followVerified: true,
-    followHandle: '@femi_nysc',
-    phone: '+234 808 333 4455',
-    bankName: 'Zenith Bank',
-    accountNumber: '2109876543',
-    accountName: 'Oluwafemi Johnson',
-    bountyStatus: 'qualified_100k',
-    payoutAmount: 100000,
-    createdAt: new Date(Date.now() - 18 * 3600 * 1000).toISOString(),
-  },
-  {
-    id: 'sub_seed_4',
-    creatorName: 'Kemi Real Estate',
-    handle: '@kemi_homes',
-    referralCode: 'KEMI_PROP',
-    platform: 'youtube',
-    videoUrl: 'https://youtube.com/shorts/C1BWBH_5wwc',
-    claimedViews: 41800,
-    verifiedViews: 41800,
-    likesCount: 2200,
-    commentsCount: 180,
-    sharesCount: 140,
-    engagementRate: 6.0,
-    botRiskScore: 'low',
-    followVerified: true,
-    followHandle: '@kemi_homes',
-    phone: '+234 701 444 5566',
-    bankName: 'UBA',
-    accountNumber: '2019283746',
-    accountName: 'Kemi Adele',
-    bountyStatus: 'qualified_25k',
-    payoutAmount: 10000,
-    createdAt: new Date(Date.now() - 12 * 3600 * 1000).toISOString(),
-  },
-  {
-    id: 'sub_seed_5',
-    creatorName: 'Naija Tech Bro',
-    handle: '@chidi_tech',
-    referralCode: 'TECHBRO',
-    platform: 'tiktok',
-    videoUrl: 'https://www.tiktok.com/@chidi_tech/video/7281929991234',
-    claimedViews: 28900,
-    verifiedViews: 28900,
-    likesCount: 1800,
-    commentsCount: 130,
-    sharesCount: 95,
-    engagementRate: 7.0,
-    botRiskScore: 'low',
-    followVerified: true,
-    followHandle: '@chidi_tech',
-    phone: '+234 902 555 6677',
-    bankName: 'Kuda Bank',
-    accountNumber: '1100223344',
-    accountName: 'Chidi Okafor',
-    bountyStatus: 'qualified_25k',
-    payoutAmount: 10000,
-    createdAt: new Date(Date.now() - 8 * 3600 * 1000).toISOString(),
-  },
-  {
-    id: 'sub_seed_6',
-    creatorName: 'Zainab Lifestyle',
-    handle: '@zainab_creatives',
-    referralCode: 'ZAINAB22',
-    platform: 'instagram',
-    videoUrl: 'https://www.instagram.com/reel/C899_z182/',
-    claimedViews: 19500,
-    verifiedViews: 19500,
-    likesCount: 920,
-    commentsCount: 75,
-    sharesCount: 40,
-    engagementRate: 5.3,
-    botRiskScore: 'low',
-    followVerified: true,
-    followHandle: '@zainab_creatives',
-    phone: '+234 810 666 7788',
-    bankName: 'First Bank',
-    accountNumber: '3099887766',
-    accountName: 'Zainab Bello',
-    bountyStatus: 'qualified_25k',
-    payoutAmount: 10000,
-    createdAt: new Date(Date.now() - 4 * 3600 * 1000).toISOString(),
+const INITIAL_SEEDS: ContestSubmission[] = [];
+
+export interface ContestCycleConfig {
+  isActive: boolean;
+  season: number;
+  cycleDays: number;
+  startedAt: string;
+  endsAt: string;
+  note?: string;
+}
+
+const CYCLE_FILE = path.join(DATA_DIR, 'contest_cycle.json');
+
+function loadContestCycle(): ContestCycleConfig {
+  try {
+    if (fs.existsSync(CYCLE_FILE)) {
+      return JSON.parse(fs.readFileSync(CYCLE_FILE, 'utf8'));
+    }
+  } catch {}
+  const now = Date.now();
+  const defaultCycle: ContestCycleConfig = {
+    isActive: true,
+    season: 1,
+    cycleDays: 21,
+    startedAt: new Date(now).toISOString(),
+    endsAt: new Date(now + 21 * 24 * 60 * 60 * 1000).toISOString(),
+    note: '3-week recurring creator sprint'
+  };
+  saveContestCycle(defaultCycle);
+  return defaultCycle;
+}
+
+function saveContestCycle(config: ContestCycleConfig): void {
+  try {
+    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(CYCLE_FILE, JSON.stringify(config, null, 2), 'utf8');
+  } catch (e: any) {
+    console.error('[ContestController] Error saving cycle:', e.message);
   }
-];
+}
 
 function ensureDataFile(): ContestSubmission[] {
   try {
@@ -190,7 +84,13 @@ function ensureDataFile(): ContestSubmission[] {
       return INITIAL_SEEDS;
     }
     const raw = fs.readFileSync(DATA_FILE, 'utf8');
-    return JSON.parse(raw);
+    let items: ContestSubmission[] = JSON.parse(raw);
+    const cleaned = items.filter(i => !i.id.startsWith('sub_seed_') && !i.id.startsWith('csub_') && !i.id.startsWith('sub_1') && !i.id.startsWith('sub_2') && !i.id.startsWith('sub_3') && !i.id.startsWith('sub_4') && !i.id.startsWith('sub_5') && !i.id.startsWith('sub_6'));
+    if (cleaned.length !== items.length) {
+      saveData(cleaned);
+      return cleaned;
+    }
+    return items;
   } catch (err: any) {
     console.error('[ContestController] Error reading submissions file:', err.message);
     return INITIAL_SEEDS;
@@ -490,4 +390,30 @@ export const contestController = {
       message: 'Invalid Admin credentials for /welts. Please verify your username and password.'
     });
   }
+
+  getContestCycle: (_req: Request, res: Response) => {
+    const cycle = loadContestCycle();
+    res.json({ status: true, cycle });
+  },
+
+  updateContestCycle: (req: Request, res: Response) => {
+    const current = loadContestCycle();
+    const { isActive, season, cycleDays, startedAt, endsAt, note } = req.body;
+
+    const updated: ContestCycleConfig = {
+      isActive: typeof isActive === 'boolean' ? isActive : current.isActive,
+      season: typeof season === 'number' ? season : current.season,
+      cycleDays: typeof cycleDays === 'number' ? cycleDays : current.cycleDays,
+      startedAt: startedAt || current.startedAt,
+      endsAt: endsAt || current.endsAt,
+      note: note || current.note
+    };
+
+    saveContestCycle(updated);
+    res.json({
+      status: true,
+      message: 'Contest cycle and countdown settings updated successfully',
+      cycle: updated
+    });
+  },
 };

@@ -23,9 +23,11 @@ export const CreatorLeaderboardPortal: React.FC = () => {
   const [submissions, setSubmissions] = useState<CreatorSubmission[]>([]);
   const [activeTab, setActiveTab] = useState<'all' | CreatorPlatform>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
+  const [myTrackedHandle, setMyTrackedHandle] = useState<string>(() => {
+    return localStorage.getItem('rentilly_my_creator_handle') || '';
+  });
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [copiedLink, setCopiedLink] = useState(false);
+  const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
 
   // Bio Link Generator state
   const [creatorRefCode, setCreatorRefCode] = useState('');
@@ -33,7 +35,85 @@ export const CreatorLeaderboardPortal: React.FC = () => {
   const [copiedBioLink, setCopiedBioLink] = useState(false);
 
   // Form State
+  // 3-Week Contest Season & Live Countdown State
+  const [cycleConfig, setCycleConfig] = useState<{
+    isActive: boolean;
+    season: number;
+    cycleDays: number;
+    startedAt: string;
+    endsAt: string;
+  }>(() => {
+    try {
+      const raw = localStorage.getItem('rentilly_contest_cycle');
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    const now = Date.now();
+    return {
+      isActive: true,
+      season: 1,
+      cycleDays: 21,
+      startedAt: new Date(now).toISOString(),
+      endsAt: new Date(now + 21 * 24 * 60 * 60 * 1000).toISOString()
+    };
+  });
+
+  const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; minutes: number; seconds: number }>({
+    days: 21,
+    hours: 0,
+    minutes: 0,
+    seconds: 0
+  });
+
+  // Sync cycle from API & storage
+  useEffect(() => {
+    const fetchCycle = async () => {
+      try {
+        const res = await fetch('/api/contest/cycle');
+        const data = await res.json();
+        if (data.status && data.cycle) {
+          setCycleConfig(data.cycle);
+          localStorage.setItem('rentilly_contest_cycle', JSON.stringify(data.cycle));
+        }
+      } catch {}
+    };
+    fetchCycle();
+
+    const handleStorage = () => {
+      try {
+        const raw = localStorage.getItem('rentilly_contest_cycle');
+        if (raw) setCycleConfig(JSON.parse(raw));
+      } catch {}
+    };
+    window.addEventListener('rentilly_cycle_updated', handleStorage);
+    window.addEventListener('storage', handleStorage);
+    return () => {
+      window.removeEventListener('rentilly_cycle_updated', handleStorage);
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, []);
+
+  // Timer ticker
+  useEffect(() => {
+    const calculateTime = () => {
+      const target = new Date(cycleConfig.endsAt).getTime();
+      const now = Date.now();
+      const diff = Math.max(0, target - now);
+
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+      const minutes = Math.floor((diff / 1000 / 60) % 60);
+      const seconds = Math.floor((diff / 1000) % 60);
+
+      setTimeLeft({ days, hours, minutes, seconds });
+    };
+
+    calculateTime();
+    const interval = setInterval(calculateTime, 1000);
+    return () => clearInterval(interval);
+  }, [cycleConfig.endsAt]);
+
   const [formData, setFormData] = useState({
+    topicCategory: 'renters',
     creatorName: '',
     handle: '',
     referralCode: '',
@@ -81,12 +161,6 @@ export const CreatorLeaderboardPortal: React.FC = () => {
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  const copyContestLink = () => {
-    navigator.clipboard.writeText('https://contest.myrentilly.com');
-    setCopiedLink(true);
-    showToast('Copied contest.myrentilly.com to clipboard!');
-    setTimeout(() => setCopiedLink(false), 3000);
-  };
 
   const handleGenerateBioLink = () => {
     const code = creatorRefCode.trim().replace(/^@/, '');
@@ -153,7 +227,14 @@ export const CreatorLeaderboardPortal: React.FC = () => {
     }
 
     setIsSubmitModalOpen(false);
+    localStorage.setItem('rentilly_my_creator_handle', formData.handle);
+    setMyTrackedHandle(formData.handle);
+    setSearchQuery(formData.handle);
+    showToast(`🎉 Video drop submitted! You're now live on the Leaderboard as ${formData.handle}!`);
+    setTimeout(() => scrollToSection('leaderboard'), 600);
+
     setFormData({
+      topicCategory: 'renters',
       creatorName: '',
       handle: '',
       referralCode: '',
@@ -277,6 +358,24 @@ export const CreatorLeaderboardPortal: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3">
+              {/* Dedicated Leaderboard Menu Link */}
+              <button
+                onClick={() => scrollToSection('leaderboard')}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold transition cursor-pointer"
+                title="View Creator Leaderboard"
+              >
+                <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                <span>Leaderboard</span>
+              </button>
+
+              <button
+                onClick={() => scrollToSection('prizes')}
+                className="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white transition cursor-pointer"
+              >
+                <Gift className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Prizes</span>
+              </button>
+
               <button
                 onClick={() => scrollToSection('rules')}
                 className="hidden lg:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white transition cursor-pointer"
@@ -289,17 +388,8 @@ export const CreatorLeaderboardPortal: React.FC = () => {
                 onClick={() => scrollToSection('socials')}
                 className="hidden lg:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white transition cursor-pointer"
               >
-                <Share2 className="w-3.5 h-3.5 text-emerald-400" />
+                <Share2 className="w-3.5 h-3.5 text-pink-400" />
                 <span>Follow Us</span>
-              </button>
-
-              <button
-                onClick={copyContestLink}
-                className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 border border-slate-700 transition cursor-pointer"
-                title="Copy shareable contest link"
-              >
-                <Copy className="w-3.5 h-3.5 text-emerald-400" />
-                <span>{copiedLink ? 'Copied Link!' : 'contest.myrentilly.com'}</span>
               </button>
 
               <button
@@ -359,7 +449,73 @@ export const CreatorLeaderboardPortal: React.FC = () => {
           </div>
         </section>
 
-        {/* STEP 1: FOLLOW US SOCIAL HUB (CRITICAL FOR FOLLOWER GROWTH) */}
+        {/* 3-WEEK CONTEST COUNTDOWN & APPROVED TOPIC ANNOUNCEMENT BANNER */}
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6 mb-8 relative z-25">
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-950 via-slate-900 to-teal-950 border-2 border-emerald-500/50 p-6 sm:p-8 shadow-2xl shadow-emerald-950/60 backdrop-blur-xl">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+              <div className="space-y-2.5">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-xs font-black uppercase tracking-wider">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                  Season {cycleConfig.season || 1} • 3-Week Creator Sprint
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-black text-white">
+                  {cycleConfig.isActive ? 'Contest Sprint Closes In:' : 'Season Review In Progress'}
+                </h2>
+                <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-amber-300 font-extrabold bg-amber-500/15 border border-amber-500/40 px-3.5 py-1.5 rounded-xl w-fit">
+                  <span>🎯 Mandatory Video Scope:</span>
+                  <span className="text-white underline decoration-amber-400">Renters &amp; Property Purchase Only</span>
+                </div>
+                <p className="text-xs text-slate-300 max-w-xl leading-relaxed">
+                  The contest runs in <strong>3-week recurring seasons</strong>! Your video must center exclusively on either <strong>Renters</strong> (finding, renting, leasing verified homes) or <strong>Property Purchase</strong> (buying houses, land, title verification &amp; escrow sales).
+                </p>
+              </div>
+
+              {/* Countdown Digital Blocks (Visible if Active) */}
+              {cycleConfig.isActive ? (
+                <div className="flex flex-col items-center gap-2">
+                  <div className="grid grid-cols-4 gap-2 sm:gap-3 text-center">
+                    <div className="bg-slate-950/90 border border-emerald-500/40 rounded-2xl p-3 sm:p-4 min-w-[70px] sm:min-w-[85px] shadow-lg">
+                      <div className="text-2xl sm:text-4xl font-black text-white font-mono">{timeLeft.days}</div>
+                      <div className="text-[10px] sm:text-xs font-bold text-emerald-400 uppercase tracking-wider mt-1">Days</div>
+                    </div>
+                    <div className="bg-slate-950/90 border border-emerald-500/40 rounded-2xl p-3 sm:p-4 min-w-[70px] sm:min-w-[85px] shadow-lg">
+                      <div className="text-2xl sm:text-4xl font-black text-white font-mono">{timeLeft.hours}</div>
+                      <div className="text-[10px] sm:text-xs font-bold text-emerald-400 uppercase tracking-wider mt-1">Hours</div>
+                    </div>
+                    <div className="bg-slate-950/90 border border-emerald-500/40 rounded-2xl p-3 sm:p-4 min-w-[70px] sm:min-w-[85px] shadow-lg">
+                      <div className="text-2xl sm:text-4xl font-black text-white font-mono">{timeLeft.minutes}</div>
+                      <div className="text-[10px] sm:text-xs font-bold text-emerald-400 uppercase tracking-wider mt-1">Mins</div>
+                    </div>
+                    <div className="bg-slate-950/90 border border-emerald-500/40 rounded-2xl p-3 sm:p-4 min-w-[70px] sm:min-w-[85px] shadow-lg">
+                      <div className="text-2xl sm:text-4xl font-black text-emerald-300 font-mono animate-pulse">{timeLeft.seconds}</div>
+                      <div className="text-[10px] sm:text-xs font-bold text-emerald-400 uppercase tracking-wider mt-1">Secs</div>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+                    🟢 Real-time Official Sprint Clock
+                  </span>
+                </div>
+              ) : (
+                <div className="bg-slate-950/90 border border-slate-700 rounded-2xl p-5 text-center min-w-[240px]">
+                  <div className="text-sm font-bold text-slate-200">Next 3-Week Sprint Opening Soon</div>
+                  <div className="text-xs text-slate-400 mt-1">Contest countdown paused during admin verification</div>
+                </div>
+              )}
+
+              {/* Action Button */}
+              <button
+                type="button"
+                onClick={() => setIsSubmitModalOpen(true)}
+                className="px-6 py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/30 transition transform hover:-translate-y-0.5 active:scale-95 flex items-center justify-center gap-2 cursor-pointer shrink-0"
+              >
+                <Plus className="w-4 h-4 stroke-[3]" />
+                <span>Submit Video Drop</span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        
         <section id="socials" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6 relative z-20">
           <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-950/80 border-2 border-amber-500/50 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-800">
@@ -681,6 +837,117 @@ export const CreatorLeaderboardPortal: React.FC = () => {
 
         {/* Live Leaderboard Table Section (id="leaderboard") */}
         <section id="leaderboard" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-14">
+          {/* LEADERBOARD HEADER & CREATOR POSITION TRACKER */}
+          <div className="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Trophy className="w-5 h-5 text-amber-400" />
+                <span className="text-xs font-black uppercase tracking-wider text-amber-400">
+                  Official Live Leaderboard
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                  Season {cycleConfig.season || 1}
+                </span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-black text-white">
+                Creator Rankings &amp; Live Standing
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-xl">
+                Rankings update automatically based on verified view velocity. Videos center strictly on <strong>Renters &amp; Property Purchase</strong>.
+              </p>
+            </div>
+
+            {/* Quick Find My Video & Rank Input */}
+            <div className="w-full md:w-auto bg-slate-900 border border-slate-800 rounded-2xl p-3 sm:p-4 shadow-xl flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Enter your @handle or Ref Code..."
+                  value={myTrackedHandle}
+                  onChange={(e) => {
+                    setMyTrackedHandle(e.target.value);
+                    setSearchQuery(e.target.value);
+                  }}
+                  className="pl-9 pr-3 py-2 bg-slate-950 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-400 w-full sm:w-64"
+                />
+              </div>
+
+              {myTrackedHandle && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMyTrackedHandle('');
+                    setSearchQuery('');
+                  }}
+                  className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 transition"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* MY PERSONAL STANDING BANNER (If tracked handle matches a live submission) */}
+          {(() => {
+            if (!myTrackedHandle.trim()) return null;
+            const query = myTrackedHandle.toLowerCase().trim().replace(/^@/, '');
+            const myRankIdx = submissions.findIndex(s => 
+              s.handle.toLowerCase().includes(query) || 
+              s.creatorName.toLowerCase().includes(query) ||
+              (s.referralCode && s.referralCode.toLowerCase() === query)
+            );
+
+            if (myRankIdx !== -1) {
+              const mySub = submissions[myRankIdx];
+              return (
+                <div className="mb-6 p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-emerald-950/80 via-slate-900 to-amber-950/40 border-2 border-emerald-400/60 shadow-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fadeIn">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border-2 border-emerald-400 flex items-center justify-center text-xl shrink-0 font-mono font-black text-emerald-300">
+                      #{myRankIdx + 1}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black uppercase text-emerald-400 tracking-wider">Your Video Drop Found!</span>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-white uppercase">{getPlatformLabel(mySub.platform)}</span>
+                      </div>
+                      <div className="text-base sm:text-lg font-black text-white">{mySub.creatorName} ({mySub.handle})</div>
+                      <div className="text-xs text-slate-300 mt-0.5 flex flex-wrap items-center gap-3">
+                        <span>Verified Views: <strong className="text-white font-mono">{(mySub.verifiedViews || mySub.claimedViews).toLocaleString()}</strong></span>
+                        <span>•</span>
+                        <span>Prize Status: {getRankBadge(myRankIdx)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <a
+                    href={mySub.videoUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider transition text-center shrink-0"
+                  >
+                    View My Live Drop ↗
+                  </a>
+                </div>
+              );
+            }
+
+            return (
+              <div className="mb-6 p-4 rounded-2xl bg-slate-900/80 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <span className="text-slate-400">
+                  No video drop currently registered for <strong className="text-white">{myTrackedHandle}</strong> in Season {cycleConfig.season || 1}.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsSubmitModalOpen(true)}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-bold text-xs shrink-0 cursor-pointer"
+                >
+                  Submit Your Video Drop Now ↗
+                </button>
+              </div>
+            );
+          })()}
+
           <div className="bg-slate-900/90 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl backdrop-blur-xl">
             {/* Table Filters & Search */}
             <div className="p-4 sm:p-6 border-b border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
@@ -728,8 +995,26 @@ export const CreatorLeaderboardPortal: React.FC = () => {
                 <tbody className="divide-y divide-slate-800/60">
                   {filtered.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="py-12 text-center text-slate-500 text-xs">
-                        No submissions found matching your search.
+                      <td colSpan={6} className="py-16 text-center">
+                        <div className="max-w-md mx-auto flex flex-col items-center">
+                          <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-3xl mb-4 shadow-lg shadow-emerald-950/50">
+                            🏆
+                          </div>
+                          <h3 className="text-lg font-black text-white mb-2">
+                            Season {cycleConfig.season || 1} Leaderboard is Live &amp; Open!
+                          </h3>
+                          <p className="text-xs text-slate-300 mb-6 leading-relaxed">
+                            Zero dummy data. All 20 prize slots are vacant! Create and drop your video centering around <strong>Renters</strong> or <strong>Property Purchase</strong> to claim the <strong>#1 Champion Spot (₦200,000)</strong>!
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setIsSubmitModalOpen(true)}
+                            className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/25 transition active:scale-95 cursor-pointer"
+                          >
+                            <Plus className="w-4 h-4 stroke-[3]" />
+                            <span>Submit First Video Drop</span>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ) : (
@@ -1161,6 +1446,24 @@ export const CreatorLeaderboardPortal: React.FC = () => {
                       className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-300 uppercase mb-1">
+                    Contest Topic Category * (Renters &amp; Property Purchase Only)
+                  </label>
+                  <select
+                    required
+                    value={(formData as any).topicCategory || 'renters'}
+                    onChange={(e) => setFormData({ ...formData, topicCategory: e.target.value } as any)}
+                    className="w-full px-4 py-2.5 bg-slate-950 border border-emerald-500/40 rounded-xl text-xs sm:text-sm text-white focus:outline-none focus:border-emerald-400 cursor-pointer"
+                  >
+                    <option value="renters">🏠 Renters — Finding, Renting &amp; Leasing Verified Apartments on Rentilly</option>
+                    <option value="property_purchase">🏢 Property Purchase — Buying Verified Houses, Land &amp; Escrow Sales</option>
+                  </select>
+                  <p className="text-[10px] text-amber-300 font-medium mt-1">
+                    ⚠️ Videos must center exclusively on Renters or Property Purchase to qualify for prizes.
+                  </p>
                 </div>
 
                 <div>

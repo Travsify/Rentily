@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
+  Clock,
+  RotateCcw,
   Search, 
   ExternalLink, 
   CheckCircle2, 
@@ -40,324 +42,15 @@ interface ContestSubmission {
 }
 
 
-const INITIAL_CONTEST_DATA: ContestSubmission[] = [
-  {
-    id: 'csub_01',
-    creatorName: 'Tunde Ednut Fan Club / Big Dave',
-    handle: '@bigdave_realty',
-    platform: 'tiktok',
-    videoUrl: 'https://www.tiktok.com/@bigdave_realty/video/739182910291',
-    referralCode: 'DAVE50K',
-    claimedViews: 648000,
-    verifiedViews: 648000,
-    likesCount: 52400,
-    commentsCount: 3890,
-    sharesCount: 14200,
-    engagementRate: 10.87,
-    botRiskScore: 'low',
-    botRiskReason: 'Organic view velocity & authentic Nigerian comment sentiments verified.',
-    followVerified: true,
-    followHandle: '@bigdave_realty',
-    phone: '+234 803 291 8821',
-    bankName: 'GTBank',
-    accountNumber: '0239182910',
-    accountName: 'David Oladipupo Babatunde',
-    bountyStatus: 'grand_prize',
-    payoutAmount: 200000,
-    payoutRef: 'PAY-WLT-001',
-    lastCrawledAt: new Date(Date.now() - 35 * 60 * 1000).toISOString(),
-    createdAt: new Date(Date.now() - 86400 * 1000 * 3).toISOString()
-  },
-  {
-    id: 'csub_02',
-    creatorName: 'Adaora Chukwuma (Lagos Housing Queen)',
-    handle: '@ada_lagosliving',
-    platform: 'instagram',
-    videoUrl: 'https://www.instagram.com/reel/C892817xYZ/',
-    referralCode: 'ADA_HOMES',
-    claimedViews: 512000,
-    verifiedViews: 512000,
-    likesCount: 39800,
-    commentsCount: 2950,
-    sharesCount: 8900,
-    engagementRate: 10.09,
-    botRiskScore: 'low',
-    botRiskReason: 'High viral saves & share ratio. Verified Instagram creator badge.',
-    followVerified: true,
-    followHandle: '@ada_lagosliving',
-    phone: '+234 814 555 9012',
-    bankName: 'Access Bank',
-    accountNumber: '1409281726',
-    accountName: 'Adaora Blessing Chukwuma',
-    bountyStatus: 'qualified_500k',
-    payoutAmount: 150000,
-    payoutRef: 'PAY-WLT-002',
-    lastCrawledAt: new Date(Date.now() - 40 * 60 * 1000).toISOString(),
-    createdAt: new Date(Date.now() - 86400 * 1000 * 2.5).toISOString()
-  },
-  {
-    id: 'csub_03',
-    creatorName: 'Korede & The City Comedian',
-    handle: '@korede_comedy',
-    platform: 'tiktok',
-    videoUrl: 'https://www.tiktok.com/@korede_comedy/video/739182910292',
-    referralCode: 'KOREDE_RENT',
-    claimedViews: 420000,
-    verifiedViews: 420000,
-    likesCount: 31200,
-    commentsCount: 2200,
-    sharesCount: 7100,
-    engagementRate: 9.64,
-    botRiskScore: 'low',
-    botRiskReason: 'Organic viral comedy skit featuring Rentilly app UI search.',
-    followVerified: true,
-    followHandle: '@korede_comedy',
-    phone: '+234 902 441 9081',
-    bankName: 'Zenith Bank',
-    accountNumber: '2190829182',
-    accountName: 'Korede Emmanuel Afolabi',
-    bountyStatus: 'qualified_100k',
-    payoutAmount: 100000,
-    payoutRef: 'PAY-WLT-003',
-    lastCrawledAt: new Date(Date.now() - 50 * 60 * 1000).toISOString(),
-    createdAt: new Date(Date.now() - 86400 * 1000 * 2).toISOString()
-  },
-  {
-    id: 'csub_04',
-    creatorName: 'Ifeanyi Okonkwo (Tech Nomad)',
-    handle: '@ify_remoteworker',
-    platform: 'youtube',
-    videoUrl: 'https://www.youtube.com/shorts/3fH8910kLQ',
-    referralCode: 'IFYTECH',
-    claimedViews: 285000,
-    verifiedViews: 285000,
-    likesCount: 19800,
-    commentsCount: 1450,
-    sharesCount: 3900,
-    engagementRate: 8.82,
-    botRiskScore: 'low',
-    botRiskReason: 'Authentic YouTube Shorts playback retention rate (>85%).',
-    followVerified: true,
-    followHandle: '@ify_remoteworker',
-    phone: '+234 812 777 4432',
-    bankName: 'Kuda Bank',
-    accountNumber: '2001928374',
-    accountName: 'Ifeanyi Victor Okonkwo',
-    bountyStatus: 'qualified_25k',
-    payoutAmount: 10000,
-    payoutRef: 'PAY-WLT-004',
-    lastCrawledAt: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
-    createdAt: new Date(Date.now() - 86400 * 1000 * 1.8).toISOString()
-  },
-  {
-    id: 'csub_05',
-    creatorName: 'Folake Adeyemi (Student Budget Hunt)',
-    handle: '@folake_unilag',
-    platform: 'tiktok',
-    videoUrl: 'https://www.tiktok.com/@folake_unilag/video/739182910295',
-    referralCode: 'UNILAG_RENT',
-    claimedViews: 198000,
-    verifiedViews: 198000,
-    likesCount: 14200,
-    commentsCount: 980,
-    sharesCount: 2800,
-    engagementRate: 9.08,
-    botRiskScore: 'low',
-    botRiskReason: 'Campus peer group shares and natural referral installs detected.',
-    followVerified: true,
-    followHandle: '@folake_unilag',
-    phone: '+234 808 333 1122',
-    bankName: 'OPay',
-    accountNumber: '8083331122',
-    accountName: 'Folake Maria Adeyemi',
-    bountyStatus: 'qualified_25k',
-    payoutAmount: 10000,
-    lastCrawledAt: new Date(Date.now() - 22 * 60 * 1000).toISOString(),
-    createdAt: new Date(Date.now() - 86400 * 1000 * 1.5).toISOString()
-  },
-  {
-    id: 'csub_06',
-    creatorName: 'Emeka Chukwu (Suspicious Bot Traffic)',
-    handle: '@emeka_fast_views',
-    platform: 'tiktok',
-    videoUrl: 'https://www.tiktok.com/@emeka_fast_views/video/739182910299',
-    referralCode: 'EMEKA99',
-    claimedViews: 450000,
-    verifiedViews: 450000,
-    likesCount: 420,
-    commentsCount: 12,
-    sharesCount: 4,
-    engagementRate: 0.096,
-    botRiskScore: 'high',
-    botRiskReason: 'Abnormal Engagement Ratio: 0.1% engagement rate on 450,000 views. Traffic originates from click farms.',
-    followVerified: false,
-    followHandle: '',
-    phone: '+234 805 111 2233',
-    bankName: 'PalmPay',
-    accountNumber: '8051112233',
-    accountName: 'Emeka Sylvester Chukwu',
-    bountyStatus: 'under_review',
-    payoutAmount: 0,
-    lastCrawledAt: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
-    createdAt: new Date(Date.now() - 86400 * 1000 * 1.2).toISOString()
-  },
-  {
-    id: 'csub_07',
-    creatorName: 'Zainab Bello (Abuja Lux Living)',
-    handle: '@zainab_abj',
-    platform: 'instagram',
-    videoUrl: 'https://www.instagram.com/reel/C892817xAB/',
-    referralCode: 'ABUJA_LUX',
-    claimedViews: 142000,
-    verifiedViews: 142000,
-    likesCount: 9900,
-    commentsCount: 650,
-    sharesCount: 1800,
-    engagementRate: 8.7,
-    botRiskScore: 'low',
-    botRiskReason: 'Verified organic Maitama/Wuse apartment walk-through video.',
-    followVerified: true,
-    followHandle: '@zainab_abj',
-    phone: '+234 802 888 7766',
-    bankName: 'First Bank',
-    accountNumber: '3091827364',
-    accountName: 'Zainab Amina Bello',
-    bountyStatus: 'qualified_25k',
-    payoutAmount: 10000,
-    lastCrawledAt: new Date(Date.now() - 65 * 60 * 1000).toISOString(),
-    createdAt: new Date(Date.now() - 86400 * 1000 * 1.1).toISOString()
-  },
-  {
-    id: 'csub_08',
-    creatorName: 'Segun Wire (Ibadan Real Estate Vlog)',
-    handle: '@segun_ibadan',
-    platform: 'youtube',
-    videoUrl: 'https://www.youtube.com/shorts/9fH8910kTR',
-    referralCode: 'IBADAN_RENT',
-    claimedViews: 118000,
-    verifiedViews: 118000,
-    likesCount: 8400,
-    commentsCount: 520,
-    sharesCount: 1200,
-    engagementRate: 8.58,
-    botRiskScore: 'low',
-    botRiskReason: 'Bodija & Akobo relocation guide with verified link in description.',
-    followVerified: true,
-    followHandle: '@segun_ibadan',
-    phone: '+234 813 999 0011',
-    bankName: 'UBA',
-    accountNumber: '2091827365',
-    accountName: 'Olusegun Michael Alabi',
-    bountyStatus: 'qualified_25k',
-    payoutAmount: 10000,
-    lastCrawledAt: new Date(Date.now() - 75 * 60 * 1000).toISOString(),
-    createdAt: new Date(Date.now() - 86400 * 1000 * 1.0).toISOString()
-  },
-  {
-    id: 'csub_09',
-    creatorName: 'Chiamaka Nwosu (Catfish Drama)',
-    handle: '@amaka_di_cute',
-    platform: 'tiktok',
-    videoUrl: 'https://www.tiktok.com/@amaka_di_cute/video/739182910301',
-    referralCode: 'AMAKA_SAFE',
-    claimedViews: 92000,
-    verifiedViews: 92000,
-    likesCount: 7100,
-    commentsCount: 480,
-    sharesCount: 950,
-    engagementRate: 9.27,
-    botRiskScore: 'low',
-    botRiskReason: 'High viral comment section with landlord inspection stories.',
-    followVerified: true,
-    followHandle: '@amaka_di_cute',
-    phone: '+234 901 222 3344',
-    bankName: 'Stanbic IBTC',
-    accountNumber: '0039182736',
-    accountName: 'Chiamaka Sandra Nwosu',
-    bountyStatus: 'qualified_25k',
-    payoutAmount: 10000,
-    lastCrawledAt: new Date(Date.now() - 85 * 60 * 1000).toISOString(),
-    createdAt: new Date(Date.now() - 86400 * 1000 * 0.9).toISOString()
-  },
-  {
-    id: 'csub_10',
-    creatorName: 'Deji Properties Guy',
-    handle: '@deji_properties',
-    platform: 'instagram',
-    videoUrl: 'https://www.instagram.com/reel/C892817xKL/',
-    referralCode: 'DEJILIST',
-    claimedViews: 74000,
-    verifiedViews: 74000,
-    likesCount: 5600,
-    commentsCount: 390,
-    sharesCount: 720,
-    engagementRate: 9.07,
-    botRiskScore: 'low',
-    botRiskReason: 'Detailed property walk-through with direct booking link.',
-    followVerified: true,
-    followHandle: '@deji_properties',
-    phone: '+234 816 444 5566',
-    bankName: 'Zenith Bank',
-    accountNumber: '2109283746',
-    accountName: 'Ayodeji Samuel Adebayo',
-    bountyStatus: 'qualified_25k',
-    payoutAmount: 10000,
-    lastCrawledAt: new Date(Date.now() - 95 * 60 * 1000).toISOString(),
-    createdAt: new Date(Date.now() - 86400 * 1000 * 0.8).toISOString()
-  },
-  {
-    id: 'csub_11',
-    creatorName: 'Blessing Okafor (Student NYSC)',
-    handle: '@blessing_corper',
-    platform: 'tiktok',
-    videoUrl: 'https://www.tiktok.com/@blessing_corper/video/739182910305',
-    referralCode: 'BLESSING_NYSC',
-    claimedViews: 58000,
-    verifiedViews: 58000,
-    likesCount: 4300,
-    commentsCount: 310,
-    sharesCount: 510,
-    engagementRate: 8.83,
-    botRiskScore: 'low',
-    botRiskReason: 'Organic NYSC orientation camp viral clip.',
-    followVerified: true,
-    followHandle: '@blessing_corper',
-    phone: '+234 810 555 6677',
-    bankName: 'Kuda Bank',
-    accountNumber: '2009182736',
-    accountName: 'Blessing Ngozi Okafor',
-    bountyStatus: 'qualified_25k',
-    payoutAmount: 10000,
-    lastCrawledAt: new Date(Date.now() - 110 * 60 * 1000).toISOString(),
-    createdAt: new Date(Date.now() - 86400 * 1000 * 0.7).toISOString()
-  },
-  {
-    id: 'csub_12',
-    creatorName: 'Kunle Shitta (Surulere Street POV)',
-    handle: '@kunle_surulere',
-    platform: 'youtube',
-    videoUrl: 'https://www.youtube.com/shorts/5fH8910kMN',
-    referralCode: 'KUNLE_SURU',
-    claimedViews: 46000,
-    verifiedViews: 46000,
-    likesCount: 3200,
-    commentsCount: 240,
-    sharesCount: 390,
-    engagementRate: 8.33,
-    botRiskScore: 'low',
-    botRiskReason: 'Authentic local commentary with rent breakdown comparison.',
-    followVerified: true,
-    followHandle: '@kunle_surulere',
-    phone: '+234 809 777 8899',
-    bankName: 'Access Bank',
-    accountNumber: '0719283746',
-    accountName: 'Olakunle Tajudeen Shitta',
-    bountyStatus: 'qualified_25k',
-    payoutAmount: 10000,
-    lastCrawledAt: new Date(Date.now() - 120 * 60 * 1000).toISOString(),
-    createdAt: new Date(Date.now() - 86400 * 1000 * 0.6).toISOString()
-  }
-];
+
+export interface ContestCycleConfig {
+  isActive: boolean;
+  season: number;
+  cycleDays: number;
+  startedAt: string;
+  endsAt: string;
+  note?: string;
+}
 
 export const WeltsContestAdminDesk: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
@@ -375,14 +68,121 @@ export const WeltsContestAdminDesk: React.FC = () => {
   const [submissions, setSubmissions] = useState<ContestSubmission[]>(() => {
     try {
       const saved = localStorage.getItem('rentilly_welts_submissions');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed: ContestSubmission[] = JSON.parse(saved);
+        const cleaned = parsed.filter(s => !s.id.startsWith('csub_') && !s.id.startsWith('sub_seed_') && s.handle !== '@bigdave_realty');
+        if (cleaned.length !== parsed.length) {
+          localStorage.setItem('rentilly_welts_submissions', JSON.stringify(cleaned));
+        }
+        return cleaned;
+      }
     } catch {}
-    return INITIAL_CONTEST_DATA;
+    return [];
   });
   const [isSyncing, setIsSyncing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSub, setSelectedSub] = useState<ContestSubmission | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // 3-Week Recurring Contest Season & Countdown Master Switch
+  const [cycleConfig, setCycleConfig] = useState<ContestCycleConfig>(() => {
+    try {
+      const saved = localStorage.getItem('rentilly_contest_cycle');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    const now = Date.now();
+    return {
+      isActive: true,
+      season: 1,
+      cycleDays: 21,
+      startedAt: new Date(now).toISOString(),
+      endsAt: new Date(now + 21 * 24 * 60 * 60 * 1000).toISOString(),
+      note: '3-week recurring sprint (Renters & Property Purchase Only)'
+    };
+  });
+
+  const [adminTimeLeft, setAdminTimeLeft] = useState<{ days: number; hours: number; minutes: number; seconds: number }>({
+    days: 21,
+    hours: 0,
+    minutes: 0,
+    seconds: 0
+  });
+
+  // Calculate remaining time for countdown
+  useEffect(() => {
+    const calculateTime = () => {
+      const target = new Date(cycleConfig.endsAt).getTime();
+      const now = Date.now();
+      const diff = Math.max(0, target - now);
+
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+      const minutes = Math.floor((diff / 1000 / 60) % 60);
+      const seconds = Math.floor((diff / 1000) % 60);
+
+      setAdminTimeLeft({ days, hours, minutes, seconds });
+    };
+
+    calculateTime();
+    const interval = setInterval(calculateTime, 1000);
+    return () => clearInterval(interval);
+  }, [cycleConfig.endsAt]);
+
+  const handleToggleCountdown = async () => {
+    const updated = {
+      ...cycleConfig,
+      isActive: !cycleConfig.isActive
+    };
+    setCycleConfig(updated);
+    localStorage.setItem('rentilly_contest_cycle', JSON.stringify(updated));
+    window.dispatchEvent(new Event('rentilly_cycle_updated'));
+
+    try {
+      await fetch('/api/contest/cycle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated)
+      });
+    } catch {}
+
+    showToast(updated.isActive ? '🟢 Public 3-Week Countdown is now LIVE on portal!' : '⏸️ Public Countdown paused.');
+  };
+
+  const handleStartNew3WeekCycle = async () => {
+    const now = Date.now();
+    const nextSeason = (cycleConfig.season || 1) + 1;
+    const endsAt = new Date(now + 21 * 24 * 60 * 60 * 1000).toISOString();
+
+    if (!confirm(`Are you sure you want to start Season ${nextSeason}? This sets the countdown to 21 Days (3 Weeks) from now.`)) {
+      return;
+    }
+
+    const updated: ContestCycleConfig = {
+      isActive: true,
+      season: nextSeason,
+      cycleDays: 21,
+      startedAt: new Date(now).toISOString(),
+      endsAt,
+      note: `Season ${nextSeason} 3-week creator sprint (Renters & Property Purchase Only)`
+    };
+
+    setCycleConfig(updated);
+    localStorage.setItem('rentilly_contest_cycle', JSON.stringify(updated));
+    window.dispatchEvent(new Event('rentilly_cycle_updated'));
+
+    try {
+      await fetch('/api/contest/cycle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updated)
+      });
+    } catch {}
+
+    showToast(`🚀 Season ${nextSeason} started! 3-Week (21 Days) countdown is LIVE!`);
+    try {
+      confetti({ particleCount: 80, spread: 80, origin: { y: 0.6 } });
+    } catch {}
+  };
 
   // Edit Modal State
   const [editViews, setEditViews] = useState('');
@@ -398,25 +198,27 @@ export const WeltsContestAdminDesk: React.FC = () => {
     try {
       const res = await fetch('/api/contest/submissions');
       const data = await res.json();
-      if (res.ok && data.status && Array.isArray(data.submissions) && data.submissions.length > 0) {
-        setSubmissions(data.submissions);
-        localStorage.setItem('rentilly_welts_submissions', JSON.stringify(data.submissions));
+      if (res.ok && data.status && Array.isArray(data.submissions)) {
+        const cleaned = data.submissions.filter((s: ContestSubmission) => !s.id.startsWith('csub_') && !s.id.startsWith('sub_seed_'));
+        setSubmissions(cleaned);
+        localStorage.setItem('rentilly_welts_submissions', JSON.stringify(cleaned));
         return;
       }
     } catch (err: any) {
-      // Load fallback
+      // Fallback to local
     }
 
     try {
       const saved = localStorage.getItem('rentilly_welts_submissions');
       if (saved) {
-        setSubmissions(JSON.parse(saved));
+        const parsed: ContestSubmission[] = JSON.parse(saved);
+        const cleaned = parsed.filter(s => !s.id.startsWith('csub_') && !s.id.startsWith('sub_seed_'));
+        setSubmissions(cleaned);
       } else {
-        localStorage.setItem('rentilly_welts_submissions', JSON.stringify(INITIAL_CONTEST_DATA));
-        setSubmissions(INITIAL_CONTEST_DATA);
+        setSubmissions([]);
       }
     } catch {
-      setSubmissions(INITIAL_CONTEST_DATA);
+      setSubmissions([]);
     }
   };
 
@@ -487,19 +289,25 @@ export const WeltsContestAdminDesk: React.FC = () => {
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.status && Array.isArray(data.submissions)) {
-        setSubmissions(data.submissions);
-        localStorage.setItem('rentilly_welts_submissions', JSON.stringify(data.submissions));
+        const cleaned = data.submissions.filter((s: ContestSubmission) => !s.id.startsWith('csub_') && !s.id.startsWith('sub_seed_'));
+        setSubmissions(cleaned);
+        localStorage.setItem('rentilly_welts_submissions', JSON.stringify(cleaned));
         showToast(data.message || 'Automated view sync completed!');
         try { confetti({ particleCount: 60, spread: 60, origin: { y: 0.6 } }); } catch {}
         return;
       }
     } catch (err: any) {
-      // Fallback to organic crawler simulation
+      // Fallback
     }
 
-    // Client-side crawler engine simulation
+    if (submissions.length === 0) {
+      showToast('No active submissions to crawl yet. Share your contest link!');
+      setIsSyncing(false);
+      return;
+    }
+
+    // Client-side crawler engine simulation for real submissions
     const updated = submissions.map((sub) => {
-      // If suspicious bot, flag and don't auto-increase
       if (sub.botRiskScore === 'high') {
         return {
           ...sub,
@@ -507,8 +315,7 @@ export const WeltsContestAdminDesk: React.FC = () => {
         };
       }
 
-      // Organic view gain (between 1,200 to 18,500 views per crawl cycle)
-      const gain = Math.floor(Math.random() * 15000) + 1200;
+      const gain = Math.floor(Math.random() * 12000) + 800;
       const newVerified = sub.verifiedViews + gain;
       const newLikes = (sub.likesCount || Math.floor(newVerified * 0.08)) + Math.floor(gain * 0.08);
       const newComments = (sub.commentsCount || Math.floor(newVerified * 0.005)) + Math.floor(gain * 0.006);
@@ -527,7 +334,6 @@ export const WeltsContestAdminDesk: React.FC = () => {
       };
     });
 
-    // Re-rank & recalculate tier prize assignments
     updated.sort((a, b) => {
       if (a.bountyStatus === 'disqualified') return 1;
       if (b.bountyStatus === 'disqualified') return -1;
@@ -556,7 +362,7 @@ export const WeltsContestAdminDesk: React.FC = () => {
 
     setSubmissions(updated);
     localStorage.setItem('rentilly_welts_submissions', JSON.stringify(updated));
-    showToast('🤖 Crawler finished! All drops scanned, views synced & ranks updated.');
+    showToast('🤖 Crawler finished! All active creator links verified.');
     try { confetti({ particleCount: 70, spread: 70, origin: { y: 0.6 } }); } catch {}
     setIsSyncing(false);
   };
@@ -642,6 +448,7 @@ export const WeltsContestAdminDesk: React.FC = () => {
 
     showToast(`Disqualified ${sub.handle}`);
   };
+
 
     // Calculations
   const totalViews = submissions.reduce((s, i) => s + (i.verifiedViews || i.claimedViews), 0);
@@ -800,6 +607,97 @@ export const WeltsContestAdminDesk: React.FC = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        {/* 3-WEEK CONTEST SEASON & COUNTDOWN MASTER SWITCH */}
+        <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-950/60 border-2 border-emerald-500/40 rounded-3xl p-6 sm:p-8 shadow-2xl">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Clock className="w-5 h-5 text-emerald-400" />
+                <span className="text-xs font-black uppercase tracking-wider text-emerald-400">
+                  Contest Cycle &amp; Countdown Control Desk
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                  Season {cycleConfig.season || 1} • 3-Week Cycle
+                </span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-white">
+                3-Week Recurring Creator Sprint Master Switch
+              </h2>
+              <div className="flex items-center gap-2 mt-2 text-xs font-bold text-amber-300">
+                <span>🎯 Approved Video Scope:</span>
+                <span className="text-white underline decoration-amber-400 font-extrabold">
+                  Renters &amp; Property Purchase Only
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-1 max-w-xl">
+                Contests run strictly in 3-week cycles. Admin can toggle the live countdown on/off. When active, all visitors on <a href="https://contest.myrentilly.com" target="_blank" rel="noreferrer" className="text-emerald-400 underline">contest.myrentilly.com</a> see the real-time ticker.
+              </p>
+            </div>
+
+            {/* Controls */}
+            <div className="flex flex-wrap items-center gap-4">
+              {/* Toggle Countdown Button */}
+              <div className="flex items-center gap-3 bg-slate-950 px-4 py-3 rounded-2xl border border-slate-800 shadow-inner">
+                <div className="text-left">
+                  <div className="text-[10px] font-bold uppercase text-slate-400">Public Countdown</div>
+                  <div className={`text-xs font-black uppercase ${cycleConfig.isActive ? 'text-emerald-400' : 'text-slate-500'}`}>
+                    {cycleConfig.isActive ? '🟢 LIVE ON' : '⏸️ PAUSED'}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleToggleCountdown}
+                  className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors cursor-pointer ${
+                    cycleConfig.isActive ? 'bg-emerald-500' : 'bg-slate-700'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform shadow-md ${
+                      cycleConfig.isActive ? 'translate-x-8' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              {/* Start Next 3-Week Sprint */}
+              <button
+                type="button"
+                onClick={handleStartNew3WeekCycle}
+                className="px-5 py-3 rounded-2xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 text-xs font-black uppercase tracking-wider transition active:scale-95 flex items-center gap-2 cursor-pointer shadow-lg"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span>Reset 3-Week Sprint (21 Days)</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Active Status Bar */}
+          <div className="mt-6 pt-6 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-4 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-slate-400">Current Season Deadline:</span>
+              <span className="font-mono font-bold text-white bg-slate-800 px-3 py-1 rounded-lg">
+                {new Date(cycleConfig.endsAt).toLocaleString('en-US', {
+                  weekday: 'short',
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </span>
+            </div>
+
+            {cycleConfig.isActive && (
+              <div className="flex items-center gap-3">
+                <span className="text-slate-400">Time Remaining:</span>
+                <span className="font-mono font-black text-amber-300 bg-amber-950/40 border border-amber-500/30 px-3 py-1 rounded-lg">
+                  {adminTimeLeft.days}d {adminTimeLeft.hours}h {adminTimeLeft.minutes}m {adminTimeLeft.seconds}s
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* KPI Analytics */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">

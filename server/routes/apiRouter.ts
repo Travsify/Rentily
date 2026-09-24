@@ -477,4 +477,6 @@ apiRouter.post('/contest/submissions', contestController.createSubmission);
 apiRouter.put('/contest/submissions/:id', contestController.updateSubmission);
 apiRouter.post('/contest/sync-views', contestController.syncViews);
 apiRouter.post('/contest/admin/login', contestController.adminLogin);
+apiRouter.get('/contest/cycle', contestController.getContestCycle);
+apiRouter.post('/contest/cycle', contestController.updateContestCycle);
 

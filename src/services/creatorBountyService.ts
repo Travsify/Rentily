@@ -2,113 +2,33 @@ import type { CreatorSubmission, BountyStatus } from '../types/creatorBounty';
 
 const STORAGE_KEY = 'rentilly_creator_submissions_v1';
 
-const INITIAL_SEED_SUBMISSIONS: CreatorSubmission[] = [
-  {
-    id: 'sub_seed_1',
-    creatorName: 'Tunde Adeleke',
-    handle: '@tunde_reels',
-    platform: 'tiktok',
-    videoUrl: 'https://www.tiktok.com/@tunde_reels/video/7281928391029',
-    claimedViews: 142500,
-    verifiedViews: 142500,
-    phone: '+234 803 111 2233',
-    bankName: 'Access Bank',
-    accountNumber: '0123456789',
-    accountName: 'Tunde Adeleke',
-    bountyStatus: 'qualified_100k',
-    payoutAmount: 50000,
-    createdAt: new Date(Date.now() - 36 * 3600 * 1000).toISOString(),
-  },
-  {
-    id: 'sub_seed_2',
-    creatorName: 'Amaka Eze',
-    handle: '@amakavibes',
-    platform: 'instagram',
-    videoUrl: 'https://www.instagram.com/reel/C892_akj12/',
-    claimedViews: 98400,
-    verifiedViews: 98400,
-    phone: '+234 814 222 3344',
-    bankName: 'GTBank',
-    accountNumber: '0987654321',
-    accountName: 'Amaka Eze',
-    bountyStatus: 'qualified_25k',
-    payoutAmount: 15000,
-    createdAt: new Date(Date.now() - 24 * 3600 * 1000).toISOString(),
-  },
-  {
-    id: 'sub_seed_3',
-    creatorName: 'Femi (Ibadan Corper)',
-    handle: '@femi_nysc',
-    platform: 'tiktok',
-    videoUrl: 'https://www.tiktok.com/@femi_nysc/video/7281928991201',
-    claimedViews: 64200,
-    verifiedViews: 64200,
-    phone: '+234 808 333 4455',
-    bankName: 'Zenith Bank',
-    accountNumber: '2109876543',
-    accountName: 'Oluwafemi Johnson',
-    bountyStatus: 'qualified_25k',
-    payoutAmount: 15000,
-    createdAt: new Date(Date.now() - 18 * 3600 * 1000).toISOString(),
-  },
-  {
-    id: 'sub_seed_4',
-    creatorName: 'Kemi Real Estate',
-    handle: '@kemi_homes',
-    platform: 'youtube',
-    videoUrl: 'https://youtube.com/shorts/C1BWBH_5wwc',
-    claimedViews: 41800,
-    verifiedViews: 41800,
-    phone: '+234 705 444 5566',
-    bankName: 'UBA',
-    accountNumber: '1098765432',
-    accountName: 'Kemi Balogun',
-    bountyStatus: 'qualified_25k',
-    payoutAmount: 15000,
-    createdAt: new Date(Date.now() - 12 * 3600 * 1000).toISOString(),
-  },
-  {
-    id: 'sub_seed_5',
-    creatorName: 'Naija Tech Bro',
-    handle: '@chidi_tech',
-    platform: 'tiktok',
-    videoUrl: 'https://www.tiktok.com/@chidi_tech/video/7281929991234',
-    claimedViews: 28900,
-    verifiedViews: 28900,
-    phone: '+234 802 555 6677',
-    bankName: 'Kuda Bank',
-    accountNumber: '2001928374',
-    accountName: 'Chidi Okafor',
-    bountyStatus: 'qualified_25k',
-    payoutAmount: 15000,
-    createdAt: new Date(Date.now() - 8 * 3600 * 1000).toISOString(),
-  },
-  {
-    id: 'sub_seed_6',
-    creatorName: 'Zainab Lifestyle',
-    handle: '@zainab_creatives',
-    platform: 'instagram',
-    videoUrl: 'https://www.instagram.com/reel/C899_z182/',
-    claimedViews: 19500,
-    verifiedViews: 19500,
-    phone: '+234 810 666 7788',
-    bountyStatus: 'under_review',
-    payoutAmount: 0,
-    createdAt: new Date(Date.now() - 4 * 3600 * 1000).toISOString(),
-  }
-];
-
 export const CreatorBountyService = {
   getSubmissions(): CreatorSubmission[] {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_SEED_SUBMISSIONS));
-        return INITIAL_SEED_SUBMISSIONS;
+      if (!raw) return [];
+      const items: CreatorSubmission[] = JSON.parse(raw);
+      // Cleanse any old dummy/mock accounts permanently
+      const cleaned = items.filter(
+        (s) =>
+          !s.id.startsWith('sub_seed_') &&
+          !s.id.startsWith('csub_') &&
+          !s.id.startsWith('sub_1') &&
+          !s.id.startsWith('sub_2') &&
+          !s.id.startsWith('sub_3') &&
+          !s.id.startsWith('sub_4') &&
+          !s.id.startsWith('sub_5') &&
+          !s.id.startsWith('sub_6') &&
+          s.handle !== '@bigdave_realty' &&
+          s.handle !== '@tunde_reels' &&
+          s.handle !== '@ada_lagosliving'
+      );
+      if (cleaned.length !== items.length) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(cleaned));
       }
-      return JSON.parse(raw);
+      return cleaned;
     } catch {
-      return INITIAL_SEED_SUBMISSIONS;
+      return [];
     }
   },
 

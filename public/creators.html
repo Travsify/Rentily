@@ -712,23 +712,15 @@
     const STORAGE_KEY = 'rentilly_creator_submissions_v1';
     let currentFilter = 'all';
 
-    const INITIAL_SEEDS = [
-      { id: 'sub_1', creatorName: 'Tunde Adeleke', handle: '@tunde_reels', referralCode: 'TUNDE24', platform: 'tiktok', videoUrl: 'https://www.tiktok.com/@tunde_reels', claimedViews: 142500, verifiedViews: 142500, bountyStatus: 'grand_prize', payoutAmount: 200000 },
-      { id: 'sub_2', creatorName: 'Amaka Eze', handle: '@amakavibes', referralCode: 'AMAKA99', platform: 'instagram', videoUrl: 'https://www.instagram.com/reel/C892_akj12/', claimedViews: 98400, verifiedViews: 98400, bountyStatus: 'qualified_500k', payoutAmount: 150000 },
-      { id: 'sub_3', creatorName: 'Femi (Ibadan Corper)', handle: '@femi_nysc', referralCode: 'FEMI_NYSC', platform: 'tiktok', videoUrl: 'https://www.tiktok.com/@femi_nysc', claimedViews: 64200, verifiedViews: 64200, bountyStatus: 'qualified_100k', payoutAmount: 100000 },
-      { id: 'sub_4', creatorName: 'Kemi Real Estate', handle: '@kemi_homes', referralCode: 'KEMI_PROP', platform: 'youtube', videoUrl: 'https://youtube.com/shorts/C1BWBH_5wwc', claimedViews: 41800, verifiedViews: 41800, bountyStatus: 'qualified_25k', payoutAmount: 10000 },
-      { id: 'sub_5', creatorName: 'Naija Tech Bro', handle: '@chidi_tech', referralCode: 'TECHBRO', platform: 'tiktok', videoUrl: 'https://www.tiktok.com/@chidi_tech', claimedViews: 28900, verifiedViews: 28900, bountyStatus: 'qualified_25k', payoutAmount: 10000 },
-      { id: 'sub_6', creatorName: 'Zainab Lifestyle', handle: '@zainab_creatives', referralCode: 'ZAINAB22', platform: 'instagram', videoUrl: 'https://www.instagram.com/reel/C899_z182/', claimedViews: 19500, verifiedViews: 19500, bountyStatus: 'qualified_25k', payoutAmount: 10000 }
-    ];
+    const INITIAL_SEEDS = [];
 
     function getData() {
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_SEEDS));
-          return INITIAL_SEEDS;
-        }
-        return JSON.parse(raw);
+        if (!raw) return [];
+        const items = JSON.parse(raw);
+        const cleaned = items.filter(s => !s.id.startsWith('sub_') || s.id.length > 8);
+        return cleaned;
       } catch {
         return INITIAL_SEEDS;
       }
