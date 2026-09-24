@@ -431,6 +431,7 @@ export type AdminTab =
   | 'integrations'
   | 'feature_flags'
   | 'referrals'
+  | 'creator_bounties'
   | 'supabase_config'
   | 'flutter_api'
   | 'admin_profile';

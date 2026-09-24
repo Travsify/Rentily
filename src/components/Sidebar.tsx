@@ -321,6 +321,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           icon: Gift,
           badge: '₦1k / ₦500',
           badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+        },
+        {
+          id: 'creator_bounties',
+          label: 'Creator Bounties & Swarm',
+          icon: Zap,
+          badge: '50+ Swarm',
+          badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30'
         }
       ]
     },

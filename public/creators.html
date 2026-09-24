@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rentilly Creator Leaderboard • 50+ Viral Swarm</title>
+  <meta name="description" content="Official Rentilly Creator Swarm Leaderboard. Track views, submit video drops, and claim cash bounties up to ₦300,000." />
+  <link rel="icon" type="image/png" href="/logo.png" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.4/dist/confetti.browser.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .gold-glow {
+      box-shadow: 0 0 40px rgba(245, 158, 11, 0.25);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen selection:bg-emerald-500 selection:text-white pb-20">
+
+  <!-- Header -->
+  <header class="border-b border-emerald-950/40 bg-slate-900/80 backdrop-blur-md sticky top-0 z-30">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-2xl bg-emerald-950 border-2 border-amber-500/80 p-2 shadow-lg shadow-emerald-900/40 flex items-center justify-center">
+          <span class="text-2xl">🔥</span>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="text-xl font-extrabold tracking-wider bg-gradient-to-r from-emerald-400 to-amber-300 bg-clip-text text-transparent">
+              RENTILLY
+            </span>
+            <span class="px-2.5 py-0.5 text-[10px] font-mono font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-full">
+              contest.myrentilly.com
+            </span>
+          </div>
+          <p class="text-xs text-slate-400">Official 50+ Creator Bounty &amp; Leaderboard Hub</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button
+          onclick="copyContestLink()"
+          id="btnCopyContest"
+          class="hidden sm:flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 border border-slate-700 transition cursor-pointer"
+        >
+          <span>📋 contest.myrentilly.com</span>
+        </button>
+
+        <button
+          onclick="openSubmitModal()"
+          class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-slate-950 font-extrabold text-sm shadow-lg shadow-emerald-500/20 flex items-center gap-2 transition-all transform hover:scale-105 active:scale-95 cursor-pointer"
+        >
+          <span class="text-base font-bold">+</span>
+          <span>Submit Video Drop</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="relative overflow-hidden pt-12 pb-16 px-4 sm:px-6 lg:px-8 border-b border-emerald-950/60 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-950/40 via-slate-950 to-slate-950">
+    <div class="max-w-5xl mx-auto text-center relative z-10">
+      <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold tracking-wide uppercase mb-6">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+        <span>Cluely Playbook Active • ₦500,000+ Prize Pool</span>
+      </div>
+
+      <h1 class="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white mb-6 leading-tight">
+        Rentilly Viral Creator <br/>
+        <span class="bg-gradient-to-r from-amber-300 via-emerald-400 to-teal-300 bg-clip-text text-transparent">
+          Leaderboard
+        </span>
+      </h1>
+
+      <p class="text-slate-300 text-base sm:text-lg max-w-2xl mx-auto mb-8 leading-relaxed">
+        Post your Rentilly video on TikTok, Instagram Reels, or YouTube Shorts. Drop your live URL below,
+        track your views on the live chart, and claim instant bank bonuses up to <strong>₦300,000</strong>.
+      </p>
+
+      <!-- Bounty Tiers Bar -->
+      <div class="inline-flex flex-wrap items-center justify-center gap-3 sm:gap-6 bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl">
+        <div class="flex items-center gap-2 text-xs font-semibold text-slate-300">
+          <span class="text-emerald-400 font-bold">Tier 1:</span> 25k Views = <strong class="text-white">₦15,000</strong>
+        </div>
+        <div class="hidden sm:block text-slate-700">•</div>
+        <div class="flex items-center gap-2 text-xs font-semibold text-slate-300">
+          <span class="text-amber-400 font-bold">Tier 2:</span> 100k Views = <strong class="text-white">₦50,000</strong>
+        </div>
+        <div class="hidden sm:block text-slate-700">•</div>
+        <div class="flex items-center gap-2 text-xs font-semibold text-slate-300">
+          <span class="text-purple-400 font-bold">Tier 3:</span> 500k Views = <strong class="text-white">₦150,000</strong>
+        </div>
+        <div class="hidden sm:block text-slate-700">•</div>
+        <div class="flex items-center gap-2 text-xs font-semibold text-slate-300">
+          <span class="text-yellow-400 font-bold">Grand Champion:</span> <strong class="text-white">₦300,000</strong>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Metrics Grid -->
+  <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 relative z-20">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="bg-slate-900/90 border border-emerald-900/40 rounded-2xl p-5 backdrop-blur-xl shadow-xl">
+        <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Total Campaign Views</span>
+        <div id="statTotalViews" class="text-2xl sm:text-3xl font-black text-emerald-400 mt-1">0</div>
+        <span class="text-[11px] text-emerald-500/80 font-medium">Across TikTok, Reels &amp; Shorts</span>
+      </div>
+
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 backdrop-blur-xl shadow-xl">
+        <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Active Video Drops</span>
+        <div id="statTotalSubmissions" class="text-2xl sm:text-3xl font-black text-white mt-1">0</div>
+        <span class="text-[11px] text-slate-400 font-medium">50+ Creators Competing</span>
+      </div>
+
+      <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 backdrop-blur-xl shadow-xl">
+        <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Bounties Qualified</span>
+        <div id="statQualified" class="text-2xl sm:text-3xl font-black text-amber-400 mt-1">0</div>
+        <span class="text-[11px] text-amber-500/80 font-medium">Hit 25k+ View Milestones</span>
+      </div>
+
+      <div class="bg-slate-900/90 border border-purple-900/40 rounded-2xl p-5 backdrop-blur-xl shadow-xl">
+        <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Cash Disbursed</span>
+        <div id="statPaidOut" class="text-2xl sm:text-3xl font-black text-purple-400 mt-1">₦0</div>
+        <span class="text-[11px] text-purple-400/80 font-medium">Direct Bank Payouts</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Top 3 Podium Section -->
+  <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12">
+    <div class="text-center mb-8">
+      <div class="inline-flex items-center gap-2 text-xs font-extrabold text-amber-400 uppercase tracking-widest">
+        <span>🏆 Current Top 3 Leaders • Grand Prize Contenders</span>
+      </div>
+    </div>
+
+    <div id="podiumContainer" class="grid grid-cols-1 md:grid-cols-3 gap-6 items-end max-w-4xl mx-auto">
+      <!-- Dynamic Podium Rendered by JS -->
+    </div>
+  </section>
+
+  <!-- Main Table Section -->
+  <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-14">
+    <div class="bg-slate-900/90 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-xl">
+      <!-- Filters -->
+      <div class="p-4 sm:p-6 border-b border-slate-800 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div class="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-2 md:pb-0" id="platformFilterButtons">
+          <button onclick="setFilter('all')" class="platform-btn px-4 py-2 rounded-xl text-xs font-bold uppercase transition bg-emerald-500 text-slate-950" data-filter="all">All</button>
+          <button onclick="setFilter('tiktok')" class="platform-btn px-4 py-2 rounded-xl text-xs font-bold uppercase transition bg-slate-800 text-slate-400 hover:text-white" data-filter="tiktok">TikTok</button>
+          <button onclick="setFilter('instagram')" class="platform-btn px-4 py-2 rounded-xl text-xs font-bold uppercase transition bg-slate-800 text-slate-400 hover:text-white" data-filter="instagram">Reels</button>
+          <button onclick="setFilter('youtube')" class="platform-btn px-4 py-2 rounded-xl text-xs font-bold uppercase transition bg-slate-800 text-slate-400 hover:text-white" data-filter="youtube">Shorts</button>
+        </div>
+
+        <div class="relative w-full md:w-72">
+          <input
+            id="searchInput"
+            type="text"
+            oninput="handleSearch()"
+            placeholder="Search creator name or handle..."
+            class="w-full px-4 py-2 bg-slate-950/80 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition"
+          />
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+          <thead class="bg-slate-950/80 text-slate-400 text-xs uppercase tracking-wider border-b border-slate-800">
+            <tr>
+              <th class="py-4 px-6">Rank</th>
+              <th class="py-4 px-6">Creator</th>
+              <th class="py-4 px-6">Platform</th>
+              <th class="py-4 px-6 text-right">Views</th>
+              <th class="py-4 px-6 text-center">Bounty Status</th>
+              <th class="py-4 px-6 text-right">Action</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody" class="divide-y divide-slate-800/60">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Submit Video Modal -->
+  <div id="submitModal" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 sm:p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+      <button onclick="closeSubmitModal()" class="absolute top-5 right-5 text-slate-400 hover:text-white p-1 rounded-lg bg-slate-800 text-lg font-bold">✕</button>
+
+      <div class="flex items-center gap-2 mb-1">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
+        <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider">Leaderboard Drop</span>
+      </div>
+      <h2 class="text-xl font-black text-white mb-2">Submit Your Video Link</h2>
+      <p class="text-xs text-slate-400 mb-6">Drop your live video link so our view tracker starts counting your views for the bounty.</p>
+
+      <form id="submissionForm" onsubmit="handleFormSubmit(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-300 uppercase mb-1">Creator Name *</label>
+          <input required id="formName" type="text" placeholder="e.g. Tunde Adeyemi" class="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500" />
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-300 uppercase mb-1">Handle *</label>
+            <input required id="formHandle" type="text" placeholder="@yourhandle" class="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-300 uppercase mb-1">Platform</label>
+            <select id="formPlatform" class="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500">
+              <option value="tiktok">TikTok</option>
+              <option value="instagram">Instagram Reels</option>
+              <option value="youtube">YouTube Shorts</option>
+              <option value="twitter">X (Twitter)</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-300 uppercase mb-1">Video Live URL *</label>
+          <input required id="formUrl" type="url" placeholder="https://www.tiktok.com/@... or instagram.com/reel/..." class="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500" />
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-300 uppercase mb-1">Current Views</label>
+            <input id="formViews" type="number" placeholder="e.g. 15000" class="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-300 uppercase mb-1">WhatsApp Phone *</label>
+            <input required id="formPhone" type="tel" placeholder="+234 80..." class="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500" />
+          </div>
+        </div>
+
+        <div class="pt-2 border-t border-slate-800">
+          <span class="block text-xs font-bold text-amber-400 uppercase mb-2">Bank Payout Info (For Cash Bonuses)</span>
+          <div class="grid grid-cols-3 gap-2">
+            <input id="formBank" type="text" placeholder="Bank Name" class="px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white" />
+            <input id="formAccNum" type="text" placeholder="Account Number" class="px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white" />
+            <input id="formAccName" type="text" placeholder="Account Name" class="px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white" />
+          </div>
+        </div>
+
+        <button type="submit" class="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-slate-950 font-black text-sm shadow-xl shadow-emerald-500/20 transition transform hover:scale-[1.02] cursor-pointer">
+          🚀 Submit Video &amp; Join Leaderboard
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'rentilly_creator_submissions_v1';
+    let currentFilter = 'all';
+
+    const INITIAL_SEEDS = [
+      { id: 'sub_1', creatorName: 'Tunde Adeleke', handle: '@tunde_reels', platform: 'tiktok', videoUrl: 'https://www.tiktok.com/@tunde_reels', claimedViews: 142500, verifiedViews: 142500, bountyStatus: 'qualified_100k', payoutAmount: 50000 },
+      { id: 'sub_2', creatorName: 'Amaka Eze', handle: '@amakavibes', platform: 'instagram', videoUrl: 'https://www.instagram.com/reel/C892_akj12/', claimedViews: 98400, verifiedViews: 98400, bountyStatus: 'qualified_25k', payoutAmount: 15000 },
+      { id: 'sub_3', creatorName: 'Femi (Ibadan Corper)', handle: '@femi_nysc', platform: 'tiktok', videoUrl: 'https://www.tiktok.com/@femi_nysc', claimedViews: 64200, verifiedViews: 64200, bountyStatus: 'qualified_25k', payoutAmount: 15000 },
+      { id: 'sub_4', creatorName: 'Kemi Real Estate', handle: '@kemi_homes', platform: 'youtube', videoUrl: 'https://youtube.com/shorts/C1BWBH_5wwc', claimedViews: 41800, verifiedViews: 41800, bountyStatus: 'qualified_25k', payoutAmount: 15000 },
+      { id: 'sub_5', creatorName: 'Naija Tech Bro', handle: '@chidi_tech', platform: 'tiktok', videoUrl: 'https://www.tiktok.com/@chidi_tech', claimedViews: 28900, verifiedViews: 28900, bountyStatus: 'qualified_25k', payoutAmount: 15000 },
+      { id: 'sub_6', creatorName: 'Zainab Lifestyle', handle: '@zainab_creatives', platform: 'instagram', videoUrl: 'https://www.instagram.com/reel/C899_z182/', claimedViews: 19500, verifiedViews: 19500, bountyStatus: 'under_review', payoutAmount: 0 }
+    ];
+
+    function getData() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_SEEDS));
+          return INITIAL_SEEDS;
+        }
+        return JSON.parse(raw);
+      } catch {
+        return INITIAL_SEEDS;
+      }
+    }
+
+    function render() {
+      const data = getData();
+      data.sort((a, b) => (b.verifiedViews || b.claimedViews) - (a.verifiedViews || a.claimedViews));
+
+      // Stats
+      const totalViews = data.reduce((s, i) => s + (i.verifiedViews || i.claimedViews), 0);
+      const totalPaid = data.filter(i => i.bountyStatus === 'paid').reduce((s, i) => s + (i.payoutAmount || 0), 0);
+      const qualified = data.filter(i => i.bountyStatus.startsWith('qualified') || i.bountyStatus === 'grand_prize' || i.bountyStatus === 'paid').length;
+
+      document.getElementById('statTotalViews').innerText = totalViews.toLocaleString();
+      document.getElementById('statTotalSubmissions').innerText = data.length;
+      document.getElementById('statQualified').innerText = qualified;
+      document.getElementById('statPaidOut').innerText = '₦' + totalPaid.toLocaleString();
+
+      // Top 3 Podium
+      const top1 = data[0];
+      const top2 = data[1];
+      const top3 = data[2];
+
+      const podiumHtml = `
+        ${top2 ? `
+        <div class="order-2 md:order-1 bg-slate-900 border border-slate-700/80 rounded-2xl p-6 text-center shadow-xl md:-translate-y-2">
+          <div class="w-10 h-10 rounded-full bg-slate-300 text-slate-950 font-black text-sm flex items-center justify-center mx-auto mb-3">#2</div>
+          <h3 class="font-extrabold text-white text-lg truncate">${top2.creatorName}</h3>
+          <p class="text-xs text-emerald-400 font-semibold mb-3">${top2.handle}</p>
+          <div class="text-2xl font-black text-slate-200">${(top2.verifiedViews || top2.claimedViews).toLocaleString()} <span class="text-xs text-slate-400">views</span></div>
+          <a href="${top2.videoUrl}" target="_blank" class="mt-4 inline-block text-xs text-emerald-400 hover:underline font-bold">Watch Drop ↗</a>
+        </div>` : ''}
+
+        ${top1 ? `
+        <div class="order-1 md:order-2 bg-gradient-to-b from-amber-500/20 via-slate-900 to-slate-950 border-2 border-amber-500/70 rounded-2xl p-8 text-center shadow-2xl relative md:-translate-y-6">
+          <div class="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-amber-500 text-slate-950 font-black text-[10px] uppercase rounded-full">LEADER</div>
+          <div class="w-14 h-14 rounded-full bg-amber-400 text-slate-950 font-black text-xl flex items-center justify-center mx-auto mb-3 shadow-lg shadow-amber-500/30">#1</div>
+          <h3 class="font-black text-white text-xl truncate">${top1.creatorName}</h3>
+          <p class="text-xs text-amber-400 font-bold mb-4">${top1.handle}</p>
+          <div class="text-3xl font-black text-white">${(top1.verifiedViews || top1.claimedViews).toLocaleString()} <span class="text-sm text-amber-300">views</span></div>
+          <a href="${top1.videoUrl}" target="_blank" class="mt-5 inline-block px-4 py-2 rounded-xl bg-amber-500/20 text-amber-300 text-xs font-bold border border-amber-500/40">Watch Winning Video ↗</a>
+        </div>` : ''}
+
+        ${top3 ? `
+        <div class="order-3 bg-slate-900 border border-amber-800/40 rounded-2xl p-6 text-center shadow-xl">
+          <div class="w-10 h-10 rounded-full bg-amber-700 text-amber-100 font-black text-sm flex items-center justify-center mx-auto mb-3">#3</div>
+          <h3 class="font-extrabold text-white text-lg truncate">${top3.creatorName}</h3>
+          <p class="text-xs text-emerald-400 font-semibold mb-3">${top3.handle}</p>
+          <div class="text-2xl font-black text-amber-200">${(top3.verifiedViews || top3.claimedViews).toLocaleString()} <span class="text-xs text-slate-400">views</span></div>
+          <a href="${top3.videoUrl}" target="_blank" class="mt-4 inline-block text-xs text-emerald-400 hover:underline font-bold">Watch Drop ↗</a>
+        </div>` : ''}
+      `;
+      document.getElementById('podiumContainer').innerHTML = podiumHtml;
+
+      // Filtered Table
+      const search = (document.getElementById('searchInput')?.value || '').toLowerCase();
+      const filtered = data.filter(i => {
+        const matchesPlatform = currentFilter === 'all' || i.platform === currentFilter;
+        const matchesSearch = i.creatorName.toLowerCase().includes(search) || i.handle.toLowerCase().includes(search);
+        return matchesPlatform && matchesSearch;
+      });
+
+      const tableRows = filtered.map((sub, idx) => `
+        <tr class="hover:bg-slate-800/40 transition">
+          <td class="py-4 px-6 font-mono font-bold ${idx === 0 ? 'text-amber-400' : idx === 1 ? 'text-slate-300' : idx === 2 ? 'text-amber-600' : 'text-slate-500'}">#${idx + 1}</td>
+          <td class="py-4 px-6">
+            <div class="font-bold text-white">${sub.creatorName}</div>
+            <div class="text-xs text-emerald-400 font-semibold">${sub.handle}</div>
+          </td>
+          <td class="py-4 px-6 uppercase text-xs font-semibold text-slate-400">${sub.platform}</td>
+          <td class="py-4 px-6 text-right font-black text-white text-base">${(sub.verifiedViews || sub.claimedViews).toLocaleString()}</td>
+          <td class="py-4 px-6 text-center">
+            <span class="px-2.5 py-1 text-[11px] font-bold rounded-full ${
+              sub.bountyStatus === 'qualified_100k' ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' :
+              sub.bountyStatus === 'qualified_25k' ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' :
+              sub.bountyStatus === 'qualified_500k' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40' :
+              sub.bountyStatus === 'paid' ? 'bg-green-500/30 text-green-200 border border-green-500' :
+              'bg-slate-800 text-slate-400'
+            }">
+              ${sub.bountyStatus.replace('_', ' ').toUpperCase()}
+            </span>
+          </td>
+          <td class="py-4 px-6 text-right">
+            <a href="${sub.videoUrl}" target="_blank" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-emerald-600 hover:text-white text-slate-300 text-xs font-bold transition">Watch ↗</a>
+          </td>
+        </tr>
+      `).join('');
+
+      document.getElementById('tableBody').innerHTML = tableRows || '<tr><td colspan="6" class="py-10 text-center text-slate-500">No submissions found.</td></tr>';
+    }
+
+    function setFilter(platform) {
+      currentFilter = platform;
+      document.querySelectorAll('.platform-btn').forEach(btn => {
+        if (btn.getAttribute('data-filter') === platform) {
+          btn.className = 'platform-btn px-4 py-2 rounded-xl text-xs font-bold uppercase transition bg-emerald-500 text-slate-950';
+        } else {
+          btn.className = 'platform-btn px-4 py-2 rounded-xl text-xs font-bold uppercase transition bg-slate-800 text-slate-400 hover:text-white';
+        }
+      });
+      render();
+    }
+
+    function handleSearch() {
+      render();
+    }
+
+    function openSubmitModal() {
+      document.getElementById('submitModal').classList.remove('hidden');
+    }
+
+    function closeSubmitModal() {
+      document.getElementById('submitModal').classList.add('hidden');
+    }
+
+    function handleFormSubmit(e) {
+      e.preventDefault();
+      const newSub = {
+        id: 'sub_' + Date.now(),
+        creatorName: document.getElementById('formName').value,
+        handle: document.getElementById('formHandle').value,
+        platform: document.getElementById('formPlatform').value,
+        videoUrl: document.getElementById('formUrl').value,
+        claimedViews: parseInt(document.getElementById('formViews').value) || 1000,
+        phone: document.getElementById('formPhone').value,
+        bankName: document.getElementById('formBank').value,
+        accountNumber: document.getElementById('formAccNum').value,
+        accountName: document.getElementById('formAccName').value,
+        bountyStatus: 'under_review',
+        payoutAmount: 0,
+        createdAt: new Date().toISOString()
+      };
+
+      const views = newSub.claimedViews;
+      if (views >= 500000) { newSub.bountyStatus = 'qualified_500k'; newSub.payoutAmount = 150000; }
+      else if (views >= 100000) { newSub.bountyStatus = 'qualified_100k'; newSub.payoutAmount = 50000; }
+      else if (views >= 25000) { newSub.bountyStatus = 'qualified_25k'; newSub.payoutAmount = 15000; }
+
+      const all = getData();
+      all.push(newSub);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+
+      try {
+        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+      } catch(err) {}
+
+      closeSubmitModal();
+      document.getElementById('submissionForm').reset();
+      render();
+      alert('🔥 Your video drop was submitted to the leaderboard!');
+    }
+
+    function copyContestLink() {
+      navigator.clipboard.writeText('https://contest.myrentilly.com');
+      const btn = document.getElementById('btnCopyContest');
+      if (btn) {
+        btn.innerHTML = '<span>✅ Copied Link!</span>';
+        setTimeout(() => {
+          btn.innerHTML = '<span>📋 contest.myrentilly.com</span>';
+        }, 3000);
+      }
+    }
+
+    window.onload = render;
+  </script>
+</body>
+</html>

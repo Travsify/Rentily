@@ -38,6 +38,8 @@ import { SupabaseConfigTab } from './components/SupabaseConfigTab';
 import { FlutterApiDocsTab } from './components/FlutterApiDocsTab';
 import { AdminProfileTab } from './components/AdminProfileTab';
 import { AdminLoginPage } from './components/AdminLoginPage';
+import { CreatorBountiesAdminTab } from './components/CreatorBountiesAdminTab';
+import { CreatorLeaderboardPortal } from './components/CreatorLeaderboardPortal';
 import { RentillyApiService, checkServerHealth } from './services/api';
 import { supabaseClient } from './services/supabaseClient';
 import type { AdminTab, Property, KYPRecord, Inspection, Transaction, LegalAgreement, UserProfile } from './types';
@@ -45,6 +47,14 @@ import type { AdminTab, Property, KYPRecord, Inspection, Transaction, LegalAgree
 export default function App() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [currentTab, setCurrentTab] = useState<AdminTab>('overview');
+  const [showPublicCreatorPortal, setShowPublicCreatorPortal] = useState(() => {
+    return window.location.hostname.startsWith('contest.') ||
+           window.location.pathname.startsWith('/contest') ||
+           window.location.pathname.startsWith('/creators') || 
+           window.location.pathname.startsWith('/leaderboard') ||
+           window.location.search.includes('tab=contest') ||
+           window.location.search.includes('tab=creators');
+  });
   
   // Data State
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -195,6 +205,11 @@ export default function App() {
         <p className="text-sm font-medium">Connecting to Rentilly Operations Hub...</p>
       </div>
     );
+  }
+
+  // If public creator leaderboard requested, render portal immediately without requiring admin auth
+  if (showPublicCreatorPortal) {
+    return <CreatorLeaderboardPortal onBackToAdmin={() => setShowPublicCreatorPortal(false)} />;
   }
 
   // If not logged in, render the Admin Login Page
@@ -386,6 +401,10 @@ export default function App() {
 
           {currentTab === 'referrals' && (
             <ReferralsTab />
+          )}
+
+          {currentTab === 'creator_bounties' && (
+            <CreatorBountiesAdminTab onOpenPublicPortal={() => setShowPublicCreatorPortal(true)} />
           )}
 
           {currentTab === 'supabase_config' && (

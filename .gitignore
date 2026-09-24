@@ -12,6 +12,7 @@ dist
 dist-ssr
 *.local
 *.apk
+*.aab
 
 # Environment variables
 .env
