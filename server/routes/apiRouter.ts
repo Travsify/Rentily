@@ -26,6 +26,7 @@ import { getPartnerOnboardedLandlords } from '../controllers/publicPartnerPages'
 import { isSupabaseConfigured, reconfigureSupabase, supabase } from '../supabaseClient';
 import { IdentitypassService } from '../services/identitypassService';
 import { FlutterwaveService } from '../services/flutterwaveService';
+import { adminSecuritySentinel, triggerEmergencyLockdown, liftEmergencyLockdown, getSentinelStatus } from '../middleware/adminSecuritySentinel';
 export const apiRouter = Router();
 
 // 1. Health & Third-Party Service Status
@@ -107,6 +108,9 @@ apiRouter.get('/debug/store', (_req, res) => {
 apiRouter.post('/auth/register', authController.register);
 apiRouter.post('/auth/login', authController.login);
 apiRouter.post('/auth/login-otp', authController.loginWithOtp);
+
+// 2a. Hardened Military-Grade Admin Authentication & Sentinel Gateway
+apiRouter.use('/auth/admin', adminSecuritySentinel);
 apiRouter.post('/auth/admin/request-otp', authController.requestAdminOtp);
 apiRouter.post('/auth/admin/verify-2fa', authController.verifyAdmin2fa);
 apiRouter.post('/auth/admin/mfa/status', authController.getAdminMfaStatus);
@@ -116,6 +120,9 @@ apiRouter.post('/auth/admin/mfa/test-sync', authController.testAdminTotpSync);
 apiRouter.post('/auth/admin/profile', authController.getAdminProfile);
 apiRouter.post('/auth/admin/change-password', authController.changeAdminPassword);
 apiRouter.post('/auth/admin/change-harsh-key', authController.changeAdminHarshKey);
+apiRouter.get('/auth/admin/sentinel/status', getSentinelStatus);
+apiRouter.post('/auth/admin/emergency-lockdown', triggerEmergencyLockdown);
+apiRouter.post('/auth/admin/lift-lockdown', liftEmergencyLockdown);
 apiRouter.get('/auth/me', authController.getMe);
 apiRouter.get('/users', authController.listUsers);
 apiRouter.post('/auth/send-otp', otpController.sendOtp);

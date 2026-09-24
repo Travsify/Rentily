@@ -8,6 +8,7 @@ import crypto from 'crypto';
 import { generateSecret, generateURI, verifySync } from 'otplib';
 import QRCode from 'qrcode';
 import { tryFormatToE164 } from '../utils/phoneUtils';
+import { timingSafeEqual, isTotpReplayed, recordFailedAdminAttempt, recordSuccessfulAdminAuth, getClientIp } from '../middleware/adminSecuritySentinel';
 
 export let ADMIN_EMAIL = 'info@travsify.com';
 export let ADMIN_PASSWORD = 'Andrewtate2024./';
@@ -1220,14 +1221,26 @@ export async function requestAdminOtp(req: Request, res: Response) {
 
     const cleanEmail = email.toLowerCase().trim();
 
-    if (cleanEmail !== ADMIN_EMAIL || password !== ADMIN_PASSWORD || harshKey !== ADMIN_HARSH_KEY) {
+    const emailMatch = timingSafeEqual(cleanEmail, ADMIN_EMAIL.toLowerCase().trim());
+    const passMatch = timingSafeEqual(String(password), ADMIN_PASSWORD);
+    const harshMatch = timingSafeEqual(String(harshKey), ADMIN_HARSH_KEY);
+
+    if (!emailMatch || !passMatch || !harshMatch) {
       console.warn(`⚠️ [Admin 2FA] Failed login attempt for email: ${cleanEmail}`);
-      return res.status(401).json({ error: 'Invalid administrative credentials or harsh security key.' });
+      const { jailed, remainingAttempts } = recordFailedAdminAttempt(req, cleanEmail, 'Invalid credentials or harsh key');
+      if (jailed) {
+        return res.status(429).json({ error: 'Too many failed login attempts. IP temporarily restricted.' });
+      }
+      return res.status(401).json({ 
+        error: `Invalid administrative credentials or harsh security key. (${remainingAttempts} attempts remaining before temporary lockout)` 
+      });
     }
 
     // Generate 6-digit OTP valid for 10 minutes
     const { code } = OtpStore.createOtp(cleanEmail, 'Admin 2FA Console Login');
     console.log(`🔐 [Admin 2FA] Generated 6-digit OTP for ${cleanEmail}: ${code} (Expires in 10 mins)`);
+
+    const clientIp = getClientIp(req);
 
     // Dispatch transactional 2FA email
     NotificationDispatcher.dispatch({
@@ -1240,6 +1253,7 @@ export async function requestAdminOtp(req: Request, res: Response) {
         '2FA Verification Code': code,
         'Harsh Key': 'Verified ✅',
         'Authorized Email': cleanEmail,
+        'Origin IP': clientIp,
         'Time': new Date().toLocaleString('en-NG', { timeZone: 'Africa/Lagos' }),
         'Security Notice': 'If you did not initiate this sign-in, please change your administrative credentials immediately.'
       }
@@ -1267,15 +1281,31 @@ export async function verifyAdmin2fa(req: Request, res: Response) {
     }
 
     const cleanEmail = email.toLowerCase().trim();
+    const cleanCode = String(code).trim().replace(/\s+/g, '');
 
-    if (cleanEmail !== ADMIN_EMAIL || harshKey !== ADMIN_HARSH_KEY) {
+    const emailMatch = timingSafeEqual(cleanEmail, ADMIN_EMAIL.toLowerCase().trim());
+    const harshMatch = timingSafeEqual(String(harshKey), ADMIN_HARSH_KEY);
+
+    if (!emailMatch || !harshMatch) {
+      recordFailedAdminAttempt(req, cleanEmail, 'Invalid 2FA parameters or harsh key');
       return res.status(401).json({ error: 'Invalid administrative authorization parameters.' });
     }
 
-    const verification = OtpStore.verifyOtp(cleanEmail, code);
-    if (!verification.valid) {
-      return res.status(400).json({ error: verification.message || 'Invalid or expired 2FA code.' });
+    // Anti-Replay Guard
+    if (isTotpReplayed(cleanEmail, cleanCode)) {
+      return res.status(400).json({ error: 'Security violation: Replay of used 2FA security code detected.' });
     }
+
+    const verification = OtpStore.verifyOtp(cleanEmail, cleanCode);
+    if (!verification.valid) {
+      const { jailed, remainingAttempts } = recordFailedAdminAttempt(req, cleanEmail, 'Invalid or expired OTP code');
+      if (jailed) {
+        return res.status(429).json({ error: 'Too many failed login attempts. IP temporarily restricted.' });
+      }
+      return res.status(400).json({ error: verification.message || `Invalid or expired 2FA code. (${remainingAttempts} attempts remaining)` });
+    }
+
+    recordSuccessfulAdminAuth(req, cleanEmail);
 
     const token = `admin-token-travsify-${Date.now()}`;
     const adminUser = {
@@ -1287,6 +1317,8 @@ export async function verifyAdmin2fa(req: Request, res: Response) {
       createdAt: new Date().toISOString()
     };
 
+    const clientIp = getClientIp(req);
+
     // Dispatch Security Alert on successful admin login
     NotificationDispatcher.dispatch({
       email: cleanEmail,
@@ -1296,11 +1328,12 @@ export async function verifyAdmin2fa(req: Request, res: Response) {
       message: `Your administrator account (${cleanEmail}) has successfully authenticated into the Rentilly Executive Operations Hub.`,
       metadata: {
         'Authentication Method': 'Harsh Key + 2FA OTP Code',
+        'Authorized IP': clientIp,
         'Time': new Date().toLocaleString('en-NG', { timeZone: 'Africa/Lagos' })
       }
     }).catch(() => {});
 
-    console.log(`✅ [Admin 2FA] Successful 2FA login for ${cleanEmail}`);
+    console.log(`✅ [Admin 2FA] Successful 2FA login for ${cleanEmail} from IP ${clientIp}`);
 
     return res.json({
       status: true,
@@ -1370,7 +1403,11 @@ export async function getAdminMfaStatus(req: Request, res: Response) {
     }
 
     const cleanEmail = email.toLowerCase().trim();
-    if (cleanEmail !== ADMIN_EMAIL || harshKey !== ADMIN_HARSH_KEY) {
+    const emailMatch = timingSafeEqual(cleanEmail, ADMIN_EMAIL.toLowerCase().trim());
+    const harshMatch = timingSafeEqual(String(harshKey), ADMIN_HARSH_KEY);
+
+    if (!emailMatch || !harshMatch) {
+      recordFailedAdminAttempt(req, cleanEmail, 'Invalid MFA status parameters');
       return res.status(401).json({ error: 'Invalid administrative credentials or harsh security key.' });
     }
 
@@ -1398,7 +1435,12 @@ export async function setupAdminTotp(req: Request, res: Response) {
     }
 
     const cleanEmail = email.toLowerCase().trim();
-    if (cleanEmail !== ADMIN_EMAIL || password !== ADMIN_PASSWORD || harshKey !== ADMIN_HARSH_KEY) {
+    const emailMatch = timingSafeEqual(cleanEmail, ADMIN_EMAIL.toLowerCase().trim());
+    const passMatch = timingSafeEqual(String(password), ADMIN_PASSWORD);
+    const harshMatch = timingSafeEqual(String(harshKey), ADMIN_HARSH_KEY);
+
+    if (!emailMatch || !passMatch || !harshMatch) {
+      recordFailedAdminAttempt(req, cleanEmail, 'Invalid setup totp credentials');
       return res.status(401).json({ error: 'Invalid administrative credentials or harsh security key.' });
     }
 
@@ -1460,8 +1502,21 @@ export async function verifyAdminTotp(req: Request, res: Response) {
     }
 
     const cleanEmail = email.toLowerCase().trim();
-    if (cleanEmail !== ADMIN_EMAIL || harshKey !== ADMIN_HARSH_KEY) {
+    const cleanCode = String(code).trim().replace(/\s+/g, '');
+
+    const emailMatch = timingSafeEqual(cleanEmail, ADMIN_EMAIL.toLowerCase().trim());
+    const harshMatch = timingSafeEqual(String(harshKey), ADMIN_HARSH_KEY);
+
+    if (!emailMatch || !harshMatch) {
+      recordFailedAdminAttempt(req, cleanEmail, 'Invalid TOTP parameters or harsh key');
       return res.status(401).json({ error: 'Invalid administrative authorization parameters.' });
+    }
+
+    // Anti-Replay Guard for TOTP
+    if (isTotpReplayed(cleanEmail, cleanCode)) {
+      return res.status(400).json({ 
+        error: 'Security violation: Replay of used Google Authenticator code detected. Please wait for the next 30-second interval.' 
+      });
     }
 
     const config = await getPersistedAdminTotp(cleanEmail);
@@ -1472,7 +1527,6 @@ export async function verifyAdminTotp(req: Request, res: Response) {
       });
     }
 
-    const cleanCode = String(code).trim().replace(/\s+/g, '');
     const verification = verifySync({
       token: cleanCode,
       secret: config.secret,
@@ -1480,10 +1534,16 @@ export async function verifyAdminTotp(req: Request, res: Response) {
     });
 
     if (!verification.valid) {
+      const { jailed, remainingAttempts } = recordFailedAdminAttempt(req, cleanEmail, 'Invalid TOTP code');
+      if (jailed) {
+        return res.status(429).json({ error: 'Too many failed login attempts. IP temporarily restricted.' });
+      }
       return res.status(400).json({
-        error: 'Invalid or expired Google Authenticator code. Please check your authenticator app and enter the current 6-digit code.'
+        error: `Invalid or expired Google Authenticator code. (${remainingAttempts} attempts remaining before temporary lockout)`
       });
     }
+
+    recordSuccessfulAdminAuth(req, cleanEmail);
 
     // Mark as configured & confirmed
     config.configured = true;
@@ -1500,6 +1560,8 @@ export async function verifyAdminTotp(req: Request, res: Response) {
       createdAt: new Date().toISOString()
     };
 
+    const clientIp = getClientIp(req);
+
     // Dispatch Security Alert on successful admin login
     NotificationDispatcher.dispatch({
       email: cleanEmail,
@@ -1510,11 +1572,12 @@ export async function verifyAdminTotp(req: Request, res: Response) {
       metadata: {
         'Authentication Method': 'Google Authenticator MFA (TOTP)',
         'Harsh Key': 'Verified ✅',
+        'Authorized IP': clientIp,
         'Time': new Date().toLocaleString('en-NG', { timeZone: 'Africa/Lagos' })
       }
     }).catch(() => {});
 
-    console.log(`✅ [Admin MFA] Successful Google Authenticator login for ${cleanEmail}`);
+    console.log(`✅ [Admin MFA] Successful Google Authenticator login for ${cleanEmail} from IP ${clientIp}`);
 
     return res.json({
       status: true,
@@ -1599,7 +1662,12 @@ export async function changeAdminPassword(req: Request, res: Response) {
     }
 
     const cleanEmail = email.toLowerCase().trim();
-    if (cleanEmail !== ADMIN_EMAIL || currentPassword !== ADMIN_PASSWORD || harshKey !== ADMIN_HARSH_KEY) {
+    const emailMatch = timingSafeEqual(cleanEmail, ADMIN_EMAIL.toLowerCase().trim());
+    const passMatch = timingSafeEqual(String(currentPassword), ADMIN_PASSWORD);
+    const harshMatch = timingSafeEqual(String(harshKey), ADMIN_HARSH_KEY);
+
+    if (!emailMatch || !passMatch || !harshMatch) {
+      recordFailedAdminAttempt(req, cleanEmail, 'Failed password change attempt');
       return res.status(401).json({ error: 'Invalid current credentials or harsh security key.' });
     }
 
@@ -1623,6 +1691,8 @@ export async function changeAdminPassword(req: Request, res: Response) {
       });
     }
 
+    const clientIp = getClientIp(req);
+
     // Dispatch Security Alert
     NotificationDispatcher.dispatch({
       email: cleanEmail,
@@ -1632,12 +1702,13 @@ export async function changeAdminPassword(req: Request, res: Response) {
       message: `The master password for your administrator account (${cleanEmail}) was successfully updated.`,
       metadata: {
         'Account': cleanEmail,
+        'Authorized IP': clientIp,
         'Harsh Key': 'Verified ✅',
         'Time': new Date().toLocaleString('en-NG', { timeZone: 'Africa/Lagos' })
       }
     }).catch(() => {});
 
-    console.log(`🔐 [Admin Security] Master password updated for ${cleanEmail}`);
+    console.log(`🔐 [Admin Security] Master password updated for ${cleanEmail} from IP ${clientIp}`);
 
     return res.json({
       status: true,
@@ -1660,7 +1731,12 @@ export async function changeAdminHarshKey(req: Request, res: Response) {
     }
 
     const cleanEmail = email.toLowerCase().trim();
-    if (cleanEmail !== ADMIN_EMAIL || password !== ADMIN_PASSWORD || currentHarshKey !== ADMIN_HARSH_KEY) {
+    const emailMatch = timingSafeEqual(cleanEmail, ADMIN_EMAIL.toLowerCase().trim());
+    const passMatch = timingSafeEqual(String(password), ADMIN_PASSWORD);
+    const harshMatch = timingSafeEqual(String(currentHarshKey), ADMIN_HARSH_KEY);
+
+    if (!emailMatch || !passMatch || !harshMatch) {
+      recordFailedAdminAttempt(req, cleanEmail, 'Failed harsh key change attempt');
       return res.status(401).json({ error: 'Invalid administrator credentials or harsh key.' });
     }
 
@@ -1684,6 +1760,8 @@ export async function changeAdminHarshKey(req: Request, res: Response) {
       });
     }
 
+    const clientIp = getClientIp(req);
+
     // Dispatch Security Alert
     NotificationDispatcher.dispatch({
       email: cleanEmail,
@@ -1693,11 +1771,12 @@ export async function changeAdminHarshKey(req: Request, res: Response) {
       message: `The security harsh key for your administrator account (${cleanEmail}) was successfully modified. Use your new harsh key for all subsequent 2FA and administrative authorizations.`,
       metadata: {
         'Account': cleanEmail,
+        'Authorized IP': clientIp,
         'Time': new Date().toLocaleString('en-NG', { timeZone: 'Africa/Lagos' })
       }
     }).catch(() => {});
 
-    console.log(`🛡️ [Admin Security] Admin harsh key updated for ${cleanEmail}`);
+    console.log(`🛡️ [Admin Security] Admin harsh key updated for ${cleanEmail} from IP ${clientIp}`);
 
     return res.json({
       status: true,
@@ -1720,7 +1799,11 @@ export async function testAdminTotpSync(req: Request, res: Response) {
     }
 
     const cleanEmail = email.toLowerCase().trim();
-    if (cleanEmail !== ADMIN_EMAIL || harshKey !== ADMIN_HARSH_KEY) {
+    const emailMatch = timingSafeEqual(cleanEmail, ADMIN_EMAIL.toLowerCase().trim());
+    const harshMatch = timingSafeEqual(String(harshKey), ADMIN_HARSH_KEY);
+
+    if (!emailMatch || !harshMatch) {
+      recordFailedAdminAttempt(req, cleanEmail, 'Failed TOTP sync test');
       return res.status(401).json({ error: 'Invalid administrative authorization parameters.' });
     }
 
