@@ -6,7 +6,7 @@ module.exports = {
     interpreter_args: '--no-cache',
     instances: 1,
     exec_mode: 'fork',
-    wait_ready: true,
+    wait_ready: false,
     listen_timeout: 15000,
     kill_timeout: 8000,
     restart_delay: 2000,
