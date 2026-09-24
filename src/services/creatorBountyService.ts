@@ -83,6 +83,46 @@ export const CreatorBountyService = {
     return true;
   },
 
+  boostSubmission(id: string): { success: boolean; newCount: number; message: string } {
+    const boostKey = `rentilly_boost_${id}`;
+    const lastBoost = localStorage.getItem(boostKey);
+    const now = Date.now();
+    const COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+    if (lastBoost && now - Number(lastBoost) < COOLDOWN_MS) {
+      const remainingHours = Math.ceil((COOLDOWN_MS - (now - Number(lastBoost))) / (1000 * 60 * 60));
+      const sub = this.getSubmissions().find(s => s.id === id);
+      return {
+        success: false,
+        newCount: sub?.boostsCount || 0,
+        message: `You already boosted this video today! You can boost again in ${remainingHours}h.`
+      };
+    }
+
+    const all = this.getSubmissions();
+    const index = all.findIndex((s) => s.id === id);
+    if (index === -1) {
+      return { success: false, newCount: 0, message: 'Submission not found' };
+    }
+
+    const currentBoosts = all[index].boostsCount || 0;
+    const newCount = currentBoosts + 1;
+    all[index].boostsCount = newCount;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+    localStorage.setItem(boostKey, String(now));
+
+    // Async persist to server backend API
+    try {
+      fetch(`/api/contest/submissions/${id}/boost`, { method: 'POST' }).catch(() => {});
+    } catch {}
+
+    return {
+      success: true,
+      newCount,
+      message: `🚀 Video boosted! Total community boosts: ${newCount.toLocaleString()}`
+    };
+  },
+
   getStats() {
     const all = this.getSubmissions();
     const totalViews = all.reduce((sum, s) => sum + (s.verifiedViews || s.claimedViews || 0), 0);

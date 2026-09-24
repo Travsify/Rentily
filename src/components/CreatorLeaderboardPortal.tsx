@@ -12,7 +12,14 @@ import {
   ExternalLink, 
   Heart, 
   BookOpen, 
-  Share2 
+  Share2,
+  Copy,
+  Download,
+  Rocket,
+  Palette,
+  Check,
+  ShieldCheck,
+  Volume2
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { CreatorBountyService } from '../services/creatorBountyService';
@@ -42,6 +49,13 @@ export const CreatorLeaderboardPortal: React.FC = () => {
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<string>(new Date().toLocaleTimeString());
   const [topicFilter, setTopicFilter] = useState<'all' | 'renters' | 'property_purchase'>('all');
+
+  // Tier-1 Global Standards States
+  const [isKitModalOpen, setIsKitModalOpen] = useState(false);
+  const [isBadgeModalOpen, setIsBadgeModalOpen] = useState(false);
+  const [badgeCreator, setBadgeCreator] = useState<CreatorSubmission | null>(null);
+  const [activeCaptionTopic, setActiveCaptionTopic] = useState<'renters' | 'property_purchase'>('renters');
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   // Handle URL history navigation
   useEffect(() => {
@@ -180,6 +194,7 @@ export const CreatorLeaderboardPortal: React.FC = () => {
     followHandle: '',
     hasFollowed: false,
     hasTaggedRentilly: false,
+    ugcRightsGranted: false,
     platform: 'tiktok' as CreatorPlatform,
     videoUrl: '',
     claimedViews: '',
@@ -220,6 +235,39 @@ export const CreatorLeaderboardPortal: React.FC = () => {
     setTimeout(() => setToastMessage(null), 4000);
   };
 
+  const copyToClipboard = (text: string, key: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedKey(key);
+    showToast(`✅ Copied: ${label}`);
+    setTimeout(() => setCopiedKey(null), 2500);
+  };
+
+  const handleBoost = (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    const res = CreatorBountyService.boostSubmission(id);
+    if (res.success) {
+      try {
+        confetti({
+          particleCount: 60,
+          spread: 70,
+          origin: { y: 0.7 }
+        });
+      } catch {}
+      setSubmissions((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, boostsCount: res.newCount } : s))
+      );
+      showToast(res.message);
+    } else {
+      showToast(res.message);
+    }
+  };
+
+  const openBadgeModal = (creator: CreatorSubmission, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setBadgeCreator(creator);
+    setIsBadgeModalOpen(true);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.creatorName || !formData.videoUrl || !formData.handle) {
@@ -234,6 +282,11 @@ export const CreatorLeaderboardPortal: React.FC = () => {
 
     if (!formData.hasTaggedRentilly) {
       alert('Please confirm that you have tagged Rentilly (@renti_lly on Instagram, @rentilly on TikTok/X) in your video and caption so viewers can visit our pages.');
+      return;
+    }
+
+    if (!formData.ugcRightsGranted) {
+      alert('Please accept the Commercial UGC Rights License to qualify for prize payouts.');
       return;
     }
 
@@ -266,6 +319,7 @@ export const CreatorLeaderboardPortal: React.FC = () => {
         followHandle: formData.followHandle,
         hasTaggedRentilly: formData.hasTaggedRentilly,
         taggedHandleProof: formData.platform === 'instagram' ? '@renti_lly' : '@rentilly',
+        ugcRightsGranted: formData.ugcRightsGranted,
         bankName: formData.bankName,
         accountNumber: formData.accountNumber,
         accountName: formData.accountName,
@@ -286,8 +340,27 @@ export const CreatorLeaderboardPortal: React.FC = () => {
     localStorage.setItem('rentilly_my_creator_handle', formData.handle);
     setMyTrackedHandle(formData.handle);
     setSearchQuery(formData.handle);
+
+    // Prepare contestant badge
+    const createdEntry: CreatorSubmission = {
+      id: 'sub-' + Date.now(),
+      creatorName: formData.creatorName,
+      handle: formData.handle.startsWith('@') ? formData.handle : `@${formData.handle}`,
+      platform: formData.platform,
+      videoUrl: formData.videoUrl,
+      claimedViews: views,
+      verifiedViews: views,
+      phone: formData.phone,
+      bountyStatus: 'under_review',
+      payoutAmount: 0,
+      boostsCount: 0,
+      ugcRightsGranted: true,
+      createdAt: new Date().toISOString()
+    };
+    setBadgeCreator(createdEntry);
+    setIsBadgeModalOpen(true);
+
     showToast(`🎉 Video drop submitted! You're now live on the Leaderboard as ${formData.handle}!`);
-    setTimeout(() => navigateTo('leaderboard'), 400);
 
     setFormData({
       topicCategory: 'renters',
@@ -297,6 +370,7 @@ export const CreatorLeaderboardPortal: React.FC = () => {
       followHandle: '',
       hasFollowed: false,
       hasTaggedRentilly: false,
+      ugcRightsGranted: false,
       platform: 'tiktok',
       videoUrl: '',
       claimedViews: '',
@@ -430,6 +504,15 @@ export const CreatorLeaderboardPortal: React.FC = () => {
                     <span className="hidden sm:inline">Leaderboard</span>
                     <span className="sm:hidden text-xs">Board</span>
                     <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-400 animate-ping ml-0.5" />
+                  </button>
+
+                  <button
+                    onClick={() => setIsKitModalOpen(true)}
+                    className="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-xs font-bold text-emerald-300 border border-emerald-500/30 transition cursor-pointer"
+                    title="Download Official Logos, Colors & Creator Kit"
+                  >
+                    <Palette className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>Media Kit</span>
                   </button>
 
                   <button
@@ -765,6 +848,123 @@ export const CreatorLeaderboardPortal: React.FC = () => {
                       <ExternalLink className="w-3.5 h-3.5" />
                     </div>
                   </a>
+                </div>
+              </div>
+            </section>
+
+            {/* VIRAL CREATOR TOOLKIT & 1-CLICK CAPTION COPIER (GLOBAL STANDARD) */}
+            <section id="creator-toolkit" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-16 relative z-20">
+              <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/70 border-2 border-emerald-500/40 rounded-3xl p-6 sm:p-10 shadow-2xl backdrop-blur-xl">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-800">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                        ⚡ Global Tier-1 Creator Tools
+                      </span>
+                      <span className="text-xs font-bold text-amber-400">100% Free Resources</span>
+                    </div>
+                    <h2 className="text-2xl sm:text-3xl font-black text-white">
+                      Creator Toolkit: 1-Click Viral Captions &amp; Assets
+                    </h2>
+                    <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl leading-relaxed">
+                      Copy high-performing compliant captions with official tags in 1 click, or access the official Rentilly brand kit with transparent logos and hex codes.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsKitModalOpen(true)}
+                    className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-500/40 text-xs font-black uppercase tracking-wider shadow-lg transition active:scale-95 cursor-pointer shrink-0"
+                  >
+                    <Palette className="w-4 h-4 text-emerald-400" />
+                    <span>Open Media Kit &amp; Logos</span>
+                  </button>
+                </div>
+
+                {/* 1-Click Caption Copier Box */}
+                <div className="mt-8 space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Select Topic:</span>
+                      <div className="inline-flex p-1 bg-slate-950 border border-slate-800 rounded-xl">
+                        <button
+                          type="button"
+                          onClick={() => setActiveCaptionTopic('renters')}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer ${
+                            activeCaptionTopic === 'renters'
+                              ? 'bg-emerald-500 text-slate-950 shadow-md'
+                              : 'text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          🏠 Renters Topic
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setActiveCaptionTopic('property_purchase')}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-black transition cursor-pointer ${
+                            activeCaptionTopic === 'property_purchase'
+                              ? 'bg-emerald-500 text-slate-950 shadow-md'
+                              : 'text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          🏢 Property Purchase Topic
+                        </button>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        copyToClipboard(
+                          '@renti_lly @rentilly #Rentilly #RentillyChallenge #NigeriaRealEstate #Renters #PropertySales',
+                          'tags',
+                          'Official Handles & Hashtags'
+                        )
+                      }
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold transition active:scale-95 cursor-pointer"
+                    >
+                      <Copy className="w-3.5 h-3.5 text-amber-400" />
+                      <span>{copiedKey === 'tags' ? 'Copied Tags!' : 'Copy Tags Only'}</span>
+                    </button>
+                  </div>
+
+                  {/* Caption Preview and Copy Container */}
+                  <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 sm:p-5 relative group">
+                    <div className="text-xs sm:text-sm text-slate-200 leading-relaxed font-mono whitespace-pre-wrap">
+                      {activeCaptionTopic === 'renters'
+                        ? `Tired of fake agents and inspection fee scams? 🏠 Real verified apartments with 3D tours and direct landlord leases are on @renti_lly! Download the Rentilly app now 📲 https://myrentilly.com\n\n#Rentilly #RentillyChallenge #NigeriaRealEstate #Renters #ApartmentHunting`
+                        : `Stop buying land with 'family issues' or paying fake agents! 🏢 Verified title documents & property sales with escrow security on @renti_lly! Verified properties only on https://myrentilly.com\n\n#Rentilly #PropertySales #InvestNigeria #RentillyChallenge #RealEstateNigeria`}
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="text-[11px] text-slate-400">
+                        ⚡ Tip: Paste this directly into your TikTok or Instagram caption to guarantee you meet the tagging qualification rule!
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const text =
+                            activeCaptionTopic === 'renters'
+                              ? `Tired of fake agents and inspection fee scams? 🏠 Real verified apartments with 3D tours and direct landlord leases are on @renti_lly! Download the Rentilly app now 📲 https://myrentilly.com\n\n#Rentilly #RentillyChallenge #NigeriaRealEstate #Renters #ApartmentHunting`
+                              : `Stop buying land with 'family issues' or paying fake agents! 🏢 Verified title documents & property sales with escrow security on @renti_lly! Verified properties only on https://myrentilly.com\n\n#Rentilly #PropertySales #InvestNigeria #RentillyChallenge #RealEstateNigeria`;
+                          copyToClipboard(text, activeCaptionTopic, `${activeCaptionTopic === 'renters' ? 'Renters' : 'Property Purchase'} Caption`);
+                        }}
+                        className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/20 transition active:scale-95 cursor-pointer shrink-0"
+                      >
+                        {copiedKey === activeCaptionTopic ? (
+                          <>
+                            <Check className="w-4 h-4 stroke-[3]" />
+                            <span>Caption Copied!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-4 h-4" />
+                            <span>1-Click Copy Caption</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </section>
@@ -1167,15 +1367,34 @@ export const CreatorLeaderboardPortal: React.FC = () => {
                             </span>
                           </div>
 
-                          <a
-                            href={sub.videoUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold text-xs transition active:scale-95 cursor-pointer shrink-0"
-                          >
-                            <Play className="w-3.5 h-3.5 fill-emerald-400 text-emerald-400" />
-                            <span>Watch Drop</span>
-                          </a>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={(e) => handleBoost(sub.id, e)}
+                              className="inline-flex items-center gap-1 px-2.5 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 font-black text-xs transition active:scale-95 cursor-pointer"
+                              title="Fan Boost / Vote"
+                            >
+                              <Rocket className="w-3.5 h-3.5 text-amber-400" />
+                              <span>{sub.boostsCount || 0}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => openBadgeModal(sub, e)}
+                              className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition active:scale-95 cursor-pointer"
+                              title="Share Entry Badge"
+                            >
+                              <Share2 className="w-3.5 h-3.5 text-cyan-400" />
+                            </button>
+                            <a
+                              href={sub.videoUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold text-xs transition active:scale-95 cursor-pointer shrink-0"
+                            >
+                              <Play className="w-3.5 h-3.5 fill-emerald-400 text-emerald-400" />
+                              <span>Watch</span>
+                            </a>
+                          </div>
                         </div>
                       </div>
                     );
@@ -1274,15 +1493,35 @@ export const CreatorLeaderboardPortal: React.FC = () => {
                               {getRankBadge(idx)}
                             </td>
                             <td className="py-4 px-6 text-right">
-                              <a
-                                href={sub.videoUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 hover:text-white transition cursor-pointer"
-                              >
-                                <Play className="w-3 h-3 text-emerald-400" />
-                                <span>Watch</span>
-                              </a>
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={(e) => handleBoost(sub.id, e)}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-black transition active:scale-95 cursor-pointer"
+                                  title="Fan Boost / Vote for this creator"
+                                >
+                                  <Rocket className="w-3.5 h-3.5 text-amber-400" />
+                                  <span>{sub.boostsCount || 0}</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => openBadgeModal(sub, e)}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-bold transition cursor-pointer"
+                                  title="View & Share Contestant Badge"
+                                >
+                                  <Share2 className="w-3 h-3 text-cyan-400" />
+                                  <span className="hidden lg:inline">Badge</span>
+                                </button>
+                                <a
+                                  href={sub.videoUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition cursor-pointer"
+                                >
+                                  <Play className="w-3 h-3 text-emerald-400" />
+                                  <span>Watch</span>
+                                </a>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -1388,8 +1627,19 @@ export const CreatorLeaderboardPortal: React.FC = () => {
               </div>
             </div>
 
+            {/* Regulatory Compliance & Fair Play Protocol */}
+            <div className="my-6 p-4 rounded-2xl bg-slate-900/60 border border-slate-800 text-[11px] text-slate-400 leading-relaxed space-y-1.5">
+              <div className="flex items-center gap-2 text-slate-200 font-bold">
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                <span>Official Contest Terms &amp; Compliance Protocol</span>
+              </div>
+              <p>
+                The Rentilly Creator Challenge is organized and disbursed by <strong>E-Homes Global Inclusive Limited</strong>. Participation is open to all content creators resident in Nigeria. Ranks are determined strictly by verified video view metrics. Automated view-botting, fake engagement farms, or click pools trigger immediate disqualification. Cash prizes are disbursed within 48 hours following the official 3-week sprint close directly to Nigerian commercial bank accounts via NIP.
+              </p>
+            </div>
+
             {/* Bottom Bar */}
-            <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+            <div className="pt-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
               <p>
                 &copy; 2026 <strong>E-Homes Global Inclusive Limited</strong>. All rights reserved. Rentilly&trade; is a registered real estate technology protocol.
               </p>
@@ -1642,6 +1892,22 @@ export const CreatorLeaderboardPortal: React.FC = () => {
                   </div>
                 </div>
 
+                {/* MANDATORY COMMERCIAL UGC RIGHTS RELEASE CHECKBOX */}
+                <div className="p-3.5 bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-2xl space-y-2 transition">
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      required
+                      checked={(formData as any).ugcRightsGranted}
+                      onChange={(e) => setFormData({ ...formData, ugcRightsGranted: e.target.checked } as any)}
+                      className="mt-0.5 w-4 h-4 rounded text-emerald-500 focus:ring-emerald-400 bg-slate-900 border-slate-700 cursor-pointer"
+                    />
+                    <span className="text-xs text-slate-300 leading-snug">
+                      <strong className="text-white">Commercial UGC Rights License:</strong> I grant <strong>Rentilly / E-Homes Global Inclusive Limited</strong> a non-exclusive, royalty-free license to feature, repost, and run marketing with this video drop across official social channels and web properties.
+                    </span>
+                  </label>
+                </div>
+
                 {/* Bank Payout Info */}
                 <div className="pt-2 border-t border-slate-800">
                   <span className="block text-xs font-bold text-amber-400 uppercase mb-2">
@@ -1679,6 +1945,210 @@ export const CreatorLeaderboardPortal: React.FC = () => {
                   🚀 Submit Video &amp; Join Leaderboard
                 </button>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* CREATOR MEDIA KIT MODAL (GLOBAL STANDARD ASSETS) */}
+        {isKitModalOpen && (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full p-5 sm:p-8 shadow-2xl relative max-h-[90vh] overflow-y-auto m-2">
+              <button
+                type="button"
+                onClick={() => setIsKitModalOpen(false)}
+                className="absolute top-5 right-5 text-slate-400 hover:text-white p-1 rounded-lg bg-slate-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-2xl bg-slate-950 border border-emerald-500/40 p-1.5 flex items-center justify-center shrink-0">
+                  <img src="/logo.png" alt="Rentilly" className="w-full h-full object-contain" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                    <span className="text-[10px] font-black uppercase text-emerald-400 tracking-wider">
+                      Official Brand Kit
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-black text-white">Creator Media Kit &amp; Assets</h3>
+                </div>
+              </div>
+
+              <div className="space-y-6 text-xs text-slate-300">
+                {/* Logo Assets */}
+                <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-bold text-white text-sm">Official Transparent Logo</h4>
+                      <p className="text-[11px] text-slate-400">High-resolution PNG for video overlays and watermarks</p>
+                    </div>
+                    <a
+                      href="/logo.png"
+                      download="rentilly-logo.png"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition active:scale-95 cursor-pointer"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Download</span>
+                    </a>
+                  </div>
+                  <div className="h-16 rounded-xl bg-slate-900 border border-slate-800/80 flex items-center justify-center p-2">
+                    <img src="/logo.png" alt="Rentilly Logo" className="h-full object-contain" />
+                  </div>
+                </div>
+
+                {/* Brand Colors */}
+                <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+                  <h4 className="font-bold text-white text-sm">Official Brand Hex Colors</h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {[
+                      { name: 'Emerald', hex: '#10B981', bg: 'bg-[#10B981]' },
+                      { name: 'Amber Gold', hex: '#F59E0B', bg: 'bg-[#F59E0B]' },
+                      { name: 'Dark Slate', hex: '#020617', bg: 'bg-[#020617]' },
+                      { name: 'Deep Green', hex: '#064E3B', bg: 'bg-[#064E3B]' },
+                    ].map((col) => (
+                      <button
+                        key={col.hex}
+                        type="button"
+                        onClick={() => copyToClipboard(col.hex, col.hex, `${col.name} (${col.hex})`)}
+                        className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-slate-700 text-left transition active:scale-95 cursor-pointer group"
+                      >
+                        <div className={`w-full h-6 rounded-lg ${col.bg} mb-1.5 border border-white/20`} />
+                        <div className="text-[11px] font-bold text-white group-hover:text-emerald-400 truncate">{col.name}</div>
+                        <div className="text-[10px] font-mono text-slate-400">{col.hex}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Talking Points & Hooks */}
+                <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-2.5">
+                  <h4 className="font-bold text-white text-sm">Key Talking Points for Creators</h4>
+                  <ul className="space-y-2 text-[11px] text-slate-300">
+                    <li className="flex items-start gap-2">
+                      <span className="text-emerald-400 font-bold shrink-0">✓</span>
+                      <span><strong>For Renters:</strong> No more "inspection fee" scams, verified 3D virtual tours, direct landlord lease agreements on the app.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-amber-400 font-bold shrink-0">✓</span>
+                      <span><strong>For Buyers:</strong> Title verification, zero 'omo onile' land disputes, secure escrow disbursement for property purchases.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-cyan-400 font-bold shrink-0">✓</span>
+                      <span><strong>Call to Action:</strong> "Download the Rentilly App on Google Play / Apple App Store or visit myrentilly.com!"</span>
+                    </li>
+                  </ul>
+                </div>
+
+                {/* Sound Recommendation */}
+                <div className="p-4 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-2.5">
+                    <Volume2 className="w-5 h-5 text-pink-400 shrink-0" />
+                    <div>
+                      <h4 className="font-bold text-white text-xs">Audio Recommendation</h4>
+                      <p className="text-[11px] text-slate-400">Pair your video with trending upbeat Nigerian Afrobeats or storytelling acoustic audio</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 pt-4 border-t border-slate-800 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsKitModalOpen(false)}
+                  className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs cursor-pointer"
+                >
+                  Close Media Kit
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* SHAREABLE CONTESTANT ENTRY BADGE MODAL */}
+        {isBadgeModalOpen && badgeCreator && (
+          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="bg-slate-900 border-2 border-emerald-500/50 rounded-3xl max-w-md w-full p-6 sm:p-8 shadow-2xl relative text-center">
+              <button
+                type="button"
+                onClick={() => setIsBadgeModalOpen(false)}
+                className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg bg-slate-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              {/* Digital Badge Card */}
+              <div className="p-6 rounded-2xl bg-gradient-to-b from-slate-950 via-slate-900 to-emerald-950/80 border-2 border-amber-400/60 shadow-xl mb-6 relative overflow-hidden">
+                <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                  Season {cycleConfig.season || 1}
+                </div>
+
+                <div className="w-14 h-14 rounded-2xl bg-slate-900 border border-emerald-400/40 p-2 mx-auto mb-3 shadow-lg">
+                  <img src="/logo.png" alt="Rentilly" className="w-full h-full object-contain" />
+                </div>
+
+                <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400 block mb-1">
+                  OFFICIAL CONTESTANT CREDENTIAL
+                </span>
+                <h3 className="text-xl font-black text-white">{badgeCreator.creatorName}</h3>
+                <div className="text-xs font-mono font-bold text-amber-300 mb-3">{badgeCreator.handle}</div>
+
+                <div className="grid grid-cols-2 gap-2 text-center py-2.5 px-3 rounded-xl bg-slate-950/80 border border-slate-800 mb-3">
+                  <div>
+                    <span className="text-[9px] uppercase font-bold text-slate-400 block">Platform</span>
+                    <span className="text-xs font-black text-white uppercase">{badgeCreator.platform}</span>
+                  </div>
+                  <div>
+                    <span className="text-[9px] uppercase font-bold text-slate-400 block">Verified Views</span>
+                    <span className="text-xs font-black text-emerald-400 font-mono">
+                      {(badgeCreator.verifiedViews || badgeCreator.claimedViews || 0).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="text-[10px] text-slate-400 italic">
+                  Compete for the ₦200,000 Grand Prize • Renters &amp; Property Purchase Only
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="space-y-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const url = `${window.location.origin}/leaderboard?q=${encodeURIComponent(badgeCreator.handle)}`;
+                    copyToClipboard(url, 'badge_url', 'Contestant Share Link');
+                  }}
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/25 transition active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <Copy className="w-4 h-4" />
+                  <span>{copiedKey === 'badge_url' ? 'Link Copied!' : 'Copy Contestant Link'}</span>
+                </button>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <a
+                    href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+                      `Vote and check out my Rentilly Creator Contest entry! Support my video drop: ${window.location.origin}/leaderboard?q=${encodeURIComponent(badgeCreator.handle)}`
+                    )}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer"
+                  >
+                    <span>Share WhatsApp</span>
+                  </a>
+                  <a
+                    href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(
+                      `I just entered the @rentilly Creator Contest for ₦200,000! Check out my video drop and boost me: ${window.location.origin}/leaderboard?q=${encodeURIComponent(badgeCreator.handle)} #RentillyChallenge`
+                    )}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition active:scale-95 cursor-pointer"
+                  >
+                    <span>Share on X</span>
+                  </a>
+                </div>
+              </div>
             </div>
           </div>
         )}

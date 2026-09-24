@@ -15,6 +15,8 @@ export interface CreatorSubmission {
   referralCode?: string; // Rentilly app referral code
   hasTaggedRentilly?: boolean; // Verified creator tagged Rentilly's official account in video/caption
   taggedHandleProof?: string; // Proof handle tagged (e.g. @renti_lly or @rentilly)
+  boostsCount?: number; // Community fan boost/vote counter
+  ugcRightsGranted?: boolean; // Granted Rentilly commercial repost license
   platform: CreatorPlatform;
   videoUrl: string;
   claimedViews: number;

@@ -479,4 +479,5 @@ apiRouter.post('/contest/sync-views', contestController.syncViews);
 apiRouter.post('/contest/admin/login', contestController.adminLogin);
 apiRouter.get('/contest/cycle', contestController.getContestCycle);
 apiRouter.post('/contest/cycle', contestController.updateContestCycle);
+apiRouter.post('/contest/submissions/:id/boost', contestController.boostSubmission);
 

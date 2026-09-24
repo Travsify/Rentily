@@ -20,6 +20,8 @@ export interface ContestSubmission {
   followVerified?: boolean;
   hasTaggedRentilly?: boolean;
   taggedHandleProof?: string;
+  boostsCount?: number;
+  ugcRightsGranted?: boolean;
   followHandle?: string;
   phone: string;
   bankName?: string;
@@ -489,5 +491,27 @@ export const contestController = {
       message: 'Contest cycle and countdown settings updated successfully',
       cycle: updated
     });
+  },
+
+  boostSubmission: (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const items = ensureDataFile();
+      const index = items.findIndex((i) => i.id === id);
+      if (index === -1) {
+        return res.status(404).json({ status: false, error: 'Submission not found' });
+      }
+
+      items[index].boostsCount = (items[index].boostsCount || 0) + 1;
+      saveData(items);
+
+      return res.json({
+        status: true,
+        message: 'Boost registered successfully',
+        boostsCount: items[index].boostsCount,
+      });
+    } catch (err: any) {
+      return res.status(500).json({ status: false, error: err.message });
+    }
   },
 };
