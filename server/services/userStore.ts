@@ -271,7 +271,9 @@ export class UserStore {
     _userCache = users;
     try {
       const uFile = getStoragePath();
-      fs.writeFileSync(uFile, JSON.stringify(users, null, 2), 'utf-8');
+      const tmpFile = `${uFile}.tmp.${Date.now()}`;
+      fs.writeFileSync(tmpFile, JSON.stringify(users, null, 2), 'utf-8');
+      fs.renameSync(tmpFile, uFile);
     } catch (err) {
       console.error('Failed to write users file to disk:', err);
     }
