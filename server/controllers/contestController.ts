@@ -463,7 +463,7 @@ export const contestController = {
       status: false,
       message: 'Invalid Admin credentials for /welts. Please verify your username and password.'
     });
-  }
+  },
 
   startAutonomousCrawlerWorker,
   executeAutonomousCrawl,
