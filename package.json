@@ -8,6 +8,7 @@
     "server": "tsx server/index.ts",
     "start": "tsx server/index.ts",
     "build": "tsc -b && vite build",
+    "postbuild": "node scripts/restart-pm2.cjs",
     "lint": "oxlint",
     "preview": "vite preview"
   },
