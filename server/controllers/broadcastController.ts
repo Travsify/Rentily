@@ -92,12 +92,12 @@ export async function sendBroadcast(req: Request, res: Response) {
       });
     }
 
-    // Dispatch Termii SMS Broadcast if channel is sms or both
+    // Dispatch SMS Broadcast via Dual-Rail Router if channel is sms or both
     if (channel === 'sms' || channel === 'both') {
-      const { TermiiService } = await import('../services/termiiService');
+      const { SmsRouterService } = await import('../services/smsRouterService');
       for (const user of targets) {
         if (user.phoneNumber) {
-          TermiiService.sendSms({
+          SmsRouterService.sendSms({
             to: user.phoneNumber,
             message: `[Rentilly Announcement] ${title}: ${message}`
           }).catch(e => console.warn(`[Broadcast] SMS dispatch error to ${user.phoneNumber}:`, e.message));

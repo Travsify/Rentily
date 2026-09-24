@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
 import { ResendService } from '../services/resendService';
-import { TermiiService } from '../services/termiiService';
+import { SmsRouterService } from '../services/smsRouterService';
 import { OtpStore } from '../services/otpStore';
 import { UserStore } from '../services/userStore';
 import { supabase } from '../supabaseClient';
@@ -61,29 +61,15 @@ export async function sendOtp(req: Request, res: Response) {
       if (emailRes.status) atLeastOneSuccess = true;
     }
 
-    // 2. Dispatch Live SMS via Termii if phone number is provided or channel is sms
+    // 2. Dispatch Live SMS via Dual-Rail Router (Termii with immediate Twilio fallback)
     if (cleanPhone) {
-      const smsRes = await TermiiService.sendOtpSms({
+      const smsRes = await SmsRouterService.sendOtpSms({
         to: cleanPhone,
         code,
         purpose
       });
       deliveryResults.sms = smsRes;
-      if (smsRes.status) {
-        atLeastOneSuccess = true;
-      } else if (!cleanEmail) {
-        // Graceful Phone Onboarding Guardrail: If SMS is temporarily pending telco approval,
-        // auto-pass phone verification so users are never trapped or blocked.
-        console.log(`[OtpController] Phone dispatch pending telco review. Auto-passing phone verification for ${cleanPhone}`);
-        return res.json({
-          status: true,
-          message: 'Phone number verification confirmed successfully.',
-          phoneVerified: true,
-          isVerified: true,
-          expiresAt,
-          delivery: deliveryResults
-        });
-      }
+      if (smsRes.status) atLeastOneSuccess = true;
     }
 
     const destination = cleanEmail && cleanPhone 
@@ -93,7 +79,7 @@ export async function sendOtp(req: Request, res: Response) {
     return res.json({
       status: atLeastOneSuccess,
       message: atLeastOneSuccess
-        ? `Security code sent successfully to ${destination}.`
+        ? `Security verification code sent successfully to ${destination}.`
         : 'Failed to deliver verification code. Please check your contact information.',
       expiresAt,
       delivery: deliveryResults
@@ -114,36 +100,33 @@ export async function verifyOtp(req: Request, res: Response) {
     const cleanPhone = phoneNumber && typeof phoneNumber === 'string' ? phoneNumber.trim() : null;
     const identifier = cleanEmail || cleanPhone || '';
 
-    // If only verifying a phone number without email, auto-approve immediately
-    if (!cleanEmail && cleanPhone) {
-      try {
-        if (supabase) {
-          await supabase.from('profiles').update({ is_verified: true }).eq('phone_number', cleanPhone);
-        }
-      } catch (_) {}
-
-      return res.json({
-        status: true,
-        message: 'Phone number verified successfully.',
-        phoneVerified: true,
-        isVerified: true
-      });
-    }
-
     if (!identifier) {
       return res.status(400).json({
         status: false,
-        message: 'Identifier (email or phone) is required.'
+        message: 'Identifier (email or phone number) is required.'
       });
     }
 
-    // If code is supplied, check verification; if phone-only or waived, approve
-    if (code) {
-      const verification = OtpStore.verifyOtp(identifier, code);
-      if (!verification.valid) {
+    if (!code) {
+      return res.status(400).json({
+        status: false,
+        message: 'Verification code is required.'
+      });
+    }
+
+    // Strict 6-digit OTP verification: validates against OtpStore
+    const verification = OtpStore.verifyOtp(identifier, code);
+    if (!verification.valid) {
+      // Also check phone identifier if email was passed
+      let altValid = false;
+      if (cleanPhone && cleanPhone !== identifier) {
+        const altCheck = OtpStore.verifyOtp(cleanPhone, code);
+        if (altCheck.valid) altValid = true;
+      }
+      if (!altValid) {
         return res.status(400).json({
           status: false,
-          message: verification.message
+          message: verification.message || 'Invalid or expired verification code.'
         });
       }
     }

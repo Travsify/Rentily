@@ -1,5 +1,6 @@
 import { supabase } from '../supabaseClient';
 import { TermiiService } from './termiiService';
+import { SmsRouterService } from './smsRouterService';
 import { UserStore } from './userStore';
 import { TransactionStore } from './transactionStore';
 
@@ -552,16 +553,16 @@ export class NotificationDispatcher {
             }
           }
 
-          // Dispatch SMS via Termii
+          // Dispatch SMS via Dual-Rail Router (Termii with Twilio Failover)
           const smsText = `[Rentilly] ${event.title}: ${event.message}`;
-          const smsRes = await TermiiService.sendSms({
+          const smsRes = await SmsRouterService.sendSms({
             to: recipientUser.phoneNumber,
             message: smsText
           });
 
           if (smsRes.status) {
             smsSuccess = true;
-            console.log(`[NotificationDispatcher] 📱 SMS dispatched to ${recipientUser.phoneNumber} via Termii`);
+            console.log(`[NotificationDispatcher] 📱 SMS dispatched to ${recipientUser.phoneNumber} via ${smsRes.provider}`);
           }
         }
       }
