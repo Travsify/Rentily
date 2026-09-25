@@ -161,18 +161,23 @@ export async function testMaplerad(req: Request, res: Response) {
   }
 
   const cmd = `
-    echo "=== IPV4 ==="
-    curl -s -4 https://api.ipify.org || true
+    echo "=== GIT COMMIT & STATUS ==="
+    cd "${process.env.REPO_DIR || process.cwd()}"
+    git log -2 --oneline
+    git status -s
     echo ""
-    echo "=== IPV6 ==="
-    curl -s -6 https://api64.ipify.org || true
+    echo "=== LOCALHOST 5000 CURL TESTS ==="
+    echo "--- /api/health ---"
+    curl -s http://localhost:5000/api/health | head -c 100
     echo ""
-    echo "=== CURL MAPLERAD IPV4 ==="
-    curl -s -i -4 -H "Authorization: Bearer ${apiKey}" \\
-      -H "Accept: application/json" \\
-      -H "Content-Type: application/json" \\
-      -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Rentilly/2.0" \\
-      https://api.maplerad.com/v1/wallets || true
+    echo "--- /api/referrals/config ---"
+    curl -s http://localhost:5000/api/referrals/config | head -c 100
+    echo ""
+    echo "--- /api/vaults ---"
+    curl -s http://localhost:5000/api/vaults | head -c 100
+    echo ""
+    echo "=== NGINX PROXY PASS CONFIG ==="
+    grep -rn "proxy_pass" /etc/nginx/sites-enabled/ || true
   `;
 
   exec(cmd, { shell: '/bin/bash' }, (error, stdout, stderr) => {
