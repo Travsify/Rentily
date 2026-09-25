@@ -1920,7 +1920,7 @@ class FeatureFlags {
   final bool maintenanceMode;
 
   const FeatureFlags({
-    this.enableVirtualCards = false,          // Off by default pending live provider activation
+    this.enableVirtualCards = true,           // Active across all users
     this.enableMultiCurrencyVault = false,    // Off by default pending live banking coordinates
     this.enableUtilityBills = true,
     this.enableStatutoryNotices = true,
@@ -1930,7 +1930,7 @@ class FeatureFlags {
 
   factory FeatureFlags.fromJson(Map<String, dynamic> json) {
     return FeatureFlags(
-      enableVirtualCards: json['enableVirtualCards'] == true,
+      enableVirtualCards: json['enableVirtualCards'] != false,
       enableMultiCurrencyVault: json['enableMultiCurrencyVault'] == true,
       enableUtilityBills: json['enableUtilityBills'] != false,
       enableStatutoryNotices: json['enableStatutoryNotices'] != false,

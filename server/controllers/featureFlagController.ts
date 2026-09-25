@@ -14,7 +14,7 @@ export interface FeatureFlagsConfig {
 }
 
 const DEFAULT_FLAGS: FeatureFlagsConfig = {
-  enableVirtualCards: false,          // Off by default pending live provider activation
+  enableVirtualCards: true,           // Active across all users
   enableMultiCurrencyVault: false,    // Off by default pending live banking setup
   enableUtilityBills: true,
   enableStatutoryNotices: true,

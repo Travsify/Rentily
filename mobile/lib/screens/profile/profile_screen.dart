@@ -24,6 +24,7 @@ import '../referrals/referral_screen.dart';
 import '../../widgets/partner_legal_modal.dart';
 import '../../services/api_service.dart';
 import '../../constants/nigerian_states_cities.dart';
+import '../cards/cards_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -825,6 +826,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => ReferralScreen(user: _currentUser),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 16),
+
+              // FINANCIAL & GLOBAL CARDS
+              Text(
+                'FINANCIAL & GLOBAL CARDS',
+                style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.0, color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 10),
+
+              _buildMenuTile(
+                Icons.credit_card_rounded,
+                'Virtual Dollar Cards Desk',
+                'Manage your institutional Visa card for global USD payments',
+                trailing: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(color: const Color(0xFFE0F2FE), borderRadius: BorderRadius.circular(6)),
+                  child: Text('USD VISA', style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w900, color: const Color(0xFF0284C7))),
+                ),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const CardsScreen(),
                     ),
                   );
                 },
