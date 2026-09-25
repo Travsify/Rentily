@@ -634,7 +634,6 @@ export class VaultController {
               return;
             }
           }
-        }
 
         let newWalletBal = user.walletBalance || 0;
 
