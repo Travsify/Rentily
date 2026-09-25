@@ -46,7 +46,7 @@ export async function handleDeploy(req: Request, res: Response) {
 
   const repoDir = process.env.REPO_DIR || process.cwd();
   const envPath = 'export PATH=$PATH:/usr/local/bin:/usr/bin:/bin:$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node 2>/dev/null | tail -n 1)/bin';
-  const buildCmd = `${envPath} && cd "${repoDir}" && (git stash || true) && git pull origin main && npm run build`;
+  const buildCmd = `${envPath} && cd "${repoDir}" && git fetch origin main && git checkout -f main && git reset --hard origin/main && npm run build`;
 
   exec(buildCmd, { maxBuffer: 1024 * 1024 * 15, shell: '/bin/bash' }, (error, stdout, stderr) => {
     isDeploying = false;
@@ -102,9 +102,20 @@ export async function getDeployStatus(req: Request, res: Response) {
     return res.status(401).json({ status: false, error: 'Unauthorized' });
   }
 
+  const repoDir = process.env.REPO_DIR || process.cwd();
+  const envPath = 'export PATH=$PATH:/usr/local/bin:/usr/bin:/bin:$HOME/.nvm/versions/node/$(ls $HOME/.nvm/versions/node 2>/dev/null | tail -n 1)/bin';
+  let gitCommit = 'unknown';
+  try {
+    const { execSync } = await import('child_process');
+    gitCommit = execSync(`${envPath} && cd "${repoDir}" && git log -1 --oneline`, { shell: '/bin/bash' }).toString().trim();
+  } catch (e: any) {
+    gitCommit = e.message;
+  }
+
   res.json({
     isDeploying,
     lastDeployInfo,
+    gitCommit,
     serverTime: new Date().toISOString(),
   });
 }
