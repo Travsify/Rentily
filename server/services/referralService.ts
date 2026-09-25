@@ -47,6 +47,9 @@ export class ReferralService {
   /**
    * Generates a deterministic or unique Referral Code for any user
    */
+  /**
+   * Generates a deterministic or unique Referral Code for any user
+   */
   static generateReferralCode(user: { id?: string; email?: string; fullName?: string }): string {
     const raw = (user.email || user.fullName || user.id || 'RENTILLY').toUpperCase().replace(/[^A-Z0-9]/g, '');
     const prefix = raw.length >= 4 ? raw.substring(0, 4) : 'RENT';
@@ -60,6 +63,59 @@ export class ReferralService {
     }
     const suffix = Math.abs(hash).toString(36).toUpperCase().padStart(4, '0').slice(-4);
     return `${prefix}${suffix}`;
+  }
+
+  /**
+   * Legacy Dart-compatible hash generator for backward compatibility
+   */
+  static generateReferralCodeDart(user: { id?: string; email?: string; fullName?: string }): string {
+    const raw = (user.email || user.fullName || user.id || 'RENTILLY').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const prefix = raw.length >= 4 ? raw.substring(0, 4) : 'RENT';
+    let hash = 5381;
+    const str = `${user.email || user.id || 'USER'}_rentilly_ref`;
+    for (let i = 0; i < str.length; i++) {
+      hash = ((hash << 5) + hash) + str.charCodeAt(i);
+      hash = (hash & 0xFFFFFFFF) >>> 0;
+    }
+    const suffix = Math.abs(hash).toString(36).toUpperCase().padStart(4, '0').slice(-4);
+    return `${prefix}${suffix}`;
+  }
+
+  private static _logsLoaded = false;
+
+  /**
+   * Ensures logs are synchronized from Supabase cloud system_configs
+   */
+  private static async ensureLogsLoaded(force = false): Promise<void> {
+    if (this._logsLoaded && !force) return;
+    if (supabase) {
+      try {
+        const { data: cfgData, error } = await supabase
+          .from('system_configs')
+          .select('id, data')
+          .like('id', 'ref_log_%');
+
+        if (!error && cfgData && cfgData.length > 0) {
+          const loaded: ReferralRecord[] = [];
+          for (const item of cfgData) {
+            if (item.data && item.data.id) {
+              loaded.push(item.data as ReferralRecord);
+            }
+          }
+          if (loaded.length > 0) {
+            const map = new Map<string, ReferralRecord>();
+            for (const r of loaded) map.set(r.id, r);
+            for (const r of _inMemoryReferralLogs) map.set(r.id, r);
+            _inMemoryReferralLogs = Array.from(map.values()).sort(
+              (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            );
+          }
+        }
+      } catch (err: any) {
+        console.warn('[ReferralService] Cloud log hydration error:', err?.message);
+      }
+    }
+    this._logsLoaded = true;
   }
 
   /**
@@ -111,14 +167,37 @@ export class ReferralService {
   }
 
   /**
-   * Finds user by their unique referral code
+   * Finds user by their unique referral code, promo alias, email, or phone number
    */
   static async findUserByReferralCode(code: string): Promise<StoredUser | null> {
     if (!code) return null;
     const cleanCode = code.trim().toUpperCase();
     const allUsers = UserStore.getAllUsers();
 
-    // Check direct matching or generated code
+    // 1. Official platform promo codes (aliased to official platform admin account)
+    const masterAliases = ['RENTILLY', 'RENTILLY2026', 'RENTILLYVIP', 'RENT', 'ADMIN', 'WELCOME', 'PROMO', 'FREE1000'];
+    if (masterAliases.includes(cleanCode)) {
+      const admin = (await UserStore.findByEmail('admin@myrentilly.com')) ||
+                    (await UserStore.findByEmail('support@myrentilly.com')) ||
+                    allUsers.find(u => u.role === 'admin') ||
+                    allUsers[0];
+      if (admin) {
+        return {
+          ...admin,
+          fullName: 'Rentilly Platform (Official Promo)'
+        };
+      }
+    }
+
+    // 2. Explicit referral code stored on user record
+    for (const u of allUsers) {
+      const explicitCode = ((u as any).referralCode || '').toString().trim().toUpperCase();
+      if (explicitCode && explicitCode === cleanCode) {
+        return u;
+      }
+    }
+
+    // 3. Standard TypeScript deterministic referral code
     for (const u of allUsers) {
       const uCode = this.generateReferralCode(u);
       if (uCode === cleanCode) {
@@ -126,18 +205,48 @@ export class ReferralService {
       }
     }
 
-    // Check Supabase profiles table
+    // 4. Legacy Dart deterministic referral code
+    for (const u of allUsers) {
+      const dartCode = this.generateReferralCodeDart(u);
+      if (dartCode === cleanCode) {
+        return u;
+      }
+    }
+
+    // 5. Match by referrer's email address
+    const byEmail = allUsers.find(u => u.email && u.email.toUpperCase() === cleanCode);
+    if (byEmail) return byEmail;
+
+    // 6. Match by referrer's phone number (supports local 080... or international +234...)
+    const numericClean = cleanCode.replace(/[^0-9]/g, '');
+    if (numericClean.length >= 7) {
+      const coreDigits = numericClean.startsWith('234')
+        ? numericClean.slice(3)
+        : (numericClean.startsWith('0') ? numericClean.slice(1) : numericClean);
+
+      const byPhone = allUsers.find(u => {
+        if (!u.phoneNumber) return false;
+        const uRaw = u.phoneNumber.replace(/[^0-9]/g, '');
+        const uCore = uRaw.startsWith('234')
+          ? uRaw.slice(3)
+          : (uRaw.startsWith('0') ? uRaw.slice(1) : uRaw);
+        return uCore === coreDigits || uRaw.includes(coreDigits) || numericClean.includes(uCore);
+      });
+      if (byPhone) return byPhone;
+    }
+
+    // 7. Supabase cloud profiles table fallback
     if (supabase) {
       try {
         const { data } = await supabase
           .from('profiles')
           .select('*')
-          .or(`referral_code.eq.${cleanCode}`)
+          .or(`referral_code.eq.${cleanCode},email.eq.${cleanCode.toLowerCase()}`)
           .limit(1)
           .maybeSingle();
 
         if (data) {
-          return UserStore.findById(data.id);
+          return UserStore.findById(data.id) || UserStore.findByEmail(data.email);
         }
       } catch (_) {}
     }
@@ -152,6 +261,7 @@ export class ReferralService {
     refereeUser: StoredUser;
     referralCode?: string;
   }): Promise<{ success: boolean; message: string; record?: ReferralRecord }> {
+    await this.ensureLogsLoaded();
     const config = await this.getConfig();
     const cleanCode = (params.referralCode || '').trim().toUpperCase();
 
@@ -159,7 +269,10 @@ export class ReferralService {
     if (cleanCode) {
       referrer = await this.findUserByReferralCode(cleanCode);
       // Prevent self-referral
-      if (referrer && (referrer.id === params.refereeUser.id || referrer.email.toLowerCase() === params.refereeUser.email.toLowerCase())) {
+      if (referrer && params.refereeUser && (
+        referrer.id === params.refereeUser.id || 
+        (referrer.email && params.refereeUser.email && referrer.email.toLowerCase() === params.refereeUser.email.toLowerCase())
+      )) {
         referrer = null;
       }
     }
@@ -184,34 +297,17 @@ export class ReferralService {
 
     _inMemoryReferralLogs.unshift(newRecord);
 
-    // Save to Supabase system_configs or referrals table
+    // Save to Supabase system_configs for guaranteed cloud permanence
     if (supabase) {
       try {
-        await supabase.from('referrals').upsert({
-          id: newRecord.id,
-          referrer_id: newRecord.referrerId || null,
-          referrer_email: newRecord.referrerEmail || null,
-          referrer_name: newRecord.referrerName || null,
-          referrer_code: newRecord.referrerCode || null,
-          referee_id: newRecord.refereeId,
-          referee_email: newRecord.refereeEmail,
-          referee_name: newRecord.refereeName,
-          referee_buyer_type: newRecord.refereeBuyerType,
-          referrer_reward_amount: newRecord.referrerRewardAmount,
-          referee_reward_amount: newRecord.refereeRewardAmount,
-          referrer_reward_status: newRecord.referrerRewardStatus,
-          referee_reward_status: newRecord.refereeRewardStatus,
-          kyc_completed: newRecord.kycCompleted,
-          created_at: newRecord.createdAt
-        }).catch(async () => {
-          // Fallback to system_configs storage if custom table is not created yet
-          await supabase?.from('system_configs').upsert({
-            id: `ref_log_${newRecord.id}`,
-            data: newRecord,
-            updated_at: new Date().toISOString()
-          });
+        await supabase.from('system_configs').upsert({
+          id: `ref_log_${newRecord.id}`,
+          data: newRecord,
+          updated_at: new Date().toISOString()
         });
-      } catch (_) {}
+      } catch (err: any) {
+        console.error('[ReferralService] Cloud log save failed:', err?.message);
+      }
     }
 
     // If instant earning is active and KYC is not strictly required on signup
@@ -230,6 +326,7 @@ export class ReferralService {
    * Called when a user completes KYC or KYB verification to disburse ₦1,000 and ₦500
    */
   static async processKycRewards(userId: string, email: string): Promise<void> {
+    await this.ensureLogsLoaded();
     const config = await this.getConfig();
     if (!config.enabled) return;
 
@@ -363,16 +460,17 @@ export class ReferralService {
 
     record.paidAt = now;
 
-    // Update record in Supabase
+    // Update record in Supabase cloud system_configs
     if (supabase) {
       try {
-        await supabase.from('referrals').update({
-          referrer_reward_status: record.referrerRewardStatus,
-          referee_reward_status: record.refereeRewardStatus,
-          kyc_completed: true,
-          paid_at: record.paidAt
-        }).eq('id', record.id).catch(() => {});
-      } catch (_) {}
+        await supabase.from('system_configs').upsert({
+          id: `ref_log_${record.id}`,
+          data: record,
+          updated_at: new Date().toISOString()
+        });
+      } catch (err: any) {
+        console.error('[ReferralService] Cloud log disburse update failed:', err?.message);
+      }
     }
   }
 
@@ -422,10 +520,22 @@ export class ReferralService {
     shareLink: string;
     totalEarned: number;
     totalReferred: number;
+    totalReferrals: number;
     successfulReferrals: number;
     pendingReferrals: number;
     referralLogs: ReferralRecord[];
+    recentReferrals: Array<{
+      id: string;
+      name: string;
+      email: string;
+      status: string;
+      amount: number;
+      date: string;
+      paidAt?: string;
+      kycCompleted: boolean;
+    }>;
   }> {
+    await this.ensureLogsLoaded();
     const clean = identifier.toLowerCase().trim();
     const user = await UserStore.findByEmail(clean) || await UserStore.findById(identifier);
     const code = user ? this.generateReferralCode(user) : 'RENTILLY';
@@ -438,14 +548,27 @@ export class ReferralService {
     const paidLogs = userLogs.filter(r => r.referrerRewardStatus === 'paid');
     const totalEarned = paidLogs.reduce((acc, curr) => acc + (curr.referrerRewardAmount || 0), 0);
 
+    const recentReferrals = userLogs.map(r => ({
+      id: r.id,
+      name: r.refereeName || r.refereeEmail,
+      email: r.refereeEmail,
+      status: r.referrerRewardStatus,
+      amount: r.referrerRewardAmount,
+      date: r.createdAt,
+      paidAt: r.paidAt,
+      kycCompleted: r.kycCompleted
+    }));
+
     return {
       referralCode: code,
       shareLink,
       totalEarned,
       totalReferred: userLogs.length,
+      totalReferrals: userLogs.length,
       successfulReferrals: paidLogs.length,
       pendingReferrals: userLogs.filter(r => r.referrerRewardStatus === 'pending_kyc').length,
-      referralLogs: userLogs
+      referralLogs: userLogs,
+      recentReferrals
     };
   }
 
@@ -460,37 +583,7 @@ export class ReferralService {
     logs: ReferralRecord[];
   }> {
     const config = await this.getConfig();
-
-    // Sync from Supabase if available
-    if (supabase) {
-      try {
-        const { data } = await supabase
-          .from('referrals')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (data && data.length > 0) {
-          _inMemoryReferralLogs = data.map((d: any) => ({
-            id: d.id,
-            referrerId: d.referrer_id,
-            referrerEmail: d.referrer_email,
-            referrerName: d.referrer_name,
-            referrerCode: d.referrer_code,
-            refereeId: d.referee_id,
-            refereeEmail: d.referee_email,
-            refereeName: d.referee_name,
-            refereeBuyerType: d.referee_buyer_type,
-            referrerRewardAmount: Number(d.referrer_reward_amount || 500),
-            refereeRewardAmount: Number(d.referee_reward_amount || 1000),
-            referrerRewardStatus: d.referrer_reward_status || 'pending_kyc',
-            refereeRewardStatus: d.referee_reward_status || 'pending_kyc',
-            kycCompleted: Boolean(d.kyc_completed),
-            createdAt: d.created_at,
-            paidAt: d.paid_at
-          }));
-        }
-      } catch (_) {}
-    }
+    await this.ensureLogsLoaded(true);
 
     const totalPayoutAmount = _inMemoryReferralLogs.reduce((acc, curr) => {
       let sum = 0;

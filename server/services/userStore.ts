@@ -471,7 +471,6 @@ export class UserStore {
         business_name: user.businessName || null,
         cac_number: user.cacNumber || null,
         state: user.state || 'Lagos',
-        enable_sms_notifications: user.enableSmsNotifications ?? false,
         updated_at: new Date().toISOString()
       })).then(({ error }: any) => {
         if (error) {

@@ -86,11 +86,11 @@ class UserProfile {
     }
     final raw = (email.isNotEmpty ? email : fullName).toUpperCase().replaceAll(RegExp(r'[^A-Z0-9]'), '');
     final prefix = raw.length >= 4 ? raw.substring(0, 4) : 'RENT';
-    int hash = 5381;
+    int hash = 0;
     final str = '${email}_rentilly_ref';
     for (int i = 0; i < str.length; i++) {
-      hash = ((hash << 5) + hash) + str.codeUnitAt(i);
-      hash &= 0xFFFFFFFF;
+      hash = ((hash << 5) - hash) + str.codeUnitAt(i);
+      hash = hash.toSigned(32);
     }
     final suffix = hash.abs().toRadixString(36).toUpperCase().padLeft(4, '0');
     final cleanSuffix = suffix.length >= 4 ? suffix.substring(suffix.length - 4) : suffix;
