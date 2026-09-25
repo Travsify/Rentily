@@ -713,7 +713,90 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary),
           ),
         ),
-        const SizedBox(height: 32),
+        const SizedBox(height: 20),
+
+        // Prominent Create Account / Role Selection CTA Banner
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF042F2E), Color(0xFF064E3B), Color(0xFF0D5C46)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xFF34D399).withValues(alpha: 0.4), width: 1.2),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF064E3B).withValues(alpha: 0.25),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFF34D399).withValues(alpha: 0.3)),
+                ),
+                child: const Center(
+                  child: Icon(Icons.person_add_alt_1_rounded, size: 20, color: Color(0xFF34D399)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'New to Rentilly?',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Choose persona & create account',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 10.5,
+                        color: const Color(0xFFD1FAE5),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF10B981),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  elevation: 0,
+                ),
+                child: Text(
+                  'Sign Up ➔',
+                  style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.w800),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
 
         if (_errorMessage != null) ...[
           Container(
@@ -864,7 +947,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                 style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary),
                 children: [
                   TextSpan(
-                    text: 'Create Account',
+                    text: 'Create Account (Choose Persona)',
                     style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.primary),
                   ),
                 ],
@@ -872,6 +955,20 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             ),
           ),
         ),
+        const SizedBox(height: 8),
+
+        // Version Indicator
+        Center(
+          child: Text(
+            'Rentilly Mobile v1.1.0 (Build 10) • Concept 1 Active 🇳🇬',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textMuted,
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
       ],
     );
   }

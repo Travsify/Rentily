@@ -431,6 +431,8 @@ export type AdminTab =
   | 'integrations'
   | 'feature_flags'
   | 'referrals'
+  | 'credit_management'
+  | 'external_legal'
   | 'creator_bounties'
   | 'supabase_config'
   | 'flutter_api'

@@ -1,3 +1,4 @@
+import '../services/external_legal_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -801,7 +802,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 12),
 
-              // 2x2 Grid with Circular Pods
+              // 2x3 Grid with Circular Pods
               GridView.count(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -822,7 +823,45 @@ class _HomeScreenState extends State<HomeScreen> {
                     },
                   ),
 
-                  // Pod 2: My Spaces
+                  // Pod 2: Legal Desk -> Standalone Verification & Document Prep
+                  _buildCircularGridPod(
+                    title: 'Legal Desk',
+                    subtitle: 'Title Search & Deeds',
+                    icon: Icons.gavel_rounded,
+                    color: const Color(0xFF0D9488),
+                    badge: '₦50k/100k/3%',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const ExternalLegalScreen()),
+                      );
+                    },
+                  ),
+
+                  // Pod 3: Credit Advance -> 80% LTV Instant Borrowing
+                  _buildCircularGridPod(
+                    title: 'Credit Advance',
+                    subtitle: '80% LTV on Savings',
+                    icon: Icons.bolt_rounded,
+                    color: const Color(0xFF2563EB),
+                    badge: 'Instant Cash',
+                    onTap: () {
+                      MainNavigationScreen.of(context)?.switchTab(3);
+                    },
+                  ),
+
+                  // Pod 4: Living Vaults -> Switches directly to Tab 3 (Bottom Nav persists!)
+                  _buildCircularGridPod(
+                    title: 'Living Vaults',
+                    subtitle: 'Target Savings',
+                    icon: Icons.savings_rounded,
+                    color: AppColors.primaryLight,
+                    badge: '2.5% Yield',
+                    onTap: () {
+                      MainNavigationScreen.of(context)?.switchTab(3);
+                    },
+                  ),
+
+                  // Pod 5: My Spaces
                   _buildCircularGridPod(
                     title: 'My Spaces',
                     subtitle: 'Active Lease & Deeds',
@@ -836,7 +875,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     },
                   ),
 
-                  // Pod 3: Bill Payments
+                  // Pod 6: Bill Payments
                   _buildCircularGridPod(
                     title: 'Bill Payments',
                     subtitle: 'Disco, Data, Airtime',
@@ -847,18 +886,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       Navigator.of(context).push(
                         MaterialPageRoute(builder: (_) => const BillsScreen()),
                       );
-                    },
-                  ),
-
-                  // Pod 4: Living Vaults -> Switches directly to Tab 3 (Bottom Nav persists!)
-                  _buildCircularGridPod(
-                    title: 'Living Vaults',
-                    subtitle: 'Target Savings',
-                    icon: Icons.savings_rounded,
-                    color: AppColors.primaryLight,
-                    badge: '2.5% Yield',
-                    onTap: () {
-                      MainNavigationScreen.of(context)?.switchTab(3);
                     },
                   ),
                 ],
@@ -928,7 +955,129 @@ class _HomeScreenState extends State<HomeScreen> {
               const DailyQuotesCard(),
               const SizedBox(height: 20),
 
-              // Split-the-Scroll Co-Living & Roommate Finder Hero Card
+                            // Standalone External Legal & Title Verification Hub Banner
+              GestureDetector(
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const ExternalLegalScreen()),
+                  );
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF042F2E), Color(0xFF064E3B)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFF34D399).withValues(alpha: 0.3)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF064E3B).withValues(alpha: 0.2),
+                        blurRadius: 14,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF10B981),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    'EXTERNAL TITLE DESK ⚖️',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w900,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    '₦50K / ₦100K / 3%',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                      color: const Color(0xFF34D399),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Legal Due Diligence & Deeds',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Verify external titles, Land Registry searches & draft conveyancing deeds with accredited NBA counsel.',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 11,
+                                color: Colors.white.withValues(alpha: 0.85),
+                                height: 1.35,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Text(
+                                  'Open Legal Desk',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: const Color(0xFF34D399),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(Icons.arrow_forward_rounded, size: 14, color: Color(0xFF34D399)),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Container(
+                        width: 54,
+                        height: 54,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withValues(alpha: 0.12),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+                        ),
+                        child: const Center(
+                          child: Icon(Icons.gavel_rounded, size: 26, color: Colors.white),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+// Split-the-Scroll Co-Living & Roommate Finder Hero Card
               GestureDetector(
                 onTap: () {
                   Navigator.of(context).push(

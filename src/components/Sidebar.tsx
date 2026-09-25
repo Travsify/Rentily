@@ -23,7 +23,8 @@ import {
   Activity,
   Globe,
   Landmark,
-  Gift
+  Gift,
+  Coins
 } from 'lucide-react';
 import type { AdminTab } from '../types';
 
@@ -203,6 +204,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           badgeColor: 'bg-purple-500/20 text-purple-300 border-purple-500/30'
         },
         {
+          id: 'external_legal',
+          label: 'External Title & Legal Desk',
+          icon: Scale,
+          badge: '₦50k/100k/3%',
+          badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+        },
+        {
           id: 'legal',
           label: 'Tenancy Deeds & Waybills',
           icon: FileText,
@@ -275,6 +283,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           label: 'Master Financial Ledger',
           icon: Wallet,
           badge: 'Live Flows'
+        },
+        {
+          id: 'credit_management',
+          label: 'Savings-Backed Credit Desk',
+          icon: Coins,
+          badge: '80% LTV',
+          badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
         },
         {
           id: 'reconciliation',

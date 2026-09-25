@@ -333,19 +333,22 @@ export class NotificationDispatcher {
     let pushSuccess = false;
     let smsSuccess = false;
 
+    const targetEmail = (event.email || (event as any).userEmail || (event as any).recipientEmail || (event as any).to || '').toString().trim().toLowerCase();
+    const targetMessage = event.message || (event as any).body || '';
+
     // 1. Dispatch In-App Notification (Supabase / Database)
     try {
       let targetUserId = event.userId;
       const isUuid = targetUserId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUserId);
-      if (!isUuid && supabase && event.email) {
+      if (!isUuid && supabase && targetEmail) {
         try {
-          const { data: prof } = await supabase.from('profiles').select('id').eq('email', event.email.toLowerCase().trim()).maybeSingle();
+          const { data: prof } = await supabase.from('profiles').select('id').eq('email', targetEmail).maybeSingle();
           if (prof?.id) targetUserId = prof.id;
         } catch (_) {}
       }
 
       if (!targetUserId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUserId)) {
-        if (event.email?.toLowerCase().includes('tonero')) {
+        if (targetEmail?.includes('tonero')) {
           targetUserId = 'c0000000-0000-0000-0000-000000000001';
         }
       }
@@ -355,7 +358,7 @@ export class NotificationDispatcher {
           user_id: targetUserId,
           title: event.title,
           category: event.category,
-          message: event.message,
+          message: targetMessage,
           metadata: event.metadata || {},
           read: false,
           created_at: new Date().toISOString()
@@ -363,7 +366,7 @@ export class NotificationDispatcher {
         if (notifError) {
           console.warn('[NotificationDispatcher] In-App insert error:', notifError.message);
         } else {
-          console.log(`[NotificationDispatcher] In-app notification persisted for ${event.email}: "${event.title}"`);
+          console.log(`[NotificationDispatcher] In-app notification persisted for ${targetEmail}: "${event.title}"`);
           inAppSuccess = true;
         }
       }

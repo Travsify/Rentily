@@ -22,6 +22,9 @@ import * as legalNoticesController from '../controllers/legalNoticesController';
 import * as renewalController from '../controllers/renewalController';
 import * as reconciliationController from '../controllers/reconciliationController';
 import * as featureFlagController from '../controllers/featureFlagController';
+import * as creditController from '../controllers/creditController';
+import * as vaultController from '../controllers/vaultController';
+import * as externalLegalController from '../controllers/externalLegalController';
 import { getPartnerOnboardedLandlords } from '../controllers/publicPartnerPages';
 import { isSupabaseConfigured, reconfigureSupabase, supabase } from '../supabaseClient';
 import { IdentitypassService } from '../services/identitypassService';
@@ -329,6 +332,13 @@ apiRouter.get('/legal/audit-logs', legalController.getLegalAuditLogs);
 apiRouter.get('/legal/verify-deed/:hash', verifyDeedByHash);
 apiRouter.get('/verify-deed/:hash', verifyDeedByHash);
 
+// 11g. External Standalone Legal Services (50k/100k/3% Legal Drafting)
+apiRouter.post('/external-legal/request', externalLegalController.createExternalLegalOrder);
+apiRouter.get('/external-legal/orders', externalLegalController.getUserOrders);
+apiRouter.get('/external-legal/admin/orders', adminSecuritySentinel, externalLegalController.getAdminLegalOrders);
+apiRouter.patch('/external-legal/admin/orders/:id', adminSecuritySentinel, externalLegalController.updateOrderStatus);
+apiRouter.post('/external-legal/admin/orders/:id/update', adminSecuritySentinel, externalLegalController.updateOrderStatus);
+
 // 12. Partner & User Support / Dispute Tickets (legacy one-way tickets)
 apiRouter.post('/support/tickets', supportController.submitTicket);
 apiRouter.get('/support/tickets', supportController.listTickets);
@@ -507,4 +517,20 @@ apiRouter.post('/contest/admin/login', contestController.adminLogin);
 apiRouter.get('/contest/cycle', contestController.getContestCycle);
 apiRouter.post('/contest/cycle', contestController.updateContestCycle);
 apiRouter.post('/contest/submissions/:id/boost', contestController.boostSubmission);
+
+// 33. Savings-Backed Collateralized Credit Advance Engine (80% LTV, 2.5%/mo)
+apiRouter.get('/credit/eligibility', creditController.getEligibility);
+apiRouter.post('/credit/apply', creditController.applyForCredit);
+apiRouter.post('/credit/repay', creditController.repayLoan);
+apiRouter.get('/credit/loans', creditController.getUserLoans);
+apiRouter.get('/credit/admin/overview', adminSecuritySentinel, creditController.getAdminOverview);
+apiRouter.post('/credit/admin/auto-settle', adminSecuritySentinel, creditController.triggerAutoLiquidation);
+
+// 34. Living Vaults — Manual Savings Pockets
+apiRouter.get('/vaults', vaultController.VaultController.getUserVaults);
+apiRouter.post('/vaults/create', vaultController.VaultController.createVault);
+apiRouter.post('/vaults/deposit', vaultController.VaultController.depositToVault);
+apiRouter.post('/vaults/withdraw', vaultController.VaultController.withdrawFromVault);
+apiRouter.post('/vaults/delete', vaultController.VaultController.deleteVault);
+apiRouter.post('/vaults/sync', vaultController.VaultController.syncUserVaults);
 

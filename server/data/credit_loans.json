@@ -1,0 +1,106 @@
+[
+  {
+    "id": "LN-MUGMAQ36-0D9353",
+    "userId": "test-credit-user-1790319989929",
+    "userEmail": "credit_tester_1790319989929@rentilly.app",
+    "userName": "Adaeze Okonjo",
+    "userPhone": "+2348011223344",
+    "principalAmount": 50000,
+    "tenureDays": 60,
+    "monthlyInterestRate": 0.025,
+    "totalInterestRate": 0.05,
+    "interestAmount": 2500,
+    "totalRepaymentDue": 52500,
+    "amountRepaid": 0,
+    "outstandingBalance": 52500,
+    "collateralLocked": 62500,
+    "savingsBalanceAtBorrow": 100000,
+    "status": "active",
+    "disbursedAt": "2026-09-25T07:06:30.930Z",
+    "dueDate": "2026-11-24T07:06:30.930Z",
+    "repaymentHistory": []
+  },
+  {
+    "id": "LN-MUGMBPNN-5B089B",
+    "userId": "test-credit-user-1790320035909",
+    "userEmail": "credit_tester_1790320035909@rentilly.app",
+    "userName": "Adaeze Okonjo",
+    "userPhone": "+2348011223344",
+    "principalAmount": 50000,
+    "tenureDays": 60,
+    "monthlyInterestRate": 0.025,
+    "totalInterestRate": 0.05,
+    "interestAmount": 2500,
+    "totalRepaymentDue": 52500,
+    "amountRepaid": 52500,
+    "outstandingBalance": 0,
+    "collateralLocked": 62500,
+    "savingsBalanceAtBorrow": 100000,
+    "status": "repaid",
+    "disbursedAt": "2026-09-25T07:07:17.027Z",
+    "dueDate": "2026-11-24T07:07:17.027Z",
+    "repaymentHistory": [
+      {
+        "id": "RPY-LN-MUGMBPNN-5B089B-MUGMBQ03",
+        "amount": 20000,
+        "timestamp": "2026-09-25T07:07:17.475Z",
+        "method": "wallet_balance",
+        "previousBalance": 55000,
+        "newBalance": 35000,
+        "reference": "RPY-LN-MUGMBPNN-5B089B-MUGMBQ03"
+      },
+      {
+        "id": "RPY-LN-MUGMBPNN-5B089B-MUGMBQT0",
+        "amount": 32500,
+        "timestamp": "2026-09-25T07:07:18.516Z",
+        "method": "wallet_balance",
+        "previousBalance": 50000,
+        "newBalance": 17500,
+        "reference": "RPY-LN-MUGMBPNN-5B089B-MUGMBQT0"
+      }
+    ],
+    "settledAt": "2026-09-25T07:07:18.516Z"
+  },
+  {
+    "id": "LN-MUGOBBPL-FD51AE",
+    "userId": "test-credit-user-1790323376775",
+    "userEmail": "credit_tester_1790323376775@rentilly.app",
+    "userName": "Adaeze Okonjo",
+    "userPhone": "+2348011223344",
+    "principalAmount": 50000,
+    "tenureDays": 60,
+    "monthlyInterestRate": 0.025,
+    "totalInterestRate": 0.05,
+    "interestAmount": 2500,
+    "totalRepaymentDue": 52500,
+    "amountRepaid": 52500,
+    "outstandingBalance": 0,
+    "collateralLocked": 62500,
+    "collateralRemaining": 0,
+    "savingsBalanceAtBorrow": 100000,
+    "status": "repaid",
+    "disbursedAt": "2026-09-25T08:02:58.185Z",
+    "dueDate": "2026-11-24T08:02:58.185Z",
+    "repaymentHistory": [
+      {
+        "id": "RPY-LN-MUGOBBPL-FD51AE-MUGOBCED",
+        "amount": 20000,
+        "timestamp": "2026-09-25T08:02:59.077Z",
+        "method": "wallet_balance",
+        "previousBalance": 55000,
+        "newBalance": 35000,
+        "reference": "RPY-LN-MUGOBBPL-FD51AE-MUGOBCED"
+      },
+      {
+        "id": "RPY-LN-MUGOBBPL-FD51AE-MUGOBDJ6",
+        "amount": 32500,
+        "timestamp": "2026-09-25T08:03:00.546Z",
+        "method": "wallet_balance",
+        "previousBalance": 50000,
+        "newBalance": 17500,
+        "reference": "RPY-LN-MUGOBBPL-FD51AE-MUGOBDJ6"
+      }
+    ],
+    "settledAt": "2026-09-25T08:03:00.546Z"
+  }
+]

@@ -1,5 +1,28 @@
+import fs from 'fs';
+import path from 'path';
 import { supabase } from '../supabaseClient';
 import type { Property, KYPRecord, Inspection, LegalAgreement, Transaction } from '../types';
+
+function getDataDir(): string {
+  const candidates = [
+    path.join(process.cwd(), 'server', 'data'),
+    path.join('/opt/render/project/src', 'server', 'data'),
+    path.join('/tmp', 'rentilly-data'),
+  ];
+  for (const dir of candidates) {
+    try {
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, '.write_test_admin'), 'ok', 'utf-8');
+      fs.unlinkSync(path.join(dir, '.write_test_admin'));
+      return dir;
+    } catch (_) {}
+  }
+  return '/tmp';
+}
+
+function getExternalLegalOrdersFilePath(): string {
+  return path.join(getDataDir(), 'external_legal_orders.json');
+}
 
 // In-memory runtime cache hydrated and synced with Supabase Cloud
 let _propertiesCache: Property[] = [];
@@ -116,6 +139,53 @@ export class AdminDataStore {
         }));
       }
     } catch (_) {}
+
+    // 4. Hydrate External Legal Orders
+    try {
+      const { data, error } = await supabase
+        .from('external_legal_orders')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (!error && data && data.length > 0) {
+        this._externalLegalOrdersCache = data.map((d: any) => ({
+          id: d.id,
+          userId: d.user_id,
+          userEmail: d.user_email,
+          userName: d.user_name,
+          userPhone: d.user_phone,
+          serviceType: d.service_type,
+          serviceTitle: d.service_title,
+          propertyTitle: d.property_title,
+          propertyAddress: d.property_address,
+          propertyState: d.property_state,
+          propertyLga: d.property_lga,
+          propertyValue: d.property_value ? Number(d.property_value) : undefined,
+          feeAmount: Number(d.fee_amount || 0),
+          documentType: d.document_type,
+          documentUrls: Array.isArray(d.document_urls) ? d.document_urls : (typeof d.document_urls === 'string' ? JSON.parse(d.document_urls || '[]') : []),
+          additionalNotes: d.additional_notes,
+          status: d.status,
+          assignedCounselName: d.assigned_counsel_name,
+          assignedCounselNba: d.assigned_counsel_nba,
+          reportSummary: d.report_summary,
+          reportPdfUrl: d.report_pdf_url,
+          certificateHash: d.certificate_hash,
+          rejectionReason: d.rejection_reason,
+          createdAt: d.created_at || new Date().toISOString(),
+          updatedAt: d.updated_at || new Date().toISOString(),
+          completedAt: d.completed_at,
+        }));
+        // Persist fresh Supabase state to disk
+        this.persistExternalLegalOrdersToDisk(this._externalLegalOrdersCache);
+        console.log(`[AdminDataStore] Hydrated ${this._externalLegalOrdersCache.length} external legal orders from Supabase.`);
+      } else {
+        // Load from disk fallback
+        this.loadExternalLegalOrdersFromDisk();
+      }
+    } catch (_) {
+      this.loadExternalLegalOrdersFromDisk();
+    }
   }
 
   // ============================================================
@@ -384,5 +454,48 @@ export class AdminDataStore {
       payoutReleasedAt: tx.payoutReleasedAt,
       createdAt: tx.createdAt || tx.timestamp || new Date().toISOString()
     })) as Transaction[];
+  }
+
+  // ─── External Legal Orders Storage ───
+  private static _externalLegalOrdersCache: any[] = [];
+
+  static loadExternalLegalOrdersFromDisk(): any[] {
+    try {
+      const filePath = getExternalLegalOrdersFilePath();
+      if (fs.existsSync(filePath)) {
+        const raw = fs.readFileSync(filePath, 'utf-8');
+        const parsed = JSON.parse(raw || '[]');
+        if (Array.isArray(parsed)) {
+          this._externalLegalOrdersCache = parsed;
+          return this._externalLegalOrdersCache;
+        }
+      }
+    } catch (err) {
+      console.warn('[AdminDataStore] Notice loading external legal orders from disk:', err);
+    }
+    return this._externalLegalOrdersCache;
+  }
+
+  static persistExternalLegalOrdersToDisk(orders: any[]): void {
+    try {
+      const filePath = getExternalLegalOrdersFilePath();
+      const dir = path.dirname(filePath);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(filePath, JSON.stringify(orders, null, 2), 'utf-8');
+    } catch (err) {
+      console.error('[AdminDataStore] Error saving external legal orders to disk:', err);
+    }
+  }
+
+  static getExternalLegalOrders(): any[] {
+    if (this._externalLegalOrdersCache.length === 0) {
+      this.loadExternalLegalOrdersFromDisk();
+    }
+    return [...this._externalLegalOrdersCache];
+  }
+
+  static saveExternalLegalOrders(orders: any[]): void {
+    this._externalLegalOrdersCache = [...orders];
+    this.persistExternalLegalOrdersToDisk(this._externalLegalOrdersCache);
   }
 }

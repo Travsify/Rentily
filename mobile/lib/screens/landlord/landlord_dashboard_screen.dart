@@ -25,6 +25,7 @@ import '../shared/notification_center_screen.dart';
 import '../shared/chat_inbox_screen.dart';
 import '../inspections/inspections_screen.dart';
 import '../home/property_detail_screen.dart';
+import '../services/external_legal_screen.dart';
 import '../../widgets/biometric_prompt_modal.dart';
 
 class LandlordDashboardScreen extends StatefulWidget {
@@ -633,6 +634,16 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
                         } else {
                           Navigator.of(context).push(MaterialPageRoute(builder: (_) => const InspectionsScreen()));
                         }
+                      },
+                    ),
+                    _buildGridCard(
+                      icon: Icons.gavel_rounded,
+                      title: 'Legal & Title Desk',
+                      subtitle: 'Deeds & Title Search ₦50k+',
+                      badge: 'ACC_LAW',
+                      color: const Color(0xFF0F766E),
+                      onTap: () {
+                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ExternalLegalScreen()));
                       },
                     ),
                     _buildGridCard(

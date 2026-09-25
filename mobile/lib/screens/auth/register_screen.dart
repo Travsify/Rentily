@@ -555,9 +555,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   ? (_selectedRole == 'partner'
                                       ? 'Create Corporate Account 🏢'
                                       : (_selectedRole == 'owner' ? 'Create Landlord Account 🔑' : 'Create Free Account 🚀'))
-                                  : 'Continue to Step ${_step + 2} ➔',
+                                  : (_step == 0
+                                      ? 'Get Started ➔'
+                                      : 'Continue to Step ${_step + 2} ➔'),
                               style: GoogleFonts.plusJakartaSans(
-                                fontSize: 13,
+                                fontSize: 13.5,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -588,6 +590,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ],
               ),
+              const SizedBox(height: 12),
+
+              // Version & Mode Indicator
+              Center(
+                child: Text(
+                  'Rentilly Mobile v1.1.0 (Build 10) • Concept 1 Active 🇳🇬',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textMuted,
+                  ),
+                ),
+              ),
               const SizedBox(height: 20),
             ],
           ),
@@ -614,28 +629,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  // STEP 0: Role Selection (Catchy Luxury Real Estate Theme in Brand Colors)
+  // STEP 0: Role Selection (Concept 1: Luxury Neomorphic 3D Cards)
   Widget _buildRoleSelectionStep() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 1. Luxury Home Placement Mission Card
+        // 1. Luxury Trust Header
         Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [Color(0xFF042F2E), Color(0xFF064E3B), Color(0xFF0F766E)],
+              colors: [Color(0xFF042F2E), Color(0xFF064E3B), Color(0xFF0D5C46)],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: const Color(0xFF4ADE80).withValues(alpha: 0.3), width: 1.2),
+            border: Border.all(color: const Color(0xFF34D399).withValues(alpha: 0.35), width: 1.2),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF064E3B).withValues(alpha: 0.25),
-                blurRadius: 14,
-                offset: const Offset(0, 5),
+                color: const Color(0xFF064E3B).withValues(alpha: 0.3),
+                blurRadius: 16,
+                offset: const Offset(0, 6),
               ),
             ],
           ),
@@ -646,10 +661,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 height: 44,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF0D5C46), Color(0xFF042F2E)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                   boxShadow: [
                     BoxShadow(
-                      color: const Color(0xFF0D5C46).withValues(alpha: 0.35),
-                      blurRadius: 8,
+                      color: const Color(0xFF34D399).withValues(alpha: 0.3),
+                      blurRadius: 10,
                       offset: const Offset(0, 3),
                     ),
                   ],
@@ -670,22 +690,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Rentilly: Built by Landlords for Every Tenant/Landlord',
+                      'Rentilly: Direct & Escrow Protected',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.plusJakartaSans(
-                        fontSize: 11.5,
+                        fontSize: 12,
                         fontWeight: FontWeight.w900,
                         color: Colors.white,
                         letterSpacing: -0.2,
-                        height: 1.25,
                       ),
                     ),
                     const SizedBox(height: 3),
                     Text(
-                      'Zero 20% agent markups. 100% legal escrow protection nationwide across Nigeria.',
+                      'Zero 20% agent cuts. 100% legal escrow security across Nigeria.',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 9.5,
-                        color: const Color(0xFFE2E8F0),
-                        height: 1.2,
+                        color: const Color(0xFFD1FAE5),
+                        height: 1.25,
                       ),
                     ),
                   ],
@@ -712,17 +735,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
           id: 'renter',
           title: 'Renter / Home Buyer',
           tagline: 'Looking to rent or buy a verified home in Nigeria',
-          subtitle: 'Direct connection to verified property owners. Zero agency markups with 100% legal escrow security.',
+          subtitle: 'Direct access to verified property owners. Zero agency markups with 100% legal escrow security.',
           icon: Icons.cottage_rounded,
           badgeText: 'MOST POPULAR 🌟',
-          badgeColor: const Color(0xFF0D9488),
-          accentGradient: const [Color(0xFF0D9488), Color(0xFF059669)],
-          highlights: [
-            'Zero 20% Middleman Agent Fees',
-            '100% Rent & Purchase Escrow Protection',
-            'Smart Salary Splitter & 24/7 Power DisCo Tokens',
+          badgeColor: const Color(0xFF059669),
+          accentGradient: const [Color(0xFF059669), Color(0xFF10B981)],
+          glowingPills: [
+            {'label': 'Zero 20% Agent Cut', 'gradient': [Color(0xFF065F46), Color(0xFF047857)]},
+            {'label': '100% Escrow Shield', 'gradient': [Color(0xFF0F766E), Color(0xFF0D9488)]},
           ],
-          tags: ['₦0 Agent Cut', 'Escrow Shield', 'Verified Listings'],
+          highlights: [
+            '₦0 Middleman markups — rent direct from verified owners',
+            '100% Escrow protection until key handover & check-in',
+            'Save for rent & borrow up to 80% instant credit advance',
+          ],
         ),
         const SizedBox(height: 14),
 
@@ -731,17 +757,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
           id: 'owner',
           title: 'Property Owner / Landlord',
           tagline: 'Own or manage real estate assets in Nigeria',
-          subtitle: 'List apartments, screen verified tenants with BVN/NIN, and get direct automated rent settlements.',
+          subtitle: 'List apartments, screen verified tenants with BVN/NIN, and receive direct automated rent settlements.',
           icon: Icons.vpn_key_rounded,
           badgeText: 'DIRECT ASSET OWNER 🏛️',
           badgeColor: const Color(0xFFD97706),
-          accentGradient: const [Color(0xFFD97706), Color(0xFFB45309)],
-          highlights: [
-            'Direct Automated Rent Settlements to your bank',
-            'Verified Tenant Screening with Identity Check',
-            'Automated Legal Digital Leases & Tenancy Notices',
+          accentGradient: const [Color(0xFFD97706), Color(0xFFF59E0B)],
+          glowingPills: [
+            {'label': 'Direct Rent Payouts', 'gradient': [Color(0xFF92400E), Color(0xFFB45309)]},
+            {'label': 'Verified Tenants (BVN/NIN)', 'gradient': [Color(0xFF78350F), Color(0xFF92400E)]},
           ],
-          tags: ['Direct Payouts', 'Verified Tenants', 'Digital Leases'],
+          highlights: [
+            'Direct automated rent settlements to your bank account',
+            'Comprehensive identity & background check on tenants',
+            'Automated legal digital leases, deeds & tenancy notices',
+          ],
         ),
         const SizedBox(height: 14),
 
@@ -753,16 +782,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
           subtitle: 'Lock mandated developer portfolios, issue certified leases, and withdraw 2.5% escrow commissions.',
           icon: Icons.business_center_rounded,
           badgeText: '2.5% ESCROW COMMISSIONS 💼',
-          badgeColor: const Color(0xFF0A2540),
-          accentGradient: const [Color(0xFF0A2540), Color(0xFF1E3A8A)],
-          highlights: [
-            'Guaranteed 2.5% Rent & 2.0% Sales Commissions',
-            'CAC Accredited Partner Digital ID & Desk',
-            'Dedicated Commissions & Escrow Payout Vault',
+          badgeColor: const Color(0xFF1E3A8A),
+          accentGradient: const [Color(0xFF1E3A8A), Color(0xFF3B82F6)],
+          glowingPills: [
+            {'label': '2.5% Escrow Cut', 'gradient': [Color(0xFF1E293B), Color(0xFF1E3A8A)]},
+            {'label': 'CAC Verified Desk', 'gradient': [Color(0xFF0F172A), Color(0xFF1E293B)]},
           ],
-          tags: ['2.5% Commission', 'CAC Accredited', 'Dedicated Vault'],
+          highlights: [
+            'Guaranteed 2.5% on rentals and 2.0% on property sales',
+            'CAC-accredited partner desk with digital ID verification',
+            'Dedicated commissions & escrow payout vault',
+          ],
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
 
         // Trust Compliance Footer
         Center(
@@ -795,8 +827,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     required String badgeText,
     required Color badgeColor,
     required List<Color> accentGradient,
+    required List<Map<String, dynamic>> glowingPills,
     required List<String> highlights,
-    required List<String> tags,
   }) {
     final isSelected = _selectedRole == id;
     return GestureDetector(
@@ -806,90 +838,99 @@ class _RegisterScreenState extends State<RegisterScreen> {
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 220),
-        curve: Curves.easeInOut,
+        curve: Curves.easeInOutCubic,
         width: double.infinity,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isSelected ? badgeColor.withValues(alpha: 0.04) : Colors.white,
-          borderRadius: BorderRadius.circular(20),
+          color: isSelected ? badgeColor.withValues(alpha: 0.035) : Colors.white,
+          borderRadius: BorderRadius.circular(22),
           border: Border.all(
             color: isSelected ? badgeColor : const Color(0xFFE2E8F0),
             width: isSelected ? 2.2 : 1.2,
           ),
           boxShadow: [
             BoxShadow(
-              color: isSelected ? badgeColor.withValues(alpha: 0.15) : Colors.black.withValues(alpha: 0.03),
-              blurRadius: isSelected ? 16 : 8,
-              offset: const Offset(0, 4),
+              color: isSelected ? badgeColor.withValues(alpha: 0.18) : Colors.black.withValues(alpha: 0.03),
+              blurRadius: isSelected ? 18 : 8,
+              offset: Offset(0, isSelected ? 6 : 3),
             ),
           ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Top Bar: Hero Icon Emblem + Badge + Radio Selector
+            // Top Bar: 3D Emblem Container + Badge + Radio Selector
             Row(
               children: [
-                // Circular Hero Icon Container
+                // 3D Tactile Hero Icon Emblem
                 Container(
-                  width: 42,
-                  height: 42,
+                  width: 48,
+                  height: 48,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
-                      colors: isSelected ? accentGradient : [const Color(0xFFF1F5F9), const Color(0xFFE2E8F0)],
+                      colors: isSelected ? accentGradient : [const Color(0xFFF8FAFC), const Color(0xFFE2E8F0)],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: isSelected
-                        ? [
-                            BoxShadow(
-                              color: badgeColor.withValues(alpha: 0.35),
-                              blurRadius: 8,
-                              offset: const Offset(0, 3),
-                            ),
-                          ]
-                        : null,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: (isSelected ? badgeColor : Colors.black).withValues(alpha: isSelected ? 0.35 : 0.06),
+                        blurRadius: isSelected ? 12 : 6,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
-                  child: Icon(
-                    icon,
-                    size: 20,
-                    color: isSelected ? Colors.white : AppColors.textPrimary,
-                  ),
-                ),
-                const SizedBox(width: 10),
-
-                // Badge Tag
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: badgeColor.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: badgeColor.withValues(alpha: 0.3), width: 0.8),
-                  ),
-                  child: Text(
-                    badgeText,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 8.5,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.5,
-                      color: badgeColor,
+                  child: Center(
+                    child: Icon(
+                      icon,
+                      size: 24,
+                      color: isSelected ? Colors.white : const Color(0xFF334155),
                     ),
                   ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 12),
+
+                // Badge Tag
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
+                        decoration: BoxDecoration(
+                          color: badgeColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: badgeColor.withValues(alpha: 0.25), width: 0.8),
+                        ),
+                        child: Text(
+                          badgeText,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 8.5,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.5,
+                            color: badgeColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
 
                 // Radio Selector Checkmark
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
-                  width: 22,
-                  height: 22,
+                  width: 24,
+                  height: 24,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: isSelected ? badgeColor : Colors.white,
                     border: Border.all(
                       color: isSelected ? badgeColor : const Color(0xFFCBD5E1),
-                      width: 1.8,
+                      width: 2.0,
                     ),
                   ),
                   child: isSelected
@@ -906,7 +947,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             Text(
               title,
               style: GoogleFonts.plusJakartaSans(
-                fontSize: 15.5,
+                fontSize: 16,
                 fontWeight: FontWeight.w900,
                 color: isSelected ? badgeColor : AppColors.textPrimary,
                 letterSpacing: -0.2,
@@ -933,6 +974,44 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 color: const Color(0xFF475569),
                 height: 1.35,
               ),
+            ),
+            const SizedBox(height: 10),
+
+            // Glowing Dual-Gradient Pill Tags
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: glowingPills.map((pill) {
+                final List<Color> colors = List<Color>.from(pill['gradient'] ?? [badgeColor, badgeColor]);
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: isSelected ? colors : [const Color(0xFFF1F5F9), const Color(0xFFE2E8F0)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: isSelected
+                        ? [
+                            BoxShadow(
+                              color: colors.first.withValues(alpha: 0.3),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: Text(
+                    pill['label'] ?? '',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                      color: isSelected ? Colors.white : const Color(0xFF475569),
+                    ),
+                  ),
+                );
+              }).toList(),
             ),
             const SizedBox(height: 10),
 
@@ -971,33 +1050,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   );
                 }).toList(),
               ),
-            ),
-            const SizedBox(height: 10),
-
-            // Feature Pills
-            Wrap(
-              spacing: 6,
-              runSpacing: 4,
-              children: tags.map((t) {
-                return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3.5),
-                  decoration: BoxDecoration(
-                    color: isSelected ? badgeColor.withValues(alpha: 0.1) : const Color(0xFFF1F5F9),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: isSelected ? badgeColor.withValues(alpha: 0.35) : const Color(0xFFE2E8F0),
-                    ),
-                  ),
-                  child: Text(
-                    t,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 8.5,
-                      fontWeight: FontWeight.w800,
-                      color: isSelected ? badgeColor : AppColors.textSecondary,
-                    ),
-                  ),
-                );
-              }).toList(),
             ),
           ],
         ),

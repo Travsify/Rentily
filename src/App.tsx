@@ -20,6 +20,8 @@ import { LiveSupportChatTab } from './components/LiveSupportChatTab';
 import { SupportAgentsTab } from './components/SupportAgentsTab';
 
 import { MasterLedgerTab } from './components/MasterLedgerTab';
+import { CreditManagementTab } from './components/CreditManagementTab';
+import { ExternalLegalTab } from './components/ExternalLegalTab';
 import { FeeSettingsTab } from './components/FeeSettingsTab';
 import { BillsDeskTab } from './components/BillsDeskTab';
 import { ChatOversightTab } from './components/ChatOversightTab';
@@ -334,6 +336,14 @@ export default function App() {
 
           {currentTab === 'master_ledger' && (
             <MasterLedgerTab />
+          )}
+
+          {currentTab === 'credit_management' && (
+            <CreditManagementTab />
+          )}
+
+          {currentTab === 'external_legal' && (
+            <ExternalLegalTab />
           )}
 
           {currentTab === 'caution_claims' && (

@@ -29,6 +29,7 @@ import '../shared/chat_inbox_screen.dart';
 import '../../widgets/biometric_prompt_modal.dart';
 import '../../widgets/partner_lead_pipeline_modal.dart';
 import '../../widgets/partner_legal_modal.dart';
+import '../services/external_legal_screen.dart';
 
 class PartnerDashboardScreen extends StatefulWidget {
   final VoidCallback? onSwitchToTenant;
@@ -728,6 +729,16 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
                       badge: 'PRINT',
                       color: const Color(0xFF047857),
                       onTap: () => PartnerLegalModal.generateMandateAgreementPdf(context),
+                    ),
+                    _buildGridCard(
+                      icon: Icons.verified_user_rounded,
+                      title: 'Title & Legal Desk',
+                      subtitle: 'Deeds & Registry ₦50k+',
+                      badge: 'ACC_LAW',
+                      color: const Color(0xFF0F766E),
+                      onTap: () {
+                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ExternalLegalScreen()));
+                      },
                     ),
                     _buildGridCard(
                       icon: Icons.gavel_rounded,

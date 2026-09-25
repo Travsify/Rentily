@@ -1,3 +1,4 @@
+import '../services/external_legal_screen.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -1135,6 +1136,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   onTap: () => PartnerLegalModal.showExclusiveMandate(context),
                 ),
 
+              _buildMenuTile(
+                Icons.gavel_rounded,
+                'External Title & Legal Desk ⚖️',
+                'Verify external property titles (₦50k/₦100k) & conveyancing deeds (3%)',
+                trailing: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFECFDF5),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    'NEW',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, color: const Color(0xFF059669)),
+                  ),
+                ),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const ExternalLegalScreen()),
+                  );
+                },
+              ),
               _buildMenuTile(
                 Icons.description_outlined,
                 'My Tenancy Agreements (PDF)',

@@ -1,9 +1,11 @@
+import '../models/external_legal_order.dart';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../constants/app_constants.dart';
 import '../models/property.dart';
 import '../models/inspection.dart';
+import '../models/credit_loan.dart';
 import 'auth_service.dart';
 
 class ApiService {
@@ -1613,6 +1615,299 @@ class ApiService {
       return {'success': false, 'error': 'Network error: $e'};
     }
   }
+
+  // 46. Savings-Backed Collateralized Credit Advance (80% LTV, 2.5%/mo)
+  static Future<CreditEligibility?> fetchCreditEligibility({
+    required String userId,
+    required String email,
+    required double savingsBalance,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/credit/eligibility').replace(
+        queryParameters: {
+          'userId': userId,
+          'email': email,
+          'savingsBalance': savingsBalance.toString(),
+        },
+      );
+      final res = await http.get(uri).timeout(const Duration(seconds: 15));
+      if (res.statusCode == 200) {
+        final data = json.decode(res.body);
+        if (data['status'] == true) {
+          return CreditEligibility.fromJson(data);
+        }
+      }
+    } catch (e) {
+      debugPrint('[ApiService] fetchCreditEligibility error: $e');
+    }
+    return null;
+  }
+
+  static Future<Map<String, dynamic>> applyForCredit({
+    required String userId,
+    required String email,
+    required double amount,
+    required int tenureDays,
+    required double savingsBalance,
+    String? pin,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/credit/apply');
+      final res = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'userId': userId,
+          'email': email,
+          'amount': amount,
+          'tenureDays': tenureDays,
+          'savingsBalance': savingsBalance,
+          if (pin != null) 'pin': pin,
+        }),
+      ).timeout(const Duration(seconds: 20));
+
+      final data = json.decode(res.body);
+      return data is Map<String, dynamic> ? data : {'status': false, 'error': 'Invalid response'};
+    } catch (e) {
+      return {'status': false, 'error': 'Network error: $e'};
+    }
+  }
+
+  static Future<Map<String, dynamic>> repayCreditLoan({
+    required String userId,
+    required String email,
+    required String loanId,
+    required double amount,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/credit/repay');
+      final res = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'userId': userId,
+          'email': email,
+          'loanId': loanId,
+          'amount': amount,
+          'paymentMethod': 'wallet', // Strictly wallet-only
+        }),
+      ).timeout(const Duration(seconds: 20));
+
+      final data = json.decode(res.body);
+      return data is Map<String, dynamic> ? data : {'status': false, 'error': 'Invalid response'};
+    } catch (e) {
+      return {'status': false, 'error': 'Network error: $e'};
+    }
+  }
+
+  static Future<List<CreditLoan>> fetchUserCreditLoans({
+    required String userId,
+    required String email,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/credit/loans').replace(
+        queryParameters: {'userId': userId, 'email': email},
+      );
+      final res = await http.get(uri).timeout(const Duration(seconds: 15));
+      if (res.statusCode == 200) {
+        final data = json.decode(res.body);
+        if (data['status'] == true && data['loans'] is List) {
+          return (data['loans'] as List).map((e) => CreditLoan.fromJson(e)).toList();
+        }
+      }
+    } catch (e) {
+      debugPrint('[ApiService] fetchUserCreditLoans error: $e');
+    }
+    return [];
+  }
+
+  // 47. Standalone External Legal & Title Verification Desk
+  static Future<Map<String, dynamic>> createExternalLegalOrder({
+    required String userId,
+    required String email,
+    required String fullName,
+    String? phoneNumber,
+    required String serviceType,
+    required String propertyTitle,
+    required String propertyAddress,
+    required String propertyState,
+    String? propertyLga,
+    double? propertyValue,
+    String? documentType,
+    List<String>? documentUrls,
+    String? additionalNotes,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/external-legal/request');
+      final res = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'userId': userId,
+          'email': email,
+          'fullName': fullName,
+          'phoneNumber': phoneNumber,
+          'serviceType': serviceType,
+          'propertyTitle': propertyTitle,
+          'propertyAddress': propertyAddress,
+          'propertyState': propertyState,
+          'propertyLga': propertyLga,
+          'propertyValue': propertyValue,
+          'documentType': documentType,
+          'documentUrls': documentUrls ?? [],
+          'additionalNotes': additionalNotes,
+        }),
+      ).timeout(const Duration(seconds: 25));
+
+      final data = json.decode(res.body);
+      return data is Map<String, dynamic> ? data : {'status': false, 'error': 'Invalid response'};
+    } catch (e) {
+      return {'status': false, 'error': 'Network error: $e'};
+    }
+  }
+
+  static Future<List<ExternalLegalOrder>> fetchUserExternalLegalOrders({
+    required String userId,
+    required String email,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/external-legal/orders').replace(
+        queryParameters: {'userId': userId, 'email': email},
+      );
+      final res = await http.get(uri).timeout(const Duration(seconds: 15));
+      if (res.statusCode == 200) {
+        final data = json.decode(res.body);
+        if (data['status'] == true && data['orders'] is List) {
+          return (data['orders'] as List).map((e) => ExternalLegalOrder.fromJson(e)).toList();
+        }
+      }
+    } catch (e) {
+      debugPrint('[ApiService] fetchUserExternalLegalOrders error: $e');
+    }
+    return [];
+  }
+
+  // ─── Living Vaults ───────────────────────────────────────────────────────
+
+  static Future<List<Map<String, dynamic>>> fetchUserVaults({
+    required String userId,
+    required String email,
+  }) async {
+    try {
+      final res = await http.get(
+        Uri.parse('${AppConstants.apiBaseUrl}/vaults?userId=${userId}&email=${Uri.encodeComponent(email)}'),
+        headers: {'Content-Type': 'application/json'},
+      );
+      if (res.statusCode == 200) {
+        final data = json.decode(res.body);
+        final List<dynamic> vaults = data['vaults'] ?? [];
+        return vaults.map((v) => Map<String, dynamic>.from(v)).toList();
+      }
+      return [];
+    } catch (e) {
+      debugPrint('fetchUserVaults error: $e');
+      return [];
+    }
+  }
+
+  static Future<Map<String, dynamic>> createVault({
+    required String userId,
+    required String email,
+    required String title,
+    required String category,
+    required double targetAmount,
+    double initialDeposit = 0,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse('${AppConstants.apiBaseUrl}/vaults/create'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'userId': userId,
+          'email': email,
+          'title': title,
+          'category': category,
+          'targetAmount': targetAmount,
+          'initialDeposit': initialDeposit,
+        }),
+      );
+      final data = json.decode(res.body);
+      return {'success': res.statusCode == 200 || res.statusCode == 201, ...data};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  static Future<Map<String, dynamic>> depositToVault({
+    required String userId,
+    required String email,
+    required String vaultId,
+    required double amount,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse('${AppConstants.apiBaseUrl}/vaults/deposit'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'userId': userId,
+          'email': email,
+          'vaultId': vaultId,
+          'amount': amount,
+        }),
+      );
+      final data = json.decode(res.body);
+      return {'success': res.statusCode == 200, ...data};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  static Future<Map<String, dynamic>> withdrawFromVault({
+    required String userId,
+    required String email,
+    required String vaultId,
+    required double amount,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse('${AppConstants.apiBaseUrl}/vaults/withdraw'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'userId': userId,
+          'email': email,
+          'vaultId': vaultId,
+          'amount': amount,
+        }),
+      );
+      final data = json.decode(res.body);
+      return {'success': res.statusCode == 200, ...data};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
+  static Future<Map<String, dynamic>> deleteVault({
+    required String userId,
+    required String email,
+    required String vaultId,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse('${AppConstants.apiBaseUrl}/vaults/delete'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'userId': userId,
+          'email': email,
+          'vaultId': vaultId,
+        }),
+      );
+      final data = json.decode(res.body);
+      return {'success': res.statusCode == 200, ...data};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
 }
 
 
@@ -1644,4 +1939,3 @@ class FeatureFlags {
     );
   }
 }
-

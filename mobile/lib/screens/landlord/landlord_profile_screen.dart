@@ -22,6 +22,7 @@ import '../../utils/id_utils.dart';
 import '../auth/login_screen.dart';
 import '../support/support_chat_screen.dart';
 import '../cards/cards_screen.dart';
+import '../services/external_legal_screen.dart';
 import 'landlord_wallet_screen.dart';
 
 class LandlordProfileScreen extends StatefulWidget {
@@ -1288,8 +1289,22 @@ class _LandlordProfileScreenState extends State<LandlordProfileScreen> {
             const SizedBox(height: 10),
 
             _buildTile(
+              icon: Icons.verified_user_rounded,
+              title: 'External Legal & Title Verification Desk ⚖️',
+              subtitle: '₦50k/100k Single/Multi Title searches & 3% Legal Document Preparation',
+              trailing: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: const Color(0xFF0F766E).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(6)),
+                child: Text('₦50k/100k/3%', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: const Color(0xFF0F766E))),
+              ),
+              onTap: () {
+                Navigator.of(context).push(MaterialPageRoute(builder: (_) => const ExternalLegalScreen()));
+              },
+            ),
+
+            _buildTile(
               icon: Icons.gavel_rounded,
-              title: 'Landlord or Owner Legal Desk',
+              title: 'Landlord Tenancy Legal Desk',
               subtitle: 'Notice to Quit, 7 Days Intention, Escrow claims & platform dispute intervention (Federal Republic of Nigeria)',
               onTap: _showLegalDeskModal,
             ),

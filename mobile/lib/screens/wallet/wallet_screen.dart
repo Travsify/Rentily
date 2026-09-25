@@ -1474,6 +1474,10 @@ class _WalletScreenState extends State<WalletScreen> {
               _buildLivingWalletActionsHub(),
               const SizedBox(height: 14),
 
+              // 3b. Savings-Backed Instant Credit Advance Banner
+              _buildSavingsCreditBanner(),
+              const SizedBox(height: 14),
+
               // 4. Referral & Rewards Hub
               _buildReferralHubBanner(),
               const SizedBox(height: 22),
@@ -1966,6 +1970,115 @@ class _WalletScreenState extends State<WalletScreen> {
             ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSavingsCreditBanner() {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () {
+          HapticFeedback.lightImpact();
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => const VaultsScreen(),
+            ),
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF064E3B), Color(0xFF0F766E)],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+            ),
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF064E3B).withValues(alpha: 0.15),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(9),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.bolt_rounded,
+                  color: Color(0xFF34D399),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          '80% Instant Credit Advance',
+                          style: GoogleFonts.plusJakartaSans(
+                            color: Colors.white,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF34D399),
+                            borderRadius: BorderRadius.circular(5),
+                          ),
+                          child: Text(
+                            '2.5%/MO',
+                            style: GoogleFonts.plusJakartaSans(
+                              color: const Color(0xFF064E3B),
+                              fontSize: 8.5,
+                              fontWeight: FontWeight.w900,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Borrow up to 80% of your locked savings instantly to wallet. Zero liquidation if repaid.',
+                      style: GoogleFonts.plusJakartaSans(
+                        color: Colors.white.withValues(alpha: 0.85),
+                        fontSize: 10,
+                        height: 1.25,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: Colors.white,
+                  size: 11,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

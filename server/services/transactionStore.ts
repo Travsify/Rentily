@@ -29,6 +29,7 @@ export interface WalletTransaction {
   userEmail?: string;
   user_email?: string;
   description?: string;
+  metadata?: Record<string, any>;
 }
 
 const VAULT_PROPERTY_ID = '00000000-0000-0000-0000-000000000000';
@@ -365,7 +366,8 @@ export class TransactionStore {
 
     // 1. Strict user-only filter: include all transactions that belong to this user
     const filtered = all.filter(t => {
-      if ((t.email || '').toLowerCase().trim() !== cleanEmail) return false;
+      const txEmail = (t.email || t.userEmail || t.user_email || '').toLowerCase().trim();
+      if (txEmail !== cleanEmail) return false;
       if (TransactionStore.isTreasuryTransaction(t)) return false;
       return true;
     });
@@ -451,15 +453,16 @@ export class TransactionStore {
     if (supabase) {
       try {
         const users = UserStore.getAllUsers();
-        let targetUser = users.find(u => u.email.toLowerCase() === tx.email.toLowerCase());
+        const txEmail = (tx.email || tx.userEmail || tx.user_email || '').toLowerCase().trim();
+        let targetUser = users.find(u => (u.email || '').toLowerCase().trim() === txEmail);
         if (!targetUser && tx.userId) {
           targetUser = users.find(u => u.id === tx.userId);
         }
 
         const validUserId = targetUser?.id || tx.userId || null;
         if (!validUserId) {
-          console.warn('[TransactionStore] Cannot persist tx — no userId found for email:', tx.email);
-          return;
+          console.warn('[TransactionStore] Cannot persist tx — no userId found for email:', txEmail);
+          return tx;
         }
 
         // Store in wallet_transactions (the true single source of truth for user ledger)
@@ -470,14 +473,14 @@ export class TransactionStore {
 
         const { error } = await supabase.from('wallet_transactions').upsert({
           user_id: validUserId,
-          email: tx.email.toLowerCase().trim(),
+          email: txEmail,
           amount: Number(tx.amount || 0),
           type: tx.isCredit ? 'credit' : 'debit',
-          status: (tx.status === 'SUCCESSFUL' || tx.status === 'COMPLETED') ? 'completed' : 'pending',
+          status: (tx.status === 'SUCCESSFUL' || tx.status === 'COMPLETED' || tx.status === 'completed') ? 'completed' : 'pending',
           flw_ref: cleanRef,
           tx_ref: cleanRef,
           narration: finalNarration,
-          created_at: tx.date || new Date().toISOString()
+          created_at: tx.date || tx.createdAt || new Date().toISOString()
         }, { onConflict: 'flw_ref' });
 
         if (error) {
@@ -527,7 +530,11 @@ export class TransactionStore {
   static computeNetBalance(email: string): number {
     const cleanEmail = (email || '').toLowerCase().trim();
     const all = this.getAllTransactions();
-    const userTxs = all.filter(t => t.email.toLowerCase() === cleanEmail && t.status === 'SUCCESSFUL');
+    const userTxs = all.filter(t => {
+      const txEmail = (t.email || t.userEmail || t.user_email || '').toLowerCase().trim();
+      const statusUpper = (t.status || '').toUpperCase();
+      return txEmail === cleanEmail && (statusUpper === 'SUCCESSFUL' || statusUpper === 'COMPLETED');
+    });
     let bal = 0;
     for (const tx of userTxs) {
       // Exclude USDT and USD from Naira wallet balance calculation
