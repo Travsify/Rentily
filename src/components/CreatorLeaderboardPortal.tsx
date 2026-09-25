@@ -19,7 +19,11 @@ import {
   Palette,
   Check,
   ShieldCheck,
-  Volume2
+  Volume2,
+  Video,
+  Clock,
+  ArrowRight,
+  XCircle
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { CreatorBountyService } from '../services/creatorBountyService';
@@ -612,6 +616,12 @@ export const CreatorLeaderboardPortal: React.FC = () => {
                     <span className="text-[11px] text-emerald-400/80">Ranks 4th – 20th</span>
                   </div>
                 </div>
+
+                {/* 48-Hour Disbursal SLA Badge */}
+                <div className="mt-6 inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-slate-900/90 border border-emerald-500/40 text-xs text-slate-300 shadow-xl max-w-2xl mx-auto">
+                  <Clock className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>⚡ <strong>Guaranteed 48-Hour Disbursals:</strong> All 20 cash prizes are paid straight to winners' Nigerian bank accounts (GTBank, Zenith, Access, Kuda, OPay, PalmPay) within 48 hours of season close.</span>
+                </div>
               </div>
             </section>
 
@@ -681,6 +691,118 @@ export const CreatorLeaderboardPortal: React.FC = () => {
               </div>
             </section>
 
+            {/* 4-STEP ACTION ROADMAP: SHOOT -> POST & TAG -> SUBMIT -> WIN (30-SECOND CLARITY) */}
+            <section id="how-it-works" className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 mb-12 relative z-20">
+              <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/70 border-2 border-emerald-500/40 rounded-3xl p-6 sm:p-10 shadow-2xl backdrop-blur-xl">
+                <div className="text-center max-w-2xl mx-auto mb-8 sm:mb-10">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-xs font-black uppercase tracking-wider mb-2">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    How It Works in 30 Seconds
+                  </div>
+                  <h2 className="text-2xl sm:text-4xl font-black text-white">
+                    4 Steps to Win Cash
+                  </h2>
+                  <p className="text-xs sm:text-sm text-slate-300 mt-2">
+                    Zero complicated legal jargon. From video creation to cash in your bank account in 4 simple moves.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                  {/* Step 1: Shoot */}
+                  <div className="bg-slate-950/90 border border-slate-800 hover:border-emerald-500/50 rounded-2xl p-5 sm:p-6 transition group flex flex-col justify-between relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-500/5 rounded-bl-full pointer-events-none" />
+                    <div>
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-mono font-black text-sm flex items-center justify-center">
+                          01
+                        </span>
+                        <Video className="w-5 h-5 text-emerald-400" />
+                      </div>
+                      <h3 className="text-base font-black text-white mb-2 group-hover:text-emerald-400 transition">
+                        Shoot 🎬
+                      </h3>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        Film a 15–60s video centered exclusively on <strong>Renters</strong> (verified homes, zero agent fees) or <strong>Property Purchase</strong> (verified titles, escrow protection).
+                      </p>
+                    </div>
+                    <div className="mt-4 pt-3 border-t border-slate-800/80 text-[11px] font-bold text-emerald-400 flex items-center gap-1">
+                      <span>Renters or Property</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </div>
+                  </div>
+
+                  {/* Step 2: Post & Tag */}
+                  <div className="bg-slate-950/90 border border-slate-800 hover:border-pink-500/50 rounded-2xl p-5 sm:p-6 transition group flex flex-col justify-between relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-20 h-20 bg-pink-500/5 rounded-bl-full pointer-events-none" />
+                    <div>
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="w-10 h-10 rounded-xl bg-pink-500/20 border border-pink-500/40 text-pink-300 font-mono font-black text-sm flex items-center justify-center">
+                          02
+                        </span>
+                        <Share2 className="w-5 h-5 text-pink-400" />
+                      </div>
+                      <h3 className="text-base font-black text-white mb-2 group-hover:text-pink-400 transition">
+                        Post &amp; Tag 🏷️
+                      </h3>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        Publish to <strong>TikTok, Reels, or Shorts</strong>. Tag <strong>@renti_lly</strong> (IG) or <strong>@rentilly</strong> (TikTok/X) in your video &amp; caption so fans can find us.
+                      </p>
+                    </div>
+                    <div className="mt-4 pt-3 border-t border-slate-800/80 text-[11px] font-bold text-pink-400 flex items-center gap-1">
+                      <span>Follow &amp; Tag Rentilly</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </div>
+                  </div>
+
+                  {/* Step 3: Submit */}
+                  <div className="bg-slate-950/90 border border-slate-800 hover:border-amber-500/50 rounded-2xl p-5 sm:p-6 transition group flex flex-col justify-between relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-20 h-20 bg-amber-500/5 rounded-bl-full pointer-events-none" />
+                    <div>
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300 font-mono font-black text-sm flex items-center justify-center">
+                          03
+                        </span>
+                        <Rocket className="w-5 h-5 text-amber-400" />
+                      </div>
+                      <h3 className="text-base font-black text-white mb-2 group-hover:text-amber-400 transition">
+                        Submit Drop 🚀
+                      </h3>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        Paste your live video link into the submission modal. Enter your Nigerian bank details so you are pre-cleared for cash prizes.
+                      </p>
+                    </div>
+                    <div className="mt-4 pt-3 border-t border-slate-800/80 text-[11px] font-bold text-amber-400 flex items-center gap-1">
+                      <span>Live View Tracking</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </div>
+                  </div>
+
+                  {/* Step 4: Win & Disburse */}
+                  <div className="bg-slate-950/90 border border-slate-800 hover:border-yellow-400/60 rounded-2xl p-5 sm:p-6 transition group flex flex-col justify-between relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-20 h-20 bg-yellow-500/5 rounded-bl-full pointer-events-none" />
+                    <div>
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="w-10 h-10 rounded-xl bg-yellow-500/20 border border-yellow-400/50 text-yellow-300 font-mono font-black text-sm flex items-center justify-center">
+                          04
+                        </span>
+                        <Trophy className="w-5 h-5 text-yellow-400" />
+                      </div>
+                      <h3 className="text-base font-black text-white mb-2 group-hover:text-yellow-300 transition">
+                        Win &amp; Get Paid 💰
+                      </h3>
+                      <p className="text-xs text-slate-400 leading-relaxed">
+                        Top 20 creators by verified views split the cash pool. Payouts sent via direct bank transfer (NIP) within <strong>48 hours</strong> of sprint close!
+                      </p>
+                    </div>
+                    <div className="mt-4 pt-3 border-t border-slate-800/80 text-[11px] font-bold text-yellow-400 flex items-center gap-1">
+                      <span>48-Hr Bank Transfer</span>
+                      <Check className="w-3 h-3 stroke-[3]" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
             {/* DEDICATED LEADERBOARD GATEWAY CARD (SEPARATE PAGE PROMPT) */}
             <section className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 mb-12">
               <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-950/80 border-2 border-amber-500/60 rounded-3xl p-5 sm:p-8 shadow-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
@@ -714,6 +836,96 @@ export const CreatorLeaderboardPortal: React.FC = () => {
                   <Trophy className="w-4 h-4 text-slate-950" />
                   <span>Open Full Leaderboard Page ↗</span>
                 </button>
+              </div>
+            </section>
+
+            {/* THE 2 APPROVED TOPICS SHOWCASE (CRYSTAL CLEAR DISCIPLINE) */}
+            <section id="approved-topics" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12 relative z-20">
+              <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-800">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                        Strict Topic Policy
+                      </span>
+                      <span className="text-xs font-bold text-emerald-400">2 Official Categories Only</span>
+                    </div>
+                    <h2 className="text-2xl sm:text-3xl font-black text-white">
+                      The 2 Approved Contest Content Topics
+                    </h2>
+                    <p className="text-xs sm:text-sm text-slate-300 mt-1 max-w-2xl leading-relaxed">
+                      To qualify for the ₦200k prize pool, your video must focus strictly on one of these two real estate solutions. Generic or off-topic videos are disqualified.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+                  {/* Topic A: Renters */}
+                  <div className="bg-gradient-to-br from-emerald-950/40 via-slate-950 to-slate-950 border-2 border-emerald-500/40 rounded-2xl p-6 space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-2xl shrink-0">
+                        🏠
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-mono font-black uppercase text-emerald-400 tracking-wider">Topic Option A</span>
+                        <h3 className="text-lg font-black text-white">Renters &amp; Tenants in Nigeria</h3>
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      Highlight the pain of apartment hunting in Nigeria and how Rentilly solves it completely.
+                    </p>
+                    <div className="space-y-2 text-xs">
+                      <div className="font-bold text-white text-xs">Suggested Angles &amp; Hooks:</div>
+                      <ul className="space-y-1.5 text-slate-300">
+                        <li className="flex items-start gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                          <span><strong>Zero Inspection Fees:</strong> Never pay ₦5,000–₦10,000 to agents just to see a dirty house.</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                          <span><strong>Verified 3D Virtual Tours:</strong> Tour genuine Lagos &amp; Abuja flats right from your phone.</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                          <span><strong>Direct Landlord Deals:</strong> Chat directly with verified landlords and sign digital leases.</span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  {/* Topic B: Property Purchase */}
+                  <div className="bg-gradient-to-br from-amber-950/30 via-slate-950 to-slate-950 border-2 border-amber-500/40 rounded-2xl p-6 space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-2xl shrink-0">
+                        🏢
+                      </div>
+                      <div>
+                        <span className="text-[10px] font-mono font-black uppercase text-amber-400 tracking-wider">Topic Option B</span>
+                        <h3 className="text-lg font-black text-white">Property Purchase &amp; Investors</h3>
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      Highlight safety in real estate investments, buying land, or acquiring homes without fear of fraud.
+                    </p>
+                    <div className="space-y-2 text-xs">
+                      <div className="font-bold text-white text-xs">Suggested Angles &amp; Hooks:</div>
+                      <ul className="space-y-1.5 text-slate-300">
+                        <li className="flex items-start gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                          <span><strong>Title Document Audits:</strong> Verified Governor's Consent, C of O, and Gazette audits.</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                          <span><strong>Zero 'Omo-Onile' Scams:</strong> No violent land disputes or double-allocation heartbreak.</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                          <span><strong>Escrow Milestone Sales:</strong> Buyer funds are safely held until all deed conditions are met.</span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
               </div>
             </section>
 
@@ -969,119 +1181,607 @@ export const CreatorLeaderboardPortal: React.FC = () => {
               </div>
             </section>
 
-            {/* OFFICIAL RULES OF ENGAGEMENT & PARTICIPATION GUIDELINES (id="rules") */}
-            <section id="rules" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-16">
+            {/* ========================================================= */}
+            {/* OFFICIAL CREATOR RULES, PLAYBOOK & FAQ (id="rules")       */}
+            {/* ========================================================= */}
+            <section id="rules" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-20 space-y-12">
+              {/* Header Title & Subtitle */}
+              <div className="text-center max-w-3xl mx-auto space-y-3">
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-black uppercase tracking-wider shadow-sm">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Official Creator Blueprint &amp; Guidelines</span>
+                </div>
+                <h2 className="text-2xl sm:text-4xl font-black text-white tracking-tight">
+                  How to Win, Rules of Engagement &amp; Creator Guide
+                </h2>
+                <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
+                  Everything you need to shoot, post, rank, and cash out your share of the{' '}
+                  <strong className="text-emerald-400">₦600,000 season bounty pool</strong> in Nigeria.
+                  Zero follower requirement — open to every creator!
+                </p>
+              </div>
+
+              {/* 1. VISUAL 3 SIMPLE STEPS TO WIN (QUICK START ROADMAP) */}
+              <div className="bg-gradient-to-br from-slate-900/90 via-slate-900 to-slate-950 border border-emerald-500/30 rounded-3xl p-6 sm:p-10 shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/5 rounded-full blur-3xl -z-10 pointer-events-none" />
+
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 pb-6 border-b border-slate-800">
+                  <div>
+                    <span className="text-xs font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                      <Rocket className="w-4 h-4 text-emerald-400" />
+                      Quick Start Roadmap
+                    </span>
+                    <h3 className="text-xl sm:text-2xl font-black text-white mt-1">
+                      3 Simple Steps to Win
+                    </h3>
+                  </div>
+                  <div className="text-xs text-slate-400 bg-slate-950/90 border border-slate-800 px-4 py-2 rounded-xl flex items-center gap-2 w-fit">
+                    <span>Sprint: <strong className="text-amber-400 font-black">21 Days</strong></span>
+                    <span className="text-slate-600">•</span>
+                    <span>Payout: <strong className="text-emerald-400 font-black">Within 48h</strong></span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative">
+                  {/* Step 1 */}
+                  <div className="relative flex flex-col justify-between bg-slate-950/80 border border-slate-800 hover:border-emerald-500/50 rounded-2xl p-6 transition duration-300 group">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-black text-sm flex items-center justify-center group-hover:scale-110 transition shadow-inner">
+                          01
+                        </span>
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+                          30–60s Max
+                        </span>
+                      </div>
+                      <h4 className="text-lg font-black text-white">Shoot &amp; Edit Your Video</h4>
+                      <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                        Pick either <strong className="text-emerald-300">🏠 Renters</strong> (avoiding fake inspection fees, 3D tours) or <strong className="text-amber-300">🏢 Property Purchase</strong> (verified title deeds, zero omo onile). Shoot a punchy 30–60s vertical video on TikTok, Reels, or X.
+                      </p>
+                    </div>
+                    <div className="mt-5 pt-4 border-t border-slate-800/80 text-xs text-slate-400 flex items-start gap-2">
+                      <span className="text-amber-400 font-bold shrink-0">💡 Tip:</span>
+                      <span>Hook viewers in the first 3 seconds with a relatable Nigerian scenario.</span>
+                    </div>
+                  </div>
+
+                  {/* Step 2 */}
+                  <div className="relative flex flex-col justify-between bg-slate-950/80 border border-amber-500/40 hover:border-amber-400/70 rounded-2xl p-6 transition duration-300 group shadow-lg shadow-amber-950/20">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 font-black text-sm flex items-center justify-center group-hover:scale-110 transition shadow-inner">
+                          02
+                        </span>
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
+                          Mandatory Tags
+                        </span>
+                      </div>
+                      <h4 className="text-lg font-black text-white">Post &amp; Tag Correctly</h4>
+                      <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                        Tag <strong className="text-amber-300">@renti_lly</strong> on Instagram, <strong className="text-amber-300">@rentilly</strong> on TikTok &amp; X. Include <strong className="text-white">#RentillyChallenge</strong> and <strong className="text-white">myrentilly.com</strong> in your caption so our scanner links your view counter.
+                      </p>
+                    </div>
+                    <div className="mt-5 pt-4 border-t border-slate-800/80">
+                      <button
+                        type="button"
+                        onClick={() => scrollToSection('creator-toolkit')}
+                        className="w-full inline-flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold transition active:scale-95 cursor-pointer"
+                      >
+                        <Copy className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Use 1-Click Caption Copier ↑</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Step 3 */}
+                  <div className="relative flex flex-col justify-between bg-slate-950/80 border border-slate-800 hover:border-emerald-500/50 rounded-2xl p-6 transition duration-300 group">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 font-black text-sm flex items-center justify-center group-hover:scale-110 transition shadow-inner">
+                          03
+                        </span>
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
+                          Direct Bank Payout
+                        </span>
+                      </div>
+                      <h4 className="text-lg font-black text-white">Submit Link &amp; Get Paid</h4>
+                      <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                        Drop your video link on this portal and track your rank live. Top 20 creators are paid <strong className="text-emerald-400">directly to your Nigerian bank (GTB, Access, Zenith, OPay, PalmPay, Kuda)</strong> within 48 hours of season close!
+                      </p>
+                    </div>
+                    <div className="mt-5 pt-4 border-t border-slate-800/80">
+                      <button
+                        type="button"
+                        onClick={() => setIsSubmitModalOpen(true)}
+                        className="w-full inline-flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black transition active:scale-95 cursor-pointer shadow-md"
+                      >
+                        <Rocket className="w-3.5 h-3.5" />
+                        <span>Submit Video Link Now</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 2. APPROVED TOPICS & VIDEO IDEAS WITH SAMPLE HOOKS */}
+              <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+                  <div>
+                    <div className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-wider text-amber-400 mb-1">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Content Creation Goldmine</span>
+                    </div>
+                    <h3 className="text-2xl sm:text-3xl font-black text-white">
+                      Approved Topics &amp; Video Ideas with Sample Hooks
+                    </h3>
+                  </div>
+                  <p className="text-xs text-slate-400 max-w-md">
+                    To qualify for the leaderboard and cash prizes, your video must focus on one of these two Nigerian real estate challenges:
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Topic 1: Renters */}
+                  <div className="bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 border border-emerald-500/40 rounded-3xl p-6 sm:p-8 space-y-6 flex flex-col justify-between shadow-xl">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+                          🏠 Topic 01 • Renters &amp; Tenants
+                        </span>
+                        <span className="text-xs text-slate-400 font-medium">High viral potential</span>
+                      </div>
+
+                      <h4 className="text-xl sm:text-2xl font-black text-white">
+                        Finding Verified Apartments &amp; Avoiding Fake Agent Fees
+                      </h4>
+
+                      <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                        Highlight the daily house-hunting struggles in Nigerian cities (Lagos, Abuja, Port Harcourt, Ibadan) and demonstrate how Rentilly makes renting effortless:
+                      </p>
+
+                      <ul className="space-y-3 text-xs sm:text-sm text-slate-300">
+                        <li className="flex items-start gap-2.5">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                          <span><strong>Avoiding Fake Agent Fees:</strong> No paying ₦10,000–₦20,000 inspection fees to agents for occupied, non-existent, or fake flats.</span>
+                        </li>
+                        <li className="flex items-start gap-2.5">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                          <span><strong>Verified Apartments Only:</strong> Every rental listing on Rentilly is physically inspected and verified with accurate photos.</span>
+                        </li>
+                        <li className="flex items-start gap-2.5">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                          <span><strong>3D Virtual Tours:</strong> Inspect every room, parlor, and kitchen directly from your smartphone before leaving your house.</span>
+                        </li>
+                        <li className="flex items-start gap-2.5">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                          <span><strong>Direct Landlord Tenancy:</strong> Transparent digital agreements with direct landlord contact and zero middleman extortion.</span>
+                        </li>
+                      </ul>
+                    </div>
+
+                    {/* Viral Hook Box */}
+                    <div className="bg-slate-950 border border-emerald-500/30 rounded-2xl p-4 sm:p-5 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                          🔥 Sample Viral Hook (1-Click Copy):
+                        </span>
+                        <span className="text-[10px] text-slate-400">Ready to record</span>
+                      </div>
+                      <blockquote className="text-xs sm:text-sm text-emerald-200 font-mono italic bg-emerald-950/30 p-3.5 rounded-xl border border-emerald-800/40">
+                        &ldquo;POV: Agent collected ₦10k inspection fee to show me a room that doesn't exist...&rdquo;
+                      </blockquote>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          copyToClipboard(
+                            "POV: Agent collected ₦10k inspection fee to show me a room that doesn't exist...",
+                            'hook_renters',
+                            'Renters Sample Hook'
+                          )
+                        }
+                        className="w-full inline-flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black transition active:scale-95 cursor-pointer shadow-md"
+                      >
+                        {copiedKey === 'hook_renters' ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 stroke-[3]" />
+                            <span>Hook Copied to Clipboard!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>1-Click Copy This Hook</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Topic 2: Property Purchase */}
+                  <div className="bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 border border-amber-500/40 rounded-3xl p-6 sm:p-8 space-y-6 flex flex-col justify-between shadow-xl">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-black uppercase tracking-wider text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
+                          🏢 Topic 02 • Property Purchase
+                        </span>
+                        <span className="text-xs text-slate-400 font-medium">High conversion value</span>
+                      </div>
+
+                      <h4 className="text-xl sm:text-2xl font-black text-white">
+                        Buying Land &amp; Houses with Zero 'Omo Onile' Drama
+                      </h4>
+
+                      <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                        Address the biggest fears of Nigerian property buyers at home and in the Diaspora, and show why Rentilly is the trusted platform for real estate:
+                      </p>
+
+                      <ul className="space-y-3 text-xs sm:text-sm text-slate-300">
+                        <li className="flex items-start gap-2.5">
+                          <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                          <span><strong>Verified Title Deeds:</strong> Rigorous title auditing (C of O, Governor's Consent, Gazette) before buyer commits ₦1.</span>
+                        </li>
+                        <li className="flex items-start gap-2.5">
+                          <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                          <span><strong>Zero 'Omo Onile' Interference:</strong> Buy legitimate land with peace of mind — free from community grabbers or family disputes.</span>
+                        </li>
+                        <li className="flex items-start gap-2.5">
+                          <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                          <span><strong>Escrow Protection:</strong> Funds stay safely held in institutional legal escrow until verified title documents are handed over.</span>
+                        </li>
+                        <li className="flex items-start gap-2.5">
+                          <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                          <span><strong>Diaspora Friendly:</strong> Secure property and land acquisition in Nigeria without relatives diverting your hard-earned funds.</span>
+                        </li>
+                      </ul>
+                    </div>
+
+                    {/* Viral Hook Box */}
+                    <div className="bg-slate-950 border border-amber-500/30 rounded-2xl p-4 sm:p-5 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                          🔥 Sample Viral Hook (1-Click Copy):
+                        </span>
+                        <span className="text-[10px] text-slate-400">Ready to record</span>
+                      </div>
+                      <blockquote className="text-xs sm:text-sm text-amber-200 font-mono italic bg-amber-950/30 p-3.5 rounded-xl border border-amber-800/40">
+                        &ldquo;How to buy property in Nigeria without land grabbers stealing your money...&rdquo;
+                      </blockquote>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          copyToClipboard(
+                            "How to buy property in Nigeria without land grabbers stealing your money...",
+                            'hook_property',
+                            'Property Purchase Sample Hook'
+                          )
+                        }
+                        className="w-full inline-flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black transition active:scale-95 cursor-pointer shadow-md"
+                      >
+                        {copiedKey === 'hook_property' ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 stroke-[3]" />
+                            <span>Hook Copied to Clipboard!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            <span>1-Click Copy This Hook</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. DO'S AND DON'TS SIDE-BY-SIDE */}
+              <div id="dos-and-donts" className="space-y-6">
+                <div className="text-center max-w-2xl mx-auto space-y-2">
+                  <span className="text-xs font-black uppercase tracking-wider text-emerald-400">
+                    Contest Integrity Standards
+                  </span>
+                  <h3 className="text-2xl sm:text-3xl font-black text-white">
+                    Creator Do's &amp; Don'ts
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-400">
+                    Follow these guidelines to keep your submission eligible and maximize your leaderboard ranking.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* DO'S CARD */}
+                  <div className="bg-slate-950/90 border border-emerald-500/50 rounded-3xl p-6 sm:p-8 space-y-5 shadow-xl relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl -z-10 pointer-events-none" />
+                    <div className="flex items-center gap-3 pb-4 border-b border-emerald-900/50">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center shrink-0">
+                        <CheckCircle className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h4 className="text-lg font-black text-emerald-400 uppercase tracking-wide">
+                          What To Do (Winning Path)
+                        </h4>
+                        <p className="text-xs text-slate-400">Guarantees quick audit approval &amp; ranking</p>
+                      </div>
+                    </div>
+
+                    <ul className="space-y-3.5 text-xs sm:text-sm">
+                      <li className="flex items-start gap-3">
+                        <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5 text-xs font-black">✓</span>
+                        <div className="text-slate-300">
+                          <strong className="text-white">Focus on Renters or Property Purchase:</strong> Address authentic Nigerian real estate scenarios (avoiding fake agent fees or secure land titles).
+                        </div>
+                      </li>
+                      <li className="flex items-start gap-3">
+                        <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5 text-xs font-black">✓</span>
+                        <div className="text-slate-300">
+                          <strong className="text-white">Tag Official Accounts:</strong> Follow &amp; tag <strong>@renti_lly</strong> on Instagram, <strong>@rentilly</strong> on TikTok/X, and add <strong>#RentillyChallenge</strong> &amp; <strong>myrentilly.com</strong>.
+                        </div>
+                      </li>
+                      <li className="flex items-start gap-3">
+                        <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5 text-xs font-black">✓</span>
+                        <div className="text-slate-300">
+                          <strong className="text-white">Share with Friends to Boost:</strong> Send your video link to WhatsApp groups, status, and Twitter to spark organic algorithmic momentum early.
+                        </div>
+                      </li>
+                      <li className="flex items-start gap-3">
+                        <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5 text-xs font-black">✓</span>
+                        <div className="text-slate-300">
+                          <strong className="text-white">Keep it 30–60 Seconds:</strong> Snappy vertical videos with strong first-3-second retention perform best on Nigerian algorithms.
+                        </div>
+                      </li>
+                      <li className="flex items-start gap-3">
+                        <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5 text-xs font-black">✓</span>
+                        <div className="text-slate-300">
+                          <strong className="text-white">Submit Multiple Entries:</strong> Submit as many videos as you like. Your single best-performing video claims your prize rank!
+                        </div>
+                      </li>
+                    </ul>
+                  </div>
+
+                  {/* DON'TS CARD */}
+                  <div className="bg-slate-950/90 border border-red-500/50 rounded-3xl p-6 sm:p-8 space-y-5 shadow-xl relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-red-500/10 rounded-full blur-2xl -z-10 pointer-events-none" />
+                    <div className="flex items-center gap-3 pb-4 border-b border-red-900/50">
+                      <div className="w-10 h-10 rounded-xl bg-red-500/20 border border-red-500/40 text-red-400 flex items-center justify-center shrink-0">
+                        <XCircle className="w-6 h-6" />
+                      </div>
+                      <div>
+                        <h4 className="text-lg font-black text-red-400 uppercase tracking-wide">
+                          What NOT To Do (Instant DQ)
+                        </h4>
+                        <p className="text-xs text-slate-400">Strictly prohibited by automated crawlers</p>
+                      </div>
+                    </div>
+
+                    <ul className="space-y-3.5 text-xs sm:text-sm">
+                      <li className="flex items-start gap-3">
+                        <span className="w-5 h-5 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center shrink-0 mt-0.5 text-xs font-black">✕</span>
+                        <div className="text-slate-300">
+                          <strong className="text-white">Don't Buy Fake Bot Views:</strong> Our anti-cheat crawler tracks watch-time velocity and flags artificial bot spikes. Bot views result in instant, permanent disqualification.
+                        </div>
+                      </li>
+                      <li className="flex items-start gap-3">
+                        <span className="w-5 h-5 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center shrink-0 mt-0.5 text-xs font-black">✕</span>
+                        <div className="text-slate-300">
+                          <strong className="text-white">Don't Post Off-Topic Content:</strong> Generic dance challenges, political commentary, or videos that don't discuss Rentilly, renting, or buying property will not be counted.
+                        </div>
+                      </li>
+                      <li className="flex items-start gap-3">
+                        <span className="w-5 h-5 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center shrink-0 mt-0.5 text-xs font-black">✕</span>
+                        <div className="text-slate-300">
+                          <strong className="text-white">Don't Forget to Follow Before Submitting:</strong> You must follow our official account on the platform where you post. Unfollowed entries cannot be paid out.
+                        </div>
+                      </li>
+                      <li className="flex items-start gap-3">
+                        <span className="w-5 h-5 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center shrink-0 mt-0.5 text-xs font-black">✕</span>
+                        <div className="text-slate-300">
+                          <strong className="text-white">Don't Set Account to Private:</strong> Private accounts or private videos cannot be verified by our automated scraper. Keep videos publicly visible.
+                        </div>
+                      </li>
+                      <li className="flex items-start gap-3">
+                        <span className="w-5 h-5 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center shrink-0 mt-0.5 text-xs font-black">✕</span>
+                        <div className="text-slate-300">
+                          <strong className="text-white">Don't Delete Before Payout:</strong> Posts must remain live throughout the 3-week season and 48-hour post-sprint disbursal audit.
+                        </div>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* 4. REFINED 6 GROUND RULES */}
               <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/60 border border-emerald-900/50 rounded-3xl p-6 sm:p-10 shadow-2xl">
                 <div className="flex items-center gap-2 mb-2">
                   <BookOpen className="w-5 h-5 text-amber-400" />
                   <span className="text-xs font-black uppercase tracking-wider text-amber-400">
-                    Official Contest Guidelines
+                    Official Contest Rules
                   </span>
                 </div>
-                <h2 className="text-2xl sm:text-3xl font-black text-white mb-3">
-                  Rules of Engagement &amp; Eligibility Criteria
-                </h2>
+                <h3 className="text-2xl sm:text-3xl font-black text-white mb-3">
+                  6 Ground Rules for Fair Play &amp; Fast Payouts
+                </h3>
                 <p className="text-slate-300 text-xs sm:text-sm leading-relaxed mb-8 max-w-3xl">
-                  Rentilly by <strong>E-Homes Global Inclusive Limited</strong> operates an open, merit-based creator contest. 
-                  To guarantee fairness, transparency, and immediate prize disbursals, all participants must strictly adhere to the following 6 rules:
+                  Rentilly by <strong>E-Homes Global Inclusive Limited</strong> operates an open, merit-based creator contest. Zero jargon, 100% transparency. Every participant must abide by these 6 rules:
                 </p>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                   {/* Rule 1 */}
-                  <div className="p-5 rounded-2xl bg-slate-950/80 border border-amber-500/40 space-y-2.5">
+                  <div className="p-5 rounded-2xl bg-slate-950/90 border border-amber-500/40 space-y-2.5 hover:border-amber-400 transition">
                     <div className="flex items-center justify-between">
-                      <span className="w-7 h-7 rounded-lg bg-amber-500 text-slate-950 font-black text-xs flex items-center justify-center">
+                      <span className="w-8 h-8 rounded-lg bg-amber-500 text-slate-950 font-black text-xs flex items-center justify-center shadow">
                         01
                       </span>
-                      <span className="text-[10px] font-bold text-amber-400 uppercase bg-amber-500/10 px-2 py-0.5 rounded">
+                      <span className="text-[10px] font-bold text-amber-400 uppercase bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
                         Mandatory
                       </span>
                     </div>
-                    <h4 className="text-sm font-black text-white">Follow &amp; Tag Rentilly</h4>
+                    <h4 className="text-sm font-black text-white">Tag &amp; Follow First</h4>
                     <p className="text-xs text-slate-400 leading-relaxed">
-                      Must follow <strong>@renti_lly on Instagram, @rentilly on TikTok/X</strong> AND tag us in your video and caption so viewers can click directly to our pages.
+                      Follow <strong>@renti_lly on Instagram, @rentilly on TikTok/X</strong> AND tag us in your video &amp; caption. This connects your video to our scanner for live view tracking.
                     </p>
                   </div>
 
                   {/* Rule 2 */}
-                  <div className="p-5 rounded-2xl bg-slate-950/80 border border-emerald-500/40 space-y-2.5">
+                  <div className="p-5 rounded-2xl bg-slate-950/90 border border-emerald-500/40 space-y-2.5 hover:border-emerald-400 transition">
                     <div className="flex items-center justify-between">
-                      <span className="w-7 h-7 rounded-lg bg-emerald-500 text-slate-950 font-black text-xs flex items-center justify-center">
+                      <span className="w-8 h-8 rounded-lg bg-emerald-500 text-slate-950 font-black text-xs flex items-center justify-center shadow">
                         02
                       </span>
-                      <span className="text-[10px] font-bold text-emerald-400 uppercase bg-emerald-500/10 px-2 py-0.5 rounded">
-                        Approved Scope
+                      <span className="text-[10px] font-bold text-emerald-400 uppercase bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                        Scope
                       </span>
                     </div>
-                    <h4 className="text-sm font-black text-white">Renters &amp; Property Purchase Only</h4>
+                    <h4 className="text-sm font-black text-white">Stick to the 2 Topics</h4>
                     <p className="text-xs text-slate-400 leading-relaxed">
-                      Videos must center strictly on <strong>Renters</strong> (finding/renting homes, inspection relief, zero extortion) or <strong>Property Purchase</strong> (buying houses, land, title audits, secure sales escrow).
+                      Videos must center strictly on <strong>Renters</strong> (avoiding fake inspection fees, 3D tours) or <strong>Property Purchase</strong> (buying houses/land with verified title deeds, zero omo onile).
                     </p>
                   </div>
 
                   {/* Rule 3 */}
-                  <div className="p-5 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-2.5">
+                  <div className="p-5 rounded-2xl bg-slate-950/90 border border-red-500/40 space-y-2.5 hover:border-red-400 transition">
                     <div className="flex items-center justify-between">
-                      <span className="w-7 h-7 rounded-lg bg-slate-800 text-slate-300 font-black text-xs flex items-center justify-center">
+                      <span className="w-8 h-8 rounded-lg bg-red-500/20 text-red-400 font-black text-xs flex items-center justify-center border border-red-500/30">
                         03
                       </span>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase bg-slate-800 px-2 py-0.5 rounded">
-                        Ranking Metric
+                      <span className="text-[10px] font-bold text-red-400 uppercase bg-red-500/10 px-2 py-0.5 rounded border border-red-500/20">
+                        Anti-Cheat
                       </span>
                     </div>
-                    <h4 className="text-sm font-black text-white">Verified View Velocity</h4>
+                    <h4 className="text-sm font-black text-white">100% Real Organic Views</h4>
                     <p className="text-xs text-slate-400 leading-relaxed">
-                      Ranks are determined by verified views. 1st: ₦200,000 • 2nd: ₦150,000 • 3rd: ₦100,000 • Ranks 4–20: ₦10,000 each.
+                      Our automated crawler verifies engagement metrics. Purchasing bot views, click farming, or artificial spikes triggers an instant ban and removal.
                     </p>
                   </div>
 
                   {/* Rule 4 */}
-                  <div className="p-5 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-2.5">
+                  <div className="p-5 rounded-2xl bg-slate-950/90 border border-slate-800 space-y-2.5 hover:border-emerald-500/30 transition">
                     <div className="flex items-center justify-between">
-                      <span className="w-7 h-7 rounded-lg bg-slate-800 text-slate-300 font-black text-xs flex items-center justify-center">
+                      <span className="w-8 h-8 rounded-lg bg-slate-800 text-slate-200 font-black text-xs flex items-center justify-center">
                         04
                       </span>
                       <span className="text-[10px] font-bold text-slate-400 uppercase bg-slate-800 px-2 py-0.5 rounded">
-                        Payouts
+                        Multi-Entry
                       </span>
                     </div>
-                    <h4 className="text-sm font-black text-white">Direct Bank Disbursals</h4>
+                    <h4 className="text-sm font-black text-white">Top Video Takes Your Prize</h4>
                     <p className="text-xs text-slate-400 leading-relaxed">
-                      All prize money is disbursed directly via NUBAN Nigerian bank transfer (GTBank, Access, Zenith, Kuda, OPay, PalmPay) at the end of the 3-week season.
+                      You may submit multiple videos! Your single highest-viewed entry will represent you on the leaderboard (maximum of one prize per creator per season).
                     </p>
                   </div>
 
                   {/* Rule 5 */}
-                  <div className="p-5 rounded-2xl bg-slate-950/80 border border-red-500/40 space-y-2.5">
+                  <div className="p-5 rounded-2xl bg-slate-950/90 border border-emerald-500/40 space-y-2.5 hover:border-emerald-400 transition">
                     <div className="flex items-center justify-between">
-                      <span className="w-7 h-7 rounded-lg bg-red-500/20 text-red-400 font-black text-xs flex items-center justify-center">
+                      <span className="w-8 h-8 rounded-lg bg-emerald-500 text-slate-950 font-black text-xs flex items-center justify-center shadow">
                         05
                       </span>
-                      <span className="text-[10px] font-bold text-red-400 uppercase bg-red-500/10 px-2 py-0.5 rounded">
-                        Anti-Bot Fraud
+                      <span className="text-[10px] font-bold text-emerald-400 uppercase bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                        Fast Cash
                       </span>
                     </div>
-                    <h4 className="text-sm font-black text-white">Zero Bot Views Allowed</h4>
+                    <h4 className="text-sm font-black text-white">Direct 48-Hour Bank Payouts</h4>
                     <p className="text-xs text-slate-400 leading-relaxed">
-                      Artificial views or click-farms violate Rule 05. The automated crawler scores engagement ratios and disqualifies fraudulent views immediately.
+                      All 20 winning creators receive direct NUBAN bank transfers (GTBank, Access, Zenith, OPay, PalmPay, Kuda) within 48 hours of season close with zero fees.
                     </p>
                   </div>
 
                   {/* Rule 6 */}
-                  <div className="p-5 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-2.5">
+                  <div className="p-5 rounded-2xl bg-slate-950/90 border border-slate-800 space-y-2.5 hover:border-amber-500/30 transition">
                     <div className="flex items-center justify-between">
-                      <span className="w-7 h-7 rounded-lg bg-slate-800 text-slate-300 font-black text-xs flex items-center justify-center">
+                      <span className="w-8 h-8 rounded-lg bg-slate-800 text-slate-200 font-black text-xs flex items-center justify-center">
                         06
                       </span>
                       <span className="text-[10px] font-bold text-slate-400 uppercase bg-slate-800 px-2 py-0.5 rounded">
-                        Recurrence
+                        Continuous
                       </span>
                     </div>
-                    <h4 className="text-sm font-black text-white">Recurring Every 3 Weeks</h4>
+                    <h4 className="text-sm font-black text-white">New Sprint Every 3 Weeks</h4>
                     <p className="text-xs text-slate-400 leading-relaxed">
-                      Contests run on a continuous 3-week sprint cycle. After each season closes and prizes are paid, a new 3-week sprint opens immediately!
+                      Every contest runs on a strict 21-day timer. Once prizes are disbursed, a brand-new 3-week season with a fresh ₦600k bounty pool launches immediately!
                     </p>
                   </div>
+                </div>
+              </div>
+
+              {/* 5. CREATOR FAQ (EVERYTHING CREATORS ASK) */}
+              <div className="space-y-6">
+                <div className="text-center max-w-2xl mx-auto space-y-2">
+                  <span className="text-xs font-black uppercase tracking-wider text-amber-400">
+                    Got Questions? We've Got Answers
+                  </span>
+                  <h3 className="text-2xl sm:text-3xl font-black text-white">
+                    Creator FAQ (Everything Creators Ask)
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-400">
+                    Transparent answers so you can focus on creating winning content.
+                  </p>
+                </div>
+
+                <div className="max-w-4xl mx-auto space-y-3">
+                  {[
+                    {
+                      q: "Can I submit multiple videos?",
+                      a: "Yes, absolutely! You can submit as many videos as you like across Instagram Reels, TikTok, and X. You are never limited to one entry. Your single highest-performing video with the most verified views will take your slot on the prize leaderboard (maximum 1 prize payout per creator per season, so your best video wins you cash!)."
+                    },
+                    {
+                      q: "How and when do I get paid?",
+                      a: "Direct NUBAN bank transfer within 48 hours of cycle end! When the 21-day countdown concludes and the audit finalizes, we transfer your cash prize directly to your Nigerian bank account or fintech wallet (GTBank, Access Bank, Zenith Bank, First Bank, OPay, PalmPay, Kuda, etc.) with zero transaction deductions."
+                    },
+                    {
+                      q: "Do I need millions of followers to win?",
+                      a: "No! Zero follower count required. Algorithms on TikTok and Instagram Reels distribute content based on viewer retention, watch time, and relatable hooks — not your follower count. New accounts with under 100 followers regularly generate 50k+ views when the video hook is strong. Ranking is 100% merit-based!"
+                    },
+                    {
+                      q: "What happens when 3 weeks end?",
+                      a: "A new 3-week season begins immediately with a fresh cash pool! As soon as a 21-day sprint closes, leaderboard winners are paid within 48 hours, and season reset opens a brand-new 21-day competition with another ₦600,000 cash pool up for grabs."
+                    },
+                    {
+                      q: "Can I shoot content in Nigerian Pidgin or native languages?",
+                      a: "100% Yes! Authentic Nigerian storytelling in Pidgin, Yoruba, Igbo, Hausa, or English is welcomed and encouraged. In fact, funny and relatable Pidgin skits about house-hunting wahala often achieve the highest viewer retention and share rates."
+                    },
+                    {
+                      q: "How does the anti-fraud crawler verify views?",
+                      a: "Our automated crawler checks video URLs for valid platform metrics, engagement ratios (likes and comments vs views), and unnatural view spikes. Organic traffic from genuine viewers ranks naturally, while automated click farms are disqualified to protect legitimate creators."
+                    }
+                  ].map((faq, index) => {
+                    const isOpen = openFaqIndex === index;
+                    return (
+                      <div
+                        key={index}
+                        className={`rounded-2xl border transition duration-200 overflow-hidden ${
+                          isOpen
+                            ? 'bg-slate-900/90 border-emerald-500/50 shadow-lg shadow-emerald-950/40'
+                            : 'bg-slate-950/70 border-slate-800 hover:border-slate-700'
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setOpenFaqIndex(isOpen ? null : index)}
+                          className="w-full flex items-center justify-between gap-4 p-5 text-left cursor-pointer transition"
+                        >
+                          <div className="flex items-center gap-3">
+                            <span className={`w-7 h-7 rounded-lg text-xs font-black flex items-center justify-center shrink-0 ${
+                              isOpen ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-300'
+                            }`}>
+                              Q{index + 1}
+                            </span>
+                            <span className="text-sm sm:text-base font-bold text-white">
+                              {faq.q}
+                            </span>
+                          </div>
+                          <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 transition-transform duration-200 ${
+                            isOpen ? 'rotate-180 text-emerald-400 bg-emerald-500/10' : 'text-slate-400 bg-slate-800'
+                          }`}>
+                            <ChevronDown className="w-3.5 h-3.5" />
+                          </span>
+                        </button>
+                        {isOpen && (
+                          <div className="px-5 pb-5 pt-1 text-xs sm:text-sm text-slate-300 leading-relaxed border-t border-slate-800/60 animate-fadeIn">
+                            {faq.a}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </section>
