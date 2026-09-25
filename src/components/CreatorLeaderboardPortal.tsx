@@ -60,6 +60,7 @@ export const CreatorLeaderboardPortal: React.FC = () => {
   const [badgeCreator, setBadgeCreator] = useState<CreatorSubmission | null>(null);
   const [activeCaptionTopic, setActiveCaptionTopic] = useState<'renters' | 'property_purchase'>('renters');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
 
   // Handle URL history navigation
   useEffect(() => {
@@ -1493,7 +1494,7 @@ export const CreatorLeaderboardPortal: React.FC = () => {
                     <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl -z-10 pointer-events-none" />
                     <div className="flex items-center gap-3 pb-4 border-b border-emerald-900/50">
                       <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center shrink-0">
-                        <CheckCircle className="w-6 h-6" />
+                        <CheckCircle2 className="w-6 h-6" />
                       </div>
                       <div>
                         <h4 className="text-lg font-black text-emerald-400 uppercase tracking-wide">
@@ -1771,7 +1772,9 @@ export const CreatorLeaderboardPortal: React.FC = () => {
                           <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs shrink-0 transition-transform duration-200 ${
                             isOpen ? 'rotate-180 text-emerald-400 bg-emerald-500/10' : 'text-slate-400 bg-slate-800'
                           }`}>
-                            <ChevronDown className="w-3.5 h-3.5" />
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                            </svg>
                           </span>
                         </button>
                         {isOpen && (
