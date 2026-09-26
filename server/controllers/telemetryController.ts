@@ -127,7 +127,7 @@ function scheduleSave() {
             lastUpdated: new Date().toISOString(),
           },
           updated_at: new Date().toISOString(),
-        }).catch(() => {});
+        });
       }
     } catch (e: any) {
       console.warn('[Telemetry] Failed to persist analytics:', e.message);
