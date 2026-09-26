@@ -583,5 +583,23 @@ apiRouter.get('/roommates/:id', renderPublicRoommatePost);
 apiRouter.get('/roommates', renderPublicRoommatePost);
 apiRouter.get('/roommate/:id', renderPublicRoommatePost);
 
+// 38. Real-Time App Download & Installation Telemetry Alert
+import { AppDownloadAlertService } from '../services/appDownloadAlertService';
+apiRouter.post('/telemetry/app-download', async (req: Request, res: Response) => {
+  try {
+    const { channel = 'first_launch', referralCode, email, deviceModel } = req.body || {};
+    await AppDownloadAlertService.recordAndAlertDownload({
+      req,
+      channel,
+      referralCode,
+      email,
+      deviceModel
+    });
+    return res.json({ success: true, message: 'App download telemetry beacon recorded' });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 
 

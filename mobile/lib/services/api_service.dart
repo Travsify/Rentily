@@ -1908,6 +1908,21 @@ class ApiService {
     }
   }
 
+  // 17. Record First-Time App Install / Launch Telemetry Beacon
+  static Future<void> recordFirstInstallBeacon({String? referralCode}) async {
+    try {
+      final uri = Uri.parse('$baseUrl/telemetry/app-download');
+      await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'channel': 'first_launch',
+          'referralCode': referralCode,
+          'deviceModel': defaultTargetPlatform.toString(),
+        }),
+      ).timeout(const Duration(seconds: 5));
+    } catch (_) {}
+  }
 }
 
 

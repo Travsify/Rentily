@@ -20,6 +20,7 @@ import { initBlacklistFromSupabase } from './controllers/fraudController';
 import { initBroadcastsFromSupabase } from './controllers/broadcastController';
 import { initFeatureFlagsFromSupabase } from './controllers/featureFlagController';
 import { UserStore } from './services/userStore';
+import { AppDownloadAlertService } from './services/appDownloadAlertService';
 
 import dns from 'dns';
 dotenv.config();
@@ -159,11 +160,15 @@ app.get(['/vp/:id', '/vp'], renderPartnerVerificationPage);
 // Direct Referral Links (Deep links to App / Store with Attribution)
 app.get(['/r/:code', '/ref/:code', '/referral/:code'], (req: Request, res: Response) => {
   const code = encodeURIComponent(req.params.code || '');
+  AppDownloadAlertService.recordAndAlertDownload({ req, channel: 'play_store', referralCode: code }).catch(() => {});
   res.redirect(302, `${GOOGLE_PLAY_URL}&referrer=utm_source%3Dreferral%26utm_campaign%3Dinvite%26utm_content%3D${code}`);
 });
 
 // Direct APK Downloads & Instant Self-Update Distribution
-app.get(['/Rentily.apk', '/rentilly.apk', '/apk', '/app.apk'], (_req: Request, res: Response) => {
+app.get(['/Rentily.apk', '/rentilly.apk', '/apk', '/app.apk'], (req: Request, res: Response) => {
+  // Fire real-time download alert agent asynchronously
+  AppDownloadAlertService.recordAndAlertDownload({ req, channel: 'apk' }).catch(() => {});
+
   const apkPath = path.join(process.cwd(), 'Rentily.apk');
   if (fs.existsSync(apkPath)) {
     res.setHeader('Content-Type', 'application/vnd.android.package-archive');
@@ -176,16 +181,24 @@ app.get(['/Rentily.apk', '/rentilly.apk', '/apk', '/app.apk'], (_req: Request, r
     res.setHeader('Content-Disposition', 'attachment; filename="Rentily.apk"');
     return res.sendFile(publicApk);
   }
+  const distApk = path.join(process.cwd(), 'dist', 'Rentily.apk');
+  if (fs.existsSync(distApk)) {
+    res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+    res.setHeader('Content-Disposition', 'attachment; filename="Rentily.apk"');
+    return res.sendFile(distApk);
+  }
   res.redirect(302, GOOGLE_PLAY_URL);
 });
 
 // Google Play Direct App Download Redirects
 const GOOGLE_PLAY_URL = 'https://play.google.com/store/apps/details?id=ng.rentilly.rentilly_mobile';
-app.get(['/play', '/app', '/download'], (_req: Request, res: Response) => {
+app.get(['/play', '/app', '/download'], (req: Request, res: Response) => {
+  AppDownloadAlertService.recordAndAlertDownload({ req, channel: 'play_store' }).catch(() => {});
   res.redirect(302, GOOGLE_PLAY_URL);
 });
 app.get('/dl/:code', (req: Request, res: Response) => {
   const code = encodeURIComponent(req.params.code || '');
+  AppDownloadAlertService.recordAndAlertDownload({ req, channel: 'play_store', referralCode: code }).catch(() => {});
   res.redirect(302, `${GOOGLE_PLAY_URL}&referrer=utm_source%3Dcreator%26utm_campaign%3Dcontest%26utm_content%3D${code}`);
 });
 

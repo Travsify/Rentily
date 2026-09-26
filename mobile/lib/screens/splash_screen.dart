@@ -47,6 +47,17 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     try {
       await ApiService.fetchFeatureFlags();
     } catch (_) {}
+
+    // Fire first-time app installation telemetry beacon if this is a fresh install
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final beaconSent = prefs.getBool('first_install_beacon_sent') ?? false;
+      if (!beaconSent) {
+        ApiService.recordFirstInstallBeacon();
+        await prefs.setBool('first_install_beacon_sent', true);
+      }
+    } catch (_) {}
+
     await Future.delayed(const Duration(milliseconds: 2600));
     _proceedToNextScreen();
   }
