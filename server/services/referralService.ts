@@ -37,7 +37,7 @@ let _inMemoryReferralConfig: ReferralConfig = {
   instantEarning: true,
   signupBonusAmount: 1000,
   referrerBonusAmount: 500,
-  requireKycForPayout: true,
+  requireKycForPayout: false,
   updatedAt: new Date().toISOString()
 };
 
@@ -277,6 +277,33 @@ export class ReferralService {
       }
     }
 
+    // Calculate role-based reward tiers per policy:
+    // 1. Renter: Gets ₦1,000 instant (with or without code). Referrer gets ₦500 instant (if code used).
+    // 2. Partner / Agent: If code used, both get ₦5,000 instant. If NO code used, partner gets ₦0.
+    // 3. Landlord: Gets ₦1,000 instant. Referrer gets ₦500 instant (if code used).
+    const role = (params.refereeUser.role || 'renter').toLowerCase().trim();
+    const hasReferrer = Boolean(referrer);
+
+    let refereeRewardAmount = 0;
+    let referrerRewardAmount = 0;
+
+    if (role === 'partner' || role === 'agent') {
+      if (hasReferrer) {
+        refereeRewardAmount = 5000;
+        referrerRewardAmount = 5000;
+      } else {
+        refereeRewardAmount = 0;
+        referrerRewardAmount = 0;
+      }
+    } else if (role === 'landlord' || role === 'owner') {
+      refereeRewardAmount = 1000;
+      referrerRewardAmount = hasReferrer ? 500 : 0;
+    } else {
+      // Renter
+      refereeRewardAmount = 1000;
+      referrerRewardAmount = hasReferrer ? 500 : 0;
+    }
+
     const newRecord: ReferralRecord = {
       id: crypto.randomUUID(),
       referrerId: referrer?.id || '',
@@ -287,11 +314,11 @@ export class ReferralService {
       refereeEmail: params.refereeUser.email,
       refereeName: params.refereeUser.fullName || params.refereeUser.businessName || params.refereeUser.email,
       refereeBuyerType: params.refereeUser.buyerType || 'personal',
-      referrerRewardAmount: config.referrerBonusAmount,
-      refereeRewardAmount: config.signupBonusAmount,
-      referrerRewardStatus: !config.enabled ? 'disabled' : (referrer ? 'pending_kyc' : 'disabled'),
-      refereeRewardStatus: !config.enabled ? 'disabled' : 'pending_kyc',
-      kycCompleted: Boolean(params.refereeUser.isVerified),
+      referrerRewardAmount: referrerRewardAmount,
+      refereeRewardAmount: refereeRewardAmount,
+      referrerRewardStatus: !config.enabled ? 'disabled' : (hasReferrer && referrerRewardAmount > 0 ? 'pending_kyc' : 'disabled'),
+      refereeRewardStatus: !config.enabled ? 'disabled' : (refereeRewardAmount > 0 ? 'pending_kyc' : 'disabled'),
+      kycCompleted: true,
       createdAt: new Date().toISOString()
     };
 
@@ -310,10 +337,8 @@ export class ReferralService {
       }
     }
 
-    // If instant earning is active and KYC is not strictly required on signup
-    if (config.enabled && config.instantEarning && !config.requireKycForPayout) {
-      await this.disburseRewards(newRecord);
-    }
+    // Disburse rewards immediately upon registration
+    await this.disburseRewards(newRecord);
 
     return {
       success: true,
@@ -380,14 +405,24 @@ export class ReferralService {
         referee.walletBalance = prevBal + record.refereeRewardAmount;
         UserStore.upsertUserForced(referee);
 
+        // Direct Supabase Cloud balance sync
+        if (supabase) {
+          try {
+            await supabase.from('profiles').update({
+              wallet_balance: referee.walletBalance,
+              updated_at: now
+            }).eq('id', referee.id);
+          } catch (_) {}
+        }
+
         // Record in transaction store
         try {
           await TransactionStore.addTransaction({
             id: `tx_welcome_${referee.id.slice(0, 8)}_${Date.now()}`,
             userId: referee.id,
             email: referee.email.toLowerCase().trim(),
-            title: '🎉 Rentilly Welcome Reward (KYC Verified)',
-            description: 'Welcome Bonus for completing identity verification',
+            title: '🎉 Rentilly Welcome Reward',
+            description: `Instant Welcome Bonus (₦${record.refereeRewardAmount.toLocaleString()})`,
             type: 'credit',
             category: 'wallet_funding',
             amount: record.refereeRewardAmount,
@@ -406,7 +441,7 @@ export class ReferralService {
             email: referee.email,
             userName: referee.fullName,
             category: 'wallet',
-            title: '₦1,000 Welcome Bonus Credited! 🎉',
+            title: `₦${record.refereeRewardAmount.toLocaleString()} Welcome Bonus Credited! 🎉`,
             message: `Congratulations ${referee.fullName || 'there'}! ₦${record.refereeRewardAmount.toLocaleString()} has been credited to your Rentilly wallet.`
           });
         } catch (_) {}
@@ -415,13 +450,23 @@ export class ReferralService {
       }
     }
 
-    // 2. Credit Referrer (+₦500 Referral Reward)
+    // 2. Credit Referrer (+₦500 or +₦5,000 Referral Reward)
     if (record.referrerRewardStatus === 'pending_kyc' && record.referrerRewardAmount > 0 && record.referrerId) {
       const referrer = await UserStore.findByEmail(record.referrerEmail) || await UserStore.findById(record.referrerId);
       if (referrer) {
         const prevBal = referrer.walletBalance || 0;
         referrer.walletBalance = prevBal + record.referrerRewardAmount;
         UserStore.upsertUserForced(referrer);
+
+        // Direct Supabase Cloud balance sync
+        if (supabase) {
+          try {
+            await supabase.from('profiles').update({
+              wallet_balance: referrer.walletBalance,
+              updated_at: now
+            }).eq('id', referrer.id);
+          } catch (_) {}
+        }
 
         // Record in transaction store
         try {
@@ -430,7 +475,7 @@ export class ReferralService {
             userId: referrer.id,
             email: referrer.email.toLowerCase().trim(),
             title: '🎁 Referral Bonus Earned',
-            description: `🎁 Referral Bonus - Invited ${record.refereeName || record.refereeEmail}`,
+            description: `🎁 Referral Bonus - Invited ${record.refereeName || record.refereeEmail} (₦${record.referrerRewardAmount.toLocaleString()})`,
             type: 'credit',
             category: 'wallet_funding',
             amount: record.referrerRewardAmount,
@@ -449,8 +494,8 @@ export class ReferralService {
             email: referrer.email,
             userName: referrer.fullName,
             category: 'wallet',
-            title: '₦500 Referral Bonus Earned! 🎁',
-            message: `Your invitee ${record.refereeName || 'a friend'} just completed verification. ₦${record.referrerRewardAmount.toLocaleString()} has been credited to your wallet!`
+            title: `₦${record.referrerRewardAmount.toLocaleString()} Referral Bonus Earned! 🎁`,
+            message: `Your invitee ${record.refereeName || 'a new user'} just registered with your code. ₦${record.referrerRewardAmount.toLocaleString()} has been credited to your wallet!`
           });
         } catch (_) {}
 

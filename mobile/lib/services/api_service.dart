@@ -536,7 +536,7 @@ class ApiService {
             'walletBalance': (data['walletBalance'] as num?)?.toDouble() ?? (user['walletBalance'] as num?)?.toDouble() ?? 0.0,
             'usdtBalance': (data['usdtBalance'] as num?)?.toDouble() ?? (user['usdtBalance'] as num?)?.toDouble() ?? 0.0,
             'accountNumber': user['accountNumber']?.toString(),
-            'bankName': user['bankName']?.toString() ?? 'Rentilly Escrow',
+            'bankName': (user['bankName'] != null && !user['bankName'].toString().toLowerCase().contains('rentilly escrow')) ? user['bankName'].toString() : 'Wema Bank',
             'usdtTronAddress': data['usdtTronAddress']?.toString() ?? user['usdtTronAddress']?.toString(),
             'fullName': user['fullName']?.toString(),
             'role': user['role']?.toString() ?? 'renter',

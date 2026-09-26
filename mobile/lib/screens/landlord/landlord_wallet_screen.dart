@@ -473,11 +473,11 @@ class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
     final double operationalBalance = effectiveCurrency == 'NGN' ? (_user?.walletBalance ?? 0.0) : 0.00;
     final escrowBalance = _escrowBalance;
     final accountNumber = effectiveCurrency == 'NGN' ? (_user?.accountNumber ?? '') : '';
-    final rawBank = _user?.bankName ?? 'Rentilly Escrow';
+    final rawBank = _user?.bankName ?? 'Wema Bank';
     final cleanBank = rawBank
         .replaceAll(RegExp(r'\s*\([Ff]incra\)', caseSensitive: false), '')
         .replaceAll(RegExp(r'Fincra\s*', caseSensitive: false), '')
-        .replaceAll(RegExp(r'Wema Bank(\s*\(Rentilly Escrow\))?', caseSensitive: false), 'Rentilly Escrow')
+        .replaceAll(RegExp(r'Rentilly Escrow', caseSensitive: false), 'Wema Bank')
         .trim();
     final bankName = effectiveCurrency == 'USD' 
         ? 'Lead Bank (USA) • ACH/Wire' 

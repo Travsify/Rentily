@@ -498,7 +498,8 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
     final double operationalBalance = _user?.walletBalance ?? 0.00;
     final escrowCommission = _escrowCommission;
     final accountNumber = _user?.accountNumber ?? 'Pending KYC';
-    final bankName = _user?.bankName ?? 'Rentilly Escrow';
+    final rawPartnerBank = _user?.bankName ?? 'Wema Bank';
+    final bankName = (rawPartnerBank.isNotEmpty && !rawPartnerBank.toLowerCase().contains('rentilly escrow')) ? rawPartnerBank : 'Wema Bank';
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,

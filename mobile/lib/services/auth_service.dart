@@ -728,7 +728,8 @@ class AuthService {
       userMap['isVerified'] = userMap['isVerified'] == true || userMap['is_verified'] == true;
       userMap['bvnVerified'] = userMap['bvnVerified'] == true || userMap['bvn_verified'] == true;
       userMap['accountNumber'] = userMap['accountNumber'] ?? userMap['account_number'];
-      userMap['bankName'] = userMap['bankName'] ?? userMap['bank_name'] ?? 'Rentilly Escrow';
+      final rawPartnerBank = userMap['bankName'] ?? userMap['bank_name'] ?? 'Wema Bank';
+      userMap['bankName'] = (rawPartnerBank.toString().toLowerCase().contains('rentilly escrow')) ? 'Wema Bank' : rawPartnerBank;
     } else {
       userMap['role'] = userMap['role'] ?? 'renter';
       userMap['businessName'] = userMap['businessName'] ?? userMap['business_name'];
@@ -737,7 +738,8 @@ class AuthService {
       userMap['isVerified'] = userMap['isVerified'] == true || userMap['is_verified'] == true;
       userMap['bvnVerified'] = userMap['bvnVerified'] == true || userMap['bvn_verified'] == true;
       userMap['accountNumber'] = userMap['accountNumber'] ?? userMap['account_number'];
-      userMap['bankName'] = userMap['bankName'] ?? userMap['bank_name'] ?? 'Rentilly Escrow';
+      final rawUserBank = userMap['bankName'] ?? userMap['bank_name'] ?? 'Wema Bank';
+      userMap['bankName'] = (rawUserBank.toString().toLowerCase().contains('rentilly escrow')) ? 'Wema Bank' : rawUserBank;
     }
 
     if (userMap['avatarUrl'] == null || (userMap['avatarUrl'] as String).isEmpty) {

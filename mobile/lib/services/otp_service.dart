@@ -4,48 +4,63 @@ import '../constants/app_constants.dart';
 import '../utils/phone_utils.dart';
 
 class OtpService {
-  static const String baseUrl = AppConstants.apiBaseUrl;
+  static const String primaryUrl = 'https://api.myrentilly.com/api';
+  static const String fallbackUrl = AppConstants.apiBaseUrl;
 
-  /// Dispatches a 6-digit OTP code to the user's Email (Resend) and/or Mobile Phone (Twilio)
+  /// Dispatches a 6-digit OTP code to the user's Email (Resend) and/or Mobile Phone
   static Future<Map<String, dynamic>> sendOtp({
     String? email,
     String? phoneNumber,
     String? userName,
-    String channel = 'both', // 'email', 'sms', 'both'
+    String channel = 'both',
     String purpose = 'Account Verification',
   }) async {
-    try {
-      final sanitizedPhone = PhoneUtils.tryFormatToE164(phoneNumber) ?? phoneNumber;
-      final response = await http.post(
-        Uri.parse('$baseUrl/auth/send-otp'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'email': email,
-          'phoneNumber': sanitizedPhone,
-          'userName': userName,
-          'channel': channel,
-          'purpose': purpose,
-        }),
-      ).timeout(const Duration(seconds: 15));
+    final sanitizedPhone = PhoneUtils.tryFormatToE164(phoneNumber) ?? phoneNumber;
+    final endpoints = [primaryUrl, fallbackUrl];
 
-      final data = json.decode(response.body);
-      if (response.statusCode == 200 && data['status'] == true) {
-        return {
-          'success': true,
-          'message': data['message'] ?? 'Verification code sent successfully.',
-        };
+    for (final base in endpoints) {
+      try {
+        final response = await http.post(
+          Uri.parse('$base/auth/send-otp'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({
+            'email': email,
+            'phoneNumber': sanitizedPhone,
+            'userName': userName,
+            'channel': channel,
+            'purpose': purpose,
+          }),
+        ).timeout(const Duration(seconds: 12));
+
+        final body = response.body.trim();
+        if (body.startsWith('<')) {
+          // HTML error page from suspended proxy/gateway - continue to next endpoint
+          continue;
+        }
+
+        final data = json.decode(body);
+        if (response.statusCode == 200 && data['status'] == true) {
+          return {
+            'success': true,
+            'message': data['message'] ?? 'Verification code sent successfully.',
+          };
+        }
+
+        if (data['message'] != null) {
+          return {
+            'success': false,
+            'message': data['message'],
+          };
+        }
+      } catch (_) {
+        // Retry next endpoint
       }
-
-      return {
-        'success': false,
-        'message': data['message'] ?? 'Unable to send security code. Please try again.',
-      };
-    } catch (e) {
-      return {
-        'success': false,
-        'message': 'Connection error: Unable to dispatch verification code ($e)',
-      };
     }
+
+    return {
+      'success': false,
+      'message': 'Unable to send security verification code. Please check your internet connection and try again.',
+    };
   }
 
   /// Verifies the 6-digit OTP code submitted by the user
@@ -54,35 +69,48 @@ class OtpService {
     String? phoneNumber,
     required String code,
   }) async {
-    try {
-      final sanitizedPhone = PhoneUtils.tryFormatToE164(phoneNumber) ?? phoneNumber;
-      final response = await http.post(
-        Uri.parse('$baseUrl/auth/verify-otp'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'email': email,
-          'phoneNumber': sanitizedPhone,
-          'code': code.trim(),
-        }),
-      ).timeout(const Duration(seconds: 12));
+    final sanitizedPhone = PhoneUtils.tryFormatToE164(phoneNumber) ?? phoneNumber;
+    final endpoints = [primaryUrl, fallbackUrl];
 
-      final data = json.decode(response.body);
-      if (response.statusCode == 200 && data['status'] == true) {
-        return {
-          'success': true,
-          'message': data['message'] ?? 'Code verified successfully!',
-        };
+    for (final base in endpoints) {
+      try {
+        final response = await http.post(
+          Uri.parse('$base/auth/verify-otp'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({
+            'email': email,
+            'phoneNumber': sanitizedPhone,
+            'code': code.trim(),
+          }),
+        ).timeout(const Duration(seconds: 12));
+
+        final body = response.body.trim();
+        if (body.startsWith('<')) {
+          continue;
+        }
+
+        final data = json.decode(body);
+        if (response.statusCode == 200 && data['status'] == true) {
+          return {
+            'success': true,
+            'message': data['message'] ?? 'Code verified successfully!',
+          };
+        }
+
+        if (data['message'] != null) {
+          return {
+            'success': false,
+            'message': data['message'],
+          };
+        }
+      } catch (_) {
+        // Retry next endpoint
       }
-
-      return {
-        'success': false,
-        'message': data['message'] ?? 'Invalid code entered. Please try again.',
-      };
-    } catch (e) {
-      return {
-        'success': false,
-        'message': 'Connection error: Verification failed ($e)',
-      };
     }
+
+    return {
+      'success': false,
+      'message': 'Verification failed. Please check the code and try again.',
+    };
   }
 }

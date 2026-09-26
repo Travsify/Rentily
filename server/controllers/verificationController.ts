@@ -216,7 +216,7 @@ export async function verifyAndProvision(req: Request, res: Response) {
             bvn_verified: !isProcessing,
             nin_number: idType === 'nin' ? idNumber : undefined,
             account_number: accountNumber || existing?.accountNumber || null,
-            bank_name: accountNumber ? bankName : (existing?.bankName || 'Rentilly Escrow'),
+            bank_name: accountNumber ? bankName : ((existing?.bankName && existing.bankName !== 'Rentilly Escrow') ? existing.bankName : 'Wema Bank'),
             business_name: isPartner ? partnerBizName : undefined,
             cac_number: isPartner ? cacNumber : undefined,
             office_address: officeAddress || existing?.officeAddress || undefined,
@@ -537,7 +537,7 @@ export async function requestReKyc(req: Request, res: Response) {
           UserStore.upsertUserForced({
             ...memUser,
             accountNumber: mapleRes.accountNumber,
-            bankName: 'Rentilly Escrow',
+            bankName: 'Wema Bank',
             isVerified: true
           });
         }
@@ -548,7 +548,7 @@ export async function requestReKyc(req: Request, res: Response) {
               .from('profiles')
               .update({
                 account_number: mapleRes.accountNumber,
-                bank_name: 'Rentilly Escrow',
+                bank_name: 'Wema Bank',
                 rekyc_required: false,
                 is_verified: true,
                 updated_at: new Date().toISOString()

@@ -316,7 +316,7 @@ class _WalletScreenState extends State<WalletScreen> {
         final vaults = await ApiService.fetchVaultAccounts(_user!.email);
         final updatedUser = _user!.copyWith(
           commercialAccountNumber: res['account']['accountNumber']?.toString(),
-          commercialBankName: res['account']['bankName']?.toString() ?? 'Rentilly Escrow',
+          commercialBankName: res['account']['bankName']?.toString() ?? 'Wema Bank',
         );
         await AuthService.updateUser(updatedUser);
         try {
@@ -332,7 +332,7 @@ class _WalletScreenState extends State<WalletScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                '🎉 High-Value Escrow Vault Activated: ${res['account']['accountNumber']} (Rentilly Escrow)',
+                '🎉 High-Value Escrow Vault Activated: ${res['account']['accountNumber']} (Wema Bank)',
                 style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
               ),
               backgroundColor: const Color(0xFF16A34A),
@@ -789,11 +789,11 @@ class _WalletScreenState extends State<WalletScreen> {
     const String effectiveCurrency = 'NGN';
     final String symbol = '₦';
     final double balance = _user?.walletBalance ?? 0.00;
-    final rawBank = _user?.bankName ?? 'Rentilly Escrow';
+    final rawBank = _user?.bankName ?? 'Wema Bank';
     final String bank = rawBank
         .replaceAll(RegExp(r'\s*\([Ff]incra\)', caseSensitive: false), '')
         .replaceAll(RegExp(r'Fincra\s*', caseSensitive: false), '')
-        .replaceAll(RegExp(r'Wema Bank(\s*\(Rentilly Escrow\))?', caseSensitive: false), 'Rentilly Escrow')
+        .replaceAll(RegExp(r'Rentilly Escrow', caseSensitive: false), 'Wema Bank')
         .trim();
     final String? accNum = _user?.accountNumber;
     const String accountLabel = 'DEDICATED NUBAN ACCOUNT';

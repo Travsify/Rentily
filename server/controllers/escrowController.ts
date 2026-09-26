@@ -190,7 +190,7 @@ export async function releaseEscrowPayout(req: Request, res: Response) {
         sender: 'Rentilly Escrow Protocol',
         beneficiary: ownerProfile.full_name || ownerProfile.fullName || ownerProfile.email,
         recipientAccount: ownerProfile.account_number || ownerProfile.accountNumber || '',
-        recipientBank: ownerProfile.bank_name || ownerProfile.bankName || 'Rentilly Escrow',
+        recipientBank: (ownerProfile.bank_name && ownerProfile.bank_name !== 'Rentilly Escrow') ? ownerProfile.bank_name : (ownerProfile.bankName && ownerProfile.bankName !== 'Rentilly Escrow' ? ownerProfile.bankName : 'Wema Bank'),
         status: 'SUCCESSFUL',
         date: payoutReleasedAt
       });

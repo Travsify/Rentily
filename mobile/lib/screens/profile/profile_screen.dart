@@ -1443,7 +1443,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const Divider(height: 18),
                   _buildStatusRow('Dedicated Account', _currentUser?.accountNumber ?? 'Pending (Add Date of Birth)'),
                   const Divider(height: 18),
-                  _buildStatusRow('Settlement Bank', _currentUser?.bankName ?? 'Rentilly Escrow'),
+                  _buildStatusRow('Settlement Bank', ((_currentUser?.bankName && _currentUser!.bankName!.isNotEmpty && !_currentUser!.bankName!.toLowerCase().contains('rentilly escrow')) ? _currentUser!.bankName! : 'Wema Bank')),
                   const Divider(height: 18),
                   _buildStatusRow('Identity Verification', isApproved ? 'Level 2 Verified Tier 🛡️' : 'Pending Verification'),
                   if (_currentUser?.phoneNumber != null && _currentUser!.phoneNumber.isNotEmpty) ...[
@@ -1633,7 +1633,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Dedicated Rentilly Escrow Account', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                        Text('Dedicated Settlement Account (Wema Bank)', style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                         Text('${_currentUser?.accountNumber ?? "Pending Escrow NUBAN"} • ${_currentUser?.fullName ?? "Rentilly User"}', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
                       ],
                     ),

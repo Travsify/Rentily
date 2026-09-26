@@ -192,11 +192,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final String firstName = _user?.firstName ?? 'User';
     final double balance = _user?.walletBalance ?? 0.00;
     final String? accNum = _user?.accountNumber;
-    final rawBank = _user?.bankName ?? 'Rentilly Escrow';
+    final rawBank = _user?.bankName ?? 'Wema Bank';
     final String bank = rawBank
         .replaceAll(RegExp(r'\s*\([Ff]incra\)', caseSensitive: false), '')
         .replaceAll(RegExp(r'Fincra\s*', caseSensitive: false), '')
-        .replaceAll(RegExp(r'Wema Bank(\s*\(Rentilly Escrow\))?', caseSensitive: false), 'Rentilly Escrow')
+        .replaceAll(RegExp(r'Rentilly Escrow', caseSensitive: false), 'Wema Bank')
         .trim();
 
     return Scaffold(
@@ -554,7 +554,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               const Icon(Icons.shield_rounded, size: 16, color: Colors.white),
                               const SizedBox(width: 5),
                               Text(
-                                'RENTILLY ESCROW',
+                                'WEMA BANK',
                                 style: GoogleFonts.plusJakartaSans(
                                   fontSize: 9,
                                   fontWeight: FontWeight.w800,

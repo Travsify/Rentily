@@ -615,7 +615,7 @@ export async function renderReKycPage(req: Request, res: Response) {
   const currentBvn = user?.bvn || '';
   const currentNin = user?.ninNumber || '';
   const currentAccount = user?.accountNumber || '';
-  const currentBank = user?.bankName || 'Rentilly Escrow';
+  const currentBank = (user?.bankName && user.bankName !== 'Rentilly Escrow') ? user.bankName : 'Wema Bank';
 
   res.send(`
     <!DOCTYPE html>
@@ -733,7 +733,7 @@ export async function renderReKycPage(req: Request, res: Response) {
             <p style="color: #94a3b8; font-size: 12px; margin-top: 4px;">Your dedicated escrow settlement account is active and permanently attached to your profile.</p>
 
             <div class="result-acc" id="accDisplay">----------</div>
-            <div style="font-size: 13px; font-weight: 700; color: #38bdf8;" id="bankDisplay">Rentilly Escrow</div>
+            <div style="font-size: 13px; font-weight: 700; color: #38bdf8;" id="bankDisplay">Wema Bank</div>
 
             <div style="margin-top: 16px; padding: 12px; background: rgba(16, 185, 129, 0.1); border-radius: 10px; font-size: 12px; color: #a7f3d0;">
               💳 Virtual Dollar Card: <strong>Active</strong><br>

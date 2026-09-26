@@ -125,31 +125,34 @@ export async function register(req: Request, res: Response) {
       }
     }).catch(err => console.error('[Security Alert] Register email dispatch failed:', err.message));
 
+    // Fetch updated user to reflect any instant welcome reward credited
+    const refreshedUser = (await UserStore.findById(userToReturn.id)) || (await UserStore.findByEmail(cleanEmail)) || userToReturn;
+
     return res.status(201).json({
       message: 'Account created successfully',
       token,
       user: {
-        id: userToReturn.id,
-        fullName: userToReturn.fullName,
-        email: userToReturn.email,
-        phoneNumber: userToReturn.phoneNumber,
-        role: userToReturn.role,
-        buyerType: userToReturn.buyerType || (userToReturn.businessName ? 'corporate' : 'personal'),
-        isVerified: userToReturn.isVerified,
-        accountNumber: userToReturn.accountNumber,
-        bankName: userToReturn.bankName,
-        state: userToReturn.state,
-        businessName: userToReturn.businessName,
-        cacNumber: userToReturn.cacNumber,
-        tinNumber: userToReturn.tinNumber,
-        officeAddress: userToReturn.officeAddress,
-        signatoryName: userToReturn.signatoryName,
-        signatoryRole: userToReturn.signatoryRole,
-        signatoryPhone: userToReturn.signatoryPhone,
-        partnerStatus: userToReturn.partnerStatus,
-        walletBalance: userToReturn.walletBalance || 0,
+        id: refreshedUser.id,
+        fullName: refreshedUser.fullName,
+        email: refreshedUser.email,
+        phoneNumber: refreshedUser.phoneNumber,
+        role: refreshedUser.role,
+        buyerType: refreshedUser.buyerType || (refreshedUser.businessName ? 'corporate' : 'personal'),
+        isVerified: refreshedUser.isVerified,
+        accountNumber: refreshedUser.accountNumber,
+        bankName: (refreshedUser.bankName && refreshedUser.bankName !== 'Rentilly Escrow') ? refreshedUser.bankName : 'Wema Bank',
+        state: refreshedUser.state,
+        businessName: refreshedUser.businessName,
+        cacNumber: refreshedUser.cacNumber,
+        tinNumber: refreshedUser.tinNumber,
+        officeAddress: refreshedUser.officeAddress,
+        signatoryName: refreshedUser.signatoryName,
+        signatoryRole: refreshedUser.signatoryRole,
+        signatoryPhone: refreshedUser.signatoryPhone,
+        partnerStatus: refreshedUser.partnerStatus,
+        walletBalance: refreshedUser.walletBalance || 0,
         referralCode: userReferralCode,
-        createdAt: userToReturn.createdAt,
+        createdAt: refreshedUser.createdAt,
       },
     });
   } catch (err: any) {

@@ -212,7 +212,7 @@ class StatementPdfService {
     // Capture receiver's destination bank for outbound debits vs Rentilly Escrow for inbound credits
     String resolvedBank = '';
     if (isCredit) {
-      resolvedBank = transaction['recipientBank'] ?? transaction['bankName'] ?? user.bankName ?? 'Rentilly Escrow';
+      resolvedBank = transaction['recipientBank'] ?? transaction['bankName'] ?? user.bankName ?? 'Wema Bank';
     } else {
       resolvedBank = transaction['destinationBank'] ??
           transaction['recipientBank'] ??
@@ -487,7 +487,7 @@ class StatementPdfService {
     final end = toDate != null ? DateFormat('dd MMM yyyy').format(toDate) : DateFormat('dd MMM yyyy').format(DateTime.now());
     final nowGmtPlus1 = DateTime.now().toUtc().add(const Duration(hours: 1));
     final generatedAt = '${DateFormat('dd MMM yyyy, hh:mm a').format(nowGmtPlus1)} (GMT+1)';
-    final partnerBank = _sanitizePdfText(user.bankName ?? 'Rentilly Escrow');
+    final partnerBank = _sanitizePdfText((user.bankName != null && !user.bankName!.toLowerCase().contains('rentilly escrow')) ? user.bankName! : 'Wema Bank');
 
     double totalInflow = 0;
     double totalOutflow = 0;

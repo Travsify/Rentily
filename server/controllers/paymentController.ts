@@ -1652,7 +1652,7 @@ export async function mapleradWebhook(req: Request, res: Response) {
               metadata: {
                 amount: amountPaid,
                 reference: ref,
-                bankName: 'Rentilly Escrow',
+                bankName: 'Wema Bank',
                 sender: sender,
                 date: new Date().toISOString()
               }
@@ -2452,7 +2452,7 @@ export async function provisionCommercialAccount(req: Request, res: Response) {
           if (fincraRes.status && fincraRes.data?.accountNumber) {
             fincraData = {
               accountNumber: fincraRes.data.accountNumber,
-              bankName: 'Rentilly Escrow',
+              bankName: 'Wema Bank',
               bankCode: '035',
               accountName: fincraRes.data.accountName || prof.full_name,
               provider: 'fincra',
@@ -2540,8 +2540,8 @@ export async function getVaultAccounts(req: Request, res: Response) {
         .maybeSingle();
 
       let fincraAcc = fincraConfig?.data?.accountNumber;
-      let fincraBank = fincraConfig?.data?.bankName || 'Rentilly Escrow';
-      let fincraName = fincraConfig?.data?.accountName || prof?.full_name || 'Rentilly Escrow Client';
+      let fincraBank = (fincraConfig?.data?.bankName && fincraConfig.data.bankName !== 'Rentilly Escrow') ? fincraConfig.data.bankName : 'Wema Bank';
+      let fincraName = fincraConfig?.data?.accountName || prof?.full_name || 'Rentilly Client';
 
       if (!fincraAcc) {
         // Auto-provision via Fincra API using BVN from profile
@@ -2560,7 +2560,7 @@ export async function getVaultAccounts(req: Request, res: Response) {
             });
             if (fincraRes.status && fincraRes.data?.accountNumber) {
               fincraAcc = fincraRes.data.accountNumber;
-              fincraBank = 'Rentilly Escrow';
+              fincraBank = 'Wema Bank';
               fincraName = fincraRes.data.accountName || prof.full_name;
               await supabase.from('system_configs').upsert({
                 id: `fincra_va_${email}`,
@@ -2612,7 +2612,8 @@ export async function getVaultAccounts(req: Request, res: Response) {
         };
       } else {
         const dailyAcc = mapleConfig?.data?.accountNumber || prof?.account_number;
-        const dailyBank = mapleConfig?.data?.bankName || prof?.bank_name || 'Rentilly Escrow';
+        const rawDailyBank = mapleConfig?.data?.bankName || prof?.bank_name || 'Wema Bank';
+        const dailyBank = (rawDailyBank && rawDailyBank !== 'Rentilly Escrow') ? rawDailyBank : 'Wema Bank';
         const dailyTier = mapleConfig?.data?.tier ?? (prof?.account_number ? 1 : 0);
 
         dailyVault = {
@@ -3659,7 +3660,7 @@ export async function autoCaptureInboundTransfers(targetEmail?: string): Promise
               data: {
                 tier: 'Commercial Institutional Tier',
                 bankCode: '035',
-                bankName: 'Rentilly Escrow',
+                bankName: 'Wema Bank',
                 provider: 'fincra',
                 accountName: `FIN-${matchedUser.full_name || 'Rentilly User'}`,
                 accountNumber: vaAccNo,
@@ -3779,7 +3780,7 @@ export async function autoCaptureInboundTransfers(targetEmail?: string): Promise
               sender: senderName,
               beneficiary: matchedUser.full_name || matchedUser.email,
               recipientAccount: col.accountNumber || matchedUser.account_number,
-              recipientBank: 'Rentilly Escrow',
+              recipientBank: 'Wema Bank',
               status: 'SUCCESSFUL',
               date: col.createdAt || new Date().toISOString()
             });
@@ -3792,11 +3793,11 @@ export async function autoCaptureInboundTransfers(targetEmail?: string): Promise
             userName: matchedUser.full_name || 'Valued User',
             category: 'wallet',
             title: `Bank Transfer Received: ₦${amount.toLocaleString()}`,
-            message: `Your Rentilly Escrow Account received ₦${amount.toLocaleString()} from ${senderName}. New Balance: ₦${(creditRes.newBalance ?? 0).toLocaleString()}.`,
+            message: `Your Rentilly Account (Wema Bank) received ₦${amount.toLocaleString()} from ${senderName}. New Balance: ₦${(creditRes.newBalance ?? 0).toLocaleString()}.`,
             metadata: {
               amount,
               reference: ref,
-              bankName: 'Rentilly Escrow',
+              bankName: 'Wema Bank',
               sender: senderName,
               date: col.createdAt || new Date().toISOString()
             }
@@ -3902,7 +3903,7 @@ export async function syncFincraTransactionsForUser(cleanEmail: string) {
                     sender: senderName,
                     beneficiary: prof.full_name || prof.email,
                     recipientAccount: prof.account_number,
-                    recipientBank: 'Rentilly Escrow',
+                    recipientBank: 'Wema Bank',
                     status: 'SUCCESSFUL',
                     date: col.createdAt || new Date().toISOString()
                   });
@@ -3914,11 +3915,11 @@ export async function syncFincraTransactionsForUser(cleanEmail: string) {
                   userName: prof.full_name || 'Valued User',
                   category: 'wallet',
                   title: `Bank Transfer Received: ₦${amount.toLocaleString()}`,
-                  message: `Your Rentilly Escrow Account received ₦${amount.toLocaleString()} from ${senderName}. New Balance: ₦${(creditRes.newBalance ?? 0).toLocaleString()}.`,
+                  message: `Your Rentilly Account (Wema Bank) received ₦${amount.toLocaleString()} from ${senderName}. New Balance: ₦${(creditRes.newBalance ?? 0).toLocaleString()}.`,
                   metadata: {
                     amount,
                     reference: ref,
-                    bankName: 'Rentilly Escrow',
+                    bankName: 'Wema Bank',
                     sender: senderName,
                     date: col.createdAt || new Date().toISOString()
                   }
@@ -3968,14 +3969,14 @@ export async function syncFincraTransactionsForUser(cleanEmail: string) {
           id: `FINCRA_TX_${ref}`,
           userId: r.user_id || user?.id || `usr_${cleanEmail}`,
           email: cleanEmail,
-          title: narration || 'High-Value Escrow Deposit (Rentilly Escrow)',
+          title: narration || 'Bank Deposit (Wema Bank)',
           type: 'Electronic Bank Inbound Deposit',
           category: 'deposit',
           amount,
           isCredit: true,
           reference: ref,
           beneficiary: user?.fullName || cleanEmail,
-          recipientBank: 'Rentilly Escrow',
+          recipientBank: 'Wema Bank',
           status: (r.status || 'SUCCESSFUL').toUpperCase() === 'COMPLETED' ? 'SUCCESSFUL' : 'SUCCESSFUL',
           date: r.created_at || new Date().toISOString()
         });
@@ -4100,7 +4101,7 @@ export async function getWalletBalance(req: Request, res: Response) {
         const fincraAcc = fincraRes.data?.accountNumber || fincraRes.data?.accountInformation?.accountNumber;
         if (fincraRes.status && fincraAcc) {
           accountNumber = fincraAcc;
-          bankName = 'Rentilly Escrow';
+          bankName = 'Wema Bank';
 
           if (supabase && dbUser?.id) {
             await supabase
@@ -4113,7 +4114,7 @@ export async function getWalletBalance(req: Request, res: Response) {
             app: 'rentilly',
             accountNumber: fincraAcc,
             virtualAccountId: fincraRes.data?._id || fincraRes.data?.virtualAccountId || '',
-            bankName: 'Rentilly Escrow',
+            bankName: 'Wema Bank',
             bankCode: '035',
             userId: dbUser?.id,
             userEmail: cleanEmail,
