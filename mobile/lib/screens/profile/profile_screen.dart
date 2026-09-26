@@ -1443,7 +1443,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const Divider(height: 18),
                   _buildStatusRow('Dedicated Account', _currentUser?.accountNumber ?? 'Pending (Add Date of Birth)'),
                   const Divider(height: 18),
-                  _buildStatusRow('Settlement Bank', ((_currentUser?.bankName && _currentUser!.bankName!.isNotEmpty && !_currentUser!.bankName!.toLowerCase().contains('rentilly escrow')) ? _currentUser!.bankName! : 'Wema Bank')),
+                  _buildStatusRow('Settlement Bank', ((_currentUser?.bankName != null && _currentUser!.bankName!.isNotEmpty && !_currentUser!.bankName!.toLowerCase().contains('rentilly escrow')) ? _currentUser!.bankName! : 'Wema Bank')),
                   const Divider(height: 18),
                   _buildStatusRow('Identity Verification', isApproved ? 'Level 2 Verified Tier 🛡️' : 'Pending Verification'),
                   if (_currentUser?.phoneNumber != null && _currentUser!.phoneNumber.isNotEmpty) ...[
