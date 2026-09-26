@@ -112,8 +112,11 @@ export async function getUtilityTransactions(_req: Request, res: Response) {
 
     res.json({
       success: true,
+      status: true,
       count: utilities.length,
-      utilities
+      utilities,
+      transactions: utilities,
+      data: utilities
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
