@@ -112,6 +112,7 @@ export const CreatorLeaderboardPortal: React.FC = () => {
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isSubmitModalOpen, setIsSubmitModalOpen] = useState(false);
+  const [modalActiveTab, setModalActiveTab] = useState<'submit' | 'scripts'>('submit');
 
   // Form State
   // 3-Week Contest Season & Live Countdown State
@@ -233,6 +234,13 @@ export const CreatorLeaderboardPortal: React.FC = () => {
     if (ref) {
       setFormData((prev) => ({ ...prev, referralCode: ref.toUpperCase() }));
     }
+    const q = urlParams.get('q');
+    if (q) {
+      const cleanQ = q.trim();
+      setSearchQuery(cleanQ);
+      setMyTrackedHandle(cleanQ);
+      setPageView('leaderboard');
+    }
   }, []);
 
   const showToast = (msg: string) => {
@@ -296,12 +304,14 @@ export const CreatorLeaderboardPortal: React.FC = () => {
     }
 
     const views = parseInt(formData.claimedViews) || 1000;
+    const topic = (formData as any).topicCategory === 'property_purchase' ? 'purchase' : 'renters';
 
     CreatorBountyService.submitVideo({
       creatorName: formData.creatorName,
       handle: formData.handle.startsWith('@') ? formData.handle : `@${formData.handle}`,
       platform: formData.platform,
       videoUrl: formData.videoUrl,
+      topicCategory: topic,
       claimedViews: views,
       hasTaggedRentilly: formData.hasTaggedRentilly,
       phone: formData.phone,
@@ -318,6 +328,7 @@ export const CreatorLeaderboardPortal: React.FC = () => {
         handle: formData.handle.startsWith('@') ? formData.handle : `@${formData.handle}`,
         platform: formData.platform,
         videoUrl: formData.videoUrl,
+        topicCategory: topic,
         referralCode: formData.referralCode,
         claimedViews: views,
         phone: formData.phone,
@@ -353,12 +364,15 @@ export const CreatorLeaderboardPortal: React.FC = () => {
       handle: formData.handle.startsWith('@') ? formData.handle : `@${formData.handle}`,
       platform: formData.platform,
       videoUrl: formData.videoUrl,
+      topicCategory: topic,
       claimedViews: views,
       verifiedViews: views,
       phone: formData.phone,
       bountyStatus: 'under_review',
       payoutAmount: 0,
       boostsCount: 0,
+      appReferralsCount: 0,
+      totalScore: views,
       ugcRightsGranted: true,
       createdAt: new Date().toISOString()
     };
@@ -569,6 +583,38 @@ export const CreatorLeaderboardPortal: React.FC = () => {
           </div>
         </header>
 
+        {/* Sticky Google Play App Download Smart Banner */}
+        <aside aria-label="Download Rentilly App" className="bg-gradient-to-r from-emerald-950 via-slate-900 to-teal-950 border-b border-emerald-500/40 px-3 py-2 sm:px-6 sm:py-2.5 sticky top-16 sm:top-20 z-20 backdrop-blur-md flex items-center justify-between gap-3 shadow-xl">
+          <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-slate-950 border border-emerald-400/40 p-1 shrink-0 flex items-center justify-center shadow-inner">
+              <img src="/logo.png" alt="Rentilly App" className="w-full h-full object-contain" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                <span className="text-xs sm:text-sm font-black text-white">Rentilly Mobile App</span>
+                <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-extrabold px-1.5 py-0.5 rounded border border-emerald-500/40">
+                  Live on Google Play 🇳🇬
+                </span>
+                <span className="hidden md:inline-block text-[11px] text-amber-300 font-bold">
+                  ★ 4.9 Rating
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-300 truncate">
+                Find verified Nigerian homes, 0% agent scams &amp; digital lease agreements
+              </p>
+            </div>
+          </div>
+          <a
+            href="https://play.google.com/store/apps/details?id=ng.rentilly.rentilly_mobile"
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-400 hover:from-emerald-300 hover:to-teal-300 text-slate-950 font-black text-xs uppercase tracking-wider shrink-0 shadow-lg shadow-emerald-500/30 transition transform hover:scale-105 active:scale-95"
+          >
+            <span>Install Free</span>
+            <ExternalLink className="w-3.5 h-3.5 stroke-[2.5]" />
+          </a>
+        </aside>
+
         {pageView === 'landing' ? (
           /* ========================================================= */
           /* PAGE 1: CONTEST LANDING & CAMPAIGN INFORMATION PAGE       */
@@ -579,7 +625,7 @@ export const CreatorLeaderboardPortal: React.FC = () => {
               <div className="max-w-5xl mx-auto text-center relative z-10">
                 <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold tracking-wide uppercase mb-6">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-                  <span>🔥 Top 20 Creators Win Cash • Total Cash Prize Pool!</span>
+                  <span>🔥 ₦620,000+ Total Cash Pool • Top 20 Creators Win Cash!</span>
                 </div>
 
                 <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white mb-5 leading-tight">
@@ -1145,8 +1191,8 @@ export const CreatorLeaderboardPortal: React.FC = () => {
                   <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 sm:p-5 relative group">
                     <div className="text-xs sm:text-sm text-slate-200 leading-relaxed font-mono whitespace-pre-wrap">
                       {activeCaptionTopic === 'renters'
-                        ? `Tired of fake agents and inspection fee scams? 🏠 Real verified apartments with 3D tours and direct landlord leases are on @renti_lly! Download the Rentilly app now 📲 https://myrentilly.com\n\n#Rentilly #RentillyChallenge #NigeriaRealEstate #Renters #ApartmentHunting`
-                        : `Stop buying land with 'family issues' or paying fake agents! 🏢 Verified title documents & property sales with escrow security on @renti_lly! Verified properties only on https://myrentilly.com\n\n#Rentilly #PropertySales #InvestNigeria #RentillyChallenge #RealEstateNigeria`}
+                        ? `Tired of fake agents and inspection fee scams? 🏠 Real verified apartments with 3D tours and direct landlord leases are on @renti_lly & @rentilly! Download the Rentilly app now 📲 https://myrentilly.com/play\n\n#Rentilly #RentillyChallenge #NigeriaRealEstate #Renters #ApartmentHunting`
+                        : `Stop buying land with 'family issues' or paying fake agents! 🏢 Verified title documents & property sales with escrow security on @renti_lly & @rentilly! Download Rentilly now 📲 https://myrentilly.com/play\n\n#Rentilly #PropertySales #InvestNigeria #RentillyChallenge #RealEstateNigeria`}
                     </div>
 
                     <div className="mt-4 pt-3 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -1158,8 +1204,8 @@ export const CreatorLeaderboardPortal: React.FC = () => {
                         onClick={() => {
                           const text =
                             activeCaptionTopic === 'renters'
-                              ? `Tired of fake agents and inspection fee scams? 🏠 Real verified apartments with 3D tours and direct landlord leases are on @renti_lly! Download the Rentilly app now 📲 https://myrentilly.com\n\n#Rentilly #RentillyChallenge #NigeriaRealEstate #Renters #ApartmentHunting`
-                              : `Stop buying land with 'family issues' or paying fake agents! 🏢 Verified title documents & property sales with escrow security on @renti_lly! Verified properties only on https://myrentilly.com\n\n#Rentilly #PropertySales #InvestNigeria #RentillyChallenge #RealEstateNigeria`;
+                              ? `Tired of fake agents and inspection fee scams? 🏠 Real verified apartments with 3D tours and direct landlord leases are on @renti_lly & @rentilly! Download the Rentilly app now 📲 https://myrentilly.com/play\n\n#Rentilly #RentillyChallenge #NigeriaRealEstate #Renters #ApartmentHunting`
+                              : `Stop buying land with 'family issues' or paying fake agents! 🏢 Verified title documents & property sales with escrow security on @renti_lly & @rentilly! Download Rentilly now 📲 https://myrentilly.com/play\n\n#Rentilly #PropertySales #InvestNigeria #RentillyChallenge #RealEstateNigeria`;
                           copyToClipboard(text, activeCaptionTopic, `${activeCaptionTopic === 'renters' ? 'Renters' : 'Property Purchase'} Caption`);
                         }}
                         className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/20 transition active:scale-95 cursor-pointer shrink-0"
@@ -1197,7 +1243,7 @@ export const CreatorLeaderboardPortal: React.FC = () => {
                 </h2>
                 <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
                   Everything you need to shoot, post, rank, and cash out your share of the{' '}
-                  <strong className="text-emerald-400">₦600,000 season bounty pool</strong> in Nigeria.
+                  <strong className="text-emerald-400">₦620,000 season bounty pool</strong> in Nigeria.
                   Zero follower requirement — open to every creator!
                 </p>
               </div>
@@ -1733,7 +1779,7 @@ export const CreatorLeaderboardPortal: React.FC = () => {
                     },
                     {
                       q: "What happens when 3 weeks end?",
-                      a: "A new 3-week season begins immediately with a fresh cash pool! As soon as a 21-day sprint closes, leaderboard winners are paid within 48 hours, and season reset opens a brand-new 21-day competition with another ₦600,000 cash pool up for grabs."
+                      a: "A new 3-week season begins immediately with a fresh cash pool! As soon as a 21-day sprint closes, leaderboard winners are paid within 48 hours, and season reset opens a brand-new 21-day competition with another ₦620,000 cash pool up for grabs."
                     },
                     {
                       q: "Can I shoot content in Nigerian Pidgin or native languages?",
@@ -2425,7 +2471,7 @@ export const CreatorLeaderboardPortal: React.FC = () => {
                 <X className="w-5 h-5" />
               </button>
 
-              <div className="flex items-center gap-3 mb-3">
+              <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 rounded-xl bg-slate-950 border border-emerald-500/30 p-1 shrink-0 overflow-hidden flex items-center justify-center">
                   <img src="/logo.png" alt="Rentilly" className="w-full h-full object-contain" />
                 </div>
@@ -2433,221 +2479,378 @@ export const CreatorLeaderboardPortal: React.FC = () => {
                   <div className="flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                     <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">
-                      Leaderboard Drop
+                      Creator Portal
                     </span>
                   </div>
-                  <h2 className="text-xl font-black text-white">Submit Your Video Link</h2>
+                  <h2 className="text-xl font-black text-white">
+                    {modalActiveTab === 'submit' ? 'Submit Your Video Link' : '🔥 Viral Script Vault'}
+                  </h2>
                 </div>
               </div>
-              <p className="text-xs text-slate-400 mb-6">
-                Drop your live video link so our view tracker starts ranking your video on the leaderboard.
-              </p>
 
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Creator Name *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Tunde Adeyemi"
-                    value={formData.creatorName}
-                    onChange={(e) => setFormData({ ...formData, creatorName: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Social Handle *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="@yourhandle"
-                      value={formData.handle}
-                      onChange={(e) => setFormData({ ...formData, handle: e.target.value })}
-                      className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Platform</label>
-                    <select
-                      value={formData.platform}
-                      onChange={(e) => setFormData({ ...formData, platform: e.target.value as CreatorPlatform })}
-                      className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500"
-                    >
-                      <option value="tiktok">TikTok</option>
-                      <option value="instagram">Instagram Reels</option>
-                      <option value="youtube">YouTube Shorts</option>
-                      <option value="twitter">X (Twitter)</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Rentilly Referral Code</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. TUNDE10"
-                      value={formData.referralCode}
-                      onChange={(e) => setFormData({ ...formData, referralCode: e.target.value.toUpperCase() })}
-                      className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white uppercase font-mono focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 uppercase mb-1">WhatsApp Phone *</label>
-                    <input
-                      type="tel"
-                      required
-                      placeholder="+234 80..."
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 uppercase mb-1">
-                    Contest Topic Category * (Renters &amp; Property Purchase Only)
-                  </label>
-                  <select
-                    required
-                    value={(formData as any).topicCategory || 'renters'}
-                    onChange={(e) => setFormData({ ...formData, topicCategory: e.target.value } as any)}
-                    className="w-full px-4 py-2.5 bg-slate-950 border border-emerald-500/40 rounded-xl text-xs sm:text-sm text-white focus:outline-none focus:border-emerald-400 cursor-pointer"
-                  >
-                    <option value="renters">🏠 Renters — Finding, Renting &amp; Leasing Verified Apartments on Rentilly</option>
-                    <option value="property_purchase">🏢 Property Purchase — Buying Verified Houses, Land &amp; Escrow Sales</option>
-                  </select>
-                  <p className="text-[10px] text-amber-300 font-medium mt-1">
-                    ⚠️ Videos must center exclusively on Renters or Property Purchase to qualify for prizes.
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Video Live URL *</label>
-                  <input
-                    type="url"
-                    required
-                    placeholder="https://www.tiktok.com/@... or instagram.com/reel/..."
-                    value={formData.videoUrl}
-                    onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Current Views</label>
-                  <input
-                    type="number"
-                    placeholder="e.g. 15000"
-                    value={formData.claimedViews}
-                    onChange={(e) => setFormData({ ...formData, claimedViews: e.target.value })}
-                    className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
-
-                {/* MANDATORY SOCIAL FOLLOW & TAG VERIFICATION CHECKBOXES */}
-                <div className="p-3.5 bg-slate-950 border border-amber-500/40 rounded-2xl space-y-2">
-                  <label className="flex items-start gap-2.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      required
-                      checked={formData.hasFollowed}
-                      onChange={(e) => setFormData({ ...formData, hasFollowed: e.target.checked })}
-                      className="mt-0.5 w-4 h-4 rounded text-emerald-500 focus:ring-emerald-400 bg-slate-900 border-slate-700 cursor-pointer"
-                    />
-                    <span className="text-xs text-slate-200 leading-snug">
-                      <strong className="text-amber-300">Mandatory Condition #1:</strong> I confirm that I follow <strong>@renti_lly</strong> on Instagram and/or <strong>@rentilly</strong> on TikTok/X to be eligible for cash prizes.
-                    </span>
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Your handle used to follow us (e.g. @your_account)"
-                    value={formData.followHandle}
-                    onChange={(e) => setFormData({ ...formData, followHandle: e.target.value })}
-                    className="w-full px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
-                  />
-                </div>
-
-                {/* MANDATORY TAG RENTILLY IN VIDEO & CAPTION CHECKBOX */}
-                <div className="p-3.5 bg-slate-950 border-2 border-emerald-500/60 rounded-2xl space-y-2.5 shadow-lg shadow-emerald-950/40">
-                  <label className="flex items-start gap-2.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      required
-                      checked={(formData as any).hasTaggedRentilly}
-                      onChange={(e) => setFormData({ ...formData, hasTaggedRentilly: e.target.checked } as any)}
-                      className="mt-0.5 w-4 h-4 rounded text-emerald-500 focus:ring-emerald-400 bg-slate-900 border-slate-700 cursor-pointer"
-                    />
-                    <span className="text-xs text-white leading-snug">
-                      <strong className="text-emerald-400">Mandatory Condition #2:</strong> I have <strong>tagged Rentilly in my video &amp; caption</strong> ({formData.platform === 'instagram' ? '@renti_lly' : '@rentilly'}) so viewers can tap directly to your pages.
-                    </span>
-                  </label>
-                  <div className="flex items-center justify-between text-xs bg-slate-900 px-3 py-2 rounded-xl border border-slate-800">
-                    <span className="text-slate-400">Required Tag:</span>
-                    <span className="font-mono font-black text-emerald-300 bg-emerald-950/60 border border-emerald-500/40 px-2 py-0.5 rounded">
-                      {formData.platform === 'instagram' ? '@renti_lly' : '@rentilly'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* MANDATORY COMMERCIAL UGC RIGHTS RELEASE CHECKBOX */}
-                <div className="p-3.5 bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-2xl space-y-2 transition">
-                  <label className="flex items-start gap-2.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      required
-                      checked={(formData as any).ugcRightsGranted}
-                      onChange={(e) => setFormData({ ...formData, ugcRightsGranted: e.target.checked } as any)}
-                      className="mt-0.5 w-4 h-4 rounded text-emerald-500 focus:ring-emerald-400 bg-slate-900 border-slate-700 cursor-pointer"
-                    />
-                    <span className="text-xs text-slate-300 leading-snug">
-                      <strong className="text-white">Commercial UGC Rights License:</strong> I grant <strong>Rentilly / E-Homes Global Inclusive Limited</strong> a non-exclusive, royalty-free license to feature, repost, and run marketing with this video drop across official social channels and web properties.
-                    </span>
-                  </label>
-                </div>
-
-                {/* Bank Payout Info */}
-                <div className="pt-2 border-t border-slate-800">
-                  <span className="block text-xs font-bold text-amber-400 uppercase mb-2">
-                    Bank Payout Details (For Cash Disbursal)
-                  </span>
-                  <div className="grid grid-cols-3 gap-2">
-                    <input
-                      type="text"
-                      placeholder="Bank Name"
-                      value={formData.bankName}
-                      onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
-                      className="px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Account No"
-                      value={formData.accountNumber}
-                      onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })}
-                      className="px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Account Name"
-                      value={formData.accountName}
-                      onChange={(e) => setFormData({ ...formData, accountName: e.target.value })}
-                      className="px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white"
-                    />
-                  </div>
-                </div>
-
+              {/* Segmented Control */}
+              <div className="flex rounded-xl bg-slate-950 p-1 border border-slate-800 mb-5">
                 <button
-                  type="submit"
-                  className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-slate-950 font-black text-sm shadow-xl shadow-emerald-500/20 transition transform hover:scale-[1.02] cursor-pointer"
+                  type="button"
+                  onClick={() => setModalActiveTab('submit')}
+                  className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${
+                    modalActiveTab === 'submit'
+                      ? 'bg-emerald-500 text-slate-950 shadow-md font-black'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
                 >
-                  🚀 Submit Video &amp; Join Leaderboard
+                  🚀 Submit Video Drop
                 </button>
-              </form>
+                <button
+                  type="button"
+                  onClick={() => setModalActiveTab('scripts')}
+                  className={`flex-1 py-2 text-xs font-bold rounded-lg transition flex items-center justify-center gap-1.5 ${
+                    modalActiveTab === 'scripts'
+                      ? 'bg-amber-400 text-slate-950 shadow-md font-black'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Viral Script Vault (5 Skits)</span>
+                </button>
+              </div>
+
+              {modalActiveTab === 'scripts' ? (
+                <div className="space-y-4">
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    Don't know what to shoot? Copy any of these 5 battle-tested 30-second scripts below. Shoot on your phone, tag <strong className="text-emerald-400">@renti_lly &amp; @rentilly</strong>, post, and drop your link!
+                  </p>
+
+                  {/* Script 1 */}
+                  <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-extrabold text-amber-300 uppercase">1. The ₦10,000 Inspection Scam (Renters)</span>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(
+                          `HOOK: "Omo! An agent just collected ₦10,000 from me just to look at a house without a roof!"\n\nSCENE: Holding head in hands looking at an imaginary uncompleted building.\n\nVOICEOVER: "In Nigeria, agents will charge you inspection fee, gate pass fee, and ladder fee. Meanwhile on Rentilly, you can explore full 3D interactive virtual tours of verified apartments right from your bed for ZERO NAIRA. Direct landlord connection, zero fake agents!"\n\nCTA: "Stop paying fake inspection fees! Search 'Rentilly' on Google Play Store right now or click the link in my bio to get ₦1,000 welcome credit! @renti_lly @rentilly"`,
+                          'script1',
+                          'Inspection Scam Script'
+                        )}
+                        className="text-[11px] px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg flex items-center gap-1 font-bold"
+                      >
+                        {copiedKey === 'script1' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                        <span>{copiedKey === 'script1' ? 'Copied!' : 'Copy Script'}</span>
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-relaxed italic">
+                      "Omo! An agent just collected ₦10,000 from me just to look at a house without a roof! ... Explore 3D tours of verified homes for free on Rentilly."
+                    </p>
+                  </div>
+
+                  {/* Script 2 */}
+                  <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-extrabold text-emerald-300 uppercase">2. The ₦1.8M Invoice Shock (Renters)</span>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(
+                          `HOOK: "Rent was ₦1,000,000... so how is the final bill ₦1,850,000?!"\n\nSCENE: Looking at a calculator in total disbelief.\n\nVOICEOVER: "Agreement ₦200k, Commission ₦200k, Caution fee ₦250k, Legal fee ₦150k, Transformer fee ₦50k! Are you renting the house or buying the transformer? With Rentilly, pricing is 100% transparent with zero extortionate commissions and digital leases."\n\nCTA: "Search 'Rentilly' on Google Play Store or tap the link in my bio. Tag @renti_lly & @rentilly!"`,
+                          'script2',
+                          'Invoice Shock Script'
+                        )}
+                        className="text-[11px] px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg flex items-center gap-1 font-bold"
+                      >
+                        {copiedKey === 'script2' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                        <span>{copiedKey === 'script2' ? 'Copied!' : 'Copy Script'}</span>
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-relaxed italic">
+                      "Rent was ₦1,000,000... so how is the final bill ₦1,850,000?! Agreement, Caution, Legal... With Rentilly, pricing is 100% transparent."
+                    </p>
+                  </div>
+
+                  {/* Script 3 */}
+                  <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-extrabold text-teal-300 uppercase">3. Omo-Onile Land Wahala (Property Purchase)</span>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(
+                          `HOOK: "You bought land in Lagos, but 4 different 'family youth chairmen' showed up with shovels?!"\n\nSCENE: Panicking over fake documents.\n\nVOICEOVER: "Buying property in Nigeria without verified title deeds is pure heartbreak. That's why smart buyers use Rentilly. Every property has verified C-of-O and title documentation, and your money is held safely in escrow until ownership is transferred!"\n\nCTA: "Protect your millions. Search 'Rentilly' on Google Play or visit myrentilly.com/play! @renti_lly @rentilly"`,
+                          'script3',
+                          'Omo-Onile Land Script'
+                        )}
+                        className="text-[11px] px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg flex items-center gap-1 font-bold"
+                      >
+                        {copiedKey === 'script3' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                        <span>{copiedKey === 'script3' ? 'Copied!' : 'Copy Script'}</span>
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-relaxed italic">
+                      "You bought land, but 4 different 'family youth chairmen' showed up with shovels?! Escrow protection & verified deeds on Rentilly."
+                    </p>
+                  </div>
+
+                  {/* Script 4 */}
+                  <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-extrabold text-cyan-300 uppercase">4. NYSC Corper Survival (Renters)</span>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(
+                          `HOOK: "POV: You just got posted to Ibadan / Lagos for NYSC and you have 48 hours to find a safe mini-flat."\n\nSCENE: Walking with a suitcase looking stressed.\n\nVOICEOVER: "Local agents will show you a 'self-contain' that looks like an abandoned store for ₦800k. I opened Rentilly, filtered by verified student/corper friendly flats with steady water and security, and booked a direct inspection with the verified landlord without tears."\n\nCTA: "Don't let them bill you! Download Rentilly on Google Play right now. @renti_lly @rentilly"`,
+                          'script4',
+                          'NYSC Corper Script'
+                        )}
+                        className="text-[11px] px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg flex items-center gap-1 font-bold"
+                      >
+                        {copiedKey === 'script4' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                        <span>{copiedKey === 'script4' ? 'Copied!' : 'Copy Script'}</span>
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-relaxed italic">
+                      "POV: You just got posted for NYSC and you have 48 hours to find a safe mini-flat... Rent directly from verified landlords on Rentilly."
+                    </p>
+                  </div>
+
+                  {/* Script 5 */}
+                  <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-extrabold text-purple-300 uppercase">5. Remote Worker Relocation (Renters)</span>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(
+                          `HOOK: "Why am I paying ₦3.5M for a noisy matchbox apartment in Lekki when I work from my laptop?!"\n\nSCENE: Side by side traffic noise vs peaceful laptop workstation.\n\nVOICEOVER: "I moved to a modern, spacious 2-bedroom in Ibadan for one-third the price. Steady solar inverter, high-speed fiber internet, and zero Lagos traffic stress. Found it in 15 minutes on Rentilly with verified amenities and instant direct landlord lease."\n\nCTA: "Upgrade your lifestyle with zero agent wahala. Search 'Rentilly' on Google Play Store! @renti_lly @rentilly"`,
+                          'script5',
+                          'Remote Worker Script'
+                        )}
+                        className="text-[11px] px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg flex items-center gap-1 font-bold"
+                      >
+                        {copiedKey === 'script5' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                        <span>{copiedKey === 'script5' ? 'Copied!' : 'Copy Script'}</span>
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-slate-300 leading-relaxed italic">
+                      "Why am I paying ₦3.5M in Lekki when I work from my laptop?! Find spacious solar homes on Rentilly for 1/3 the price."
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setModalActiveTab('submit')}
+                    className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg"
+                  >
+                    Got Your Video? Switch to Submit Form →
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Creator Name *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. Tunde Adeyemi"
+                      value={formData.creatorName}
+                      onChange={(e) => setFormData({ ...formData, creatorName: e.target.value })}
+                      className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Social Handle *</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="@yourhandle"
+                        value={formData.handle}
+                        onChange={(e) => setFormData({ ...formData, handle: e.target.value })}
+                        className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Platform</label>
+                      <select
+                        value={formData.platform}
+                        onChange={(e) => setFormData({ ...formData, platform: e.target.value as CreatorPlatform })}
+                        className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500"
+                      >
+                        <option value="tiktok">TikTok</option>
+                        <option value="instagram">Instagram Reels</option>
+                        <option value="youtube">YouTube Shorts</option>
+                        <option value="twitter">X (Twitter)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Rentilly Referral Code</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. TUNDE10"
+                        value={formData.referralCode}
+                        onChange={(e) => setFormData({ ...formData, referralCode: e.target.value.toUpperCase() })}
+                        className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white uppercase font-mono focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 uppercase mb-1">WhatsApp Phone *</label>
+                      <input
+                        type="tel"
+                        required
+                        placeholder="+234 80..."
+                        value={formData.phone}
+                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 uppercase mb-1">
+                      Contest Topic Category * (Renters &amp; Property Purchase Only)
+                    </label>
+                    <select
+                      required
+                      value={(formData as any).topicCategory || 'renters'}
+                      onChange={(e) => setFormData({ ...formData, topicCategory: e.target.value } as any)}
+                      className="w-full px-4 py-2.5 bg-slate-950 border border-emerald-500/40 rounded-xl text-xs sm:text-sm text-white focus:outline-none focus:border-emerald-400 cursor-pointer"
+                    >
+                      <option value="renters">🏠 Renters — Finding, Renting &amp; Leasing Verified Apartments on Rentilly</option>
+                      <option value="property_purchase">🏢 Property Purchase — Buying Verified Houses, Land &amp; Escrow Sales</option>
+                    </select>
+                    <p className="text-[10px] text-amber-300 font-medium mt-1">
+                      ⚠️ Videos must center exclusively on Renters or Property Purchase to qualify for prizes.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Video Live URL *</label>
+                    <input
+                      type="url"
+                      required
+                      placeholder="https://www.tiktok.com/@... or instagram.com/reel/..."
+                      value={formData.videoUrl}
+                      onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value })}
+                      className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Current Views</label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 15000"
+                      value={formData.claimedViews}
+                      onChange={(e) => setFormData({ ...formData, claimedViews: e.target.value })}
+                      className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  {/* MANDATORY SOCIAL FOLLOW & TAG VERIFICATION CHECKBOXES */}
+                  <div className="p-3.5 bg-slate-950 border border-amber-500/40 rounded-2xl space-y-2">
+                    <label className="flex items-start gap-2.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        required
+                        checked={formData.hasFollowed}
+                        onChange={(e) => setFormData({ ...formData, hasFollowed: e.target.checked })}
+                        className="mt-0.5 w-4 h-4 rounded text-emerald-500 focus:ring-emerald-400 bg-slate-900 border-slate-700 cursor-pointer"
+                      />
+                      <span className="text-xs text-slate-200 leading-snug">
+                        <strong className="text-amber-300">Mandatory Condition #1:</strong> I confirm that I follow <strong>@renti_lly</strong> on Instagram and/or <strong>@rentilly</strong> on TikTok/X to be eligible for cash prizes.
+                      </span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Your handle used to follow us (e.g. @your_account)"
+                      value={formData.followHandle}
+                      onChange={(e) => setFormData({ ...formData, followHandle: e.target.value })}
+                      className="w-full px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-lg text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
+
+                  {/* MANDATORY TAG RENTILLY IN VIDEO & CAPTION CHECKBOX */}
+                  <div className="p-3.5 bg-slate-950 border-2 border-emerald-500/60 rounded-2xl space-y-2.5 shadow-lg shadow-emerald-950/40">
+                    <label className="flex items-start gap-2.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        required
+                        checked={(formData as any).hasTaggedRentilly}
+                        onChange={(e) => setFormData({ ...formData, hasTaggedRentilly: e.target.checked } as any)}
+                        className="mt-0.5 w-4 h-4 rounded text-emerald-500 focus:ring-emerald-400 bg-slate-900 border-slate-700 cursor-pointer"
+                      />
+                      <span className="text-xs text-white leading-snug">
+                        <strong className="text-emerald-400">Mandatory Condition #2:</strong> I have <strong>tagged Rentilly in my video &amp; caption</strong> ({formData.platform === 'instagram' ? '@renti_lly' : '@rentilly'}) so viewers can tap directly to your pages.
+                      </span>
+                    </label>
+                    <div className="flex items-center justify-between text-xs bg-slate-900 px-3 py-2 rounded-xl border border-slate-800">
+                      <span className="text-slate-400">Required Tag:</span>
+                      <span className="font-mono font-black text-emerald-300 bg-emerald-950/60 border border-emerald-500/40 px-2 py-0.5 rounded">
+                        {formData.platform === 'instagram' ? '@renti_lly' : '@rentilly'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* MANDATORY COMMERCIAL UGC RIGHTS RELEASE CHECKBOX */}
+                  <div className="p-3.5 bg-slate-950 border border-slate-800 hover:border-slate-700 rounded-2xl space-y-2 transition">
+                    <label className="flex items-start gap-2.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        required
+                        checked={(formData as any).ugcRightsGranted}
+                        onChange={(e) => setFormData({ ...formData, ugcRightsGranted: e.target.checked } as any)}
+                        className="mt-0.5 w-4 h-4 rounded text-emerald-500 focus:ring-emerald-400 bg-slate-900 border-slate-700 cursor-pointer"
+                      />
+                      <span className="text-xs text-slate-300 leading-snug">
+                        <strong className="text-white">Commercial UGC Rights License:</strong> I grant <strong>Rentilly / E-Homes Global Inclusive Limited</strong> a non-exclusive, royalty-free license to feature, repost, and run marketing with this video drop across official social channels and web properties.
+                      </span>
+                    </label>
+                  </div>
+
+                  {/* Bank Payout Info (Optional at Entry) */}
+                  <div className="pt-2 border-t border-slate-800">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="block text-xs font-bold text-amber-400 uppercase">
+                        Bank Details (Optional at Entry)
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-medium">
+                        Can be provided after entering Top 20
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <input
+                        type="text"
+                        placeholder="Bank Name"
+                        value={formData.bankName}
+                        onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
+                        className="px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Account No"
+                        value={formData.accountNumber}
+                        onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value })}
+                        className="px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Account Name"
+                        value={formData.accountName}
+                        onChange={(e) => setFormData({ ...formData, accountName: e.target.value })}
+                        className="px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-xs text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-slate-950 font-black text-sm shadow-xl shadow-emerald-500/20 transition transform hover:scale-[1.02] cursor-pointer"
+                  >
+                    🚀 Submit Video &amp; Join Leaderboard
+                  </button>
+                </form>
+              )}
             </div>
           </div>
         )}

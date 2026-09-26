@@ -21,6 +21,9 @@ export interface CreatorSubmission {
   videoUrl: string;
   claimedViews: number;
   verifiedViews: number;
+  topicCategory?: 'renters' | 'purchase';
+  appReferralsCount?: number;
+  totalScore?: number;
   phone: string; // WhatsApp
   bankName?: string;
   accountNumber?: string;

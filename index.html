@@ -3,12 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/favicon.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="google-play-app" content="app-id=ng.rentilly.rentilly_mobile" />
     <title>Rentilly — Zero-Agent Nigerian Real Estate & KYP Verification Hub</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script>
+      // Automatically redirect app download links to Google Play Store
+      if (window.location.pathname === '/play' || 
+          window.location.pathname === '/app' || 
+          window.location.pathname === '/download') {
+        window.location.replace('https://play.google.com/store/apps/details?id=ng.rentilly.rentilly_mobile');
+      }
       // Automatically redirect verification, gate, and invite URLs to live Express backend API
       if (window.location.pathname.startsWith('/verify') || 
           window.location.pathname.startsWith('/invite') || 

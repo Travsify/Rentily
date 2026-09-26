@@ -21,8 +21,9 @@ export interface ContestSubmission {
   hasTaggedRentilly?: boolean;
   taggedHandleProof?: string;
   boostsCount?: number;
-  ugcRightsGranted?: boolean;
-  followHandle?: string;
+  topicCategory?: 'renters' | 'purchase';
+  appReferralsCount?: number;
+  totalScore?: number;
   phone: string;
   bankName?: string;
   accountNumber?: string;
@@ -113,9 +114,19 @@ function saveData(data: ContestSubmission[]): void {
 }
 
 function recalculateRanksAndPrizes(items: ContestSubmission[]): ContestSubmission[] {
-  items.sort((a, b) => (b.verifiedViews || b.claimedViews) - (a.verifiedViews || a.claimedViews));
+  // Sort by Viral Growth Index (VGI): Views + (Boosts * 100) + (App Referrals * 500)
+  items.sort((a, b) => {
+    const scoreA = (a.verifiedViews || a.claimedViews || 0) + ((a.boostsCount || 0) * 100) + ((a.appReferralsCount || 0) * 500);
+    const scoreB = (b.verifiedViews || b.claimedViews || 0) + ((b.boostsCount || 0) * 100) + ((b.appReferralsCount || 0) * 500);
+    return scoreB - scoreA;
+  });
 
   return items.map((item, idx) => {
+    const views = item.verifiedViews || item.claimedViews || 0;
+    const boosts = item.boostsCount || 0;
+    const referrals = item.appReferralsCount || 0;
+    item.totalScore = views + (boosts * 100) + (referrals * 500);
+
     if (item.bountyStatus === 'disqualified' || item.bountyStatus === 'paid') {
       return item;
     }
@@ -312,6 +323,7 @@ export const contestController = {
         handle,
         platform,
         videoUrl,
+        topicCategory,
         referralCode,
         claimedViews,
         phone,
@@ -336,6 +348,7 @@ export const contestController = {
         handle: handle.startsWith('@') ? handle.trim() : `@${handle.trim()}`,
         platform: platform || 'tiktok',
         videoUrl: videoUrl.trim(),
+        topicCategory: (topicCategory === 'purchase' ? 'purchase' : 'renters'),
         referralCode: referralCode ? referralCode.trim().toUpperCase() : undefined,
         claimedViews: views,
         verifiedViews: crawl.views,
@@ -347,6 +360,8 @@ export const contestController = {
         botRiskReason: crawl.reason,
         followVerified: true,
         followHandle: followHandle || handle,
+        boostsCount: 0,
+        appReferralsCount: 0,
         phone: phone || '',
         bankName,
         accountNumber,

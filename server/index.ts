@@ -141,6 +141,16 @@ app.get('/deed', verifyDeedByHash);
 app.get('/verify/:id', renderCredentialVerificationPage);
 app.get('/verify', renderCredentialVerificationPage);
 
+// Google Play Direct App Download Redirects
+const GOOGLE_PLAY_URL = 'https://play.google.com/store/apps/details?id=ng.rentilly.rentilly_mobile';
+app.get(['/play', '/app', '/download'], (_req: Request, res: Response) => {
+  res.redirect(302, GOOGLE_PLAY_URL);
+});
+app.get('/dl/:code', (req: Request, res: Response) => {
+  const code = encodeURIComponent(req.params.code || '');
+  res.redirect(302, `${GOOGLE_PLAY_URL}&referrer=utm_source%3Dcreator%26utm_campaign%3Dcontest%26utm_content%3D${code}`);
+});
+
 // 2. Mount API Router under /api
 app.use('/api', apiRouter);
 
