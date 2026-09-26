@@ -2852,6 +2852,81 @@ export async function payBill(req: Request, res: Response) {
         amount: numAmount,
         provider: operator || 'DSTV',
       });
+    } else if (cat === 'education') {
+      title = `${plan || operator || 'Exam PIN'} Purchase`;
+      type = 'Education Examination Voucher';
+      serviceResult = await FlutterwaveBillsService.purchaseEducationPin({
+        examType: plan || operator || 'WAEC Result Checker',
+        candidatePhone: targetCustomer,
+        candidateEmail: cleanEmail,
+        amount: numAmount,
+      });
+      tokenOutput = serviceResult.data?.token;
+    } else if (cat === 'government' || cat === 'remita') {
+      title = `${operator || 'Government / Remita'} Settlement`;
+      type = 'Government Tax & Remita Clearance';
+      serviceResult = await FlutterwaveBillsService.payGovernmentRemita({
+        rrrOrRef: targetCustomer,
+        agency: operator || 'Remita RRR Service',
+        payerName: req.body.beneficiaryName || req.body.customerName || 'Verified Taxpayer',
+        amount: numAmount,
+        email: cleanEmail,
+      });
+      tokenOutput = serviceResult.data?.clearanceCode;
+    } else if (cat === 'betting') {
+      title = `${operator || 'Betting'} Wallet Top-up (ID: ${targetCustomer})`;
+      type = 'Gaming & Sports Betting Funding';
+      serviceResult = await FlutterwaveBillsService.fundBettingWallet({
+        operator: operator || 'SportyBet',
+        customerId: targetCustomer,
+        amount: numAmount,
+        email: cleanEmail,
+      });
+      tokenOutput = serviceResult.data?.confirmationId;
+    } else if (cat === 'toll') {
+      title = `${operator || 'Tolls & Transit'} Top-up (${targetCustomer})`;
+      type = 'Expressway Toll & Transit Reload';
+      serviceResult = await FlutterwaveBillsService.topupTollCard({
+        provider: operator || 'LCC Lekki Toll Gate',
+        tagNumber: targetCustomer,
+        amount: numAmount,
+        email: cleanEmail,
+      });
+      tokenOutput = serviceResult.data?.receiptNumber;
+    } else if (cat === 'internet' || cat === 'broadband') {
+      title = `${operator || 'Broadband'} Renewal (${plan || 'Internet'})`;
+      type = 'Broadband & Fiber Subscription';
+      serviceResult = await FlutterwaveBillsService.purchaseBroadband({
+        provider: operator || 'Spectranet 4G LTE',
+        accountId: targetCustomer,
+        plan: plan || 'Monthly Broadband',
+        amount: numAmount,
+        email: cleanEmail,
+      });
+      tokenOutput = serviceResult.data?.confirmationNumber;
+    } else if (cat === 'estate') {
+      title = `${req.body.category || 'Estate Dues'} - ${req.body.unitNumber || targetCustomer}`;
+      type = 'Estate Management & Resident Levy';
+      serviceResult = await FlutterwaveBillsService.settleEstateDues({
+        category: plan || 'Estate Facility Management Fee',
+        estateName: req.body.estateName || operator || 'Rentilly Partner Estate',
+        unitNumber: req.body.unitNumber || targetCustomer,
+        residentName: req.body.beneficiaryName || 'Estate Resident',
+        amount: numAmount,
+        email: cleanEmail,
+      });
+      tokenOutput = serviceResult.data?.receiptNumber;
+    } else if (cat === 'water' || cat === 'waste') {
+      title = `${operator || (cat === 'water' ? 'Water Board' : 'LAWMA Sanitation')} Settlement`;
+      type = cat === 'water' ? 'Municipal Water Clearance' : 'Sanitation & Waste Fee';
+      serviceResult = await FlutterwaveBillsService.settleWaterOrWaste({
+        type: cat === 'water' ? 'water' : 'waste',
+        provider: operator || (cat === 'water' ? 'Lagos Water Corporation' : 'LAWMA Sanitation'),
+        customerNumber: targetCustomer,
+        amount: numAmount,
+        email: cleanEmail,
+      });
+      tokenOutput = serviceResult.data?.receiptNumber;
     } else {
       title = `${operator || 'Utility'} Payment`;
       type = 'Direct Utility Settlement';

@@ -27,6 +27,8 @@ class _BillsScreenState extends State<BillsScreen> {
   final TextEditingController _customerController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
+  final TextEditingController _estateNameController = TextEditingController();
+  final TextEditingController _unitController = TextEditingController();
 
   bool _isProcessing = false;
   String? _successMessage;
@@ -315,15 +317,59 @@ class _BillsScreenState extends State<BillsScreen> {
     'Abuja Environmental Protection Board (AEPB)',
   ];
 
+  // Education & Exam PINs
+  String _selectedExamType = 'WAEC Result Checker PIN (₦3,500)';
+  final List<String> _examTypes = [
+    'WAEC Result Checker PIN (₦3,500)',
+    'JAMB UTME Registration e-PIN (₦4,700)',
+    'JAMB Direct Entry e-PIN (₦5,700)',
+    'NECO Result Token (₦1,200)',
+    'NABTEB Result Checker (₦1,000)',
+  ];
+
+  // Government & Taxes / Remita
+  String _selectedGovtAgency = 'Remita RRR Invoice Payment';
+  final List<String> _govtAgencies = [
+    'Remita RRR Invoice Payment',
+    'Federal Inland Revenue (FIRS Tax)',
+    'Lagos Land Use Charge / IGR',
+    'FRSC Driver\'s License Renewal',
+    'CAC Corporate Filing Fees',
+  ];
+
+  // Sports Betting & Gaming
+  String _selectedBettingOperator = 'SportyBet';
+  final List<String> _bettingOperators = [
+    'SportyBet',
+    'Bet9ja',
+    '1xBet',
+    'BetKing',
+    'Merrybet',
+    'BangBet',
+  ];
+
+  // Estate Dues & Maintenance
+  String _selectedEstateDuesType = 'Estate Facility Management Fee';
+  final List<String> _estateDuesTypes = [
+    'Estate Facility Management Fee',
+    'Resident Association Security Levy',
+    'Estate Power Infrastructure Dues',
+    'Estate Sanitation & Waste Levy',
+  ];
+
   final List<Map<String, dynamic>> _allServices = const [
-    {'key': 'electricity', 'label': 'Electricity', 'icon': Icons.bolt_rounded, 'color': AppColors.accentOrange},
-    {'key': 'data', 'label': 'Data Bundle', 'icon': Icons.wifi_rounded, 'color': Color(0xFF0284C7)},
-    {'key': 'airtime', 'label': 'Airtime VTU', 'icon': Icons.phone_android_rounded, 'color': AppColors.primary},
-    {'key': 'cable', 'label': 'Cable TV', 'icon': Icons.tv_rounded, 'color': Color(0xFF7C3AED)},
-    {'key': 'water', 'label': 'Water Bill', 'icon': Icons.water_drop_rounded, 'color': Color(0xFF0D9488)},
-    {'key': 'internet', 'label': 'Broadband', 'icon': Icons.router_rounded, 'color': Color(0xFFD97706)},
-    {'key': 'toll', 'label': 'Tolls/Transit', 'icon': Icons.directions_car_rounded, 'color': Color(0xFF4F46E5)},
-    {'key': 'waste', 'label': 'Waste Mgmt', 'icon': Icons.delete_outline_rounded, 'color': AppColors.primaryLight},
+    {'key': 'electricity', 'label': 'Electricity', 'icon': Icons.bolt_rounded, 'color': AppColors.accentOrange, 'tag': 'TOKENS'},
+    {'key': 'data', 'label': 'Data Bundle', 'icon': Icons.wifi_rounded, 'color': Color(0xFF0284C7), 'tag': 'AUTO'},
+    {'key': 'airtime', 'label': 'Airtime VTU', 'icon': Icons.phone_android_rounded, 'color': AppColors.primary, 'tag': '2% CASH'},
+    {'key': 'cable', 'label': 'Cable TV', 'icon': Icons.tv_rounded, 'color': Color(0xFF7C3AED), 'tag': 'RENEWAL'},
+    {'key': 'internet', 'label': 'Broadband', 'icon': Icons.router_rounded, 'color': Color(0xFFD97706), 'tag': 'FIBER'},
+    {'key': 'education', 'label': 'Exam PINs', 'icon': Icons.school_rounded, 'color': Color(0xFF059669), 'tag': 'WAEC/JAMB'},
+    {'key': 'government', 'label': 'Govt & Tax', 'icon': Icons.account_balance_rounded, 'color': Color(0xFFDC2626), 'tag': 'REMITA'},
+    {'key': 'toll', 'label': 'Tolls/Transit', 'icon': Icons.directions_car_rounded, 'color': Color(0xFF4F46E5), 'tag': 'LCC/COWRY'},
+    {'key': 'betting', 'label': 'Sports Bet', 'icon': Icons.sports_soccer_rounded, 'color': Color(0xFF16A34A), 'tag': 'FUNDING'},
+    {'key': 'water', 'label': 'Water Bill', 'icon': Icons.water_drop_rounded, 'color': Color(0xFF0D9488), 'tag': 'LWC/FCT'},
+    {'key': 'waste', 'label': 'Waste Mgmt', 'icon': Icons.delete_outline_rounded, 'color': AppColors.primaryLight, 'tag': 'LAWMA'},
+    {'key': 'estate', 'label': 'Estate Dues', 'icon': Icons.apartment_rounded, 'color': Color(0xFF6366F1), 'tag': 'LEVIES'},
   ];
 
   @override
@@ -630,6 +676,8 @@ class _BillsScreenState extends State<BillsScreen> {
     _customerController.dispose();
     _phoneController.dispose();
     _amountController.dispose();
+    _estateNameController.dispose();
+    _unitController.dispose();
     super.dispose();
   }
 
@@ -647,8 +695,16 @@ class _BillsScreenState extends State<BillsScreen> {
         return 'Water Utilities Payment';
       case 'internet':
         return 'Broadband & Fiber Internet';
+      case 'education':
+        return 'Education & Exam PINs';
+      case 'government':
+        return 'Government & Remita Taxes';
       case 'toll':
         return 'Tolls & Transit Card Top-up';
+      case 'betting':
+        return 'Sports Betting Wallet Funding';
+      case 'estate':
+        return 'Estate Dues & Maintenance Fees';
       case 'waste':
         return 'Waste Management Fees';
       default:
@@ -690,6 +746,26 @@ class _BillsScreenState extends State<BillsScreen> {
         _showToast('Please enter Smartcard / IUC number.');
         return;
       }
+    } else if (_selectedCategory == 'education') {
+      if (phone.isEmpty && customer.isEmpty) {
+        _showToast('Please enter candidate phone number to receive PIN.');
+        return;
+      }
+    } else if (_selectedCategory == 'government') {
+      if (customer.isEmpty || amount.isEmpty) {
+        _showToast('Please enter Remita RRR / Assessment Reference and amount.');
+        return;
+      }
+    } else if (_selectedCategory == 'betting') {
+      if (customer.isEmpty || amount.isEmpty) {
+        _showToast('Please enter betting User ID / Customer ID and amount.');
+        return;
+      }
+    } else if (_selectedCategory == 'estate') {
+      if (_unitController.text.trim().isEmpty || amount.isEmpty) {
+        _showToast('Please enter your unit/flat number and dues amount.');
+        return;
+      }
     } else {
       if (customer.isEmpty || amount.isEmpty) {
         _showToast('Please enter account number and amount.');
@@ -705,7 +781,7 @@ class _BillsScreenState extends State<BillsScreen> {
 
     try {
       double numAmount = 0;
-      if (_selectedCategory == 'airtime' || _selectedCategory == 'electricity' || _selectedCategory == 'water' || _selectedCategory == 'toll' || _selectedCategory == 'waste') {
+      if (_selectedCategory == 'airtime' || _selectedCategory == 'electricity' || _selectedCategory == 'water' || _selectedCategory == 'toll' || _selectedCategory == 'waste' || _selectedCategory == 'government' || _selectedCategory == 'betting' || _selectedCategory == 'estate') {
         numAmount = double.tryParse(amount) ?? 0;
       } else if (_selectedCategory == 'data') {
         final parts = _selectedDataPlan.split('₦');
@@ -728,6 +804,20 @@ class _BillsScreenState extends State<BillsScreen> {
         } else {
           numAmount = 8500;
         }
+      } else if (_selectedCategory == 'education') {
+        final parts = _selectedExamType.split('₦');
+        if (parts.length > 1) {
+          numAmount = double.tryParse(parts[1].replaceAll(')', '').replaceAll(',', '').trim()) ?? 3500;
+        } else {
+          numAmount = 3500;
+        }
+      }
+
+      String recipientIdentifier = customer;
+      if (_selectedCategory == 'airtime' || _selectedCategory == 'data' || _selectedCategory == 'education') {
+        recipientIdentifier = phone.isNotEmpty ? phone : customer;
+      } else if (_selectedCategory == 'estate') {
+        recipientIdentifier = _unitController.text.trim();
       }
 
       // Security Authorization (Biometric / 4-Digit Payment PIN)
@@ -735,7 +825,7 @@ class _BillsScreenState extends State<BillsScreen> {
         context,
         title: _appBarTitle,
         amount: numAmount,
-        recipient: _selectedCategory == 'airtime' || _selectedCategory == 'data' ? phone : customer,
+        recipient: recipientIdentifier,
       );
 
       if (!authorized) {
@@ -745,26 +835,50 @@ class _BillsScreenState extends State<BillsScreen> {
 
       final user = await AuthService.getCurrentUser();
       final url = Uri.parse('${AppConstants.apiBaseUrl}/payments/pay-bill');
+
+      String targetOperator = _selectedTelco;
+      String? targetPlan;
+      if (_selectedCategory == 'electricity') {
+        targetOperator = _selectedDisco.split(' ')[0].trim();
+      } else if (_selectedCategory == 'cable') {
+        targetOperator = _selectedCable;
+        targetPlan = _selectedBouquet;
+      } else if (_selectedCategory == 'data') {
+        targetOperator = _selectedTelco;
+        targetPlan = _selectedDataPlan;
+      } else if (_selectedCategory == 'internet') {
+        targetOperator = _selectedBroadband;
+        targetPlan = _selectedBroadbandPlan;
+      } else if (_selectedCategory == 'education') {
+        targetOperator = _selectedExamType.split(' ')[0].trim();
+        targetPlan = _selectedExamType;
+      } else if (_selectedCategory == 'government') {
+        targetOperator = _selectedGovtAgency;
+      } else if (_selectedCategory == 'betting') {
+        targetOperator = _selectedBettingOperator;
+      } else if (_selectedCategory == 'toll') {
+        targetOperator = _selectedTollProvider;
+      } else if (_selectedCategory == 'estate') {
+        targetOperator = _estateNameController.text.trim().isNotEmpty ? _estateNameController.text.trim() : 'Rentilly Partner Estate';
+        targetPlan = _selectedEstateDuesType;
+      } else if (_selectedCategory == 'water') {
+        targetOperator = _selectedWaterProvider;
+      } else if (_selectedCategory == 'waste') {
+        targetOperator = _selectedWasteProvider;
+      }
+
       final res = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'email': user?.email ?? '',
           'category': _selectedCategory,
-          'operator': _selectedCategory == 'electricity'
-              ? _selectedDisco.split(' ')[0].trim()
-              : (_selectedCategory == 'cable'
-                  ? _selectedCable
-                  : (_selectedCategory == 'internet'
-                      ? _selectedBroadband
-                      : _selectedTelco)),
+          'operator': targetOperator,
           'meterType': _selectedMeterType,
-          'plan': _selectedCategory == 'data'
-              ? _selectedDataPlan
-              : (_selectedCategory == 'cable'
-                  ? _selectedBouquet
-                  : _selectedBroadbandPlan),
-          'customerNumber': _selectedCategory == 'airtime' || _selectedCategory == 'data' ? phone : customer,
+          'plan': targetPlan,
+          'customerNumber': recipientIdentifier,
+          'unitNumber': _unitController.text.trim(),
+          'estateName': _estateNameController.text.trim(),
           'amount': numAmount,
           if (_verifiedCustomerName != null && _verifiedCustomerName!.trim().isNotEmpty)
             'beneficiaryName': _verifiedCustomerName!.trim(),
@@ -780,10 +894,20 @@ class _BillsScreenState extends State<BillsScreen> {
           await AuthService.updateUser(user.copyWith(walletBalance: newBal));
         }
 
-        if (_selectedCategory == 'electricity') {
-          final t = data['token']?.toString() ?? data['data']?['token']?.toString();
+        final t = data['token']?.toString() ??
+            data['data']?['token']?.toString() ??
+            data['data']?['clearanceCode']?.toString() ??
+            data['data']?['confirmationId']?.toString() ??
+            data['data']?['receiptNumber']?.toString();
+
+        if (t != null && t.isNotEmpty) {
           setState(() {
             _tokenOutput = t;
+          });
+        }
+
+        if (_selectedCategory == 'electricity') {
+          setState(() {
             _successMessage = (t != null && t.isNotEmpty)
                 ? 'Prepaid electricity token generated successfully!'
                 : 'Electricity bill payment completed successfully!';
@@ -793,20 +917,60 @@ class _BillsScreenState extends State<BillsScreen> {
                 ? 'Prepaid Electricity Token Generated ⚡'
                 : 'Electricity Payment Confirmed ⚡',
             message: (t != null && t.isNotEmpty)
-                ? 'Token $t generated for ${_verifiedCustomerName ?? "meter"} ($customer) • Amount: ₦${_amountController.text}'
-                : 'Electricity payment of ₦${_amountController.text} processed for ${_verifiedCustomerName ?? "meter"} ($customer).',
+                ? 'Token $t generated for ${_verifiedCustomerName ?? "meter"} ($recipientIdentifier) • Amount: ₦$numAmount'
+                : 'Electricity payment of ₦$numAmount processed for ${_verifiedCustomerName ?? "meter"} ($recipientIdentifier).',
             category: 'transaction',
-            metadata: {'token': t ?? '', 'meter': customer, 'customerName': _verifiedCustomerName ?? '', 'amount': '₦${_amountController.text}'},
+            metadata: {'token': t ?? '', 'meter': recipientIdentifier, 'customerName': _verifiedCustomerName ?? '', 'amount': '₦$numAmount'},
+          );
+        } else if (_selectedCategory == 'education') {
+          setState(() {
+            _successMessage = 'Examination e-PIN generated successfully!';
+          });
+          NotificationService.addNotification(
+            title: 'Exam e-PIN Issued 🎓',
+            message: 'PIN $t issued for $recipientIdentifier ($targetPlan) • Amount: ₦$numAmount',
+            category: 'transaction',
+            metadata: {'token': t ?? '', 'customer': recipientIdentifier, 'plan': targetPlan ?? '', 'amount': '₦$numAmount'},
+          );
+        } else if (_selectedCategory == 'government') {
+          setState(() {
+            _successMessage = 'Government / Remita settlement cleared successfully!';
+          });
+          NotificationService.addNotification(
+            title: 'Govt / Remita Settlement Confirmed 🏛️',
+            message: 'Clearance Code: $t for reference $recipientIdentifier • Amount: ₦$numAmount',
+            category: 'transaction',
+            metadata: {'token': t ?? '', 'reference': recipientIdentifier, 'agency': targetOperator, 'amount': '₦$numAmount'},
+          );
+        } else if (_selectedCategory == 'betting') {
+          setState(() {
+            _successMessage = 'Betting wallet funded successfully!';
+          });
+          NotificationService.addNotification(
+            title: '$targetOperator Wallet Funded ⚽',
+            message: 'Account $recipientIdentifier credited with ₦$numAmount. Ref: $t',
+            category: 'transaction',
+            metadata: {'reference': t ?? '', 'customerId': recipientIdentifier, 'operator': targetOperator, 'amount': '₦$numAmount'},
+          );
+        } else if (_selectedCategory == 'estate') {
+          setState(() {
+            _successMessage = 'Estate dues cleared successfully!';
+          });
+          NotificationService.addNotification(
+            title: 'Estate Dues Cleared 🏢',
+            message: '$targetPlan for Unit $recipientIdentifier cleared. Receipt: $t',
+            category: 'transaction',
+            metadata: {'receipt': t ?? '', 'unit': recipientIdentifier, 'amount': '₦$numAmount'},
           );
         } else {
           setState(() {
             _successMessage = data['message'] ?? 'Transaction completed! Service successfully activated.';
           });
           NotificationService.addNotification(
-            title: '$_selectedTelco $_appBarTitle Successful 💳',
-            message: 'Payment of ₦${_amountController.text} processed for ${_selectedCategory == "airtime" || _selectedCategory == "data" ? _phoneController.text : _customerController.text}.',
+            title: '$_appBarTitle Successful 💳',
+            message: 'Payment of ₦$numAmount processed for $recipientIdentifier.',
             category: 'transaction',
-            metadata: {'category': _selectedCategory, 'amount': '₦${_amountController.text}', 'telco': _selectedTelco},
+            metadata: {'category': _selectedCategory, 'amount': '₦$numAmount'},
           );
         }
 
@@ -886,7 +1050,7 @@ class _BillsScreenState extends State<BillsScreen> {
               ),
               const SizedBox(height: 10),
 
-              // 4x2 Responsive Grid
+              // 4x3 Responsive Grid
               GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -894,13 +1058,14 @@ class _BillsScreenState extends State<BillsScreen> {
                   crossAxisCount: 4,
                   mainAxisSpacing: 10,
                   crossAxisSpacing: 8,
-                  childAspectRatio: 0.82,
+                  childAspectRatio: 0.78,
                 ),
                 itemCount: _allServices.length,
                 itemBuilder: (context, idx) {
                   final s = _allServices[idx];
                   final isSelected = _selectedCategory == s['key'];
                   final Color c = s['color'] as Color;
+                  final String tag = (s['tag'] ?? '').toString();
 
                   return InkWell(
                     onTap: () {
@@ -954,6 +1119,24 @@ class _BillsScreenState extends State<BillsScreen> {
                               color: isSelected ? c : AppColors.textPrimary,
                             ),
                           ),
+                          if (tag.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: isSelected ? c.withValues(alpha: 0.2) : const Color(0xFFF1F5F9),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                tag,
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 7.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: isSelected ? c : AppColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -1046,7 +1229,17 @@ class _BillsScreenState extends State<BillsScreen> {
                               const Icon(Icons.check_circle_rounded, size: 18, color: AppColors.primaryLight),
                               const SizedBox(width: 6),
                               Text(
-                                'PREPAID TOKEN GENERATED',
+                                _selectedCategory == 'electricity'
+                                    ? 'PREPAID TOKEN GENERATED'
+                                    : (_selectedCategory == 'education'
+                                        ? 'EXAMINATION e-PIN ISSUED'
+                                        : (_selectedCategory == 'government'
+                                            ? 'REMITA CLEARANCE CODE'
+                                            : (_selectedCategory == 'betting'
+                                                ? 'BETTING TOP-UP CONFIRMED'
+                                                : (_selectedCategory == 'estate'
+                                                    ? 'ESTATE DUES RECEIPT'
+                                                    : 'SETTLEMENT REFERENCE')))),
                                 style: GoogleFonts.plusJakartaSans(
                                   fontSize: 10,
                                   fontWeight: FontWeight.w800,
@@ -1059,7 +1252,7 @@ class _BillsScreenState extends State<BillsScreen> {
                           GestureDetector(
                             onTap: () {
                               Clipboard.setData(ClipboardData(text: _tokenOutput!.replaceAll(' ', '')));
-                              _showToast('Token copied to clipboard!');
+                              _showToast('Copied to clipboard!');
                             },
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -1068,7 +1261,7 @@ class _BillsScreenState extends State<BillsScreen> {
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                'Copy Token',
+                                _selectedCategory == 'education' ? 'Copy e-PIN' : 'Copy Code',
                                 style: GoogleFonts.plusJakartaSans(
                                   fontSize: 10,
                                   fontWeight: FontWeight.bold,
@@ -1092,16 +1285,23 @@ class _BillsScreenState extends State<BillsScreen> {
                           _tokenOutput!,
                           textAlign: TextAlign.center,
                           style: GoogleFonts.plusJakartaSans(
-                            fontSize: 18,
+                            fontSize: 17,
                             fontWeight: FontWeight.w800,
-                            letterSpacing: 2.5,
+                            letterSpacing: 2.0,
                             color: Colors.white,
                           ),
                         ),
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        'Key this 20-digit token into your prepaid CIU keypad.',
+                        _selectedCategory == 'electricity'
+                            ? 'Key this 20-digit token into your prepaid CIU keypad.'
+                            : (_selectedCategory == 'education'
+                                ? 'Use this official e-PIN on the examination portal to register or check results.'
+                                : (_selectedCategory == 'government'
+                                    ? 'Present this clearance code as official proof of government tax payment.'
+                                    : 'Save this reference code for your records.')),
+                        textAlign: TextAlign.center,
                         style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: Colors.white.withValues(alpha: 0.8)),
                       ),
                     ],
@@ -1165,6 +1365,22 @@ class _BillsScreenState extends State<BillsScreen> {
       title = 'Broadband & Fiber Top-up';
       sub = 'Instant high-speed internet renewal for Spectranet, Smile, FiberOne.';
       icon = Icons.router_rounded;
+    } else if (_selectedCategory == 'education') {
+      title = 'Instant Examination e-PIN Delivery';
+      sub = 'Official WAEC, JAMB, NECO tokens delivered on-screen & via SMS.';
+      icon = Icons.school_rounded;
+    } else if (_selectedCategory == 'government') {
+      title = 'Remita RRR & Government Taxes';
+      sub = 'Instant electronic clearance for federal, state & corporate fees.';
+      icon = Icons.account_balance_rounded;
+    } else if (_selectedCategory == 'betting') {
+      title = 'Sports Betting Wallet Top-up';
+      sub = 'Direct instant funding for SportyBet, Bet9ja, 1xBet & BetKing.';
+      icon = Icons.sports_soccer_rounded;
+    } else if (_selectedCategory == 'estate') {
+      title = 'Estate Dues & Resident Levies';
+      sub = 'Direct settlement of facility management, security and estate power.';
+      icon = Icons.apartment_rounded;
     } else if (_selectedCategory == 'water') {
       title = 'Municipal Water Board Clearance';
       sub = 'Direct water utility settlement for residential & commercial connections.';
@@ -2144,6 +2360,204 @@ class _BillsScreenState extends State<BillsScreen> {
           ],
         );
 
+      case 'education':
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildLabel('EXAMINATION BODY & PIN TYPE'),
+            const SizedBox(height: 6),
+            DropdownButtonFormField<String>(
+              value: _selectedExamType,
+              dropdownColor: Colors.white,
+              isExpanded: true,
+              style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+              decoration: _buildInputDeco(),
+              items: _examTypes.map((e) => DropdownMenuItem(value: e, child: Text(e, overflow: TextOverflow.ellipsis))).toList(),
+              onChanged: (v) => setState(() => _selectedExamType = v!),
+            ),
+            const SizedBox(height: 14),
+            _buildLabel('CANDIDATE PHONE NUMBER (RECEIVES e-PIN VIA SMS)'),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _phoneController,
+              keyboardType: TextInputType.phone,
+              style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+              decoration: _buildInputDeco(hint: 'e.g. 0803 123 4567'),
+            ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF059669).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF059669).withValues(alpha: 0.25)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.verified_user_rounded, size: 16, color: Color(0xFF059669)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Official examination e-PIN will be delivered instantly on-screen and via SMS.',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: const Color(0xFF065F46), fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+
+      case 'government':
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildLabel('GOVERNMENT REVENUE AGENCY / SERVICE'),
+            const SizedBox(height: 6),
+            DropdownButtonFormField<String>(
+              value: _selectedGovtAgency,
+              dropdownColor: Colors.white,
+              isExpanded: true,
+              style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+              decoration: _buildInputDeco(),
+              items: _govtAgencies.map((g) => DropdownMenuItem(value: g, child: Text(g, overflow: TextOverflow.ellipsis))).toList(),
+              onChanged: (v) => setState(() => _selectedGovtAgency = v!),
+            ),
+            const SizedBox(height: 14),
+            _buildLabel('REMITA RETRIEVAL REFERENCE (RRR) / TAX ASSESSMENT ID'),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _customerController,
+              style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+              decoration: _buildInputDeco(hint: 'e.g. 2809-1829-4819'),
+            ),
+            const SizedBox(height: 14),
+            _buildLabel('ASSESSMENT AMOUNT (₦)'),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _amountController,
+              keyboardType: TextInputType.number,
+              style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+              decoration: _buildInputDeco(hint: 'e.g. 25,000'),
+            ),
+          ],
+        );
+
+      case 'betting':
+        final bettingQuickAmounts = ['500', '1,000', '2,000', '5,000', '10,000'];
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildLabel('SPORTS BETTING & GAMING OPERATOR'),
+            const SizedBox(height: 6),
+            DropdownButtonFormField<String>(
+              value: _selectedBettingOperator,
+              dropdownColor: Colors.white,
+              style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+              decoration: _buildInputDeco(),
+              items: _bettingOperators.map((b) => DropdownMenuItem(value: b, child: Text(b))).toList(),
+              onChanged: (v) => setState(() => _selectedBettingOperator = v!),
+            ),
+            const SizedBox(height: 14),
+            _buildLabel('BETTING USER ID / ACCOUNT NUMBER'),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _customerController,
+              keyboardType: TextInputType.number,
+              style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+              decoration: _buildInputDeco(hint: 'e.g. 7081928'),
+            ),
+            const SizedBox(height: 14),
+            _buildLabel('SELECT QUICK TOP-UP AMOUNT'),
+            const SizedBox(height: 8),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: bettingQuickAmounts.map((q) {
+                  final rawQ = q.replaceAll(',', '');
+                  final isSel = _amountController.text == rawQ;
+                  return GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _amountController.text = rawQ;
+                      });
+                    },
+                    child: Container(
+                      margin: const EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSel ? const Color(0xFF16A34A) : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: isSel ? const Color(0xFF16A34A) : AppColors.borderDark),
+                      ),
+                      child: Text(
+                        '₦$q',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11,
+                          fontWeight: isSel ? FontWeight.bold : FontWeight.w600,
+                          color: isSel ? Colors.white : AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const SizedBox(height: 14),
+            _buildLabel('OR CUSTOM TOP-UP AMOUNT (₦)'),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _amountController,
+              keyboardType: TextInputType.number,
+              style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+              decoration: _buildInputDeco(hint: 'e.g. 2,000'),
+            ),
+          ],
+        );
+
+      case 'estate':
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildLabel('ESTATE DUES & LEVY CATEGORY'),
+            const SizedBox(height: 6),
+            DropdownButtonFormField<String>(
+              value: _selectedEstateDuesType,
+              dropdownColor: Colors.white,
+              isExpanded: true,
+              style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+              decoration: _buildInputDeco(),
+              items: _estateDuesTypes.map((e) => DropdownMenuItem(value: e, child: Text(e, overflow: TextOverflow.ellipsis))).toList(),
+              onChanged: (v) => setState(() => _selectedEstateDuesType = v!),
+            ),
+            const SizedBox(height: 14),
+            _buildLabel('ESTATE / RESIDENCE NAME'),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _estateNameController,
+              style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+              decoration: _buildInputDeco(hint: 'e.g. Victoria Garden City (VGC)'),
+            ),
+            const SizedBox(height: 14),
+            _buildLabel('HOUSE / UNIT / FLAT NUMBER'),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _unitController,
+              style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+              decoration: _buildInputDeco(hint: 'e.g. Block 4, Flat 2B'),
+            ),
+            const SizedBox(height: 14),
+            _buildLabel('PAYMENT AMOUNT (₦)'),
+            const SizedBox(height: 6),
+            TextField(
+              controller: _amountController,
+              keyboardType: TextInputType.number,
+              style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+              decoration: _buildInputDeco(hint: 'e.g. 15,000'),
+            ),
+          ],
+        );
+
       default:
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2181,6 +2595,14 @@ class _BillsScreenState extends State<BillsScreen> {
         return 'Renew Cable TV Bouquet';
       case 'internet':
         return 'Renew Broadband Subscription';
+      case 'education':
+        return 'Purchase Examination e-PIN';
+      case 'government':
+        return 'Process Government Clearance';
+      case 'betting':
+        return 'Fund Betting Account';
+      case 'estate':
+        return 'Pay Estate Dues Now';
       case 'water':
         return 'Pay Water Utility Bill';
       case 'toll':

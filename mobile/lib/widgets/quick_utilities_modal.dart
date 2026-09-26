@@ -85,6 +85,38 @@ class QuickUtilitiesModal extends StatelessWidget {
         'color': AppColors.primaryLight,
         'tag': 'APPROVED',
       },
+      {
+        'title': 'Education & Exam PINs',
+        'subtitle': 'WAEC, JAMB, NECO and NABTEB candidate tokens',
+        'icon': Icons.school_rounded,
+        'category': 'education',
+        'color': const Color(0xFF059669),
+        'tag': 'INSTANT PIN',
+      },
+      {
+        'title': 'Government & Remita',
+        'subtitle': 'Remita RRR, FIRS tax, State IGR & CAC clearance',
+        'icon': Icons.account_balance_rounded,
+        'category': 'government',
+        'color': const Color(0xFFDC2626),
+        'tag': 'OFFICIAL',
+      },
+      {
+        'title': 'Sports Betting',
+        'subtitle': 'Instant wallet top-up for SportyBet, Bet9ja & BetKing',
+        'icon': Icons.sports_soccer_rounded,
+        'category': 'betting',
+        'color': const Color(0xFF16A34A),
+        'tag': 'DIRECT CREDIT',
+      },
+      {
+        'title': 'Estate Dues & Levies',
+        'subtitle': 'Facility management, security & resident charges',
+        'icon': Icons.apartment_rounded,
+        'category': 'estate',
+        'color': const Color(0xFF6366F1),
+        'tag': 'RESIDENCE',
+      },
     ];
 
     return Padding(

@@ -218,10 +218,18 @@ apiRouter.get('/bills/categories', (req, res) => {
   res.json({
     status: true,
     data: [
-      { id: 'electricity', name: 'Electricity (Prepaid / Postpaid)', icon: 'zap' },
-      { id: 'airtime', name: 'Airtime VTU', icon: 'phone' },
-      { id: 'data', name: 'Mobile Internet Data', icon: 'wifi' },
-      { id: 'cable', name: 'Cable TV (DSTV / GOTV / Startimes)', icon: 'tv' }
+      { id: 'electricity', name: 'Electricity (All 11 DisCos)', icon: 'zap', tag: 'INSTANT TOKEN' },
+      { id: 'data', name: 'Mobile Data Bundles', icon: 'wifi', tag: 'AUTOMATED' },
+      { id: 'airtime', name: 'Airtime VTU Recharge', icon: 'phone', tag: '2% CASHBACK' },
+      { id: 'cable', name: 'Cable & Pay TV (DStv, GOtv, StarTimes)', icon: 'tv', tag: 'INSTANT' },
+      { id: 'internet', name: 'Broadband & Fiber ISPs', icon: 'router', tag: 'HIGH-SPEED' },
+      { id: 'education', name: 'Education & Exam PINs (WAEC, JAMB, NECO)', icon: 'book', tag: 'INSTANT PIN' },
+      { id: 'government', name: 'Government & Taxes (Remita RRR)', icon: 'landmark', tag: 'OFFICIAL' },
+      { id: 'toll', name: 'Tolls & Transit (LCC Lekki e-Tag, Cowry)', icon: 'car', tag: 'FAST PASS' },
+      { id: 'betting', name: 'Sports Betting & Gaming Funding', icon: 'award', tag: 'INSTANT CREDIT' },
+      { id: 'water', name: 'Municipal Water Board Clearance', icon: 'droplet', tag: 'UTILITY' },
+      { id: 'waste', name: 'Waste Management (LAWMA Refuse)', icon: 'trash-2', tag: 'SANITATION' },
+      { id: 'estate', name: 'Estate Dues & Maintenance Fees', icon: 'home', tag: 'COMMUNITY' }
     ]
   });
 });
