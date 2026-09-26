@@ -419,8 +419,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 18),
 
-              // 1b. Action Required: Upgrade to Dedicated Bank Account Banner (Only when admin triggers Re-KYC)
-              if (_user != null && _user!.rekycRequired == true) ...[
+              // 1b. Action Required: Verification & ₦1,000 Welcome Bonus Banner
+              if (_user != null && (_user!.rekycRequired == true || !_user!.isVerified || _user!.accountNumber == null)) ...[
                 GestureDetector(
                   onTap: () {
                     DateOfBirthModal.show(
@@ -459,7 +459,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             color: const Color(0xFF10B981).withValues(alpha: 0.2),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.bolt_rounded, color: Color(0xFF10B981), size: 22),
+                          child: const Icon(Icons.card_giftcard_rounded, color: Color(0xFF10B981), size: 22),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -467,7 +467,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'ACTION REQUIRED: ACCOUNT UPGRADE',
+                                'CLAIM ₦1,000 BONUS & ACTIVATE ACCOUNT 🎁',
                                 style: GoogleFonts.plusJakartaSans(
                                   fontSize: 11,
                                   fontWeight: FontWeight.w900,
@@ -477,7 +477,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               const SizedBox(height: 3),
                               Text(
-                                'Confirm your BVN, NIN & Date of Birth to activate your dedicated settlement account & Dollar Card.',
+                                'Confirm your 11-digit BVN or NIN to claim your ₦1,000 reward, activate dedicated Wema Bank NUBAN & Dollar Card.',
                                 style: GoogleFonts.plusJakartaSans(
                                   fontSize: 10.5,
                                   fontWeight: FontWeight.w500,
@@ -496,7 +496,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
-                            'Upgrade',
+                            'Claim ₦1k ⚡',
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,

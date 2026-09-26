@@ -31,6 +31,7 @@ import { IdentitypassService } from '../services/identitypassService';
 import { FlutterwaveService } from '../services/flutterwaveService';
 import { TermiiService } from '../services/termiiService';
 import { adminSecuritySentinel, triggerEmergencyLockdown, liftEmergencyLockdown, getSentinelStatus } from '../middleware/adminSecuritySentinel';
+import { AutomatedKycNudgeAndReportWorker } from '../services/automatedKycNudgeAndReportWorker';
 export const apiRouter = Router();
 
 // 1. Health & Third-Party Service Status
@@ -189,6 +190,14 @@ apiRouter.post('/verify/bvn', verificationController.verifyBVN);
 apiRouter.post('/verify/cac', verificationController.verifyCAC);
 apiRouter.post('/verification/complete-maplerad-kyc', verificationController.completeMapleradKyc);
 apiRouter.post('/admin/request-rekyc', verificationController.requestReKyc);
+apiRouter.post('/admin/trigger-nudge-and-report', async (_req, res) => {
+  try {
+    const report = await AutomatedKycNudgeAndReportWorker.runCycle();
+    res.json({ success: true, report });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Worker execution failed' });
+  }
+});
 apiRouter.get('/verify/credential/:id', verificationController.verifyPublicCredential);
 apiRouter.get('/verify/credential', verificationController.verifyPublicCredential);
 

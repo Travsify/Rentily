@@ -496,7 +496,8 @@ export async function requestReKyc(req: Request, res: Response) {
       }
     } else if (allUsers) {
       const all = UserStore.getAllUsers();
-      targetUsers = all.filter(u => u.isVerified || (u.walletBalance && u.walletBalance > 0));
+      // Target ALL unverified accounts, or accounts without a dedicated NUBAN
+      targetUsers = all.filter(u => !u.isVerified || !u.accountNumber);
     } else {
       return res.status(400).json({ error: 'Please provide email or set allUsers: true' });
     }
@@ -530,7 +531,7 @@ export async function requestReKyc(req: Request, res: Response) {
       });
 
       if (mapleRes.accountNumber) {
-        // Successfully generated live account!
+        // Successfully generated live account via provider
         const memUser = await UserStore.findByEmail(cleanEmail);
         if (memUser) {
           UserStore.upsertUserForced({
@@ -562,12 +563,12 @@ export async function requestReKyc(req: Request, res: Response) {
           userName: u.fullName || 'Rentilly User',
           category: 'wallet',
           title: 'Rentilly Settlement Account Activated! 🏦',
-          message: `Your dedicated Rentilly Fincra settlement account (${mapleRes.accountNumber}) and Virtual Dollar Card are now active! Available balance: ₦${(u.walletBalance || 0).toLocaleString()}.`
+          message: `Your dedicated Rentilly settlement account (${mapleRes.accountNumber}) and Virtual Dollar Card are now active! Available balance: ₦${(u.walletBalance || 0).toLocaleString()}.`
         });
 
         activatedCount++;
       } else {
-        // Still requires user to confirm details / DOB
+        // Nudge user to submit BVN/NIN in-app (NO manual verification bypass)
         if (supabase) {
           try {
             await supabase
@@ -584,7 +585,6 @@ export async function requestReKyc(req: Request, res: Response) {
         }
 
         const reqHost = req.get('host') || 'api.myrentilly.com';
-        const reqProto = req.protocol || 'https';
         const webRekycUrl = reqHost.includes('localhost') 
           ? `http://${reqHost}/verify/re-kyc?email=${encodeURIComponent(cleanEmail)}`
           : `https://api.myrentilly.com/verify/re-kyc?email=${encodeURIComponent(cleanEmail)}`;
@@ -594,10 +594,10 @@ export async function requestReKyc(req: Request, res: Response) {
           email: cleanEmail,
           userName: u.fullName || 'Rentilly User',
           category: 'system',
-          title: 'Action Required: Complete Your Rentilly Upgrade 🚀',
-          message: `Please confirm your Date of Birth to activate your dedicated 9PSB settlement account and Virtual Dollar Card. Your current wallet balance of ₦${(u.walletBalance || 0).toLocaleString()} is 100% safe and visible!`,
+          title: 'Claim Your ₦1,000 Welcome Bonus & Activate Your Account 🎁',
+          message: `Welcome to Rentilly! Confirm your 11-digit BVN in the app to instantly claim your ₦1,000 Welcome Reward, activate your dedicated Wema Bank account, and unlock your Virtual Dollar Card.`,
           actionUrl: webRekycUrl,
-          actionLabel: 'Confirm Date of Birth & Activate Account ⚡'
+          actionLabel: 'Confirm BVN & Claim ₦1,000 ⚡'
         });
 
         pendingCount++;

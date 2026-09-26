@@ -9,6 +9,7 @@ import { renderPartnerVerificationPage, renderLandlordInvitePage, renderReKycPag
 import { verifyDeedByHash } from './controllers/deedVerificationController';
 import { isSupabaseConfigured } from './supabaseClient';
 import { AutoReconciliationWorker } from './services/autoReconciliationWorker';
+import { AutomatedKycNudgeAndReportWorker } from './services/automatedKycNudgeAndReportWorker';
 import { MultiCurrencyService } from './services/multiCurrencyService';
 import { CardIssuingService } from './services/cardIssuingService';
 import { AdminDataStore } from './services/adminDataStore';
@@ -225,6 +226,7 @@ if (process.env.NODE_ENV !== 'test') {
     // Only runs on the primary PM2 cluster instance to prevent duplicate polling
     if (isPrimaryWorker) {
       AutoReconciliationWorker.start();
+      AutomatedKycNudgeAndReportWorker.start();
       try {
         const { contestController } = await import('./controllers/contestController');
         contestController.startAutonomousCrawlerWorker();
