@@ -157,26 +157,25 @@ export class AppDownloadAlertService {
       const now = Date.now();
 
       const isThrottled = lastSent && (now - lastSent) < this.THROTTLE_MS;
-      if (!isThrottled) {
-        this.recentAlerts.set(throttleKey, now);
-      }
 
       // Asynchronously persist download statistics to Supabase
       if (supabase) {
-        supabase.from('system_configs').upsert({
-          id: 'app_download_stats',
-          data: {
-            totalApkDownloads: this.totalApkDownloads,
-            totalPlayStoreRedirects: this.totalPlayStoreRedirects,
-            totalFirstLaunches: this.totalFirstLaunches,
-            totalDownloads,
-            lastDownloadAt: new Date().toISOString(),
-            lastDownloadChannel: channelLabel,
-            lastDownloadIp: ip,
-            lastDownloadLocation: location,
-          },
-          updated_at: new Date().toISOString()
-        }).catch((err: any) => console.warn('[AppDownloadAlert] Supabase stats write note:', err.message));
+        Promise.resolve(
+          supabase.from('system_configs').upsert({
+            id: 'app_download_stats',
+            data: {
+              totalApkDownloads: this.totalApkDownloads,
+              totalPlayStoreRedirects: this.totalPlayStoreRedirects,
+              totalFirstLaunches: this.totalFirstLaunches,
+              totalDownloads,
+              lastDownloadAt: new Date().toISOString(),
+              lastDownloadChannel: channelLabel,
+              lastDownloadIp: ip,
+              lastDownloadLocation: location,
+            },
+            updated_at: new Date().toISOString()
+          })
+        ).catch((err: any) => console.warn('[AppDownloadAlert] Supabase stats write note:', err.message));
       }
 
       // If throttled, skip sending duplicate email but keep count
@@ -184,6 +183,8 @@ export class AppDownloadAlertService {
         console.log(`[AppDownloadAlert] Throttling alert email for IP ${ip} (${channelLabel}) - sent within last 5m`);
         return;
       }
+
+      this.recentAlerts.set(throttleKey, now);
 
       console.log(`[AppDownloadAlert] 🚀 Triggering real-time email alert for ${channelLabel} from ${ip} (${location})...`);
 
