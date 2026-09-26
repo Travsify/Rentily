@@ -689,7 +689,7 @@ export class FincraService {
       };
 
       if (params.accountType === 'corporate') {
-        payload.KYCInformation.businessName = params.KYCInformation.businessName || 'Ehomes Global Inclusive Limited';
+        payload.KYCInformation.businessName = params.KYCInformation.businessName || params.KYCInformation.bvnName || 'Rentilly Corporate Partner';
         if (params.KYCInformation.bvnName) {
           payload.KYCInformation.bvnName = params.KYCInformation.bvnName;
         }
