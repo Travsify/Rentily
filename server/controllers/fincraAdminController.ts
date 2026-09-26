@@ -223,14 +223,20 @@ export async function createAdminVirtualAccount(req: Request, res: Response) {
       }
     });
 
-    if (result.status && result.data?.accountNumber && supabase) {
+    const accNo = result.data?.accountNumber || result.data?.accountInformation?.accountNumber;
+    if (result.status && accNo && supabase) {
+      const rawFincraBank = result.data?.accountInformation?.bankName || result.data?.bankName;
+      const rawBankCode = result.data?.accountInformation?.bankCode || result.data?.bankCode || '035';
+      const resolvedBankName = await FincraService.resolveBankName(rawFincraBank || rawBankCode);
+
       await supabase.from('system_configs').upsert({
         id: `fincra_va_${cleanEmail}`,
         data: {
-          accountNumber: result.data.accountNumber,
-          bankName: result.data.bankName || 'Wema Bank',
-          bankCode: '035',
-          accountName: result.data.accountName || `${firstName} ${lastName}`,
+          accountNumber: accNo,
+          bankName: resolvedBankName,
+          bankCode: rawBankCode,
+          virtualAccountId: result.data?._id || result.data?.id || '',
+          accountName: result.data.accountName || result.data.accountInformation?.accountName || `${firstName} ${lastName}`,
           provider: 'fincra',
           tier: 'Commercial Institutional Tier'
         },
@@ -238,8 +244,8 @@ export async function createAdminVirtualAccount(req: Request, res: Response) {
       });
 
       await supabase.from('profiles').update({
-        account_number: result.data.accountNumber,
-        bank_name: 'Wema Bank'
+        account_number: accNo,
+        bank_name: resolvedBankName
       }).eq('email', cleanEmail);
     }
 

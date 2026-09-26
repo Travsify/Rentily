@@ -147,7 +147,9 @@ export async function verifyAndProvision(req: Request, res: Response) {
       const accNo = fincraRes.data?.accountNumber || fincraRes.data?.accountInformation?.accountNumber;
       if (fincraRes.status && accNo) {
         accountNumber = accNo;
-        bankName = 'Rentilly Escrow';
+        const rawFincraBank = fincraRes.data?.accountInformation?.bankName || fincraRes.data?.bankName;
+        const rawBankCode = fincraRes.data?.accountInformation?.bankCode || fincraRes.data?.bankCode || '035';
+        bankName = await FincraService.resolveBankName(rawFincraBank || rawBankCode);
         console.log(`[verifyAndProvision] ✅ Fincra Virtual Account provisioned: ${accountNumber} (${bankName}) for ${cleanEmail}`);
 
         if (supabase) {
@@ -155,8 +157,9 @@ export async function verifyAndProvision(req: Request, res: Response) {
             id: `fincra_va_${cleanEmail}`,
             data: {
               accountNumber,
-              bankName: 'Rentilly Escrow',
-              bankCode: '035',
+              bankName,
+              bankCode: rawBankCode,
+              virtualAccountId: fincraRes.data?._id || fincraRes.data?.id || '',
               accountName: (isPartner && partnerBizName.length > 0) ? partnerBizName : cleanName,
               provider: 'fincra',
               tier: 'Tier 1'
@@ -712,7 +715,9 @@ export async function completeMapleradKyc(req: Request, res: Response) {
         const accNo = fincraRes.data?.accountNumber || fincraRes.data?.accountInformation?.accountNumber;
         if (fincraRes.status && accNo) {
           accountNumber = accNo;
-          bankName = 'Rentilly Escrow';
+          const rawFincraBank = fincraRes.data?.accountInformation?.bankName || fincraRes.data?.bankName;
+          const rawBankCode = fincraRes.data?.accountInformation?.bankCode || fincraRes.data?.bankCode || '035';
+          bankName = await FincraService.resolveBankName(rawFincraBank || rawBankCode);
           console.log(`[completeMapleradKyc] ✅ Fincra Account provisioned: ${accountNumber} (${bankName})`);
         }
       } catch (fErr: any) {
@@ -724,8 +729,8 @@ export async function completeMapleradKyc(req: Request, res: Response) {
     if (!accountNumber) {
       const suffix = cleanBvn.length >= 7 ? cleanBvn.slice(-7) : (cleanNin.length >= 7 ? cleanNin.slice(-7) : '2329511');
       accountNumber = `990${suffix}`;
-      bankName = 'Rentilly Escrow';
-      console.log(`[completeMapleradKyc] 🛡️ Dedicated Rentilly Escrow Virtual Account assigned: ${accountNumber}`);
+      bankName = await FincraService.resolveBankName('035');
+      console.log(`[completeMapleradKyc] 🛡️ Dedicated Virtual Account assigned: ${accountNumber} (${bankName})`);
     }
 
     // Update in-memory user cache with real dedicated account
@@ -969,7 +974,9 @@ export async function syncPartnerFincraAccount(req: Request, res: Response) {
 
     const accNo = result.data?.accountNumber || result.data?.accountInformation?.accountNumber;
     if (result.status && accNo) {
-      const bankName = 'Rentilly Escrow';
+      const rawFincraBank = result.data?.accountInformation?.bankName || result.data?.bankName;
+      const rawBankCode = result.data?.accountInformation?.bankCode || result.data?.bankCode || '035';
+      const bankName = await FincraService.resolveBankName(rawFincraBank || rawBankCode);
 
       if (supabase) {
         await supabase.from('system_configs').upsert({
@@ -977,7 +984,8 @@ export async function syncPartnerFincraAccount(req: Request, res: Response) {
           data: {
             accountNumber: accNo,
             bankName: bankName,
-            bankCode: '035',
+            bankCode: rawBankCode,
+            virtualAccountId: result.data?._id || result.data?.id || '',
             accountName: businessName,
             provider: 'fincra',
             tier: 'Commercial Institutional Tier'

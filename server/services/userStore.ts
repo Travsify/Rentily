@@ -38,6 +38,14 @@ export interface StoredUser {
   updatedAt: string;
 }
 
+export function cleanCanonicalBankName(raw?: string | null): string {
+  if (!raw) return 'Wema Bank';
+  const str = raw.toString().trim();
+  if (str.toLowerCase().includes('rentilly escrow')) return 'Wema Bank';
+  if (str.toLowerCase().includes('wema')) return 'Wema Bank';
+  return str.replace(/\s*\([^)]*\)/g, '').trim() || 'Wema Bank';
+}
+
 function getDataDir(): string {
   const candidates = [
     path.join(process.cwd(), 'server', 'data'),
@@ -228,7 +236,7 @@ export class UserStore {
             ninNumber: p.nin_number,
             bvnVerified: Boolean(p.bvn_verified),
             accountNumber: p.account_number,
-            bankName: (p.bank_name && p.bank_name !== 'Rentilly Escrow') ? p.bank_name : 'Wema Bank',
+            bankName: cleanCanonicalBankName(p.bank_name),
             state: p.state || 'Lagos',
             walletBalance: Number(p.wallet_balance || 0),
             businessName: p.business_name,
@@ -304,7 +312,7 @@ export class UserStore {
             ninNumber: data.nin_number || localUser?.ninNumber,
             bvnVerified: Boolean(data.bvn_verified || localUser?.bvnVerified),
             accountNumber: data.account_number || localUser?.accountNumber,
-            bankName: (data.bank_name && data.bank_name !== 'Rentilly Escrow') ? data.bank_name : (localUser?.bankName && localUser.bankName !== 'Rentilly Escrow' ? localUser.bankName : 'Wema Bank'),
+            bankName: cleanCanonicalBankName(data.bank_name || localUser?.bankName),
             state: data.state || localUser?.state || 'Lagos',
             walletBalance: Number(data.wallet_balance || localUser?.walletBalance || 0),
             businessName: data.business_name || localUser?.businessName,
@@ -375,7 +383,7 @@ export class UserStore {
             ninNumber: user.nin_number || localUser?.ninNumber,
             bvnVerified: Boolean(user.bvn_verified || localUser?.bvnVerified),
             accountNumber: user.account_number || localUser?.accountNumber,
-            bankName: (user.bank_name && user.bank_name !== 'Rentilly Escrow') ? user.bank_name : (localUser?.bankName && localUser.bankName !== 'Rentilly Escrow' ? localUser.bankName : 'Wema Bank'),
+            bankName: cleanCanonicalBankName(user.bank_name || localUser?.bankName),
             state: user.state || localUser?.state || 'Lagos',
             walletBalance: Number(user.wallet_balance || localUser?.walletBalance || 0),
             businessName: user.business_name || localUser?.businessName,

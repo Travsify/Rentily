@@ -224,7 +224,7 @@ export class PlatformAccountRegistry {
             app: assignedApp,
             accountNumber: acc || cfg?.accountNumber || '',
             virtualAccountId: vaId,
-            bankName: p.bank_name || cfg?.bankName || 'Wema Bank',
+            bankName: (p.bank_name && !p.bank_name.toLowerCase().includes('rentilly escrow')) ? p.bank_name : (cfg?.bankName && !cfg.bankName.toLowerCase().includes('rentilly escrow') ? cfg.bankName : 'Wema Bank'),
             bankCode: cfg?.bankCode || '035',
             userId: p.id,
             userEmail: email,

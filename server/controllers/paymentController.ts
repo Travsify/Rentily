@@ -2449,13 +2449,18 @@ export async function provisionCommercialAccount(req: Request, res: Response) {
               bvn: prof.bvn
             }
           });
-          if (fincraRes.status && fincraRes.data?.accountNumber) {
+          if (fincraRes.status && (fincraRes.data?.accountNumber || fincraRes.data?.accountInformation?.accountNumber)) {
+            const rawAcc = fincraRes.data.accountNumber || fincraRes.data.accountInformation?.accountNumber;
+            const rawFincraBank = fincraRes.data?.accountInformation?.bankName || fincraRes.data?.bankName;
+            const rawBankCode = fincraRes.data?.accountInformation?.bankCode || fincraRes.data?.bankCode || '035';
+            const fincraBank = await FincraService.resolveBankName(rawFincraBank || rawBankCode);
             fincraData = {
-              accountNumber: fincraRes.data.accountNumber,
-              bankName: 'Wema Bank',
-              bankCode: '035',
-              accountName: fincraRes.data.accountName || prof.full_name,
+              accountNumber: rawAcc,
+              bankName: fincraBank,
+              bankCode: rawBankCode,
+              accountName: fincraRes.data.accountName || fincraRes.data.accountInformation?.accountName || prof.full_name,
               provider: 'fincra',
+              virtualAccountId: fincraRes.data._id || fincraRes.data.virtualAccountId || fincraRes.data.id || '',
               tier: 'Commercial Institutional Tier',
               singleLimit: '₦100,000,000+',
               dailyLimit: 'Unlimited / Corporate RTGS'
@@ -2540,7 +2545,13 @@ export async function getVaultAccounts(req: Request, res: Response) {
         .maybeSingle();
 
       let fincraAcc = fincraConfig?.data?.accountNumber;
-      let fincraBank = (fincraConfig?.data?.bankName && fincraConfig.data.bankName !== 'Rentilly Escrow') ? fincraConfig.data.bankName : 'Wema Bank';
+      let rawFincraBank = fincraConfig?.data?.bankName;
+      let fincraBank = 'Wema Bank';
+      if (rawFincraBank && !rawFincraBank.toLowerCase().includes('rentilly escrow') && !rawFincraBank.includes('(')) {
+        fincraBank = rawFincraBank;
+      } else {
+        fincraBank = await FincraService.resolveBankName(fincraConfig?.data?.bankCode || '035');
+      }
       let fincraName = fincraConfig?.data?.accountName || prof?.full_name || 'Rentilly Client';
 
       if (!fincraAcc) {
@@ -2558,16 +2569,20 @@ export async function getVaultAccounts(req: Request, res: Response) {
                 bvn: prof.bvn
               }
             });
-            if (fincraRes.status && fincraRes.data?.accountNumber) {
-              fincraAcc = fincraRes.data.accountNumber;
-              fincraBank = 'Wema Bank';
-              fincraName = fincraRes.data.accountName || prof.full_name;
+            const rawAcc = fincraRes.data?.accountNumber || fincraRes.data?.accountInformation?.accountNumber;
+            if (fincraRes.status && rawAcc) {
+              fincraAcc = rawAcc;
+              const resFincraBank = fincraRes.data?.accountInformation?.bankName || fincraRes.data?.bankName;
+              const resBankCode = fincraRes.data?.accountInformation?.bankCode || fincraRes.data?.bankCode || '035';
+              fincraBank = await FincraService.resolveBankName(resFincraBank || resBankCode);
+              fincraName = fincraRes.data.accountName || fincraRes.data.accountInformation?.accountName || prof.full_name;
               await supabase.from('system_configs').upsert({
                 id: `fincra_va_${email}`,
                 data: {
                   accountNumber: fincraAcc,
                   bankName: fincraBank,
-                  bankCode: '035',
+                  bankCode: resBankCode,
+                  virtualAccountId: fincraRes.data._id || fincraRes.data.virtualAccountId || fincraRes.data.id || '',
                   accountName: fincraName,
                   provider: 'fincra',
                   tier: 'Commercial Institutional Tier'
@@ -2584,7 +2599,7 @@ export async function getVaultAccounts(req: Request, res: Response) {
                 accountNumber: fincraAcc,
                 virtualAccountId: fincraRes.data._id || fincraRes.data.virtualAccountId || fincraRes.data.id || '',
                 bankName: fincraBank,
-                bankCode: '035',
+                bankCode: resBankCode,
                 userId: prof.id,
                 userEmail: email,
                 accountName: fincraName,
@@ -4084,6 +4099,18 @@ export async function getWalletBalance(req: Request, res: Response) {
     let accountNumber = dbUser?.account_number || memUser?.accountNumber;
     let bankName = dbUser?.bank_name || memUser?.bankName;
 
+    // Standardize & dynamically enforce bank name directly from Fincra API
+    if (accountNumber && (!bankName || bankName.toLowerCase().includes('rentilly escrow') || bankName.includes('('))) {
+      bankName = await FincraService.resolveBankName('035');
+      if (supabase && dbUser?.id) {
+        await supabase
+          .from('profiles')
+          .update({ bank_name: bankName, updated_at: new Date().toISOString() })
+          .eq('id', dbUser.id)
+          .catch(() => {});
+      }
+    }
+
     // Auto-provision Fincra Virtual NGN Account ONLY if user is verified but missing account
     if (!accountNumber && cleanEmail && (dbUser?.is_verified || memUser?.isVerified)) {
       try {
@@ -4101,7 +4128,9 @@ export async function getWalletBalance(req: Request, res: Response) {
         const fincraAcc = fincraRes.data?.accountNumber || fincraRes.data?.accountInformation?.accountNumber;
         if (fincraRes.status && fincraAcc) {
           accountNumber = fincraAcc;
-          bankName = 'Wema Bank';
+          const rawFincraBank = fincraRes.data?.accountInformation?.bankName || fincraRes.data?.bankName;
+          const rawBankCode = fincraRes.data?.accountInformation?.bankCode || fincraRes.data?.bankCode || '035';
+          bankName = await FincraService.resolveBankName(rawFincraBank || rawBankCode);
 
           if (supabase && dbUser?.id) {
             await supabase
@@ -4114,8 +4143,8 @@ export async function getWalletBalance(req: Request, res: Response) {
             app: 'rentilly',
             accountNumber: fincraAcc,
             virtualAccountId: fincraRes.data?._id || fincraRes.data?.virtualAccountId || '',
-            bankName: 'Wema Bank',
-            bankCode: '035',
+            bankName: bankName,
+            bankCode: rawBankCode,
             userId: dbUser?.id,
             userEmail: cleanEmail,
             accountName: dbUser?.full_name,

@@ -362,6 +362,99 @@ export class FincraService {
   }
 
   /**
+   * Format raw bank name from Fincra into clean canonical user-facing string
+   */
+  static formatBankName(rawName: string): string {
+    if (!rawName) return 'Wema Bank';
+    const upper = rawName.toUpperCase();
+    if (upper.includes('WEMA')) return 'Wema Bank';
+    if (upper.includes('PROVIDUS')) return 'Providus Bank';
+    if (upper.includes('STERLING')) return 'Sterling Bank';
+    if (upper.includes('GLOBUS')) return 'Globus Bank';
+    if (upper.includes('KUDA')) return 'Kuda Bank';
+    if (upper.includes('OPAY') || upper.includes('PAYCOM')) return 'OPay';
+    if (upper.includes('PALMPAY')) return 'PalmPay';
+    if (upper.includes('MONIEPOINT')) return 'Moniepoint MFB';
+    
+    // Title Case default
+    return rawName.split(' ')
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(' ')
+      .replace(/ Pl[c|C]/g, ' PLC')
+      .replace(/ Mf[b|B]/g, ' MFB');
+  }
+
+  /**
+   * Authoritatively resolve Bank Name directly from Fincra core/banks API
+   */
+  static async resolveBankName(bankCodeOrName?: string): Promise<string> {
+    const raw = (bankCodeOrName || '').toString().trim();
+    if (!raw) return 'Wema Bank';
+
+    // Hydrate banks from live Fincra API
+    const banks = await this.getBanks('NG', 'NGN');
+
+    if (banks && banks.length > 0) {
+      // 1. Match by code or nibssCode
+      const byCode = banks.find((b: any) => 
+        b.code === raw || 
+        b.nibssCode === raw || 
+        (raw.length <= 3 && b.code === raw.padStart(3, '0')) ||
+        (raw.length <= 6 && b.nibssCode === raw.padStart(6, '0'))
+      );
+      if (byCode && byCode.name) {
+        return this.formatBankName(byCode.name);
+      }
+
+      // 2. Match by name
+      const cleanInput = raw.toLowerCase().replace(/bank|microfinance|mfb|plc|limited|ltd|\(.*?\)/g, '').trim();
+      if (cleanInput.length >= 2) {
+        const byName = banks.find((b: any) => {
+          const bName = (b.name || '').toLowerCase();
+          return bName.includes(cleanInput) || cleanInput.includes(bName);
+        });
+        if (byName && byName.name) {
+          return this.formatBankName(byName.name);
+        }
+      }
+    }
+
+    if (raw.toLowerCase().includes('wema')) return 'Wema Bank';
+    return this.formatBankName(raw);
+  }
+
+  /**
+   * Fetch virtual account directly from Fincra API and extract authoritative bank details
+   */
+  static async fetchVirtualAccountBankDetails(virtualAccountId: string): Promise<{
+    accountNumber: string;
+    bankName: string;
+    bankCode: string;
+    accountName: string;
+  } | null> {
+    try {
+      if (!virtualAccountId) return null;
+      const res = await this.getVirtualAccount(virtualAccountId);
+      if (res.status && res.data) {
+        const d = res.data;
+        const info = d.accountInformation || {};
+        const rawBank = info.bankName || d.bankName || 'wema';
+        const bankCode = info.bankCode || d.bankCode || '035';
+        const bankName = await this.resolveBankName(rawBank || bankCode);
+        return {
+          accountNumber: info.accountNumber || d.accountNumber,
+          bankName,
+          bankCode,
+          accountName: info.accountName || d.accountName || ''
+        };
+      }
+    } catch (e: any) {
+      console.warn('[FincraService] fetchVirtualAccountBankDetails error:', e.message);
+    }
+    return null;
+  }
+
+  /**
    * Initiate High-Value Payout / Disbursement to Beneficiary Bank Account
    */
   static async initiatePayout(params: {
