@@ -964,7 +964,7 @@
             sessionId: sid,
             page: window.location.pathname || '/creators.html',
             referrer: document.referrer || '',
-            utmSource: (new URLSearchParams(window.location.search)).get('utm_source') || ''
+            utmSource: (new URLSearchParams(window.location.search)).get('utm_source') || ((new URLSearchParams(window.location.search)).has('fbclid') ? 'facebook' : '')
           })
         }).catch(function() {});
       } catch (err) {}

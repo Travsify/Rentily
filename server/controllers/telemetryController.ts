@@ -10,7 +10,7 @@ export interface VisitorLogEntry {
   sessionId?: string;
   page: string;
   referrer: string;
-  channel: 'direct' | 'whatsapp' | 'tiktok' | 'instagram' | 'twitter_x' | 'google' | 'other';
+  channel: 'direct' | 'whatsapp' | 'tiktok' | 'instagram' | 'facebook' | 'twitter_x' | 'google' | 'other';
   device: {
     os: string;
     type: 'mobile_android' | 'mobile_ios' | 'desktop' | 'tablet' | 'other';
@@ -32,6 +32,7 @@ export interface VisitorAnalyticsData {
     whatsapp: number;
     tiktok: number;
     instagram: number;
+    facebook: number;
     twitter_x: number;
     google: number;
     other: number;
@@ -64,6 +65,7 @@ const INITIAL_ANALYTICS: VisitorAnalyticsData = {
     whatsapp: 0,
     tiktok: 0,
     instagram: 0,
+    facebook: 0,
     twitter_x: 0,
     google: 0,
     other: 0,
@@ -140,6 +142,7 @@ function parseChannel(referrer: string, utmSource?: string): VisitorLogEntry['ch
   if (utm === 'whatsapp' || ref.includes('whatsapp') || ref.includes('wa.me')) return 'whatsapp';
   if (utm === 'tiktok' || ref.includes('tiktok.com')) return 'tiktok';
   if (utm === 'instagram' || ref.includes('instagram.com') || ref.includes('l.instagram.com')) return 'instagram';
+  if (utm === 'fb' || utm === 'facebook' || utm === 'meta' || ref.includes('facebook.com') || ref.includes('l.facebook.com') || ref.includes('fbclid')) return 'facebook';
   if (utm === 'twitter' || utm === 'x' || ref.includes('t.co') || ref.includes('twitter.com') || ref.includes('x.com')) return 'twitter_x';
   if (utm === 'google' || ref.includes('google.com') || ref.includes('google.co')) return 'google';
   if (!ref || ref === 'direct' || ref.includes(process.env.APP_URL || 'myrentilly.com')) return 'direct';

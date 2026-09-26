@@ -73,7 +73,13 @@ export async function fireVisitorImprint(customPage?: string): Promise<VisitorMe
     const page = customPage || window.location.pathname || '/';
     const referrer = document.referrer || '';
     const urlParams = new URLSearchParams(window.location.search);
-    const utmSource = urlParams.get('utm_source') || urlParams.get('source') || urlParams.get('ref');
+    const utmSource =
+      urlParams.get('utm_source') ||
+      urlParams.get('source') ||
+      urlParams.get('ref') ||
+      (urlParams.has('fbclid') ? 'facebook' : '') ||
+      (urlParams.has('ttclid') ? 'tiktok' : '') ||
+      (urlParams.has('igshid') ? 'instagram' : '');
 
     const payload = {
       visitorId,
