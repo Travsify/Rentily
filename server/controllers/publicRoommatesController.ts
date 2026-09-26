@@ -28,13 +28,19 @@ export async function renderPublicRoommatePost(req: Request, res: Response) {
         .eq('id', 'global_roommate_posts')
         .single();
 
-      if (!error && data?.data && Array.isArray(data.data)) {
+      if (!error && data?.data && Array.isArray(data.data) && data.data.length > 0) {
         const posts = data.data;
-        post = posts.find((p: any) => {
-          const pId = String(p.id || '').trim().toLowerCase();
-          const qId = rawId.toLowerCase();
-          return pId === qId || pId === `room_${qId}` || pId.replace(/^room_/i, '') === qId.replace(/^room_/i, '');
-        });
+        if (rawId) {
+          post = posts.find((p: any) => {
+            const pId = String(p.id || '').trim().toLowerCase();
+            const qId = rawId.toLowerCase();
+            return pId === qId || pId === `room_${qId}` || pId.replace(/^room_/i, '') === qId.replace(/^room_/i, '');
+          });
+        }
+        // If visiting /roommates without an ID or if exact post was fulfilled, feature the latest verified post
+        if (!post && posts.length > 0) {
+          post = posts[0];
+        }
       }
     } catch (e: any) {
       console.error('[PublicRoommates] Supabase fetch error:', e.message);
@@ -42,7 +48,7 @@ export async function renderPublicRoommatePost(req: Request, res: Response) {
   }
 
   if (!post) {
-    return res.status(404).send(`
+    return res.status(200).send(`
       <!DOCTYPE html>
       <html lang="en">
       <head>

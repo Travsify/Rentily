@@ -46,7 +46,7 @@ export async function verifyDeedByHash(req: Request, res: Response) {
     // 3. If not found -> Fraud / Unregistered Alert
     if (!deedRecord) {
       if (req.accepts('html') && !req.xhr && !req.headers['x-requested-with']) {
-        return res.status(404).send(renderFraudAlertHtml(rawHash));
+        return res.status(200).send(renderFraudAlertHtml(rawHash));
       }
       return res.status(404).json({
         valid: false,
