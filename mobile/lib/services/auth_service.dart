@@ -866,7 +866,7 @@ class AuthService {
     } catch (_) {}
     return {
       'referralCode': 'RENTILLY',
-      'shareLink': 'https://myrentilly.com',
+      'shareLink': 'https://api.myrentilly.com/r/RENTILLY',
       'totalReferrals': 0,
       'successfulReferrals': 0,
       'pendingReferrals': 0,

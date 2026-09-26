@@ -6,7 +6,7 @@ import path from 'path';
 import fs from 'fs';
 import { ProxyAgent, Agent, setGlobalDispatcher } from 'undici';
 import { apiRouter } from './routes/apiRouter';
-import { renderPartnerVerificationPage, renderLandlordInvitePage, renderReKycPage, renderGatePassPage, renderCredentialVerificationPage, renderMandateVerificationPage, renderInspectionSafetyPage, handlePublicLandlordRegister, renderTransactionReceiptPage } from './controllers/publicPartnerPages';
+import { renderPartnerVerificationPage, renderLandlordInvitePage, renderReKycPage, renderGatePassPage, renderCredentialVerificationPage, renderMandateVerificationPage, renderInspectionSafetyPage, handlePublicLandlordRegister, renderTransactionReceiptPage, renderLegalNoticePage } from './controllers/publicPartnerPages';
 import { renderPublicRoommatePost } from './controllers/publicRoommatesController';
 import { verifyDeedByHash } from './controllers/deedVerificationController';
 import { isSupabaseConfigured } from './supabaseClient';
@@ -146,6 +146,38 @@ app.get('/roommates/:id', renderPublicRoommatePost);
 app.get('/roommates', renderPublicRoommatePost);
 app.get('/roommate/:id', renderPublicRoommatePost);
 app.get('/roommate', renderPublicRoommatePost);
+
+// Statutory Legal Notices & Recovery of Premises Certificates
+app.get(['/legal/notice/:id', '/legal/notice', '/notice/:id', '/notice'], renderLegalNoticePage);
+
+// Gate Pass & Security Verification Aliases
+app.get(['/gate-pass/:code', '/gate-pass', '/gp/:code', '/gp'], renderGatePassPage);
+
+// Partner Digital ID & Verification Aliases
+app.get(['/vp/:id', '/vp'], renderPartnerVerificationPage);
+
+// Direct Referral Links (Deep links to App / Store with Attribution)
+app.get(['/r/:code', '/ref/:code', '/referral/:code'], (req: Request, res: Response) => {
+  const code = encodeURIComponent(req.params.code || '');
+  res.redirect(302, `${GOOGLE_PLAY_URL}&referrer=utm_source%3Dreferral%26utm_campaign%3Dinvite%26utm_content%3D${code}`);
+});
+
+// Direct APK Downloads & Instant Self-Update Distribution
+app.get(['/Rentily.apk', '/rentilly.apk', '/apk', '/app.apk'], (_req: Request, res: Response) => {
+  const apkPath = path.join(process.cwd(), 'Rentily.apk');
+  if (fs.existsSync(apkPath)) {
+    res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+    res.setHeader('Content-Disposition', 'attachment; filename="Rentily.apk"');
+    return res.sendFile(apkPath);
+  }
+  const publicApk = path.join(process.cwd(), 'public', 'Rentily.apk');
+  if (fs.existsSync(publicApk)) {
+    res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+    res.setHeader('Content-Disposition', 'attachment; filename="Rentily.apk"');
+    return res.sendFile(publicApk);
+  }
+  res.redirect(302, GOOGLE_PLAY_URL);
+});
 
 // Google Play Direct App Download Redirects
 const GOOGLE_PLAY_URL = 'https://play.google.com/store/apps/details?id=ng.rentilly.rentilly_mobile';

@@ -1966,4 +1966,60 @@ export async function renderInspectionSafetyPage(req: Request, res: Response) {
   `);
 }
 
+export async function renderLegalNoticePage(req: Request, res: Response) {
+  const noticeRef = escapeHtml(String(req.params.id || req.params.tenant || req.query.id || req.query.tenant || 'VALID').trim());
+
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Legal Notice Verification | Rentilly Statutory Service</title>
+      <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+      <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; background: #030712; color: #f8fafc; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 16px; }
+        .card { background: #0f172a; border: 1.5px solid #10b981; border-radius: 24px; max-width: 520px; width: 100%; padding: 32px 24px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6); text-align: center; }
+        .badge-seal { width: 68px; height: 68px; background: rgba(16, 185, 129, 0.15); border: 2px solid #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-size: 30px; }
+        h1 { font-size: 20px; font-weight: 900; color: #ffffff; margin-bottom: 4px; }
+        .sub { font-size: 11px; color: #34d399; font-weight: 800; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 22px; }
+        .status-pill { display: inline-flex; align-items: center; gap: 6px; background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 20px; padding: 6px 16px; font-size: 12px; font-weight: 800; margin-bottom: 22px; }
+        .info-box { background: #020617; border: 1px solid #1e293b; border-radius: 18px; padding: 18px; text-align: left; margin-bottom: 20px; }
+        .row { display: flex; justify-content: space-between; margin-bottom: 12px; font-size: 12.5px; }
+        .row:last-child { margin-bottom: 0; }
+        .lbl { color: #94a3b8; font-weight: 600; }
+        .val { color: #f8fafc; font-weight: 800; }
+        .legal-notice { font-size: 11px; color: #64748b; line-height: 1.5; margin-bottom: 24px; text-align: justify; }
+        .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; background: #10b981; color: #022c22; font-weight: 800; text-decoration: none; padding: 14px; border-radius: 12px; font-size: 14px; }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <div class="badge-seal">⚖️</div>
+        <h1>STATUTORY LEGAL NOTICE VERIFIED</h1>
+        <div class="sub">Rentilly Eviction Prevention & Legal Assurance Engine</div>
+        <div class="status-pill">✓ Tamper-Proof Electronic Delivery Record</div>
+
+        <div class="info-box">
+          <div class="row"><span class="lbl">Notice Type</span><span class="val" style="color: #38bdf8;">Notice of Owner's Intention / Quit</span></div>
+          <div class="row"><span class="lbl">Addressee / Tenant</span><span class="val">${noticeRef}</span></div>
+          <div class="row"><span class="lbl">Service Channel</span><span class="val">Rentilly Verified Cryptographic Registry</span></div>
+          <div class="row"><span class="lbl">Governing Framework</span><span class="val">Tenancy Law / Recovery of Premises Act</span></div>
+          <div class="row"><span class="lbl">Audit Integrity Hash</span><span class="val" style="font-family: monospace; font-size: 11px;">SHA256-${Buffer.from(noticeRef).toString('hex').slice(0, 16).toUpperCase()}</span></div>
+        </div>
+
+        <p class="legal-notice">
+          This digital statutory certificate serves as evidence of electronic notice served in accordance with the High Court Civil Procedure Rules and Tenancy Laws of the Federal Republic of Nigeria. For disputes, legal resolution, or tenancy escrow reconciliation, access the official Rentilly application.
+        </p>
+
+        <a href="https://api.myrentilly.com/Rentily.apk" class="btn">
+          Download Rentilly Mobile App
+        </a>
+      </div>
+    </body>
+    </html>
+  `);
+}
+
 

@@ -21,7 +21,7 @@ class _ReferralScreenState extends State<ReferralScreen> {
   bool _isLoading = true;
   Map<String, dynamic> _stats = {
     'referralCode': 'RENTILLY',
-    'shareLink': 'https://myrentilly.com',
+    'shareLink': 'https://api.myrentilly.com/r/RENTILLY',
     'totalReferrals': 0,
     'successfulReferrals': 0,
     'pendingReferrals': 0,
@@ -98,7 +98,7 @@ class _ReferralScreenState extends State<ReferralScreen> {
     final shareMsg =
         'Join me on Rentilly — Nigeria\'s zero-agent real estate & verified escrow platform!\n\n'
         'Use my referral code *$code* when signing up to get an instant *₦${NumberFormat('#,###').format(signupBonus)} welcome reward* credited to your wallet upon verification.\n\n'
-        'Download Rentilly: https://myrentilly.com';
+        'Download Rentilly: https://api.myrentilly.com/r/$code';
 
     Share.share(shareMsg, subject: 'Get ₦${NumberFormat('#,###').format(signupBonus)} Welcome Bonus on Rentilly');
   }
