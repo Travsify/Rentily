@@ -18,4 +18,10 @@ class AppConstants {
   static const String tokenKey = 'rentilly_user_token';
   static const String userKey = 'rentilly_user_profile';
   static const String seenOnboardingKey = 'rentilly_seen_onboarding';
+
+  // App Build & Release Metadata
+  static const int currentVersionCode = 10;
+  static const String currentVersionName = '1.1.0';
+  static const String defaultApkUrl = 'https://api.myrentilly.com/Rentily.apk';
+  static const String defaultPlayStoreUrl = 'https://play.google.com/store/apps/details?id=ng.rentilly.rentilly_mobile';
 }

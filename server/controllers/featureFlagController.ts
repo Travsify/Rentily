@@ -10,6 +10,14 @@ export interface FeatureFlagsConfig {
   maintenanceMode: boolean;             // Emergency System-Wide Maintenance Banner
   requirePhoneVerification: boolean;    // Phone SMS OTP requirement toggle
   enablePhoneOtp: boolean;              // SMS gateway toggle
+  latestVersionCode: number;           // Latest mobile build code (e.g. 10)
+  latestVersionName: string;           // Latest human release version (e.g. 1.1.0)
+  minRequiredVersionCode: number;      // Force-update cutoff code
+  apkDownloadUrl: string;              // Direct APK link hosted on VPS
+  playStoreUrl: string;                // Google Play Store URL
+  updateTitle: string;                 // Notification/prompt header
+  updateMessage: string;               // Release summary for installed users
+  forceUpdate: boolean;                // Whether users must update to continue
   updatedAt: string;
 }
 
@@ -22,6 +30,14 @@ const DEFAULT_FLAGS: FeatureFlagsConfig = {
   maintenanceMode: false,
   requirePhoneVerification: false,    // Waived pending Termii activation
   enablePhoneOtp: false,              // Waived
+  latestVersionCode: 10,
+  latestVersionName: '1.1.0',
+  minRequiredVersionCode: 8,
+  apkDownloadUrl: 'https://api.myrentilly.com/Rentily.apk',
+  playStoreUrl: 'https://play.google.com/store/apps/details?id=ng.rentilly.rentilly_mobile',
+  updateTitle: '⚡ Rentilly 1.1.0 Update Available',
+  updateMessage: 'Upgrade now for 12 new Utility Bills categories (Electricity, Airtime VTU, Cable TV, Water, Tolls, Internet) and 0% caution Co-Living with Split-the-Scroll!',
+  forceUpdate: false,
   updatedAt: new Date().toISOString()
 };
 

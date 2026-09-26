@@ -22,6 +22,7 @@ import '../../widgets/date_of_birth_modal.dart';
 import '../../widgets/biometric_prompt_modal.dart';
 import '../../widgets/withdrawal_modal.dart';
 import '../../widgets/daily_quotes_card.dart';
+import '../../widgets/update_prompt_modal.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -138,6 +139,9 @@ class _HomeScreenState extends State<HomeScreen> {
     await NotificationService.getNotifications();
     try {
       await ApiService.fetchFeatureFlags();
+      if (mounted) {
+        UpdatePromptModal.checkAndShow(context);
+      }
     } catch (_) {}
 
     if (mounted && u != null) {

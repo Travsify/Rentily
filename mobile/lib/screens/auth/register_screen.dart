@@ -289,7 +289,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    if (!_isPhoneVerified) {
+    final phone = _phoneController.text.trim();
+    if (phone.isEmpty) {
+      setState(() => _errorMessage = 'Please enter your mobile phone number.');
+      return;
+    }
+
+    if (ApiService.featureFlags.requirePhoneVerification && !_isPhoneVerified) {
       setState(() => _errorMessage = 'Please tap "Verify" on your Mobile Phone Number and enter your 6-digit SMS code.');
       return;
     }
@@ -1633,6 +1639,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   // FINAL STEP: Email, Phone Verification, Password, Rules & Terms
   Widget _buildCredentialsStep() {
+    final bool requirePhoneOtp = ApiService.featureFlags.requirePhoneVerification;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1651,7 +1659,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Enter your Email and Phone, then tap the green "Verify" button to receive your 6-digit OTP codes.',
+                  requirePhoneOtp
+                      ? 'Enter your Email and Phone, then tap the green "Verify" button to receive your 6-digit OTP codes.'
+                      : 'Enter your Email and tap the green "Verify" button to receive your 6-digit security code.',
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -1677,17 +1687,37 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         const SizedBox(height: 14),
 
-        // 2. Phone Verification via SMS
-        InlineOtpVerificationWidget(
-          label: 'Mobile Phone Number (SMS)',
-          hintText: 'e.g. 0812 345 6789',
-          prefixIcon: Icons.phone_android_rounded,
-          textController: _phoneController,
-          keyboardType: TextInputType.phone,
-          channel: 'sms',
-          isVerified: _isPhoneVerified,
-          onVerifiedChanged: (val) => setState(() => _isPhoneVerified = val),
-        ),
+        // 2. Phone Input (with SMS OTP if enabled by feature flag, otherwise standard input)
+        if (requirePhoneOtp)
+          InlineOtpVerificationWidget(
+            label: 'Mobile Phone Number (SMS)',
+            hintText: 'e.g. 0812 345 6789',
+            prefixIcon: Icons.phone_android_rounded,
+            textController: _phoneController,
+            keyboardType: TextInputType.phone,
+            channel: 'sms',
+            isVerified: _isPhoneVerified,
+            onVerifiedChanged: (val) => setState(() => _isPhoneVerified = val),
+          )
+        else ...[
+          Text('MOBILE PHONE NUMBER', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+          const SizedBox(height: 6),
+          TextField(
+            controller: _phoneController,
+            keyboardType: TextInputType.phone,
+            style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: const Color(0xFFF8FAFC),
+              prefixIcon: const Icon(Icons.phone_android_rounded, size: 18, color: AppColors.primary),
+              hintText: 'e.g. 0812 345 6789',
+              hintStyle: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textMuted),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
+            ),
+          ),
+        ],
         const SizedBox(height: 14),
 
         // Password

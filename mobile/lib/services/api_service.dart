@@ -1918,14 +1918,32 @@ class FeatureFlags {
   final bool enableStatutoryNotices;
   final bool enableCautionClaims;
   final bool maintenanceMode;
+  final bool requirePhoneVerification;
+  final int latestVersionCode;
+  final String latestVersionName;
+  final int minRequiredVersionCode;
+  final String apkDownloadUrl;
+  final String playStoreUrl;
+  final String updateTitle;
+  final String updateMessage;
+  final bool forceUpdate;
 
   const FeatureFlags({
-    this.enableVirtualCards = true,           // Active across all users
-    this.enableMultiCurrencyVault = false,    // Off by default pending live banking coordinates
+    this.enableVirtualCards = true,
+    this.enableMultiCurrencyVault = false,
     this.enableUtilityBills = true,
     this.enableStatutoryNotices = true,
     this.enableCautionClaims = true,
     this.maintenanceMode = false,
+    this.requirePhoneVerification = false,
+    this.latestVersionCode = 10,
+    this.latestVersionName = '1.1.0',
+    this.minRequiredVersionCode = 8,
+    this.apkDownloadUrl = 'https://api.myrentilly.com/Rentily.apk',
+    this.playStoreUrl = 'https://play.google.com/store/apps/details?id=ng.rentilly.rentilly_mobile',
+    this.updateTitle = '⚡ Rentilly 1.1.0 Update Available',
+    this.updateMessage = 'Upgrade now for 12 new Utility Bills categories (Electricity, Airtime VTU, Cable TV, Water, Tolls, Internet) and 0% caution Co-Living!',
+    this.forceUpdate = false,
   });
 
   factory FeatureFlags.fromJson(Map<String, dynamic> json) {
@@ -1936,6 +1954,15 @@ class FeatureFlags {
       enableStatutoryNotices: json['enableStatutoryNotices'] != false,
       enableCautionClaims: json['enableCautionClaims'] != false,
       maintenanceMode: json['maintenanceMode'] == true,
+      requirePhoneVerification: json['requirePhoneVerification'] == true,
+      latestVersionCode: json['latestVersionCode'] is num ? (json['latestVersionCode'] as num).toInt() : 10,
+      latestVersionName: json['latestVersionName']?.toString() ?? '1.1.0',
+      minRequiredVersionCode: json['minRequiredVersionCode'] is num ? (json['minRequiredVersionCode'] as num).toInt() : 8,
+      apkDownloadUrl: json['apkDownloadUrl']?.toString() ?? 'https://api.myrentilly.com/Rentily.apk',
+      playStoreUrl: json['playStoreUrl']?.toString() ?? 'https://play.google.com/store/apps/details?id=ng.rentilly.rentilly_mobile',
+      updateTitle: json['updateTitle']?.toString() ?? '⚡ Rentilly 1.1.0 Update Available',
+      updateMessage: json['updateMessage']?.toString() ?? 'Upgrade now for 12 new Utility Bills categories (Electricity, Airtime VTU, Cable TV, Water, Tolls, Internet) and 0% caution Co-Living!',
+      forceUpdate: json['forceUpdate'] == true,
     );
   }
 }

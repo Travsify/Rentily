@@ -10,6 +10,8 @@ import 'auth_service.dart';
 import 'api_service.dart';
 import '../screens/bills/bills_screen.dart';
 import '../screens/roommates/roommates_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../widgets/update_prompt_modal.dart';
 
 /// Manages OneSignal push notifications for Rentilly.
 /// Handles initialization, permission requests, player ID registration,
@@ -218,6 +220,32 @@ class PushNotificationService {
           Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const RoommatesScreen()),
           );
+        }
+        return;
+      }
+
+      final isUpdate = action == 'open_update' ||
+          action == 'download_apk' ||
+          action == 'update' ||
+          (action != null && action.contains('Rentily.apk')) ||
+          data['url']?.toString().contains('Rentily.apk') == true ||
+          title.toLowerCase().contains('update available') ||
+          title.toLowerCase().contains('new update') ||
+          body.toLowerCase().contains('update now');
+
+      if (isUpdate) {
+        final context = rootNavigatorKey.currentContext;
+        final directApkUrl = data['apk_url']?.toString() ??
+            (action != null && action.startsWith('http') ? action : AppConstants.defaultApkUrl);
+
+        if (context != null && context.mounted) {
+          UpdatePromptModal.checkAndShow(context);
+        } else {
+          try {
+            await launchUrl(Uri.parse(directApkUrl), mode: LaunchMode.externalApplication);
+          } catch (e) {
+            debugPrint('[PushNotification] Error launching direct APK: $e');
+          }
         }
         return;
       }
