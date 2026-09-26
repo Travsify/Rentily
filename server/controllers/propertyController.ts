@@ -96,6 +96,8 @@ export async function getProperties(req: Request, res: Response) {
             purpose: row.purpose,
             propertyType: row.property_type,
             basePrice: Number(row.base_price || 0),
+            price: Number(row.base_price || 0),
+            rentAmount: Number(row.base_price || 0),
             cautionFee: Number(row.caution_fee || 0),
             serviceCharge: Number(row.service_charge || 0),
             rentillyFee: Number(row.rentilly_fee || row.rentilly_legal_fee || 0),
@@ -190,14 +192,20 @@ export async function getProperties(req: Request, res: Response) {
       storeProps.sort((a, b) => b.bedrooms - a.bedrooms);
     }
 
+    const mappedStoreProps = storeProps.map(p => ({
+      ...p,
+      price: p.basePrice || (p as any).price || 0,
+      rentAmount: p.basePrice || (p as any).price || 0
+    }));
+
     // Merge: prefer Supabase if it returned data, append non-duplicate store items
     if (supabaseProps.length > 0) {
       const supabaseIds = new Set(supabaseProps.map(p => p.id));
-      const extraStoreProps = storeProps.filter(p => !supabaseIds.has(p.id));
+      const extraStoreProps = mappedStoreProps.filter(p => !supabaseIds.has(p.id));
       return res.json([...supabaseProps, ...extraStoreProps]);
     }
 
-    return res.json(storeProps);
+    return res.json(mappedStoreProps);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

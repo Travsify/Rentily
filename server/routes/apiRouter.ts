@@ -554,4 +554,20 @@ apiRouter.post('/vaults/sync', vaultController.VaultController.syncUserVaults);
 apiRouter.get('/rnpl/eligibility/:userId', rnplController.checkEligibility);
 apiRouter.post('/rnpl/mandate', rnplController.submitMandate);
 
+// 36. Universal Mobile & Client Compatibility Aliases
+apiRouter.get('/payments/banks', paymentController.getPaystackBanks);
+apiRouter.post('/payments/withdraw', paymentController.withdrawWithPaystack);
+apiRouter.get('/escrow/agreements', legalController.getLegalAgreements);
+apiRouter.post('/escrow/create', escrowController.payRentEscrow);
+apiRouter.get('/vault/plans', vaultController.VaultController.getVaultPlans);
+apiRouter.get('/vaults/plans', vaultController.VaultController.getVaultPlans);
+apiRouter.get('/vault/user-vaults', vaultController.VaultController.getUserVaults);
+apiRouter.get('/credit/score', creditController.getEligibility);
+apiRouter.post('/credit/score', creditController.getEligibility);
+apiRouter.get('/rates/live', paymentController.getFxRatesHandler);
+apiRouter.get('/fx/rates', paymentController.getFxRatesHandler);
+apiRouter.post('/auth/forgot-password', authController.requestPasswordResetOtp);
+apiRouter.post('/auth/forgot-password/request', authController.requestPasswordResetOtp);
+
+
 

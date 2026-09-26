@@ -738,4 +738,31 @@ export class VaultController {
       res.status(500).json({ success: false, error: err.message });
     }
   }
+
+  static getVaultPlans(_req: Request, res: Response): void {
+    res.json({
+      status: true,
+      success: true,
+      plans: [
+        {
+          id: 'rent_vault',
+          title: 'Rent Advance Vault',
+          yieldRate: '5.0% APY',
+          durationMonths: 12,
+          durationLabel: '1 Year Fixed',
+          minDeposit: 1000,
+          description: 'Lock funds towards your annual rent target and earn a guaranteed 5% APY compounding return with instant credit eligibility.'
+        },
+        {
+          id: 'living_goal',
+          title: 'Custom Living Goal',
+          yieldRate: '5.0% APY',
+          durationMonths: 6,
+          durationLabel: '6 Months Flexible',
+          minDeposit: 500,
+          description: 'Flexible automated savings towards furniture, appliances, or relocation with 80% borrowing collateral credit.'
+        }
+      ]
+    });
+  }
 }
