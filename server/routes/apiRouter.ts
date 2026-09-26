@@ -534,3 +534,8 @@ apiRouter.post('/vaults/withdraw', vaultController.VaultController.withdrawFromV
 apiRouter.post('/vaults/delete', vaultController.VaultController.deleteVault);
 apiRouter.post('/vaults/sync', vaultController.VaultController.syncUserVaults);
 
+// 35. Rent-Now-Pay-Later (RNPL) Financing & NIBSS Mandate Engine
+apiRouter.get('/rnpl/eligibility/:userId', rnplController.checkEligibility);
+apiRouter.post('/rnpl/mandate', rnplController.submitMandate);
+
+
