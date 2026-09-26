@@ -4,8 +4,10 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
+import { ProxyAgent, Agent, setGlobalDispatcher } from 'undici';
 import { apiRouter } from './routes/apiRouter';
 import { renderPartnerVerificationPage, renderLandlordInvitePage, renderReKycPage, renderGatePassPage, renderCredentialVerificationPage, renderMandateVerificationPage, renderInspectionSafetyPage, handlePublicLandlordRegister, renderTransactionReceiptPage } from './controllers/publicPartnerPages';
+import { renderPublicRoommatePost } from './controllers/publicRoommatesController';
 import { verifyDeedByHash } from './controllers/deedVerificationController';
 import { isSupabaseConfigured } from './supabaseClient';
 import { AutoReconciliationWorker } from './services/autoReconciliationWorker';
@@ -65,7 +67,6 @@ try {
 const proxyUrl = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
 if (proxyUrl) {
   try {
-    const { ProxyAgent, setGlobalDispatcher } = await import('undici');
     setGlobalDispatcher(new ProxyAgent(proxyUrl));
     console.log(`[Proxy] 🌐 Global outbound proxy dispatcher enabled: ${proxyUrl.replace(/:[^:@]+@/, ':****@')}`);
   } catch (err: any) {
@@ -73,7 +74,6 @@ if (proxyUrl) {
   }
 } else {
   try {
-    const { Agent, setGlobalDispatcher } = await import('undici');
     setGlobalDispatcher(
       new Agent({
         connect: {
@@ -140,6 +140,12 @@ app.get('/deed/:hash', verifyDeedByHash);
 app.get('/deed', verifyDeedByHash);
 app.get('/verify/:id', renderCredentialVerificationPage);
 app.get('/verify', renderCredentialVerificationPage);
+
+// Public Verified Roommates & Co-Living Post Cards (SEO + OpenGraph + Deep-Link)
+app.get('/roommates/:id', renderPublicRoommatePost);
+app.get('/roommates', renderPublicRoommatePost);
+app.get('/roommate/:id', renderPublicRoommatePost);
+app.get('/roommate', renderPublicRoommatePost);
 
 // Google Play Direct App Download Redirects
 const GOOGLE_PLAY_URL = 'https://play.google.com/store/apps/details?id=ng.rentilly.rentilly_mobile';

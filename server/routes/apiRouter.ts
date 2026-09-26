@@ -26,6 +26,7 @@ import * as creditController from '../controllers/creditController';
 import * as vaultController from '../controllers/vaultController';
 import * as externalLegalController from '../controllers/externalLegalController';
 import { getPartnerOnboardedLandlords } from '../controllers/publicPartnerPages';
+import { renderPublicRoommatePost } from '../controllers/publicRoommatesController';
 import { isSupabaseConfigured, reconfigureSupabase, supabase } from '../supabaseClient';
 import { IdentitypassService } from '../services/identitypassService';
 import { FlutterwaveService } from '../services/flutterwaveService';
@@ -576,6 +577,11 @@ apiRouter.get('/rates/live', paymentController.getFxRatesHandler);
 apiRouter.get('/fx/rates', paymentController.getFxRatesHandler);
 apiRouter.post('/auth/forgot-password', authController.requestPasswordResetOtp);
 apiRouter.post('/auth/forgot-password/request', authController.requestPasswordResetOtp);
+
+// 37. Public Verified Roommates Web View
+apiRouter.get('/roommates/:id', renderPublicRoommatePost);
+apiRouter.get('/roommates', renderPublicRoommatePost);
+apiRouter.get('/roommate/:id', renderPublicRoommatePost);
 
 
 

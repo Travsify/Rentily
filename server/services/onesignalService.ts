@@ -6,6 +6,7 @@
  * 
  * Uses the Rentilly logo as notification icon.
  */
+import { supabase } from '../supabaseClient';
 
 const DEFAULT_ONESIGNAL_KEY = [
   'os_v2_app_',
@@ -40,6 +41,30 @@ export interface OneSignalNotificationPayload {
   iconUrl?: string;
   /** Optional: Big picture / banner image URL */
   imageUrl?: string;
+}
+
+/**
+ * Retrieves all registered OneSignal player IDs associated with Rentilly user profiles
+ * in Supabase. This guarantees that notifications target Rentilly installations and
+ * do not collide with other apps (like Giga Ride) registered under the same OneSignal App.
+ */
+export async function getRentillyRegisteredPlayerIds(): Promise<string[]> {
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('onesignal_player_id')
+      .not('onesignal_player_id', 'is', null);
+
+    if (error || !data) return [];
+    const ids = data
+      .map((r: any) => String(r.onesignal_player_id || '').trim())
+      .filter((id: string) => id.length > 10);
+    return Array.from(new Set(ids));
+  } catch (err: any) {
+    console.error('[OneSignal] Error retrieving Rentilly player IDs:', err.message);
+    return [];
+  }
 }
 
 /**
@@ -79,7 +104,7 @@ export async function sendPushNotification(payload: OneSignalNotificationPayload
       body.url = payload.url;
     }
 
-    // Determine targeting
+    // Determine targeting — Isolate to Rentilly players to prevent collisions with other apps sharing FCM
     if (payload.targetExternalIds && payload.targetExternalIds.length > 0) {
       body.include_aliases = { external_id: payload.targetExternalIds };
       body.target_channel = 'push';
@@ -87,10 +112,16 @@ export async function sendPushNotification(payload: OneSignalNotificationPayload
       body.include_subscription_ids = payload.targetPlayerIds;
     } else if (payload.filters && payload.filters.length > 0) {
       body.filters = payload.filters;
-    } else if (payload.targetSegments && payload.targetSegments.length > 0) {
-      body.included_segments = payload.targetSegments;
     } else {
-      body.included_segments = ['Total Subscriptions', 'Subscribed Users'];
+      // Query genuine Rentilly player IDs registered from mobile app
+      const rentillyPlayers = await getRentillyRegisteredPlayerIds();
+      if (rentillyPlayers.length > 0) {
+        body.include_subscription_ids = rentillyPlayers;
+      } else if (payload.targetSegments && payload.targetSegments.length > 0) {
+        body.included_segments = payload.targetSegments;
+      } else {
+        body.filters = [{ field: 'tag', key: 'app', relation: '=', value: 'rentilly' }];
+      }
     }
 
     const response = await fetch(ONESIGNAL_API_URL, {

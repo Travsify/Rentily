@@ -9,6 +9,7 @@ import '../widgets/date_of_birth_modal.dart';
 import 'auth_service.dart';
 import 'api_service.dart';
 import '../screens/bills/bills_screen.dart';
+import '../screens/roommates/roommates_screen.dart';
 
 /// Manages OneSignal push notifications for Rentilly.
 /// Handles initialization, permission requests, player ID registration,
@@ -28,6 +29,12 @@ class PushNotificationService {
 
       // Initialize with Rentilly's OneSignal App ID
       OneSignal.initialize(AppConstants.oneSignalAppId);
+
+      // Immediately tag device as Rentilly to isolate from other apps sharing the FCM sender
+      OneSignal.User.addTags({
+        'app': 'rentilly',
+        'package': 'ng.rentilly.rentilly_mobile',
+      });
 
       // Request notification permission (shows the system prompt on Android 13+ / iOS)
       final accepted = await OneSignal.Notifications.requestPermission(true);
@@ -81,8 +88,10 @@ class PushNotificationService {
       // Set external user ID for cross-platform identification
       OneSignal.login(user.id);
 
-      // Tag user with role and email for segment-based targeting
+      // Tag user with role, email, and app identity for isolated targeting
       OneSignal.User.addTags({
+        'app': 'rentilly',
+        'package': 'ng.rentilly.rentilly_mobile',
         'role': user.role,
         'email': user.email,
         'fullName': user.fullName,
@@ -188,6 +197,26 @@ class PushNotificationService {
         if (context != null && context.mounted) {
           Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const BillsScreen()),
+          );
+        }
+        return;
+      }
+
+      final isRoommates = action == 'open_roommates' ||
+          action == 'roommates' ||
+          action == 'roommate' ||
+          data['roommate_id'] != null ||
+          title.toLowerCase().contains('roommate') ||
+          title.toLowerCase().contains('flatmate') ||
+          title.toLowerCase().contains('co-living') ||
+          body.toLowerCase().contains('roommate') ||
+          body.toLowerCase().contains('split-the-scroll');
+
+      if (isRoommates) {
+        final context = rootNavigatorKey.currentContext;
+        if (context != null && context.mounted) {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const RoommatesScreen()),
           );
         }
         return;
