@@ -112,7 +112,7 @@ export async function getProperties(req: Request, res: Response) {
             toilets: row.toilets,
             furnishing: row.furnishing,
             amenities: row.amenities || [],
-            images: row.images || [],
+            images: (row.images && Array.isArray(row.images) && row.images.length > 0) ? row.images : ['https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1000&q=80'],
             videoWalkthroughUrl: row.video_walkthrough_url,
             status: row.status,
             verifiedAt: row.verified_at,

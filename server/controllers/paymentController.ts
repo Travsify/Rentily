@@ -5058,7 +5058,9 @@ export async function getFxRatesHandler(req: Request, res: Response) {
     const rates = MultiCurrencyService.getFxRates();
     res.json({
       status: true,
-      data: rates
+      data: rates,
+      rates,
+      ...(rates || {})
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -5088,7 +5090,9 @@ export async function getCardPricingHandler(req: Request, res: Response) {
     const pricing = CardIssuingService.getCardPricing();
     res.json({
       status: true,
-      data: pricing
+      data: pricing,
+      pricing,
+      ...(pricing || {})
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
