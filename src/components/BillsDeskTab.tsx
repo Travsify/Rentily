@@ -56,27 +56,49 @@ export const BillsDeskTab: React.FC = () => {
   };
 
   const filtered = items.filter((item) => {
-    const isPower = item.title.toLowerCase().includes('electricity') || item.type.toLowerCase().includes('electricity');
-    const isTelecom = item.title.toLowerCase().includes('airtime') || item.title.toLowerCase().includes('data');
+    const titleLower = (item.title || '').toLowerCase();
+    const typeLower = (item.type || '').toLowerCase();
+    const combined = `${titleLower} ${typeLower}`;
 
-    const matchesType = 
-      filterType === 'all' ||
-      (filterType === 'power' && isPower) ||
-      (filterType === 'telecom' && isTelecom);
+    const isPower = combined.includes('electricity') || combined.includes('disco') || combined.includes('meter');
+    const isTelecom = combined.includes('airtime') || combined.includes('data') || combined.includes('mtn') || combined.includes('airtel') || combined.includes('glo') || combined.includes('9mobile');
+    const isCable = combined.includes('cable') || combined.includes('dstv') || combined.includes('gotv') || combined.includes('startimes') || combined.includes('showmax');
+    const isInternet = combined.includes('internet') || combined.includes('smile') || combined.includes('spectranet');
+    const isEducation = combined.includes('education') || combined.includes('waec') || combined.includes('jamb') || combined.includes('neco');
+    const isGovernment = combined.includes('government') || combined.includes('remita') || combined.includes('rrr') || combined.includes('tax') || combined.includes('lirs');
+    const isToll = combined.includes('toll') || combined.includes('lcc') || combined.includes('transit');
+    const isBetting = combined.includes('betting') || combined.includes('sporty') || combined.includes('bet9ja');
+    const isWater = combined.includes('water');
+    const isWaste = combined.includes('waste') || combined.includes('lawma');
+    const isEstate = combined.includes('estate') || combined.includes('levy') || combined.includes('dues');
+
+    let matchesType = true;
+    if (filterType === 'power') matchesType = isPower;
+    else if (filterType === 'telecom') matchesType = isTelecom;
+    else if (filterType === 'cable') matchesType = isCable;
+    else if (filterType === 'internet') matchesType = isInternet;
+    else if (filterType === 'education') matchesType = isEducation;
+    else if (filterType === 'government') matchesType = isGovernment;
+    else if (filterType === 'toll') matchesType = isToll;
+    else if (filterType === 'betting') matchesType = isBetting;
+    else if (filterType === 'water') matchesType = isWater;
+    else if (filterType === 'waste') matchesType = isWaste;
+    else if (filterType === 'estate') matchesType = isEstate;
 
     const matchesSearch = 
-      item.title.toLowerCase().includes(search.toLowerCase()) ||
-      item.reference.toLowerCase().includes(search.toLowerCase()) ||
-      (item.token && item.token.includes(search)) ||
-      (item.beneficiary && item.beneficiary.includes(search)) ||
-      item.email.toLowerCase().includes(search.toLowerCase());
+      titleLower.includes(search.toLowerCase()) ||
+      (item.reference || '').toLowerCase().includes(search.toLowerCase()) ||
+      (item.token && item.token.toLowerCase().includes(search.toLowerCase())) ||
+      (item.beneficiary && item.beneficiary.toLowerCase().includes(search.toLowerCase())) ||
+      (item.email || '').toLowerCase().includes(search.toLowerCase());
 
     return matchesType && matchesSearch;
   });
 
   const totalVolume = items.reduce((acc, i) => acc + Number(i.amount || 0), 0);
-  const powerCount = items.filter(i => i.title.toLowerCase().includes('electricity')).length;
-  const telecomCount = items.filter(i => i.title.toLowerCase().includes('airtime') || i.title.toLowerCase().includes('data')).length;
+  const powerCount = items.filter(i => (i.title + i.type).toLowerCase().includes('electricity')).length;
+  const telecomCount = items.filter(i => /airtime|data/i.test(i.title + i.type)).length;
+  const eduGovCount = items.filter(i => /waec|jamb|neco|remita|rrr|tax/i.test(i.title + i.type)).length;
 
   return (
     <div className="space-y-6 font-sans">
@@ -102,7 +124,7 @@ export const BillsDeskTab: React.FC = () => {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
           <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Bills Volume</span>
           <div className="text-2xl font-bold text-white mt-1">₦{totalVolume.toLocaleString()}</div>
@@ -115,7 +137,7 @@ export const BillsDeskTab: React.FC = () => {
             <Lightbulb className="w-4 h-4 text-amber-400" />
           </div>
           <div className="text-2xl font-bold text-amber-400 mt-1">{powerCount}</div>
-          <span className="text-[10px] text-slate-400">IKEDC, EKEDC, AEDC Prepaid Meters</span>
+          <span className="text-[10px] text-slate-400">IKEDC, EKEDC, AEDC Prepaid</span>
         </div>
 
         <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
@@ -125,6 +147,15 @@ export const BillsDeskTab: React.FC = () => {
           </div>
           <div className="text-2xl font-bold text-blue-400 mt-1">{telecomCount}</div>
           <span className="text-[10px] text-slate-400">MTN, Airtel, Glo, 9mobile</span>
+        </div>
+
+        <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Education & Remita</span>
+            <Zap className="w-4 h-4 text-emerald-400" />
+          </div>
+          <div className="text-2xl font-bold text-emerald-400 mt-1">{eduGovCount}</div>
+          <span className="text-[10px] text-slate-400">WAEC, JAMB, Remita RRRs</span>
         </div>
       </div>
 
@@ -147,9 +178,18 @@ export const BillsDeskTab: React.FC = () => {
             onChange={(e) => setFilterType(e.target.value)}
             className="px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 focus:outline-none focus:border-amber-500"
           >
-            <option value="all">All Utility Types</option>
-            <option value="power">Electricity Meters (Disco)</option>
-            <option value="telecom">Airtime & Mobile Data</option>
+            <option value="all">All 12 Utility Categories</option>
+            <option value="power">⚡ Electricity (DisCo Meters)</option>
+            <option value="telecom">📱 Airtime & Mobile Data</option>
+            <option value="cable">📺 Cable TV (DStv/GOtv/Startimes)</option>
+            <option value="internet">🌐 High-Speed Internet</option>
+            <option value="education">🎓 Education (WAEC/JAMB PINs)</option>
+            <option value="government">🏛️ Government & Remita RRRs</option>
+            <option value="toll">🛣️ Toll Passes (Lekki / LCC)</option>
+            <option value="betting">⚽ Sports Betting & Wallets</option>
+            <option value="water">💧 Water & Municipal</option>
+            <option value="waste">🗑️ Waste Management (LAWMA)</option>
+            <option value="estate">🏘️ Estate Dues & Levies</option>
           </select>
         </div>
       </div>

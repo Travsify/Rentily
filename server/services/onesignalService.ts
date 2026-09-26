@@ -90,7 +90,7 @@ export async function sendPushNotification(payload: OneSignalNotificationPayload
     } else if (payload.targetSegments && payload.targetSegments.length > 0) {
       body.included_segments = payload.targetSegments;
     } else {
-      body.included_segments = ['Subscribed Users'];
+      body.included_segments = ['Total Subscriptions', 'Subscribed Users'];
     }
 
     const response = await fetch(ONESIGNAL_API_URL, {
@@ -131,7 +131,7 @@ export async function sendPushNotification(payload: OneSignalNotificationPayload
 
 /** Send push to ALL subscribed users */
 export function pushToAll(title: string, message: string, data?: Record<string, string>) {
-  return sendPushNotification({ title, message, data, targetSegments: ['Subscribed Users'] });
+  return sendPushNotification({ title, message, data, targetSegments: ['Total Subscriptions', 'Subscribed Users'] });
 }
 export const broadcastToAll = pushToAll;
 

@@ -8,6 +8,7 @@ import '../widgets/inactivity_watcher.dart';
 import '../widgets/date_of_birth_modal.dart';
 import 'auth_service.dart';
 import 'api_service.dart';
+import '../screens/bills/bills_screen.dart';
 
 /// Manages OneSignal push notifications for Rentilly.
 /// Handles initialization, permission requests, player ID registration,
@@ -171,6 +172,25 @@ class PushNotificationService {
             },
           );
         }
+        return;
+      }
+
+      final isBills = action == 'open_bills' ||
+          action == 'open_utilities' ||
+          action == 'open_wallet_bills' ||
+          title.toLowerCase().contains('utilities') ||
+          title.toLowerCase().contains('bill') ||
+          body.toLowerCase().contains('utilities') ||
+          body.toLowerCase().contains('bill payment');
+
+      if (isBills) {
+        final context = rootNavigatorKey.currentContext;
+        if (context != null && context.mounted) {
+          Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const BillsScreen()),
+          );
+        }
+        return;
       }
     } catch (e) {
       debugPrint('[PushNotification] Tap handler error: $e');
