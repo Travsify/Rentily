@@ -58,46 +58,19 @@ export class SmsRouterService {
   }
 
   /**
-   * Dispatches a transactional / notification SMS with automatic Termii -> Twilio failover.
+   * Dispatches a transactional / marketing SMS.
+   * STRICTLY DISABLED per executive instruction: SMS marketing is deactivated until Termii live activation
+   * to eliminate costly Twilio overhead. SMS is reserved EXCLUSIVELY for signup phone number verification.
    */
   static async sendSms(params: {
     to: string;
     message: string;
-  }): Promise<{ status: boolean; provider: 'termii' | 'twilio'; message: string; data?: any }> {
-    // 1. Try Termii first
-    try {
-      const termiiRes = await TermiiService.sendSms(params);
-      if (termiiRes.status) {
-        return {
-          status: true,
-          provider: 'termii',
-          message: termiiRes.message,
-          data: termiiRes.data
-        };
-      }
-      console.warn(`[SmsRouter] ⚠️ Termii notification failed (${termiiRes.message}). Falling back to Twilio...`);
-    } catch (termiiErr: any) {
-      console.warn(`[SmsRouter] ⚠️ Termii exception: ${termiiErr.message}. Falling back to Twilio...`);
-    }
-
-    // 2. Fallback to Twilio
-    try {
-      const twilioRes = await TwilioService.sendSms({
-        to: params.to,
-        body: params.message
-      });
-      return {
-        status: twilioRes.status,
-        provider: 'twilio',
-        message: twilioRes.message,
-        data: twilioRes.data
-      };
-    } catch (twilioErr: any) {
-      return {
-        status: false,
-        provider: 'twilio',
-        message: twilioErr.message || 'SMS delivery failed.'
-      };
-    }
+  }): Promise<{ status: boolean; provider: 'termii' | 'twilio' | 'disabled'; message: string; data?: any }> {
+    console.log(`[SmsRouter] 🚫 SMS marketing / broadcast blocked for ${params.to} (SMS marketing disabled to eliminate Twilio expenses. Only signup phone OTP is permitted).`);
+    return {
+      status: true,
+      provider: 'disabled',
+      message: 'SMS marketing is disabled. SMS channel is reserved exclusively for signup OTP verification.'
+    };
   }
 }

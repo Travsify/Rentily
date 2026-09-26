@@ -6,7 +6,7 @@ dotenv.config();
 const DEFAULT_TERMII_KEY = ['tlv_', 'ONGQkgfG', 'WxoP5jH9', 'vfjCPunQ9', 'EjAOknLx', 'GL4GDqL1Co'].join('');
 const TERMII_API_KEY = process.env.TERMII_API_KEY || DEFAULT_TERMII_KEY;
 const TERMII_BASE_URL = process.env.TERMII_BASE_URL || 'https://api.ng.termii.com';
-const TERMII_SENDER_ID = process.env.TERMII_SENDER_ID || 'N-Alert';
+const TERMII_SENDER_ID = process.env.TERMII_SENDER_ID || 'Rentilly';
 
 export class TermiiService {
   /**
