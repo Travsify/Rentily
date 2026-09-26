@@ -9,9 +9,19 @@ import {
   RefreshCw, 
   LogOut, 
   ShieldCheck, 
-  X
+  X,
+  Users,
+  Eye,
+  Globe,
+  Smartphone,
+  Monitor,
+  Activity,
+  Trash2,
+  TrendingUp,
+  Share2
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { fetchFullTelemetryStats, type FullTelemetryStats } from '../utils/imprintBeacon';
 
 interface ContestSubmission {
   id: string;
@@ -85,6 +95,11 @@ export const WeltsContestAdminDesk: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSub, setSelectedSub] = useState<ContestSubmission | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Visitor Imprint & Traffic Telemetry State
+  const [telemetryStats, setTelemetryStats] = useState<FullTelemetryStats | null>(null);
+  const [isLoadingTelemetry, setIsLoadingTelemetry] = useState(false);
+  const [showTelemetryRawLogs, setShowTelemetryRawLogs] = useState(false);
 
   // 3-Week Recurring Contest Season & Countdown Master Switch
   const [cycleConfig, setCycleConfig] = useState<ContestCycleConfig>(() => {
@@ -224,9 +239,41 @@ export const WeltsContestAdminDesk: React.FC = () => {
     }
   };
 
+  const fetchTelemetry = async () => {
+    setIsLoadingTelemetry(true);
+    try {
+      const stats = await fetchFullTelemetryStats();
+      if (stats) {
+        setTelemetryStats(stats);
+      }
+    } catch (err) {
+      console.error('Failed to load telemetry stats:', err);
+    } finally {
+      setIsLoadingTelemetry(false);
+    }
+  };
+
+  const handleResetTelemetry = async () => {
+    if (!window.confirm('⚠️ Are you sure you want to reset all visitor telemetry counts? This will flush recorded pageviews, unique visitor logs, and channel metrics.')) {
+      return;
+    }
+    try {
+      const res = await fetch('/api/telemetry/reset', { method: 'POST' });
+      if (res.ok) {
+        showToast('Visitor imprint telemetry successfully flushed!');
+        await fetchTelemetry();
+      }
+    } catch {
+      showToast('Error resetting telemetry');
+    }
+  };
+
   useEffect(() => {
     if (isAuthenticated) {
       fetchSubmissions();
+      fetchTelemetry();
+      const interval = setInterval(fetchTelemetry, 30000);
+      return () => clearInterval(interval);
     }
   }, [isAuthenticated]);
 
@@ -765,6 +812,272 @@ export const WeltsContestAdminDesk: React.FC = () => {
               Refresh Table
             </button>
           </div>
+        </div>
+
+        {/* EXECUTIVE VISITOR IMPRINTS & TRAFFIC TELEMETRY SUITE */}
+        <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/40 border-2 border-emerald-500/30 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+            <div>
+              <div className="flex items-center gap-2 mb-1.5">
+                <Globe className="w-5 h-5 text-emerald-400" />
+                <span className="text-xs font-black uppercase tracking-wider text-emerald-400">
+                  Global Audience Telemetry &amp; Visitor Footprints
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                  Live Imprint Engine
+                </span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black text-white">
+                Executive Traffic &amp; Visitor Imprint Analytics
+              </h2>
+              <p className="text-xs text-slate-400 mt-1 max-w-2xl">
+                Tamper-proof server telemetry tracking total impressions, unique human explorers, acquisition funnels (WhatsApp, TikTok, Instagram, Direct), and real-time active users.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2.5 shrink-0">
+              <button
+                type="button"
+                onClick={fetchTelemetry}
+                disabled={isLoadingTelemetry}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold transition cursor-pointer disabled:opacity-50"
+                title="Refresh visitor telemetry"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${isLoadingTelemetry ? 'animate-spin' : ''}`} />
+                <span>{isLoadingTelemetry ? 'Syncing...' : 'Sync Telemetry'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleResetTelemetry}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-red-950/40 hover:bg-red-900/60 text-red-300 border border-red-500/30 text-xs font-bold transition cursor-pointer"
+                title="Flush and reset visitor metrics"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                <span className="hidden sm:inline">Reset</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Primary Metrics Grid */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-slate-950/70 border border-slate-800/80 rounded-2xl p-5 shadow-inner">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase text-slate-400">Total Site Visits</span>
+                <Eye className="w-4 h-4 text-emerald-400" />
+              </div>
+              <div className="text-2xl sm:text-3xl font-black text-emerald-400 mt-2">
+                {telemetryStats ? telemetryStats.metrics.totalPageviews.toLocaleString() : '...'}
+              </div>
+              <div className="flex items-center gap-1.5 mt-1 text-[11px] text-slate-400">
+                <span className="text-emerald-400 font-bold">
+                  +{telemetryStats ? telemetryStats.metrics.todayPageviews.toLocaleString() : 0}
+                </span>
+                <span>today's views</span>
+              </div>
+            </div>
+
+            <div className="bg-slate-950/70 border border-slate-800/80 rounded-2xl p-5 shadow-inner">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase text-slate-400">Unique Human Visitors</span>
+                <Users className="w-4 h-4 text-cyan-400" />
+              </div>
+              <div className="text-2xl sm:text-3xl font-black text-cyan-400 mt-2">
+                {telemetryStats ? telemetryStats.metrics.uniqueVisitors.toLocaleString() : '...'}
+              </div>
+              <div className="flex items-center gap-1.5 mt-1 text-[11px] text-slate-400">
+                <span className="text-cyan-400 font-bold">
+                  +{telemetryStats ? telemetryStats.metrics.todayUniqueVisitors.toLocaleString() : 0}
+                </span>
+                <span>new today</span>
+              </div>
+            </div>
+
+            <div className="bg-slate-950/70 border border-slate-800/80 rounded-2xl p-5 shadow-inner">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase text-slate-400">Active Online Now</span>
+                <Activity className="w-4 h-4 text-amber-400 animate-pulse" />
+              </div>
+              <div className="text-2xl sm:text-3xl font-black text-amber-400 mt-2 flex items-center gap-2">
+                <span>{telemetryStats ? telemetryStats.metrics.liveActive : 0}</span>
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+              </div>
+              <div className="text-[11px] text-slate-400 mt-1">Active in past 5 mins</div>
+            </div>
+
+            <div className="bg-slate-950/70 border border-slate-800/80 rounded-2xl p-5 shadow-inner">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase text-slate-400">Top Acquisition Funnel</span>
+                <TrendingUp className="w-4 h-4 text-pink-400" />
+              </div>
+              <div className="text-xl sm:text-2xl font-black text-pink-400 mt-2 truncate capitalize">
+                {telemetryStats && Object.keys(telemetryStats.sources || {}).length > 0
+                  ? Object.entries(telemetryStats.sources).sort((a, b) => b[1] - a[1])[0][0]
+                  : 'Direct'}
+              </div>
+              <div className="text-[11px] text-slate-400 mt-1">Leading referral channel</div>
+            </div>
+          </div>
+
+          {/* Breakdown Grids: Acquisition Channels & Device Types */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Traffic Sources */}
+            <div className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-xs font-black uppercase text-slate-300 tracking-wider flex items-center gap-2">
+                  <Share2 className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Traffic Channels &amp; Referrals</span>
+                </h4>
+                <span className="text-[10px] text-slate-500 font-mono">Channel Attribution</span>
+              </div>
+
+              {telemetryStats && Object.keys(telemetryStats.sources || {}).length > 0 ? (
+                <div className="space-y-3">
+                  {Object.entries(telemetryStats.sources)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([source, count]) => {
+                      const total = telemetryStats.metrics.totalPageviews || 1;
+                      const pct = Math.round((count / total) * 100);
+                      return (
+                        <div key={source} className="space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-semibold text-slate-300 capitalize">{source}</span>
+                            <span className="font-mono text-emerald-400 font-bold">
+                              {count.toLocaleString()} <span className="text-slate-500 font-normal">({pct}%)</span>
+                            </span>
+                          </div>
+                          <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-500"
+                              style={{ width: `${Math.max(5, pct)}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              ) : (
+                <div className="text-xs text-slate-500 py-6 text-center">
+                  Collecting referral funnels from creators and visitors...
+                </div>
+              )}
+            </div>
+
+            {/* Devices & OS Breakdown */}
+            <div className="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-xs font-black uppercase text-slate-300 tracking-wider flex items-center gap-2">
+                  <Smartphone className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Visitor Hardware &amp; OS Breakdown</span>
+                </h4>
+                <span className="text-[10px] text-slate-500 font-mono">Client Footprints</span>
+              </div>
+
+              {telemetryStats && Object.keys(telemetryStats.devices || {}).length > 0 ? (
+                <div className="space-y-3">
+                  {Object.entries(telemetryStats.devices)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([device, count]) => {
+                      const total = telemetryStats.metrics.totalPageviews || 1;
+                      const pct = Math.round((count / total) * 100);
+                      return (
+                        <div key={device} className="space-y-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-semibold text-slate-300 capitalize flex items-center gap-1.5">
+                              {device.toLowerCase().includes('android') || device.toLowerCase().includes('ios') ? (
+                                <Smartphone className="w-3 h-3 text-cyan-400" />
+                              ) : (
+                                <Monitor className="w-3 h-3 text-slate-400" />
+                              )}
+                              <span>{device}</span>
+                            </span>
+                            <span className="font-mono text-cyan-400 font-bold">
+                              {count.toLocaleString()} <span className="text-slate-500 font-normal">({pct}%)</span>
+                            </span>
+                          </div>
+                          <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full transition-all duration-500"
+                              style={{ width: `${Math.max(5, pct)}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              ) : (
+                <div className="text-xs text-slate-500 py-6 text-center">
+                  Collecting device fingerprints from arriving traffic...
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Toggle Live Stream Table */}
+          <div className="border-t border-slate-800/80 pt-4 flex items-center justify-between">
+            <span className="text-xs text-slate-400">
+              Verified Imprint Hash Logs ({telemetryStats?.recentLogs?.length || 0} recent visits recorded)
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowTelemetryRawLogs(!showTelemetryRawLogs)}
+              className="text-xs font-bold text-emerald-400 hover:text-emerald-300 underline cursor-pointer"
+            >
+              {showTelemetryRawLogs ? 'Hide Live Stream' : 'View Live Imprint Stream ↓'}
+            </button>
+          </div>
+
+          {showTelemetryRawLogs && (
+            <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950/80">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-900 text-slate-400 uppercase tracking-wider font-mono border-b border-slate-800">
+                  <tr>
+                    <th className="py-2.5 px-4">Time</th>
+                    <th className="py-2.5 px-4">Page</th>
+                    <th className="py-2.5 px-4">Channel</th>
+                    <th className="py-2.5 px-4">Device / OS</th>
+                    <th className="py-2.5 px-4">Country</th>
+                    <th className="py-2.5 px-4 text-right">Visitor ID Hash</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/50">
+                  {telemetryStats && telemetryStats.recentLogs && telemetryStats.recentLogs.length > 0 ? (
+                    telemetryStats.recentLogs.map((log) => (
+                      <tr key={log.id} className="hover:bg-slate-900/40">
+                        <td className="py-2.5 px-4 font-mono text-slate-400">
+                          {new Date(log.timestamp).toLocaleTimeString()}
+                        </td>
+                        <td className="py-2.5 px-4 font-bold text-white">
+                          {log.page}
+                        </td>
+                        <td className="py-2.5 px-4">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-slate-800 text-emerald-300 border border-emerald-500/20">
+                            {log.channel}
+                          </span>
+                        </td>
+                        <td className="py-2.5 px-4 text-slate-300">
+                          {log.device?.os} ({log.device?.type})
+                        </td>
+                        <td className="py-2.5 px-4 text-slate-300">
+                          {log.country || 'NG 🇳🇬'}
+                        </td>
+                        <td className="py-2.5 px-4 text-right font-mono text-[10px] text-slate-500">
+                          {log.visitorId.substring(0, 10)}...
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={6} className="py-4 text-center text-slate-500">
+                        No visitor stream recorded yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* Submissions Management Table */}

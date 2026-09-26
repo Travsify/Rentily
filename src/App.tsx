@@ -47,6 +47,8 @@ import { RentillyApiService, checkServerHealth } from './services/api';
 import { supabaseClient } from './services/supabaseClient';
 import type { AdminTab, Property, KYPRecord, Inspection, Transaction, LegalAgreement, UserProfile } from './types';
 
+import { fireVisitorImprint } from './utils/imprintBeacon';
+
 export default function App() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [currentTab, setCurrentTab] = useState<AdminTab>('overview');
@@ -80,6 +82,7 @@ export default function App() {
 
   // Check existing login session & server status on mount
   useEffect(() => {
+    fireVisitorImprint();
     const existingUser = RentillyApiService.getCurrentUser();
     if (existingUser) {
       setCurrentUser(existingUser);

@@ -943,6 +943,31 @@
         if (formRef) formRef.value = ref.toUpperCase();
       }
       render();
+
+      // Lightweight Visitor Imprint Beacon
+      try {
+        let vid = localStorage.getItem('rentilly_visitor_id');
+        if (!vid) {
+          vid = 'v_' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+          localStorage.setItem('rentilly_visitor_id', vid);
+        }
+        let sid = sessionStorage.getItem('rentilly_session_id');
+        if (!sid) {
+          sid = 's_' + Math.random().toString(36).substring(2, 10);
+          sessionStorage.setItem('rentilly_session_id', sid);
+        }
+        fetch('/api/telemetry/imprint', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            visitorId: vid,
+            sessionId: sid,
+            page: window.location.pathname || '/creators.html',
+            referrer: document.referrer || '',
+            utmSource: (new URLSearchParams(window.location.search)).get('utm_source') || ''
+          })
+        }).catch(function() {});
+      } catch (err) {}
     });
   </script>
 </body>

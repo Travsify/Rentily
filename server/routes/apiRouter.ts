@@ -527,6 +527,13 @@ apiRouter.get('/contest/cycle', contestController.getContestCycle);
 apiRouter.post('/contest/cycle', contestController.updateContestCycle);
 apiRouter.post('/contest/submissions/:id/boost', contestController.boostSubmission);
 
+// 32. Visitor Imprint & Telemetry Engine
+import { telemetryController } from '../controllers/telemetryController';
+apiRouter.post('/telemetry/imprint', telemetryController.recordImprint);
+apiRouter.get('/telemetry/imprint', telemetryController.getStats);
+apiRouter.get('/telemetry/stats', telemetryController.getStats);
+apiRouter.post('/telemetry/reset', telemetryController.resetStats);
+
 // 33. Savings-Backed Collateralized Credit Advance Engine (80% LTV, 2.5%/mo)
 apiRouter.get('/credit/eligibility', creditController.getEligibility);
 apiRouter.post('/credit/apply', creditController.applyForCredit);

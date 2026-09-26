@@ -23,13 +23,16 @@ import {
   Video,
   Clock,
   ArrowRight,
-  XCircle
+  XCircle,
+  Activity
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { CreatorBountyService } from '../services/creatorBountyService';
 import type { CreatorSubmission, CreatorPlatform } from '../types/creatorBounty';
+import { fireVisitorImprint, type VisitorMetricsSummary } from '../utils/imprintBeacon';
 
 export const CreatorLeaderboardPortal: React.FC = () => {
+  const [visitorMetrics, setVisitorMetrics] = useState<VisitorMetricsSummary | null>(null);
   const [submissions, setSubmissions] = useState<CreatorSubmission[]>([]);
   const [activeTab, setActiveTab] = useState<'all' | CreatorPlatform>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -93,12 +96,21 @@ export const CreatorLeaderboardPortal: React.FC = () => {
   const handleManualRefresh = async () => {
     setIsRefreshing(true);
     await loadData();
+    const metrics = await fireVisitorImprint('/leaderboard');
+    if (metrics) setVisitorMetrics(metrics);
     setLastRefreshedAt(new Date().toLocaleTimeString());
     setTimeout(() => {
       setIsRefreshing(false);
       showToast('Leaderboard refreshed with latest live verified views!');
     }, 400);
   };
+
+  // Imprint telemetry beacon on mount & route change
+  useEffect(() => {
+    fireVisitorImprint(pageView === 'leaderboard' ? '/leaderboard' : '/contest').then((m) => {
+      if (m) setVisitorMetrics(m);
+    });
+  }, [pageView]);
 
   // 30-Second Auto-Refresh Interval when on Leaderboard page
   useEffect(() => {
@@ -623,10 +635,19 @@ export const CreatorLeaderboardPortal: React.FC = () => {
             {/* Hero Banner */}
             <section className="relative overflow-hidden pt-10 pb-14 px-4 sm:px-6 lg:px-8 border-b border-emerald-950/60 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-950/40 via-slate-950 to-slate-950">
               <div className="max-w-5xl mx-auto text-center relative z-10">
-                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold tracking-wide uppercase mb-6">
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold tracking-wide uppercase mb-3">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
                   <span>🔥 ₦620,000+ Total Cash Pool • Top 20 Creators Win Cash!</span>
                 </div>
+
+                {visitorMetrics && (
+                  <div className="block mb-6">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900/90 border border-slate-800 text-[11px] text-slate-300 shadow-md">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                      <span><strong className="text-emerald-400">{visitorMetrics.totalPageviews.toLocaleString()}</strong> page views • <strong className="text-cyan-400">{visitorMetrics.uniqueVisitors.toLocaleString()}</strong> unique visitors recorded</span>
+                    </div>
+                  </div>
+                )}
 
                 <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white mb-5 leading-tight">
                   Rentilly Viral Creator <br/>
@@ -1911,6 +1932,37 @@ export const CreatorLeaderboardPortal: React.FC = () => {
                 Last updated: <span className="font-mono text-emerald-400 font-bold">{lastRefreshedAt}</span>
               </div>
             </div>
+
+            {/* LIVE VISITOR IMPRINT TELEMETRY BANNER */}
+            {visitorMetrics && (
+              <div className="bg-slate-900/90 border border-emerald-500/30 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-xl">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+                    <Activity className="w-5 h-5 animate-pulse" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black uppercase text-emerald-400 tracking-wider">Live Platform Telemetry</span>
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                    </div>
+                    <div className="text-sm font-bold text-white flex items-center gap-3 flex-wrap mt-0.5">
+                      <span><strong className="text-emerald-400">{visitorMetrics.totalPageviews.toLocaleString()}</strong> Page Visits</span>
+                      <span className="text-slate-600">•</span>
+                      <span><strong className="text-cyan-400">{visitorMetrics.uniqueVisitors.toLocaleString()}</strong> Unique Explorers</span>
+                      <span className="text-slate-600">•</span>
+                      <span className="inline-flex items-center gap-1.5 text-amber-300">
+                        <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                        <strong>{visitorMetrics.liveActive}</strong> Online Now
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right hidden sm:block">
+                  <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider block">Tamper-Proof Imprint</span>
+                  <span className="text-xs font-semibold text-slate-300">Verified Nigerian Reach</span>
+                </div>
+              </div>
+            )}
 
             {/* PERSONAL POSITION TRACKER TOOL */}
             <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-950/40 border border-emerald-500/30 rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
