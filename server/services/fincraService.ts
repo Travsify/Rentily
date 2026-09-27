@@ -891,7 +891,7 @@ export class FincraService {
   }> {
     try {
       const payload = {
-        action: 'disbursement',
+        action: 'receive',
         transactionType: 'conversion',
         sourceCurrency: params.sourceCurrency || 'NGN',
         destinationCurrency: params.destinationCurrency,
@@ -910,33 +910,43 @@ export class FincraService {
       const resJson: any = await res.json().catch(() => null);
 
       if (res.ok && resJson && (resJson.status === true || resJson.success === true)) {
-        const rawWholesaleRate = Number(resJson.data?.rate || 0);
+        const d = resJson.data || {};
+        // Fincra returns price = NGN per 1.00 unit of foreign currency
+        let rawWholesaleRate = Number(d.price || 0);
+        if (!rawWholesaleRate && d.sourceAmount && d.destinationAmount) {
+          rawWholesaleRate = Number((Number(d.sourceAmount) / Number(d.destinationAmount)).toFixed(4));
+        } else if (!rawWholesaleRate && d.quotedAmount && d.initialAmount) {
+          rawWholesaleRate = Number((Number(d.quotedAmount) / Number(d.initialAmount)).toFixed(4));
+        } else if (!rawWholesaleRate && d.rate && Number(d.rate) < 1) {
+          rawWholesaleRate = Number((1 / Number(d.rate)).toFixed(4));
+        }
+
         const srcCurr = (params.sourceCurrency || 'NGN').toUpperCase();
         const dstCurr = params.destinationCurrency.toUpperCase();
 
-        // Standardized exchange: +39 NGN for Naira to other currencies, -39 NGN for other currencies to Naira
+        // Standardized exchange: +39 NGN for Naira to foreign currencies
         let standardizedRate = rawWholesaleRate;
         if (srcCurr === 'NGN' && dstCurr !== 'NGN') {
-          standardizedRate = rawWholesaleRate > 0 ? (rawWholesaleRate + 39.0) : (1550.0 + 39.0);
+          standardizedRate = rawWholesaleRate > 0 ? (rawWholesaleRate + 39.0) : 1550.0 + 39.0;
         } else if (srcCurr !== 'NGN' && dstCurr === 'NGN') {
           standardizedRate = rawWholesaleRate > 0 ? Math.max(1, rawWholesaleRate - 39.0) : Math.max(1, 1550.0 - 39.0);
         }
 
         const calculatedSourceAmount = (srcCurr === 'NGN' && dstCurr !== 'NGN')
           ? Math.round(Number(params.destinationAmount) * standardizedRate)
-          : Number(resJson.data?.sourceAmount || 0);
+          : Number(d.sourceAmount || 0);
 
         return {
           status: true,
           data: {
-            quoteReference: resJson.data?.quoteReference || resJson.data?.reference,
+            quoteReference: d.reference || d.quoteReference,
             rate: standardizedRate,
             wholesaleRate: rawWholesaleRate > 0 ? rawWholesaleRate : 1550.0,
             sourceAmount: calculatedSourceAmount,
-            destinationAmount: Number(resJson.data?.destinationAmount || params.destinationAmount),
-            expiresAt: resJson.data?.expiresAt
+            destinationAmount: Number(d.destinationAmount || params.destinationAmount),
+            expiresAt: d.expireAt || d.expiresAt
           },
-          message: 'Quote generated successfully'
+          message: 'Real-time Fincra conversion quote generated successfully'
         };
       }
 
