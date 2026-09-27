@@ -166,7 +166,7 @@ app.get(['/r/:code', '/ref/:code', '/referral/:code'], (req: Request, res: Respo
 });
 
 // Direct APK Downloads & Instant Self-Update Distribution
-app.get(['/Rentily.apk', '/rentilly.apk', '/apk', '/app.apk'], (req: Request, res: Response) => {
+app.get(['/Rentily.apk', '/rentilly.apk', '/rentillypay.apk', '/rentillypay', '/RentillyPay.apk', '/apk', '/app.apk'], (req: Request, res: Response) => {
   // Fire real-time download alert agent asynchronously
   AppDownloadAlertService.recordAndAlertDownload({ req, channel: 'apk' }).catch(() => {});
 
