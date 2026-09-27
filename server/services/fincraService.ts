@@ -870,5 +870,163 @@ export class FincraService {
       return false;
     }
   }
+
+  /**
+   * Generate Guaranteed Real-Time FX Conversion Quote for Cross-Border Disbursements
+   */
+  static async generateCrossBorderQuote(params: {
+    destinationCurrency: 'USD' | 'GBP' | 'EUR' | 'CAD';
+    destinationAmount: number;
+    sourceCurrency?: string;
+  }): Promise<{
+    status: boolean;
+    data?: {
+      quoteReference: string;
+      rate: number;
+      sourceAmount: number;
+      destinationAmount: number;
+      expiresAt?: string;
+    };
+    message?: string;
+  }> {
+    try {
+      const payload = {
+        action: 'disbursement',
+        transactionType: 'conversion',
+        sourceCurrency: params.sourceCurrency || 'NGN',
+        destinationCurrency: params.destinationCurrency,
+        amount: params.destinationAmount,
+        feeBearer: 'customer',
+        beneficiaryType: 'individual',
+        business: this.BUSINESS_ID
+      };
+
+      const res = await fetch(`${this.BASE_URL}/quotes/generate`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify(payload)
+      });
+
+      const resJson: any = await res.json().catch(() => null);
+
+      if (res.ok && resJson && (resJson.status === true || resJson.success === true)) {
+        return {
+          status: true,
+          data: {
+            quoteReference: resJson.data?.quoteReference || resJson.data?.reference,
+            rate: Number(resJson.data?.rate || 0),
+            sourceAmount: Number(resJson.data?.sourceAmount || 0),
+            destinationAmount: Number(resJson.data?.destinationAmount || params.destinationAmount),
+            expiresAt: resJson.data?.expiresAt
+          },
+          message: 'Quote generated successfully'
+        };
+      }
+
+      return {
+        status: false,
+        message: resJson?.error || resJson?.message || 'Failed to generate cross-border quote'
+      };
+    } catch (err: any) {
+      return {
+        status: false,
+        message: err.message || 'Error connecting to Fincra quote service'
+      };
+    }
+  }
+
+  /**
+   * Initiate International Cross-Border Payout across Multi-Rails (FPS, SEPA, Fedwire, SWIFT, EFT)
+   */
+  static async initiateCrossBorderPayout(params: {
+    reference: string;
+    destinationCurrency: string;
+    destinationAmount: number;
+    quoteReference?: string;
+    paymentScheme: 'fps' | 'sepa' | 'fedwire' | 'swift' | 'eft';
+    beneficiary: {
+      name: string;
+      accountNumberOrIban: string;
+      routingCode: string;
+      bankName: string;
+      countryCode: string;
+      address?: {
+        street?: string;
+        city?: string;
+        postalCode?: string;
+      };
+    };
+    description: string;
+  }): Promise<{
+    status: boolean;
+    data?: any;
+    message?: string;
+  }> {
+    try {
+      const nameParts = (params.beneficiary.name || '').trim().split(' ');
+      const firstName = nameParts[0] || 'Client';
+      const lastName = nameParts.slice(1).join(' ') || 'Recipient';
+
+      const payload: any = {
+        business: this.BUSINESS_ID,
+        sourceCurrency: 'NGN',
+        destinationCurrency: params.destinationCurrency,
+        amount: params.destinationAmount,
+        customerReference: params.reference,
+        description: params.description,
+        paymentDestination: 'bank_account',
+        paymentScheme: params.paymentScheme,
+        beneficiary: {
+          firstName,
+          lastName,
+          accountHolderName: params.beneficiary.name,
+          accountNumber: params.beneficiary.accountNumberOrIban,
+          bankCode: params.beneficiary.routingCode,
+          type: 'individual',
+          address: {
+            country: params.beneficiary.countryCode || 'GB',
+            street: params.beneficiary.address?.street || 'Central Avenue',
+            city: params.beneficiary.address?.city || 'London',
+            postalCode: params.beneficiary.address?.postalCode || 'EC1A 1BB'
+          }
+        },
+        sender: {
+          name: 'Rentilly Core Settlement',
+          email: 'support@myrentilly.com'
+        }
+      };
+
+      if (params.quoteReference) {
+        payload.quoteReference = params.quoteReference;
+      }
+
+      const res = await fetch(`${this.BASE_URL}/disbursements/payouts`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify(payload)
+      });
+
+      const resJson: any = await res.json().catch(() => null);
+
+      if (res.ok && resJson && (resJson.status === true || resJson.success === true)) {
+        return {
+          status: true,
+          data: resJson.data,
+          message: 'Cross-border payout dispatched successfully via Fincra'
+        };
+      }
+
+      return {
+        status: false,
+        message: resJson?.error || resJson?.message || 'Cross-border payout dispatch failed'
+      };
+    } catch (err: any) {
+      return {
+        status: false,
+        message: err.message || 'Error contacting Fincra disbursement rails'
+      };
+    }
+  }
 }
+
 

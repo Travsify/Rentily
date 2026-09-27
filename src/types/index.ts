@@ -422,6 +422,7 @@ export type AdminTab =
   | 'lease_renewals'
   | 'reconciliation'
   | 'global_cards'
+  | 'global_pay'
   | 'maplerad'
   | 'fincra'
   | 'fraud_blacklist'

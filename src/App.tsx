@@ -33,6 +33,7 @@ import { ReconciliationTab } from './components/ReconciliationTab';
 import { GlobalCardsDeskTab } from './components/GlobalCardsDeskTab';
 import { MapleradTab } from './components/MapleradTab';
 import { FincraTab } from './components/FincraTab';
+import { GlobalPayTab } from './components/GlobalPayTab';
 import { IntegrationsTab } from './components/IntegrationsTab';
 import { FeatureFlagsTab } from './components/FeatureFlagsTab';
 import { ReferralsTab } from './components/ReferralsTab';
@@ -363,6 +364,10 @@ export default function App() {
 
           {currentTab === 'fincra' && (
             <FincraTab />
+          )}
+
+          {currentTab === 'global_pay' && (
+            <GlobalPayTab />
           )}
 
           {currentTab === 'maplerad' && (

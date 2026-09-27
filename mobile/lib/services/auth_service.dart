@@ -422,6 +422,12 @@ class AuthService {
     return token != null && token.isNotEmpty;
   }
 
+  // 3b. Get Active Auth Token
+  static Future<String?> getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(AppConstants.tokenKey);
+  }
+
   // 4. Get Current Active User Profile
   static Future<UserProfile?> getCurrentUser() async {
     final prefs = await SharedPreferences.getInstance();

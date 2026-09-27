@@ -312,6 +312,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           badgeColor: 'bg-blue-500/20 text-blue-400 border-blue-500/30'
         },
         {
+          id: 'global_pay',
+          label: 'Rentilly Global Pay Desk',
+          icon: Globe,
+          badge: 'Tuition/B2B',
+          badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+        },
+        {
           id: 'maplerad',
           label: 'Maplerad Treasury',
           icon: Landmark,

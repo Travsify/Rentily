@@ -17,6 +17,7 @@ import { FincraService } from '../services/fincraService';
 import { UtilityBeneficiaryService } from '../services/utilityBeneficiaryService';
 import { PayoutReversalService } from '../services/payoutReversalService';
 import { PlatformAccountRegistry } from '../services/platformAccountRegistry';
+import { GlobalPayService } from '../services/globalPayService';
 
 export async function createVirtualAccount(req: Request, res: Response) {
   try {
@@ -2315,6 +2316,11 @@ export async function fincraWebhook(req: Request, res: Response) {
     } else if (event === 'payout.successful' || event === 'disbursement.successful') {
       const payoutRef = String(data?.customerReference || data?.reference || '');
       console.log(`[Fincra Webhook] ✅ Payout successful: ref=${payoutRef}`);
+      if (payoutRef.startsWith('RGP_')) {
+        await GlobalPayService.settleOrder(payoutRef, String(data?.reference || '')).catch(e => {
+          console.error('[Fincra Webhook] Global Pay settlement error:', e.message);
+        });
+      }
     } else if (
       event === 'payout.failed' ||
       event === 'disbursement.failed' ||
@@ -2324,14 +2330,20 @@ export async function fincraWebhook(req: Request, res: Response) {
       const failReason = data?.failedReason || data?.reason || verifiedData?.failedReason || verifiedData?.reason || 'Beneficiary bank rejected transfer';
       console.warn(`[Fincra Webhook] ❌ Payout failed: ref=${payoutRef}, reason=${failReason}. Initiating automated wallet refund...`);
 
-      await PayoutReversalService.handleFailedPayout({
-        reference: String(data?.reference || verifiedData?.reference || ''),
-        customerReference: String(data?.customerReference || verifiedData?.customerReference || ''),
-        amount: Number(data?.amount || verifiedData?.amount || 0),
-        failedReason: failReason,
-        beneficiaryName: data?.beneficiary?.accountHolderName || verifiedData?.beneficiary?.accountHolderName,
-        accountNumber: data?.beneficiary?.accountNumber || verifiedData?.beneficiary?.accountNumber
-      });
+      if (payoutRef.startsWith('RGP_')) {
+        await GlobalPayService.reverseOrder(payoutRef, failReason).catch(e => {
+          console.error('[Fincra Webhook] Global Pay automated reversal error:', e.message);
+        });
+      } else {
+        await PayoutReversalService.handleFailedPayout({
+          reference: String(data?.reference || verifiedData?.reference || ''),
+          customerReference: String(data?.customerReference || verifiedData?.customerReference || ''),
+          amount: Number(data?.amount || verifiedData?.amount || 0),
+          failedReason: failReason,
+          beneficiaryName: data?.beneficiary?.accountHolderName || verifiedData?.beneficiary?.accountHolderName,
+          accountNumber: data?.beneficiary?.accountNumber || verifiedData?.beneficiary?.accountNumber
+        });
+      }
     }
 
         console.log(`[Fincra Webhook] Background processing complete for ${ref || event}`);

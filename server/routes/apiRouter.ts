@@ -514,6 +514,21 @@ apiRouter.get('/admin/fincra/resolve-account', fincraAdminController.resolveFinc
 apiRouter.post('/admin/fincra/resolve-account', fincraAdminController.resolveFincraAccount);
 apiRouter.get('/admin/fincra/banks', fincraAdminController.getFincraBanks);
 
+// 30b. Rentilly Global Pay — International Tuition Payments & Overseas Supplier Invoices
+import * as globalPayController from '../controllers/globalPayController';
+apiRouter.get('/global-pay/config', globalPayController.getGlobalPayConfig);
+apiRouter.post('/global-pay/quote', globalPayController.getQuote);
+apiRouter.post('/global-pay/submit', globalPayController.submitGlobalPayout);
+apiRouter.get('/global-pay/orders', globalPayController.getUserOrders);
+apiRouter.get('/global-pay/track/:reference', globalPayController.trackOrder);
+
+// Rentilly Global Pay Admin Controls
+apiRouter.get('/admin/global-pay/config', fincraAdminController.getGlobalPayAdminConfig);
+apiRouter.post('/admin/global-pay/config', fincraAdminController.updateGlobalPayAdminConfig);
+apiRouter.get('/admin/global-pay/orders', fincraAdminController.getGlobalPayAdminOrders);
+apiRouter.post('/admin/global-pay/orders/refund', fincraAdminController.manualReverseGlobalPayOrder);
+
+
 // 31. Referral & Growth Rewards Engine
 import * as referralController from '../controllers/referralController';
 apiRouter.get('/referrals/config', referralController.getReferralConfig);

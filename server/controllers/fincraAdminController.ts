@@ -8,6 +8,7 @@ import { PaystackService } from '../services/paystackService';
 import { NotificationDispatcher } from '../services/notificationDispatcher';
 import { UserStore } from '../services/userStore';
 import { TransactionStore } from '../services/transactionStore';
+import { GlobalPayService } from '../services/globalPayService';
 
 dotenv.config();
 
@@ -602,3 +603,72 @@ export async function getFincraBanks(_req: Request, res: Response) {
     return res.status(500).json({ status: false, error: err.message });
   }
 }
+
+/**
+ * 15. Rentilly Global Pay - Get Admin Pricing & Corridor Config
+ */
+export async function getGlobalPayAdminConfig(_req: Request, res: Response) {
+  try {
+    const config = GlobalPayService.getConfig();
+    return res.status(200).json({
+      status: true,
+      data: config
+    });
+  } catch (err: any) {
+    return res.status(500).json({ status: false, error: err.message });
+  }
+}
+
+/**
+ * 16. Rentilly Global Pay - Update Admin Pricing & Corridor Config
+ */
+export async function updateGlobalPayAdminConfig(req: Request, res: Response) {
+  try {
+    const updatedBy = (req as any).user?.email || 'admin@myrentilly.com';
+    const newConfig = await GlobalPayService.updateConfig(req.body, updatedBy);
+    return res.status(200).json({
+      status: true,
+      data: newConfig,
+      message: 'Rentilly Global Pay pricing and fees updated successfully.'
+    });
+  } catch (err: any) {
+    return res.status(400).json({ status: false, error: err.message });
+  }
+}
+
+/**
+ * 17. Rentilly Global Pay - List All Platform Orders
+ */
+export async function getGlobalPayAdminOrders(_req: Request, res: Response) {
+  try {
+    const orders = await GlobalPayService.listOrders();
+    return res.status(200).json({
+      status: true,
+      count: orders.length,
+      data: orders
+    });
+  } catch (err: any) {
+    return res.status(500).json({ status: false, error: err.message });
+  }
+}
+
+/**
+ * 18. Rentilly Global Pay - Emergency Manual Refund / Reversal
+ */
+export async function manualReverseGlobalPayOrder(req: Request, res: Response) {
+  try {
+    const { reference, reason } = req.body;
+    if (!reference) {
+      return res.status(400).json({ status: false, error: 'Order reference is required.' });
+    }
+    const refundReason = reason || 'Admin manual refund override';
+    await GlobalPayService.reverseOrder(reference, refundReason);
+    return res.status(200).json({
+      status: true,
+      message: `Order ${reference} successfully reversed and funds refunded to user.`
+    });
+  } catch (err: any) {
+    return res.status(400).json({ status: false, error: err.message });
+  }
+}
+

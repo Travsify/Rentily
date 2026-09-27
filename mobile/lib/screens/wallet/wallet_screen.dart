@@ -24,6 +24,7 @@ import '../../widgets/transaction_receipt_modal.dart';
 import '../../widgets/statement_export_modal.dart';
 import '../../widgets/currency_swap_modal.dart';
 import '../cards/cards_screen.dart';
+import '../global_pay/global_pay_home_screen.dart';
 import '../referrals/referral_screen.dart';
 
 class WalletScreen extends StatefulWidget {
@@ -1621,6 +1622,96 @@ class _WalletScreenState extends State<WalletScreen> {
                       },
                     ),
                   ),
+                const SizedBox(height: 16),
+
+                // RENTILLY GLOBAL PAY (Tuition & Overseas Supplier Payments)
+                InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const GlobalPayHomeScreen()),
+                    ).then((_) => _loadData());
+                  },
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF07382B), Color(0xFF0F3D30)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFF10B981).withOpacity(0.3)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF07382B).withOpacity(0.3),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 46,
+                          height: 46,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981).withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: const Icon(Icons.public, color: Color(0xFF10B981), size: 24),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    'Rentilly Global Pay',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w800,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF59E0B).withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      'Fincra Rails',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w800,
+                                        color: const Color(0xFFF59E0B),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                'Pay overseas tuition & supplier invoices in UK, US, Canada & Europe directly from your Naira balance.',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.white.withOpacity(0.8),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.white70),
+                      ],
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 24),
               ],
 
