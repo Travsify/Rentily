@@ -18,6 +18,7 @@ import { UtilityBeneficiaryService } from '../services/utilityBeneficiaryService
 import { PayoutReversalService } from '../services/payoutReversalService';
 import { PlatformAccountRegistry } from '../services/platformAccountRegistry';
 import { GlobalPayService } from '../services/globalPayService';
+import { TreasuryCircuitBreaker } from '../services/treasuryCircuitBreaker';
 
 export async function createVirtualAccount(req: Request, res: Response) {
   try {
@@ -429,6 +430,24 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
           });
         }
       }
+
+      // 5. Destination Account Syndicate Lock: Blacklist check & 1 Bank Account = 1 User constraint
+      if (!isAdminUser) {
+        const destCheck = await TreasuryCircuitBreaker.verifyDestinationAccount(accountNumber.toString(), cleanEmail);
+        if (!destCheck.allowed) {
+          return res.status(403).json({ error: destCheck.reason });
+        }
+      }
+
+      // 6. Global Hourly Disbursement Velocity Cap (₦100,000/hour platform circuit breaker)
+      if (!isAdminUser) {
+        const velocity = await TreasuryCircuitBreaker.checkHourlyDisbursementVelocity(numAmount);
+        if (!velocity.allowed) {
+          return res.status(429).json({
+            error: `Platform hourly disbursement limit reached. To safeguard liquidity, automated payouts undergo paced batch processing. Remaining capacity this hour: ₦${velocity.remaining.toLocaleString()}. Please retry in a short while or contact treasury support.`
+          });
+        }
+      }
     }
 
     // Step A: Exclusive Payout Rail - Fincra High-Value Instant Disbursement
@@ -491,6 +510,7 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
         transferSuccess = true;
         transferData = fincraRes.data;
         txRef = fincraRes.data?.customerReference || fincraRes.data?.reference || txRef;
+        TreasuryCircuitBreaker.recordDisbursement(numAmount);
         console.log(`[Withdrawal] ✅ Fincra payout successful: ${txRef}`);
       } else {
         failureReason = fincraRes.message || 'Fincra disbursement declined';

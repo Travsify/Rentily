@@ -32,6 +32,7 @@ import { IdentitypassService } from '../services/identitypassService';
 import { FlutterwaveService } from '../services/flutterwaveService';
 import { TermiiService } from '../services/termiiService';
 import { adminSecuritySentinel, triggerEmergencyLockdown, liftEmergencyLockdown, getSentinelStatus } from '../middleware/adminSecuritySentinel';
+import { registrationRateLimiter } from '../middleware/registrationRateLimiter';
 import { AutomatedKycNudgeAndReportWorker } from '../services/automatedKycNudgeAndReportWorker';
 export const apiRouter = Router();
 
@@ -135,7 +136,7 @@ apiRouter.get('/debug/store', (_req, res) => {
 });
 
 // 2. Authentication & Multi-Channel OTP (Resend + Twilio)
-apiRouter.post('/auth/register', authController.register);
+apiRouter.post('/auth/register', registrationRateLimiter, authController.register);
 apiRouter.post('/auth/login', authController.login);
 apiRouter.post('/auth/login-otp', authController.loginWithOtp);
 
