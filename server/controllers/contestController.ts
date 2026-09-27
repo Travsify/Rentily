@@ -602,4 +602,44 @@ export const contestController = {
       return res.status(500).json({ status: false, error: err.message });
     }
   },
+
+  deleteSubmission: (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const items = ensureDataFile();
+      const index = items.findIndex((i) => i.id === id);
+      if (index === -1) {
+        return res.status(404).json({ status: false, message: 'Submission not found' });
+      }
+
+      const [deleted] = items.splice(index, 1);
+
+      // Clean up uploaded video file from disk if applicable
+      if (deleted.videoUrl && (deleted.videoUrl.startsWith('/uploads/') || deleted.videoUrl.includes('/uploads/'))) {
+        const cleanPath = deleted.videoUrl.startsWith('/') ? deleted.videoUrl.slice(1) : deleted.videoUrl;
+        const filePath = path.join(process.cwd(), 'public', cleanPath);
+        if (fs.existsSync(filePath)) {
+          try {
+            fs.unlinkSync(filePath);
+            console.log('[ContestController] Unlinked video file from storage:', filePath);
+          } catch (e: any) {
+            console.warn('[ContestController] Unable to unlink video file:', e.message);
+          }
+        }
+      }
+
+      const ranked = recalculateRanksAndPrizes(items);
+      saveData(ranked);
+
+      console.log(`[ContestController] Deleted submission ${id} (${deleted.handle})`);
+      return res.json({
+        status: true,
+        message: 'Submission and associated media successfully deleted',
+        deletedId: id
+      });
+    } catch (err: any) {
+      console.error('[ContestController] Error in deleteSubmission:', err.message);
+      return res.status(500).json({ status: false, message: err.message });
+    }
+  },
 };

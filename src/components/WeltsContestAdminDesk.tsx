@@ -498,6 +498,27 @@ export const WeltsContestAdminDesk: React.FC = () => {
     showToast(`Disqualified ${sub.handle}`);
   };
 
+  const handleDeleteSubmission = async (sub: ContestSubmission) => {
+    if (!confirm(`Are you sure you want to permanently delete submission from ${sub.creatorName} (${sub.handle})? If this is a video file upload, the stored media will also be removed.`)) return;
+
+    try {
+      const res = await fetch(`/api/contest/submissions/${sub.id}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (res.ok && data.status) {
+        const updatedList = submissions.filter(s => s.id !== sub.id);
+        setSubmissions(updatedList);
+        localStorage.setItem('rentilly_welts_submissions', JSON.stringify(updatedList));
+        showToast(`🗑️ Submission for ${sub.handle} permanently deleted.`);
+      } else {
+        showToast(`Failed to delete: ${data.message || 'Server error'}`);
+      }
+    } catch (err: any) {
+      showToast(`Error deleting submission: ${err.message}`);
+    }
+  };
+
 
     // Calculations
   const totalViews = submissions.reduce((s, i) => s + (i.verifiedViews || i.claimedViews), 0);
@@ -1228,6 +1249,13 @@ export const WeltsContestAdminDesk: React.FC = () => {
                             DQ
                           </button>
                         )}
+                        <button
+                          onClick={() => handleDeleteSubmission(sub)}
+                          className="px-2 py-1.5 rounded-lg bg-slate-900 hover:bg-rose-950 text-slate-400 hover:text-rose-300 border border-slate-700/60 hover:border-rose-700/60 text-xs font-bold transition cursor-pointer"
+                          title="Delete submission and uploaded video permanently"
+                        >
+                          ✕ Delete
+                        </button>
                       </td>
                     </tr>
                   );

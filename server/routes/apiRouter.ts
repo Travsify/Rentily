@@ -536,6 +536,7 @@ apiRouter.post('/contest/admin/login', contestController.adminLogin);
 apiRouter.get('/contest/cycle', contestController.getContestCycle);
 apiRouter.post('/contest/cycle', contestController.updateContestCycle);
 apiRouter.post('/contest/submissions/:id/boost', contestController.boostSubmission);
+apiRouter.delete('/contest/submissions/:id', contestController.deleteSubmission);
 
 // 32. Visitor Imprint & Telemetry Engine
 import { telemetryController } from '../controllers/telemetryController';
