@@ -108,7 +108,15 @@ export class MapleradCardService {
       });
 
       const cardData = await cardRes.json().catch(() => ({}));
-      console.log('[Maplerad] Card issuance response:', JSON.stringify(cardData));
+      const sanitizedLog = cardData?.data ? {
+        ...cardData,
+        data: {
+          ...cardData.data,
+          card_number: cardData.data.card_number ? `**** **** **** ${String(cardData.data.card_number).slice(-4)}` : undefined,
+          cvv: '***'
+        }
+      } : cardData;
+      console.log('[Maplerad] Card issuance response:', JSON.stringify(sanitizedLog));
 
       if (cardData?.status && cardData?.data) {
         return { success: true, data: cardData.data };

@@ -345,11 +345,11 @@ export class CardIssuingService {
               cvv: liveCvv,
               pin: assignedPin,
               balance: liveBal,
-              spendingLimit: 10000.00,
+              spendingLimit: c.currency === 'NGN' ? 5000000.00 : 10000.00,
               isFrozen: c.is_frozen === true,
               freezeReason: c.freeze_reason || undefined,
               status: (c.status || 'ACTIVE') as 'ACTIVE' | 'INACTIVE' | 'BLOCKED',
-              billingAddress: this.DEFAULT_BILLING_ADDRESS,
+              billingAddress: c.currency === 'NGN' ? this.DEFAULT_NGN_BILLING_ADDRESS : this.DEFAULT_BILLING_ADDRESS,
               createdAt: c.created_at || new Date().toISOString(),
             };
           }));
@@ -520,11 +520,11 @@ export class CardIssuingService {
               cvv: liveCvv,
               pin: assignedPin,
               balance: liveBal,
-              spendingLimit: 10000.00,
+              spendingLimit: c.currency === 'NGN' ? 5000000.00 : 10000.00,
               isFrozen: c.is_frozen === true,
               freezeReason: c.freeze_reason || undefined,
               status: (c.status || 'ACTIVE') as 'ACTIVE' | 'INACTIVE' | 'BLOCKED',
-              billingAddress: this.DEFAULT_BILLING_ADDRESS,
+              billingAddress: c.currency === 'NGN' ? this.DEFAULT_NGN_BILLING_ADDRESS : this.DEFAULT_BILLING_ADDRESS,
               createdAt: c.created_at || new Date().toISOString(),
             };
           }));
@@ -1432,7 +1432,7 @@ export class CardIssuingService {
           expiryMonth: expiryMonth,
           expiryYear: expiryYear,
           cardholderName: (data.cardholder_name || 'Cardholder').toUpperCase(),
-          billingAddress: this.DEFAULT_BILLING_ADDRESS,
+          billingAddress: (data.currency === 'NGN') ? this.DEFAULT_NGN_BILLING_ADDRESS : this.DEFAULT_BILLING_ADDRESS,
         };
       }
     }
@@ -1514,8 +1514,9 @@ export class CardIssuingService {
               let displayCategory: string;
 
               if (isInternalFund) {
+                const txCurr = (tx.currency || 'USD').toUpperCase();
                 const amt = (Number(tx.amount || 0) / 100).toFixed(2);
-                displayMerchantName = `Rentilly Card Top-Up ($${amt} USD)`;
+                displayMerchantName = txCurr === 'NGN' ? `Rentilly Card Top-Up (₦${Number(amt).toLocaleString()})` : `Rentilly Card Top-Up ($${amt} USD)`;
                 displayCategory = 'Card Funding';
               } else if (isInternalIssue) {
                 displayMerchantName = 'Rentilly Card Issuance Fee';

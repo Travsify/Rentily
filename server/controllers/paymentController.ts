@@ -1452,7 +1452,12 @@ export async function mapleradWebhook(req: Request, res: Response) {
     const payload = req.body;
     const event = payload?.event;
     const data = payload?.data;
-    console.log(`[Maplerad Webhook] Event received: ${event}`, JSON.stringify(data || {}, null, 2));
+    const sanitizedData = data ? {
+      ...data,
+      card_number: data.card_number ? `**** **** **** ${String(data.card_number).slice(-4)}` : undefined,
+      cvv: data.cvv ? '***' : undefined
+    } : {};
+    console.log(`[Maplerad Webhook] Event received: ${event}`, JSON.stringify(sanitizedData, null, 2));
 
     // 1. Virtual Card Issuing & Transaction Events
     if (event?.includes('issuing') || data?.card_number || data?.masked_pan) {
@@ -5374,7 +5379,7 @@ export async function getCardPricingHandler(req: Request, res: Response) {
 
 export async function updateCardPricingHandler(req: Request, res: Response) {
   try {
-    const updated = CardIssuingService.updateCardPricing(req.body);
+    const updated = await CardIssuingService.updateCardPricing(req.body);
     res.json({
       status: true,
       message: 'Card pricing and fees updated successfully',

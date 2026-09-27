@@ -1341,9 +1341,12 @@ class ApiService {
 
     return {
       'issuanceFeeUsd': 3.00,
+      'issuanceFeeNgn': 1500.00,
       'fundingFeePercent': 1.5,
       'monthlyMaintenanceUsd': 1.00,
-      'minFundingUsd': 5.00,
+      'monthlyMaintenanceNgn': 500.00,
+      'minFundingUsd': 1.00,
+      'minFundingNgn': 1000.00,
       'liquidationFeePercent': 1.0,
     };
   }

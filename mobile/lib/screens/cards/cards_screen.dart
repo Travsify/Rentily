@@ -451,8 +451,39 @@ class _CardsScreenState extends State<CardsScreen> {
                 ),
                 const SizedBox(height: 18),
 
-                // Payment Source Selector (only shown for USD card)
-                if (!isNgnCard) ...[
+                // Payment Source Selector (Naira Wallet for NGN, or toggle NGN/USDT for USD)
+                if (isNgnCard) ...[
+                  Text(
+                    'Funding Source',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0D5C46).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFF0D5C46),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Text('🇳🇬', style: TextStyle(fontSize: 14)),
+                            const SizedBox(width: 6),
+                            Text('Naira Wallet', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                          ],
+                        ),
+                        Text('Bal: ₦${_currencyFormat.format(userBalNgn)}', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF0D5C46))),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ] else ...[
                   Text(
                     'Select Funding Source',
                     style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
@@ -586,7 +617,7 @@ class _CardsScreenState extends State<CardsScreen> {
                             ),
                             child: Center(
                               child: Text(
-                                isNgnCard ? '₦$amt' : '\$$amt',
+                                isNgnCard ? '₦${amt >= 1000 ? '${amt ~/ 1000}k' : amt}' : '\$$amt',
                                 style: GoogleFonts.plusJakartaSans(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
@@ -634,6 +665,33 @@ class _CardsScreenState extends State<CardsScreen> {
                     ],
                   ),
                 ),
+                if (!hasEnoughBal) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEF2F2),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFFCA5A5)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 18),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            isNgnCard
+                                ? 'Insufficient Naira balance. Available: ₦${_currencyFormat.format(userBalNgn)}, Required: ₦${_currencyFormat.format(fundAmount)}'
+                                : (selectedSource == 'USDT'
+                                    ? 'Insufficient USDT balance. Available: \$${userBalUsdt.toStringAsFixed(2)} USDT, Required: \$${fundAmount.toStringAsFixed(2)} USDT'
+                                    : 'Insufficient Naira balance. Available: ₦${_currencyFormat.format(userBalNgn)}, Required: ₦${_currencyFormat.format(requiredNgn)}'),
+                            style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.w600, color: const Color(0xFFDC2626)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 20),
 
                 SizedBox(
@@ -2554,8 +2612,39 @@ class _CardsScreenState extends State<CardsScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Payment Source Toggle (only needed for USD card)
-                  if (!isNgn) ...[
+                  // Payment Source Selector (Naira Wallet for NGN, or toggle NGN/USDT for USD)
+                  if (isNgn) ...[
+                    Text(
+                      'Payment Source',
+                      style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0D5C46).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: const Color(0xFF0D5C46),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              const Text('🇳🇬', style: TextStyle(fontSize: 14)),
+                              const SizedBox(width: 6),
+                              Text('Naira Wallet', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                            ],
+                          ),
+                          Text('Bal: ₦${_currencyFormat.format(userBalNgn)}', style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: const Color(0xFF0D5C46))),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ] else ...[
                     Text(
                       'Select Payment Source',
                       style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
@@ -2721,6 +2810,33 @@ class _CardsScreenState extends State<CardsScreen> {
                       ],
                     ),
                   ),
+                  if (!hasEnoughBal) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF2F2),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFFCA5A5)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.warning_amber_rounded, color: Color(0xFFDC2626), size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              isNgn
+                                  ? 'Insufficient Naira balance. Available: ₦${_currencyFormat.format(userBalNgn)}, Required: ₦${_currencyFormat.format(totalNgnCost)}'
+                                  : (selectedSource == 'USDT'
+                                      ? 'Insufficient USDT balance. Available: \$${userBalUsdt.toStringAsFixed(2)} USDT, Required: \$${totalUsdCost.toStringAsFixed(2)} USDT'
+                                      : 'Insufficient Naira balance. Available: ₦${_currencyFormat.format(userBalNgn)}, Required: ₦${_currencyFormat.format(totalNgnCost)}'),
+                              style: GoogleFonts.plusJakartaSans(fontSize: 11.5, fontWeight: FontWeight.w600, color: const Color(0xFFDC2626)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 20),
 
                   // Issue Card CTA Button
@@ -2744,6 +2860,7 @@ class _CardsScreenState extends State<CardsScreen> {
 
                               if (mounted) {
                                 await _loadData();
+                                if (!mounted) return;
                                 final isSuccess = res['success'] == true;
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
