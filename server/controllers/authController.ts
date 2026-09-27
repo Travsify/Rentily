@@ -755,10 +755,24 @@ export async function loginWithOtp(req: Request, res: Response) {
     }
 
     if (!user) {
-      console.warn(`[Auth OTP] 🚫 Blocked OTP sign-in attempt for unregistered email: ${cleanEmail}`);
-      return res.status(404).json({
-        error: 'Account not found. You must register first before signing in.',
-        notRegistered: true
+      console.log(`[Auth OTP] ℹ️ Valid OTP verified for pending registration: ${cleanEmail}. Returning provisional approval for client registration flow.`);
+      const tempId = `temp_reg_${Date.now()}`;
+      return res.json({
+        message: 'Verification successful',
+        token: `rentilly_reg_temp_${Date.now()}`,
+        provisional: true,
+        user: {
+          id: tempId,
+          fullName: cleanEmail.split('@')[0],
+          email: cleanEmail,
+          phoneNumber: '',
+          role: 'renter',
+          buyerType: 'personal',
+          isVerified: false,
+          state: 'Lagos',
+          walletBalance: 0,
+          createdAt: new Date().toISOString()
+        }
       });
     }
 
