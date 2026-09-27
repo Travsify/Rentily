@@ -66,6 +66,15 @@ interface WalletsResponse {
   };
 }
 
+const getAdminHeaders = (extra?: Record<string, string>) => {
+  const token = typeof window !== 'undefined' ? (localStorage.getItem('rentilly_auth_token') || '') : '';
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...extra
+  };
+};
+
 export function MapleradTab() {
   const [walletsData, setWalletsData] = useState<WalletsResponse | null>(null);
   const [transactions, setTransactions] = useState<MapleradTx[]>([]);
@@ -108,8 +117,8 @@ export function MapleradTab() {
     setErrorMsg(null);
     try {
       const [wRes, tRes] = await Promise.all([
-        fetch('/api/admin/maplerad/wallets'),
-        fetch(`/api/admin/maplerad/transactions?category=${activeCategory}`)
+        fetch('/api/admin/maplerad/wallets', { headers: getAdminHeaders() }),
+        fetch(`/api/admin/maplerad/transactions?category=${activeCategory}`, { headers: getAdminHeaders() })
       ]);
 
       if (!wRes.ok) throw new Error(`Wallets fetch failed with ${wRes.status}`);
@@ -171,7 +180,7 @@ export function MapleradTab() {
     try {
       const res = await fetch('/api/admin/maplerad/transfer-to-spend', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAdminHeaders(),
         body: JSON.stringify({
           currency: transferCurrency,
           source_wallet_type,
@@ -205,7 +214,7 @@ export function MapleradTab() {
     try {
       const res = await fetch('/api/admin/maplerad/fx/quote', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAdminHeaders(),
         body: JSON.stringify({
           source_currency: fxSourceCurrency,
           target_currency: fxTargetCurrency,
@@ -235,7 +244,7 @@ export function MapleradTab() {
     try {
       const res = await fetch('/api/admin/maplerad/fx/exchange', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAdminHeaders(),
         body: JSON.stringify({
           quote_reference: fxQuote.reference
         })

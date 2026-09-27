@@ -339,16 +339,15 @@ export const contestController = {
         return res.status(400).json({ status: false, message: 'Video file data is required.' });
       }
 
-      const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'contest', 'videos');
-      if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
+      // 1. Extension Whitelist Validation
+      const ALLOWED_EXTS = new Set(['.mp4', '.mov', '.webm', '.m4v']);
+      const rawExt = path.extname(filename || 'video.mp4').toLowerCase();
+      if (!ALLOWED_EXTS.has(rawExt)) {
+        return res.status(400).json({
+          status: false,
+          message: `Prohibited file extension '${rawExt}'. Only valid video formats (${Array.from(ALLOWED_EXTS).join(', ')}) are accepted.`
+        });
       }
-
-      const cleanFilename = (filename || 'creator_video.mp4')
-        .replace(/[^a-zA-Z0-9._-]/g, '_')
-        .toLowerCase();
-      const uniqueName = `rentilly_${Date.now()}_${Math.random().toString(36).substring(2, 7)}_${cleanFilename}`;
-      const filePath = path.join(uploadDir, uniqueName);
 
       let base64Data = data;
       if (data.includes(';base64,')) {
@@ -356,10 +355,45 @@ export const contestController = {
       }
 
       const buffer = Buffer.from(base64Data, 'base64');
+
+      // 2. File Size Ceiling (50MB)
+      const MAX_SIZE_BYTES = 50 * 1024 * 1024; // 50MB
+      if (buffer.length > MAX_SIZE_BYTES) {
+        return res.status(400).json({
+          status: false,
+          message: `Video size ${(buffer.length / (1024 * 1024)).toFixed(2)}MB exceeds maximum allowed limit of 50MB.`
+        });
+      }
+
+      if (buffer.length < 16) {
+        return res.status(400).json({ status: false, message: 'Invalid video file: payload too small.' });
+      }
+
+      // 3. Binary Magic Bytes Validation
+      const headerStr = buffer.toString('ascii', 4, 8);
+      const isFtyp = headerStr === 'ftyp' || headerStr === 'moov' || headerStr === 'mdat';
+      const isWebM = buffer[0] === 0x1a && buffer[1] === 0x45 && buffer[2] === 0xdf && buffer[3] === 0xa3;
+      if (!isFtyp && !isWebM) {
+        return res.status(400).json({
+          status: false,
+          message: 'Invalid video binary format. The uploaded file header does not match MP4, MOV, or WebM video specifications.'
+        });
+      }
+
+      const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'contest', 'videos');
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+
+      // 4. Safe Randomized Unique Name
+      const safeId = crypto.randomBytes(8).toString('hex');
+      const uniqueName = `rentilly_${Date.now()}_${safeId}${rawExt}`;
+      const filePath = path.join(uploadDir, uniqueName);
+
       fs.writeFileSync(filePath, buffer);
 
       const videoUrl = `/uploads/contest/videos/${uniqueName}`;
-      console.log(`[ContestController] Direct video uploaded: ${uniqueName} (${(buffer.length / (1024 * 1024)).toFixed(2)} MB)`);
+      console.log(`[ContestController] Hardened video uploaded: ${uniqueName} (${(buffer.length / (1024 * 1024)).toFixed(2)} MB)`);
 
       return res.json({
         status: true,

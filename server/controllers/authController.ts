@@ -11,10 +11,63 @@ import { tryFormatToE164 } from '../utils/phoneUtils';
 import { isDisposableEmail } from '../utils/disposableEmailBlocker';
 import { timingSafeEqual, isTotpReplayed, recordFailedAdminAttempt, recordSuccessfulAdminAuth, getClientIp } from '../middleware/adminSecuritySentinel';
 
-export let ADMIN_EMAIL = 'info@travsify.com';
-export let ADMIN_PASSWORD = 'Andrewtate2024./';
-export let ADMIN_HARSH_KEY = 'Brevity230./';
-export let ADMIN_NAME = 'Travsify Executive Admin';
+const DEFAULT_INITIAL_PASS = process.env.ADMIN_INITIAL_PASSWORD || process.env.ADMIN_PASSWORD || 'Andrewtate2024./';
+const DEFAULT_INITIAL_HARSH = process.env.ADMIN_HARSH_KEY || 'Brevity230./';
+
+export let ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'info@travsify.com';
+export let ADMIN_PASSWORD = DEFAULT_INITIAL_PASS;
+export let ADMIN_HARSH_KEY = DEFAULT_INITIAL_HARSH;
+export let ADMIN_NAME = process.env.ADMIN_NAME || 'Travsify Executive Admin';
+
+const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET || 'rentilly_admin_sec_sig_key_2026_9b8c';
+
+/**
+ * Creates an HMAC-SHA256 cryptographically signed admin session token
+ */
+export function createAdminSessionToken(email: string): string {
+  const timestamp = Date.now();
+  const payload = Buffer.from(JSON.stringify({ email, ts: timestamp })).toString('base64url');
+  const signature = crypto.createHmac('sha256', ADMIN_SESSION_SECRET).update(payload).digest('base64url');
+  return `admin-token-travsify.${payload}.${signature}`;
+}
+
+/**
+ * Verifies an admin session token signature and 24-hour expiration
+ */
+export function verifyAdminSessionToken(token: string): { valid: boolean; email?: string } {
+  if (!token || typeof token !== 'string') return { valid: false };
+  const clean = token.replace(/^Bearer\s+/i, '').trim();
+
+  // Backward compatibility: allow active legacy token for 24h transition
+  if (clean.startsWith('admin-token-travsify-')) {
+    const rawTs = parseInt(clean.replace('admin-token-travsify-', ''), 10);
+    if (!isNaN(rawTs) && Date.now() - rawTs < 24 * 60 * 60 * 1000) {
+      return { valid: true, email: ADMIN_EMAIL };
+    }
+    return { valid: false };
+  }
+
+  const parts = clean.split('.');
+  if (parts.length !== 3 || parts[0] !== 'admin-token-travsify') {
+    return { valid: false };
+  }
+
+  const [_, payload, signature] = parts;
+  const expectedSignature = crypto.createHmac('sha256', ADMIN_SESSION_SECRET).update(payload).digest('base64url');
+  if (!timingSafeEqual(signature, expectedSignature)) {
+    return { valid: false };
+  }
+
+  try {
+    const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf-8'));
+    if (!decoded.ts || Date.now() - decoded.ts > 24 * 60 * 60 * 1000) {
+      return { valid: false };
+    }
+    return { valid: true, email: decoded.email };
+  } catch {
+    return { valid: false };
+  }
+}
 
 // Hydrate dynamically updated admin credentials from database
 async function initAdminCredentialsFromDb() {
@@ -281,14 +334,15 @@ export async function getMe(req: Request, res: Response) {
     return res.status(401).json({ error: 'Unauthorized: Session token missing' });
   }
 
-  const token = authHeader.replace('Bearer ', '');
+  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
 
-  if (token.startsWith('admin-token-')) {
+  const adminSession = verifyAdminSessionToken(token);
+  if (adminSession.valid) {
     return res.json({
       user: {
         id: 'usr-admin-travsify-01',
         fullName: ADMIN_NAME,
-        email: ADMIN_EMAIL,
+        email: adminSession.email || ADMIN_EMAIL,
         phoneNumber: '+2348000000000',
         role: 'admin',
         isVerified: true,
@@ -1353,7 +1407,7 @@ export async function verifyAdmin2fa(req: Request, res: Response) {
 
     recordSuccessfulAdminAuth(req, cleanEmail);
 
-    const token = `admin-token-travsify-${Date.now()}`;
+    const token = createAdminSessionToken(cleanEmail);
     const adminUser = {
       id: 'usr-admin-travsify-01',
       email: cleanEmail,
@@ -1596,7 +1650,7 @@ export async function verifyAdminTotp(req: Request, res: Response) {
     config.confirmedAt = new Date().toISOString();
     await savePersistedAdminTotp(config);
 
-    const token = `admin-token-travsify-${Date.now()}`;
+    const token = createAdminSessionToken(cleanEmail);
     const adminUser = {
       id: 'usr-admin-travsify-01',
       email: cleanEmail,
@@ -1643,12 +1697,10 @@ export async function verifyAdminTotp(req: Request, res: Response) {
 export async function getAdminProfile(req: Request, res: Response) {
   try {
     const authHeader = req.headers.authorization || '';
-    const { email } = req.body || {};
-    const cleanEmail = (email || ADMIN_EMAIL).toLowerCase().trim();
+    const adminSession = verifyAdminSessionToken(authHeader);
 
-    // Verify session token or admin email
-    if (!authHeader.includes('admin-token-') && cleanEmail !== ADMIN_EMAIL) {
-      return res.status(401).json({ error: 'Unauthorized administrative access.' });
+    if (!adminSession.valid) {
+      return res.status(401).json({ error: 'Unauthorized administrative access: Valid admin session token required.' });
     }
 
     const totpConfig = await getPersistedAdminTotp(ADMIN_EMAIL);

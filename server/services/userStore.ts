@@ -69,7 +69,17 @@ function getStoragePath(): string {
   return path.join(_DATA_DIR, 'users.json');
 }
 
+const PBKDF2_ITERATIONS = 100_000;
+const PBKDF2_KEYLEN = 64;
+const PBKDF2_DIGEST = 'sha512';
+
 export function hashPassword(password: string): string {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const derivedKey = crypto.pbkdf2Sync(password, salt, PBKDF2_ITERATIONS, PBKDF2_KEYLEN, PBKDF2_DIGEST).toString('hex');
+  return `pbkdf2$${PBKDF2_ITERATIONS}$${salt}$${derivedKey}`;
+}
+
+export function legacyHashPassword(password: string): string {
   return crypto.createHash('sha256').update(password + '_rentilly_salt_2026').digest('hex');
 }
 
@@ -605,18 +615,20 @@ export class UserStore {
   }
 
   static verifyPassword(user: StoredUser, passwordInput: string): boolean {
-    if (!user || !user.email || !passwordInput) return false;
+    if (!user || !user.email || !passwordInput || !user.passwordHash) return false;
 
-    // Check 1: Salted SHA-256
-    const saltedHash = hashPassword(passwordInput);
-    if (user.passwordHash === saltedHash) return true;
-
-    // Check 3: Standard raw SHA-256 (e.g. Supabase / AuthController resets)
-    const rawSha256 = crypto.createHash('sha256').update(passwordInput).digest('hex');
-    if (user.passwordHash === rawSha256) return true;
-
-    // Check 4: Raw plaintext match
-    if (user.passwordHash === passwordInput) return true;
+    const matched = verifyPassword(passwordInput, user.passwordHash);
+    if (matched) {
+      // Seamlessly upgrade legacy SHA-256 hashes to PBKDF2 on successful login
+      if (!user.passwordHash.startsWith('pbkdf2$')) {
+        try {
+          user.passwordHash = hashPassword(passwordInput);
+          this.upsertUser(user);
+          console.log(`🔐 [Password Security] Seamlessly upgraded password hash for ${user.email} to PBKDF2-SHA512.`);
+        } catch (_) {}
+      }
+      return true;
+    }
 
     return false;
   }
@@ -643,11 +655,41 @@ export class UserStore {
   }
 }
 
+function timingSafeStringEqual(a: string, b: string): boolean {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const bufA = Buffer.from(a, 'utf-8');
+  const bufB = Buffer.from(b, 'utf-8');
+  if (bufA.length !== bufB.length) {
+    crypto.timingSafeEqual(bufA, bufA);
+    return false;
+  }
+  return crypto.timingSafeEqual(bufA, bufB);
+}
+
 export function verifyPassword(passwordInput: string, hash: string): boolean {
   if (!passwordInput || !hash) return false;
-  if (hashPassword(passwordInput) === hash) return true;
+
+  // Check 1: Modern PBKDF2 format (pbkdf2$iterations$salt$derivedKey)
+  if (hash.startsWith('pbkdf2$')) {
+    const parts = hash.split('$');
+    if (parts.length === 4) {
+      const iterations = parseInt(parts[1], 10);
+      const salt = parts[2];
+      const expectedKey = parts[3];
+      if (!isNaN(iterations) && salt && expectedKey) {
+        const derivedKey = crypto.pbkdf2Sync(passwordInput, salt, iterations, PBKDF2_KEYLEN, PBKDF2_DIGEST).toString('hex');
+        return timingSafeStringEqual(derivedKey, expectedKey);
+      }
+    }
+  }
+
+  // Check 2: Legacy salted SHA-256
+  const legacySalted = legacyHashPassword(passwordInput);
+  if (timingSafeStringEqual(legacySalted, hash)) return true;
+
+  // Check 3: Standard raw SHA-256 (e.g. Supabase / AuthController resets)
   const rawSha256 = crypto.createHash('sha256').update(passwordInput).digest('hex');
-  if (hash === rawSha256) return true;
-  if (hash === passwordInput) return true;
+  if (timingSafeStringEqual(rawSha256, hash)) return true;
+
   return false;
 }

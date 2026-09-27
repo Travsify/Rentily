@@ -19,6 +19,7 @@ import { PayoutReversalService } from '../services/payoutReversalService';
 import { PlatformAccountRegistry } from '../services/platformAccountRegistry';
 import { GlobalPayService } from '../services/globalPayService';
 import { TreasuryCircuitBreaker } from '../services/treasuryCircuitBreaker';
+import { timingSafeEqual } from '../middleware/adminSecuritySentinel';
 
 export async function createVirtualAccount(req: Request, res: Response) {
   try {
@@ -1330,9 +1331,9 @@ export async function deleteUtilityBeneficiary(req: Request, res: Response) {
 export async function flutterwaveWebhook(req: Request, res: Response) {
   try {
     // 1. Verify Flutterwave signature header (verif-hash)
-    const secretHash = process.env.FLUTTERWAVE_SECRET_HASH || 'rentilly_secure_flw_hash_2026';
-    const signature = req.headers['verif-hash'];
-    if (!signature || signature !== secretHash) {
+    const secretHash = process.env.FLUTTERWAVE_SECRET_HASH || process.env.FLUTTERWAVE_WEBHOOK_SECRET;
+    const signature = (req.headers['verif-hash'] || '').toString();
+    if (!secretHash || !signature || !timingSafeEqual(signature, secretHash)) {
       console.warn('[FLW Webhook] ⚠️ Invalid or missing verif-hash signature received:', signature);
       return res.status(401).json({ error: 'Unauthorized webhook call: signature mismatch' });
     }
@@ -1897,13 +1898,17 @@ export async function mapleradWebhook(req: Request, res: Response) {
 export async function paystackWebhook(req: Request, res: Response) {
   try {
     const paystackSecret = process.env.PAYSTACK_SECRET_KEY;
-    const paystackSignature = req.headers['x-paystack-signature'];
-    if (paystackSecret && paystackSignature) {
-      const hash = crypto.createHmac('sha512', paystackSecret).update(JSON.stringify(req.body || {})).digest('hex');
-      if (hash !== paystackSignature) {
-        console.warn('[Paystack Webhook] ⚠️ Invalid signature received:', paystackSignature);
-        return res.status(401).json({ error: 'Unauthorized webhook call: signature mismatch' });
-      }
+    const paystackSignature = (req.headers['x-paystack-signature'] || '').toString();
+
+    if (!paystackSecret || !paystackSignature) {
+      console.warn('[Paystack Webhook] ⚠️ Missing signature header or secret key configuration');
+      return res.status(401).json({ error: 'Unauthorized webhook call: signature required' });
+    }
+
+    const hash = crypto.createHmac('sha512', paystackSecret).update(JSON.stringify(req.body || {})).digest('hex');
+    if (!timingSafeEqual(hash, paystackSignature)) {
+      console.warn('[Paystack Webhook] ⚠️ Invalid signature received:', paystackSignature);
+      return res.status(401).json({ error: 'Unauthorized webhook call: signature mismatch' });
     }
 
     const event = req.body?.event;
@@ -2215,6 +2220,12 @@ export async function fincraWebhook(req: Request, res: Response) {
       } catch (fetchErr: any) {
         console.warn(`[Fincra Webhook] Auto-fetch exception: ${fetchErr.message}`);
       }
+    }
+
+    // Strict Security Gate: If webhook signature was NOT valid, reject if record was not verified directly from Fincra Core API
+    if (!isValid && verifiedData === data) {
+      console.error('[Fincra Webhook] 🛑 Rejected unverified webhook payload: signature failed and transaction not verified on Fincra Core API.');
+      return;
     }
 
     if (event === 'charge.successful' || event === 'charge.success' || event === 'collection.successful' || event === 'collection_successful' || event === 'virtualaccount.approved' || verifiedData?.status === 'successful') {

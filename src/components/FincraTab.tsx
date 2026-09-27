@@ -120,6 +120,15 @@ interface BankItem {
   nibssCode?: string;
 }
 
+const getAdminHeaders = (extra?: Record<string, string>) => {
+  const token = typeof window !== 'undefined' ? (localStorage.getItem('rentilly_auth_token') || '') : '';
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...extra
+  };
+};
+
 export function FincraTab() {
   const [activeSubTab, setActiveSubTab] = useState<'wallets' | 'collections' | 'payouts' | 'accounts' | 'conversions' | 'beneficiaries'>('wallets');
   const [summary, setSummary] = useState<FincraSummary | null>(null);
@@ -180,7 +189,7 @@ export function FincraTab() {
     setIsLoading(true);
     setErrorMsg(null);
     try {
-      const res = await fetch('/api/admin/fincra/overview');
+      const res = await fetch('/api/admin/fincra/overview', { headers: getAdminHeaders() });
       const data = await res.json();
       if (data.success) {
         setSummary(data.summary);
@@ -193,7 +202,7 @@ export function FincraTab() {
       }
 
       // Fetch banks asynchronously
-      fetch('/api/admin/fincra/banks')
+      fetch('/api/admin/fincra/banks', { headers: getAdminHeaders() })
         .then(r => r.json())
         .then(b => {
           if (b.data && Array.isArray(b.data)) setBanks(b.data);
@@ -201,7 +210,7 @@ export function FincraTab() {
         .catch(() => {});
 
       // Fetch beneficiaries asynchronously
-      fetch('/api/admin/fincra/beneficiaries')
+      fetch('/api/admin/fincra/beneficiaries', { headers: getAdminHeaders() })
         .then(r => r.json())
         .then(b => {
           if (b.data?.results && Array.isArray(b.data.results)) {
@@ -232,7 +241,7 @@ export function FincraTab() {
     if (cleanAcc.length === 10 && payoutBankCode) {
       setIsResolvingAccount(true);
       setAccountResolved(false);
-      fetch(`/api/admin/fincra/resolve-account?accountNumber=${cleanAcc}&bankCode=${payoutBankCode}`)
+      fetch(`/api/admin/fincra/resolve-account?accountNumber=${cleanAcc}&bankCode=${payoutBankCode}`, { headers: getAdminHeaders() })
         .then(r => r.json())
         .then(data => {
           if (data.status && data.accountName) {
@@ -255,7 +264,7 @@ export function FincraTab() {
     try {
       const res = await fetch('/api/admin/fincra/virtual-accounts/create', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAdminHeaders(),
         body: JSON.stringify({
           email: newAccEmail,
           firstName: newAccFirstName,
@@ -291,7 +300,7 @@ export function FincraTab() {
     try {
       const res = await fetch('/api/admin/fincra/payouts/disburse', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAdminHeaders(),
         body: JSON.stringify({
           amount: Number(payoutAmount),
           accountNumber: payoutAccNumber,
@@ -332,7 +341,7 @@ export function FincraTab() {
     try {
       const res = await fetch('/api/admin/fincra/collections/reconcile', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAdminHeaders(),
         body: JSON.stringify({
           reference: selectedColForReconcile.reference,
           email: reconcileEmail,
@@ -365,7 +374,7 @@ export function FincraTab() {
     try {
       const res = await fetch('/api/admin/fincra/quotes/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAdminHeaders(),
         body: JSON.stringify({
           sourceCurrency: fxSourceCurrency,
           destinationCurrency: fxDestCurrency,
@@ -393,7 +402,7 @@ export function FincraTab() {
     try {
       const res = await fetch('/api/admin/fincra/conversions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAdminHeaders(),
         body: JSON.stringify({ quoteReference: fxQuote.reference })
       });
       const d = await res.json();
@@ -420,7 +429,7 @@ export function FincraTab() {
     try {
       const res = await fetch('/api/admin/fincra/payouts/refund', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAdminHeaders(),
         body: JSON.stringify({
           reference: p.reference,
           customerReference: p.customerReference,

@@ -16,8 +16,15 @@ function hashPassword(password: string): string {
   return createHash('sha256').update(password + TOKEN_SECRET).digest('hex');
 }
 
+import { timingSafeEqual as cryptoTimingSafeEqual } from 'crypto';
+
 function verifyPassword(password: string, hash: string): boolean {
-  return hashPassword(password) === hash;
+  if (!password || !hash) return false;
+  const computed = hashPassword(password);
+  const bufA = Buffer.from(computed, 'utf-8');
+  const bufB = Buffer.from(hash, 'utf-8');
+  if (bufA.length !== bufB.length) return false;
+  return cryptoTimingSafeEqual(bufA, bufB);
 }
 
 function createAgentToken(agent: { id: string; email: string; name: string; role: string }): string {

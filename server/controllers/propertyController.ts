@@ -69,8 +69,11 @@ export async function getProperties(req: Request, res: Response) {
         if (minPrice) query = query.gte('base_price', Number(minPrice));
         if (maxPrice) query = query.lte('base_price', Number(maxPrice));
         if (furnishing && furnishing !== 'all') query = query.ilike('furnishing', `%${furnishing}%`);
-        if (search) {
-          query = query.or(`title.ilike.%${search}%,neighborhood.ilike.%${search}%,address.ilike.%${search}%,lga.ilike.%${search}%,state.ilike.%${search}%`);
+        const cleanSearch = typeof search === 'string'
+          ? search.replace(/[^a-zA-Z0-9\s-_]/g, '').trim()
+          : '';
+        if (cleanSearch) {
+          query = query.or(`title.ilike.%${cleanSearch}%,neighborhood.ilike.%${cleanSearch}%,address.ilike.%${cleanSearch}%,lga.ilike.%${cleanSearch}%,state.ilike.%${cleanSearch}%`);
         }
 
         // Sorting

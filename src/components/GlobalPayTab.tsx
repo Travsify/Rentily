@@ -49,6 +49,15 @@ interface OrderItem {
   createdAt: string;
 }
 
+const getAdminHeaders = (extra?: Record<string, string>) => {
+  const token = typeof window !== 'undefined' ? (localStorage.getItem('rentilly_auth_token') || '') : '';
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...extra
+  };
+};
+
 export const GlobalPayTab: React.FC = () => {
   const [config, setConfig] = useState<GlobalPayConfig>({
     fxSpreadPercent: 1.20,
@@ -82,8 +91,8 @@ export const GlobalPayTab: React.FC = () => {
     setErrorMsg(null);
     try {
       const [cfgRes, ordRes] = await Promise.all([
-        fetch('/api/admin/global-pay/config').then(r => r.json()).catch(() => null),
-        fetch('/api/admin/global-pay/orders').then(r => r.json()).catch(() => null)
+        fetch('/api/admin/global-pay/config', { headers: getAdminHeaders() }).then(r => r.json()).catch(() => null),
+        fetch('/api/admin/global-pay/orders', { headers: getAdminHeaders() }).then(r => r.json()).catch(() => null)
       ]);
 
       if (cfgRes?.status && cfgRes?.data) {
@@ -112,7 +121,7 @@ export const GlobalPayTab: React.FC = () => {
     try {
       const res = await fetch('/api/admin/global-pay/config', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAdminHeaders(),
         body: JSON.stringify(config)
       });
       const data = await res.json();
@@ -137,7 +146,7 @@ export const GlobalPayTab: React.FC = () => {
     try {
       const res = await fetch('/api/admin/global-pay/orders/refund', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAdminHeaders(),
         body: JSON.stringify({ reference, reason: 'Admin manual intervention' })
       });
       const data = await res.json();

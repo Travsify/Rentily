@@ -16,6 +16,15 @@ import {
 } from 'lucide-react';
 import type { ReferralConfig, ReferralRecord } from '../types';
 
+const getAdminHeaders = (extra?: Record<string, string>) => {
+  const token = typeof window !== 'undefined' ? (localStorage.getItem('rentilly_auth_token') || '') : '';
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+    ...extra
+  };
+};
+
 export const ReferralsTab: React.FC = () => {
   const [config, setConfig] = useState<ReferralConfig>({
     enabled: true,
@@ -45,7 +54,7 @@ export const ReferralsTab: React.FC = () => {
     setErrorMessage('');
     try {
       // 1. Fetch Config
-      const cfgRes = await fetch('/api/admin/referrals/config');
+      const cfgRes = await fetch('/api/admin/referrals/config', { headers: getAdminHeaders() });
       if (cfgRes.ok) {
         const cfgData = await cfgRes.json();
         const loadedConfig = cfgData.data || cfgData.config || cfgData;
@@ -55,7 +64,7 @@ export const ReferralsTab: React.FC = () => {
       }
 
       // 2. Fetch Referrals List & Stats
-      const listRes = await fetch('/api/admin/referrals/list');
+      const listRes = await fetch('/api/admin/referrals/list', { headers: getAdminHeaders() });
       if (listRes.ok) {
         const listData = await listRes.json();
         const logs: ReferralRecord[] = listData.logs || listData.data || [];
@@ -91,7 +100,7 @@ export const ReferralsTab: React.FC = () => {
     try {
       const res = await fetch('/api/admin/referrals/config', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAdminHeaders(),
         body: JSON.stringify(config)
       });
       if (res.ok) {

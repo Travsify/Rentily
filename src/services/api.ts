@@ -233,6 +233,11 @@ export class RentillyApiService {
     return localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
   }
 
+  static getAuthHeaders(): Record<string, string> {
+    const token = this.getAuthToken();
+    return token ? { 'Authorization': `Bearer ${token}` } : {};
+  }
+
   static logout(): void {
     localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
     localStorage.removeItem(STORAGE_KEYS.AUTH_USER);

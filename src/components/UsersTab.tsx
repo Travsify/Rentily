@@ -55,7 +55,10 @@ export const UsersTab: React.FC<UsersTabProps> = ({ users }) => {
     try {
       const res = await fetch('/api/admin/request-rekyc', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(typeof window !== 'undefined' && localStorage.getItem('rentilly_auth_token') ? { 'Authorization': `Bearer ${localStorage.getItem('rentilly_auth_token')}` } : {})
+        },
         body: JSON.stringify({ email, allUsers: all })
       });
       const data = await res.json();

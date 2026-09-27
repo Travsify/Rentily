@@ -9,6 +9,7 @@ import { NotificationDispatcher } from '../services/notificationDispatcher';
 import { UserStore } from '../services/userStore';
 import { TransactionStore } from '../services/transactionStore';
 import { GlobalPayService } from '../services/globalPayService';
+import { TreasuryCircuitBreaker } from '../services/treasuryCircuitBreaker';
 
 dotenv.config();
 
@@ -292,11 +293,35 @@ export async function disburseAdminPayout(req: Request, res: Response) {
       return res.status(400).json({ error: 'amount, accountNumber, and bankCode are required' });
     }
 
+    const numAmount = Number(amount);
+    if (isNaN(numAmount) || numAmount <= 0) {
+      return res.status(400).json({ error: 'Disbursement amount must be a positive number.' });
+    }
+
+    const cleanAcc = (accountNumber || '').toString().replace(/[^0-9]/g, '').trim();
+
+    // 1. Verify Destination Account against syndicate blacklist & policies
+    const destCheck = await TreasuryCircuitBreaker.verifyDestinationAccount(cleanAcc, 'admin@myrentilly.com');
+    if (!destCheck.allowed) {
+      console.warn(`🛑 [Admin Payout Blocked] Prohibited destination account: ${cleanAcc}. Reason: ${destCheck.reason}`);
+      return res.status(403).json({ error: destCheck.reason || 'Destination bank account is prohibited by security policy.' });
+    }
+
+    // 2. Velocity Check
+    const velocity = await TreasuryCircuitBreaker.checkHourlyDisbursementVelocity(numAmount);
+    if (!velocity.allowed) {
+      console.warn(`🛑 [Admin Payout Blocked] Platform hourly velocity cap reached. Total: ₦${velocity.currentHourlyTotal}`);
+      return res.status(429).json({
+        error: `Platform hourly disbursement limit of ₦${velocity.limit.toLocaleString()} exceeded. Current hourly total: ₦${velocity.currentHourlyTotal.toLocaleString()}`,
+        limit: velocity.limit
+      });
+    }
+
     const nameParts = (accountHolderName || 'Rentilly Recipient').split(' ');
     const txRef = `ADMIN_DISB_${Date.now()}`;
 
     const result = await FincraService.initiatePayout({
-      amount: Number(amount),
+      amount: numAmount,
       reference: txRef,
       description: description || 'Rentilly Admin Disbursement',
       currency: 'NGN',
@@ -304,11 +329,15 @@ export async function disburseAdminPayout(req: Request, res: Response) {
         firstName: nameParts[0] || 'Rentilly',
         lastName: nameParts.slice(1).join(' ') || 'Recipient',
         accountHolderName: accountHolderName || 'Rentilly Recipient',
-        accountNumber: accountNumber.toString(),
+        accountNumber: cleanAcc,
         bankCode: bankCode.toString(),
         type: 'individual'
       }
     });
+
+    if (result && (result.status || result.success)) {
+      TreasuryCircuitBreaker.recordDisbursement(numAmount);
+    }
 
     return res.json(result);
   } catch (err: any) {

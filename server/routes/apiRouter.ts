@@ -31,7 +31,7 @@ import { isSupabaseConfigured, reconfigureSupabase, supabase } from '../supabase
 import { IdentitypassService } from '../services/identitypassService';
 import { FlutterwaveService } from '../services/flutterwaveService';
 import { TermiiService } from '../services/termiiService';
-import { adminSecuritySentinel, triggerEmergencyLockdown, liftEmergencyLockdown, getSentinelStatus } from '../middleware/adminSecuritySentinel';
+import { adminSecuritySentinel, requireAdminAuth, triggerEmergencyLockdown, liftEmergencyLockdown, getSentinelStatus } from '../middleware/adminSecuritySentinel';
 import { registrationRateLimiter } from '../middleware/registrationRateLimiter';
 import { AutomatedKycNudgeAndReportWorker } from '../services/automatedKycNudgeAndReportWorker';
 export const apiRouter = Router();
@@ -191,8 +191,8 @@ apiRouter.post('/verify/nin', verificationController.verifyNIN);
 apiRouter.post('/verify/bvn', verificationController.verifyBVN);
 apiRouter.post('/verify/cac', verificationController.verifyCAC);
 apiRouter.post('/verification/complete-maplerad-kyc', verificationController.completeMapleradKyc);
-apiRouter.post('/admin/request-rekyc', verificationController.requestReKyc);
-apiRouter.post('/admin/trigger-nudge-and-report', async (_req, res) => {
+apiRouter.post('/admin/request-rekyc', adminSecuritySentinel, requireAdminAuth, verificationController.requestReKyc);
+apiRouter.post('/admin/trigger-nudge-and-report', adminSecuritySentinel, requireAdminAuth, async (_req, res) => {
   try {
     const report = await AutomatedKycNudgeAndReportWorker.runCycle();
     res.json({ success: true, report });
@@ -396,12 +396,12 @@ apiRouter.get('/chat/oversight', directChatController.getFlaggedMessages);
 // 13. Platform Fee & Tariff Configuration
 apiRouter.get('/config/fees', feeController.getFees);
 apiRouter.get('/platform/fees', feeController.getFees);
-apiRouter.get('/admin/fees', feeController.getFees);
-apiRouter.post('/config/fees', feeController.updateFees);
+apiRouter.get('/admin/fees', adminSecuritySentinel, requireAdminAuth, feeController.getFees);
+apiRouter.post('/config/fees', adminSecuritySentinel, requireAdminAuth, feeController.updateFees);
 
 // 13b. Dynamic Remote Feature Flags & App Rollout
 apiRouter.get('/config/features', featureFlagController.getFeatureFlagsHandler);
-apiRouter.post('/config/features', featureFlagController.updateFeatureFlagsHandler);
+apiRouter.post('/config/features', adminSecuritySentinel, requireAdminAuth, featureFlagController.updateFeatureFlagsHandler);
 
 // 14. Master Financial Ledger & Wallet Movement
 apiRouter.get('/ledger/transactions', ledgerController.getMasterLedger);
@@ -467,7 +467,7 @@ apiRouter.post('/users/onesignal-player', paymentController.registerOneSignalPla
 apiRouter.post('/security/activity-alert', paymentController.clientDispatchNotification);
 
 // 27. Outbound Server IP Utility (For Maplerad IP Whitelisting)
-apiRouter.get('/admin/outbound-ip', async (_req, res) => {
+apiRouter.get('/admin/outbound-ip', adminSecuritySentinel, requireAdminAuth, async (_req, res) => {
   try {
     const ipRes = await fetch('https://api.ipify.org?format=json');
     const data = await ipRes.json();
@@ -491,30 +491,30 @@ apiRouter.get('/system/test-maplerad', deployController.testMaplerad);
 
 // 29. Maplerad Live Liquidity & Admin Operations Desk
 import * as mapleradAdminController from '../controllers/mapleradAdminController';
-apiRouter.get('/admin/maplerad/wallets', mapleradAdminController.getMapleradWallets);
-apiRouter.get('/admin/maplerad/transactions', mapleradAdminController.getMapleradTransactions);
-apiRouter.post('/admin/maplerad/transfer-to-spend', mapleradAdminController.transferTreasuryToSpend);
-apiRouter.post('/admin/maplerad/fx/quote', mapleradAdminController.getFxQuote);
-apiRouter.post('/admin/maplerad/fx/exchange', mapleradAdminController.executeFxExchange);
+apiRouter.get('/admin/maplerad/wallets', adminSecuritySentinel, requireAdminAuth, mapleradAdminController.getMapleradWallets);
+apiRouter.get('/admin/maplerad/transactions', adminSecuritySentinel, requireAdminAuth, mapleradAdminController.getMapleradTransactions);
+apiRouter.post('/admin/maplerad/transfer-to-spend', adminSecuritySentinel, requireAdminAuth, mapleradAdminController.transferTreasuryToSpend);
+apiRouter.post('/admin/maplerad/fx/quote', adminSecuritySentinel, requireAdminAuth, mapleradAdminController.getFxQuote);
+apiRouter.post('/admin/maplerad/fx/exchange', adminSecuritySentinel, requireAdminAuth, mapleradAdminController.executeFxExchange);
 
 // 30. Fincra Master Ledger & Commercial Treasury Operations Desk
 import * as fincraAdminController from '../controllers/fincraAdminController';
-apiRouter.get('/admin/fincra/overview', fincraAdminController.getFincraOverview);
-apiRouter.get('/admin/fincra/wallets', fincraAdminController.getFincraOverview);
-apiRouter.get('/admin/fincra/virtual-accounts', fincraAdminController.getFincraVirtualAccounts);
-apiRouter.post('/admin/fincra/virtual-accounts/create', fincraAdminController.createAdminVirtualAccount);
-apiRouter.get('/admin/fincra/payouts', fincraAdminController.getFincraPayouts);
-apiRouter.post('/admin/fincra/payouts/disburse', fincraAdminController.disburseAdminPayout);
-apiRouter.post('/admin/fincra/payouts/refund', fincraAdminController.refundFincraPayout);
-apiRouter.get('/admin/fincra/collections', fincraAdminController.getFincraCollections);
-apiRouter.post('/admin/fincra/collections/reconcile', fincraAdminController.reconcileFincraCollection);
-apiRouter.post('/admin/fincra/quotes/generate', fincraAdminController.generateFincraQuote);
-apiRouter.post('/admin/fincra/conversions', fincraAdminController.executeFincraConversion);
-apiRouter.get('/admin/fincra/beneficiaries', fincraAdminController.getFincraBeneficiaries);
-apiRouter.post('/admin/fincra/beneficiaries', fincraAdminController.createFincraBeneficiary);
-apiRouter.get('/admin/fincra/resolve-account', fincraAdminController.resolveFincraAccount);
-apiRouter.post('/admin/fincra/resolve-account', fincraAdminController.resolveFincraAccount);
-apiRouter.get('/admin/fincra/banks', fincraAdminController.getFincraBanks);
+apiRouter.get('/admin/fincra/overview', adminSecuritySentinel, requireAdminAuth, fincraAdminController.getFincraOverview);
+apiRouter.get('/admin/fincra/wallets', adminSecuritySentinel, requireAdminAuth, fincraAdminController.getFincraOverview);
+apiRouter.get('/admin/fincra/virtual-accounts', adminSecuritySentinel, requireAdminAuth, fincraAdminController.getFincraVirtualAccounts);
+apiRouter.post('/admin/fincra/virtual-accounts/create', adminSecuritySentinel, requireAdminAuth, fincraAdminController.createAdminVirtualAccount);
+apiRouter.get('/admin/fincra/payouts', adminSecuritySentinel, requireAdminAuth, fincraAdminController.getFincraPayouts);
+apiRouter.post('/admin/fincra/payouts/disburse', adminSecuritySentinel, requireAdminAuth, fincraAdminController.disburseAdminPayout);
+apiRouter.post('/admin/fincra/payouts/refund', adminSecuritySentinel, requireAdminAuth, fincraAdminController.refundFincraPayout);
+apiRouter.get('/admin/fincra/collections', adminSecuritySentinel, requireAdminAuth, fincraAdminController.getFincraCollections);
+apiRouter.post('/admin/fincra/collections/reconcile', adminSecuritySentinel, requireAdminAuth, fincraAdminController.reconcileFincraCollection);
+apiRouter.post('/admin/fincra/quotes/generate', adminSecuritySentinel, requireAdminAuth, fincraAdminController.generateFincraQuote);
+apiRouter.post('/admin/fincra/conversions', adminSecuritySentinel, requireAdminAuth, fincraAdminController.executeFincraConversion);
+apiRouter.get('/admin/fincra/beneficiaries', adminSecuritySentinel, requireAdminAuth, fincraAdminController.getFincraBeneficiaries);
+apiRouter.post('/admin/fincra/beneficiaries', adminSecuritySentinel, requireAdminAuth, fincraAdminController.createFincraBeneficiary);
+apiRouter.get('/admin/fincra/resolve-account', adminSecuritySentinel, requireAdminAuth, fincraAdminController.resolveFincraAccount);
+apiRouter.post('/admin/fincra/resolve-account', adminSecuritySentinel, requireAdminAuth, fincraAdminController.resolveFincraAccount);
+apiRouter.get('/admin/fincra/banks', adminSecuritySentinel, requireAdminAuth, fincraAdminController.getFincraBanks);
 
 // 30b. Rentilly Global Pay — International Tuition Payments & Overseas Supplier Invoices
 import * as globalPayController from '../controllers/globalPayController';
@@ -526,10 +526,10 @@ apiRouter.get('/global-pay/orders', globalPayController.getUserOrders);
 apiRouter.get('/global-pay/track/:reference', globalPayController.trackOrder);
 
 // Rentilly Global Pay Admin Controls
-apiRouter.get('/admin/global-pay/config', fincraAdminController.getGlobalPayAdminConfig);
-apiRouter.post('/admin/global-pay/config', fincraAdminController.updateGlobalPayAdminConfig);
-apiRouter.get('/admin/global-pay/orders', fincraAdminController.getGlobalPayAdminOrders);
-apiRouter.post('/admin/global-pay/orders/refund', fincraAdminController.manualReverseGlobalPayOrder);
+apiRouter.get('/admin/global-pay/config', adminSecuritySentinel, requireAdminAuth, fincraAdminController.getGlobalPayAdminConfig);
+apiRouter.post('/admin/global-pay/config', adminSecuritySentinel, requireAdminAuth, fincraAdminController.updateGlobalPayAdminConfig);
+apiRouter.get('/admin/global-pay/orders', adminSecuritySentinel, requireAdminAuth, fincraAdminController.getGlobalPayAdminOrders);
+apiRouter.post('/admin/global-pay/orders/refund', adminSecuritySentinel, requireAdminAuth, fincraAdminController.manualReverseGlobalPayOrder);
 
 
 // 31. Referral & Growth Rewards Engine
@@ -539,9 +539,9 @@ apiRouter.get('/referrals/validate', referralController.validateReferralCode);
 apiRouter.post('/referrals/validate', referralController.validateReferralCode);
 apiRouter.get('/referrals/stats/:identifier', referralController.getUserReferralStats);
 apiRouter.get('/referrals/stats', referralController.getUserReferralStats);
-apiRouter.get('/admin/referrals/list', referralController.getAdminReferralsList);
-apiRouter.get('/admin/referrals/config', referralController.getReferralConfig);
-apiRouter.post('/admin/referrals/config', referralController.updateReferralConfig);
+apiRouter.get('/admin/referrals/list', adminSecuritySentinel, requireAdminAuth, referralController.getAdminReferralsList);
+apiRouter.get('/admin/referrals/config', adminSecuritySentinel, requireAdminAuth, referralController.getReferralConfig);
+apiRouter.post('/admin/referrals/config', adminSecuritySentinel, requireAdminAuth, referralController.updateReferralConfig);
 
 // 32. Creator Contest, Leaderboard Automation & Welts Admin Desk
 import { contestController } from '../controllers/contestController';
@@ -552,9 +552,9 @@ apiRouter.put('/contest/submissions/:id', contestController.updateSubmission);
 apiRouter.post('/contest/sync-views', contestController.syncViews);
 apiRouter.post('/contest/admin/login', contestController.adminLogin);
 apiRouter.get('/contest/cycle', contestController.getContestCycle);
-apiRouter.post('/contest/cycle', contestController.updateContestCycle);
-apiRouter.post('/contest/submissions/:id/boost', contestController.boostSubmission);
-apiRouter.delete('/contest/submissions/:id', contestController.deleteSubmission);
+apiRouter.post('/contest/cycle', adminSecuritySentinel, requireAdminAuth, contestController.updateContestCycle);
+apiRouter.post('/contest/submissions/:id/boost', adminSecuritySentinel, requireAdminAuth, contestController.boostSubmission);
+apiRouter.delete('/contest/submissions/:id', adminSecuritySentinel, requireAdminAuth, contestController.deleteSubmission);
 
 // 32. Visitor Imprint & Telemetry Engine
 import { telemetryController } from '../controllers/telemetryController';
