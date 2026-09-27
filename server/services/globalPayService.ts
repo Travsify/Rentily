@@ -2,6 +2,7 @@ import dotenv from 'dotenv';
 import crypto from 'crypto';
 import { supabase } from '../supabaseClient';
 import { FincraService } from './fincraService';
+import { dispatchOrderInitiatedNotifications } from './globalPayEmailTemplates';
 
 dotenv.config();
 
@@ -559,6 +560,11 @@ export class GlobalPayService {
         console.error('[GlobalPayService] Could not persist order:', e.message);
       }
     }
+
+    // 5. Asynchronously dispatch branded receipts to sender and remittance advice to beneficiary
+    dispatchOrderInitiatedNotifications(order).catch(err => {
+      console.warn('[GlobalPayService] Email notification dispatch warning:', err.message);
+    });
 
     return order;
   }

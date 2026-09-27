@@ -776,18 +776,26 @@ class _GlobalPayoutScreenState extends State<GlobalPayoutScreen> {
 
             // Dynamic fields per country/rail
             if (_selectedCountry['code'] == 'GB') ...[
-              _buildInputField(controller: _routingCodeController, label: 'Sort Code (6 digits)', hint: 'e.g. 200000', keyboardType: TextInputType.number),
+              _buildInputField(controller: _bankNameController, label: 'Bank Name (Optional)', hint: 'e.g. Monzo Bank / Barclays / HSBC'),
               const SizedBox(height: 10),
-              _buildInputField(controller: _accountNumberController, label: 'Account Number (8 digits) or GB IBAN', hint: 'e.g. 12345678', keyboardType: TextInputType.text),
+              _buildInputField(controller: _routingCodeController, label: 'Sort Code (6 digits)', hint: 'e.g. 04-06-05', keyboardType: TextInputType.number),
+              const SizedBox(height: 10),
+              _buildInputField(controller: _accountNumberController, label: 'Account Number (8 digits) or GB IBAN', hint: 'e.g. 31389897', keyboardType: TextInputType.text),
             ] else if (_selectedCountry['code'] == 'US') ...[
+              _buildInputField(controller: _bankNameController, label: 'Bank Name (Optional)', hint: 'e.g. JPMorgan Chase / Wells Fargo'),
+              const SizedBox(height: 10),
               _buildInputField(controller: _routingCodeController, label: 'ABA / Fedwire Routing Number (9 digits)', hint: 'e.g. 021000021', keyboardType: TextInputType.number),
               const SizedBox(height: 10),
               _buildInputField(controller: _accountNumberController, label: 'US Checking or Savings Account Number', hint: 'e.g. 9876543210', keyboardType: TextInputType.number),
             ] else if (_selectedCountry['currency'] == 'EUR') ...[
+              _buildInputField(controller: _bankNameController, label: 'Bank Name (Optional)', hint: 'e.g. Deutsche Bank / BNP Paribas'),
+              const SizedBox(height: 10),
               _buildInputField(controller: _accountNumberController, label: 'European IBAN (starts with country code)', hint: 'e.g. FR7630006000011234567890189', keyboardType: TextInputType.text),
               const SizedBox(height: 10),
               _buildInputField(controller: _swiftBicController, label: 'BIC / SWIFT Code', hint: 'e.g. BNPAFRPP', keyboardType: TextInputType.text),
             ] else if (_selectedCountry['code'] == 'CA') ...[
+              _buildInputField(controller: _bankNameController, label: 'Bank Name (Optional)', hint: 'e.g. Royal Bank of Canada (RBC) / TD'),
+              const SizedBox(height: 10),
               _buildInputField(controller: _routingCodeController, label: 'Transit (5 digits) & Institution (3 digits)', hint: 'e.g. 12345-001', keyboardType: TextInputType.text),
               const SizedBox(height: 10),
               _buildInputField(controller: _accountNumberController, label: 'Canadian Account Number', hint: 'e.g. 1234567', keyboardType: TextInputType.number),
