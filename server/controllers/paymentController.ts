@@ -328,17 +328,37 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
       await syncPaystackInboundTransactionsForUser(cleanEmail);
 
       let liveDbBal: number | null = null;
+      let isBvnVerified = false;
+      let accountCreatedAt: string | null = null;
+      let userDbRole = 'renter';
+
       if (supabase) {
         try {
           const { data: dbProf } = await supabase
             .from('profiles')
-            .select('wallet_balance')
+            .select('wallet_balance, bvn_verified, is_verified, created_at, role')
             .eq('email', cleanEmail)
             .maybeSingle();
-          if (dbProf && dbProf.wallet_balance != null) {
-            liveDbBal = Number(dbProf.wallet_balance);
+          if (dbProf) {
+            if (dbProf.wallet_balance != null) liveDbBal = Number(dbProf.wallet_balance);
+            isBvnVerified = Boolean(dbProf.bvn_verified || dbProf.is_verified);
+            accountCreatedAt = dbProf.created_at;
+            userDbRole = dbProf.role || 'renter';
           }
         } catch (_) {}
+      }
+
+      if (!isBvnVerified && (memUser?.bvnVerified || memUser?.isVerified)) {
+        isBvnVerified = true;
+      }
+
+      const isAdminUser = cleanEmail === 'patrickachua3@gmail.com' || cleanEmail === 'info@travsify.com' || memUser?.role === 'admin' || userDbRole === 'admin';
+
+      // 1. Mandatory Identity Verification (BVN/NIN) for bank transfer withdrawals
+      if (!isAdminUser && !isBvnVerified) {
+        return res.status(403).json({
+          error: 'Tier 2 Identity Verification (BVN/NIN) is required before initiating external bank withdrawals. Please verify your identity under Account > Verification.'
+        });
       }
 
       currentBal = liveDbBal !== null
@@ -350,6 +370,64 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
         return res.status(400).json({
           error: `Insufficient wallet balance. Withdrawing ₦${numAmount.toLocaleString()} requires ₦${totalDebit.toLocaleString()} (including the standard ₦${withdrawalFee} bank transfer fee). Available balance: ₦${currentBal.toLocaleString()}.`
         });
+      }
+
+      // 2. Compute true withdrawable balance: strictly exclude promotional welcome/referral bonuses
+      let promotionalBonusTotal = 0;
+      if (supabase && !isAdminUser) {
+        try {
+          const { data: bonusTxs } = await supabase
+            .from('wallet_transactions')
+            .select('amount, flw_ref, tx_ref, narration')
+            .eq('email', cleanEmail)
+            .or('flw_ref.like.REF-%,tx_ref.like.REF-%,narration.like.%Bonus%,narration.like.%Welcome%');
+          if (Array.isArray(bonusTxs)) {
+            promotionalBonusTotal = bonusTxs.reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
+          }
+        } catch (_) {}
+      }
+
+      const withdrawableBalance = Math.max(0, currentBal - promotionalBonusTotal);
+      if (!isAdminUser && withdrawableBalance < totalDebit) {
+        return res.status(400).json({
+          error: `Insufficient withdrawable cash balance. Promotional rewards (₦${promotionalBonusTotal.toLocaleString()} in Welcome/Referral bonuses) cannot be withdrawn directly to a bank account. They can be applied towards rent, utility bills, or services. Withdrawable cash balance: ₦${withdrawableBalance.toLocaleString()}.`
+        });
+      }
+
+      // 3. Anti-bot initial funding check: User must have made at least one genuine inbound deposit
+      if (!isAdminUser) {
+        let hasInboundDeposit = false;
+        if (supabase) {
+          try {
+            const { data: deposits } = await supabase
+              .from('wallet_transactions')
+              .select('id')
+              .eq('email', cleanEmail)
+              .in('type', ['credit', 'deposit'])
+              .not('flw_ref', 'like', 'REF-%')
+              .not('tx_ref', 'like', 'REF-%')
+              .not('flw_ref', 'like', 'SWAP_%')
+              .limit(1);
+            if (deposits && deposits.length > 0) {
+              hasInboundDeposit = true;
+            }
+          } catch (_) {}
+        }
+        if (!hasInboundDeposit) {
+          return res.status(400).json({
+            error: 'To activate outbound bank transfer payouts, you must first fund your wallet with at least one verified inbound bank transfer or card deposit.'
+          });
+        }
+      }
+
+      // 4. Account seasoning check: 2-hour cooldown after registration for new accounts
+      if (!isAdminUser && accountCreatedAt) {
+        const ageHours = (Date.now() - new Date(accountCreatedAt).getTime()) / (1000 * 60 * 60);
+        if (ageHours < 2) {
+          return res.status(400).json({
+            error: 'For platform treasury security, outbound bank transfer payouts become available 2 hours after account registration.'
+          });
+        }
       }
     }
 
@@ -911,6 +989,29 @@ export async function executeCurrencySwap(req: Request, res: Response) {
       if (currentBalNgn <= 0 || currentBalNgn < fromDebitNgn) {
         return res.status(400).json({
           error: `Insufficient Naira balance. Swapping ₦${fromDebitNgn.toLocaleString()} requires at least ₦${fromDebitNgn.toLocaleString()}, but your balance is ₦${currentBalNgn.toLocaleString()}. You cannot swap Naira you do not have.`
+        });
+      }
+
+      // Check promotional bonus lock: Bonuses cannot be swapped to USDT
+      const isAdminUser = cleanEmail === 'patrickachua3@gmail.com' || cleanEmail === 'info@travsify.com' || memUser?.role === 'admin';
+      let promotionalBonusTotal = 0;
+      if (supabase && !isAdminUser) {
+        try {
+          const { data: bonusTxs } = await supabase
+            .from('wallet_transactions')
+            .select('amount')
+            .eq('email', cleanEmail)
+            .or('flw_ref.like.REF-%,tx_ref.like.REF-%,narration.like.%Bonus%,narration.like.%Welcome%');
+          if (Array.isArray(bonusTxs)) {
+            promotionalBonusTotal = bonusTxs.reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
+          }
+        } catch (_) {}
+      }
+
+      const swappableNgn = Math.max(0, currentBalNgn - promotionalBonusTotal);
+      if (!isAdminUser && swappableNgn < fromDebitNgn) {
+        return res.status(400).json({
+          error: `Insufficient swappable Naira balance. Promotional bonuses (₦${promotionalBonusTotal.toLocaleString()}) cannot be converted to USDT. They can be applied towards rent or domestic services. Swappable balance: ₦${swappableNgn.toLocaleString()}.`
         });
       }
 

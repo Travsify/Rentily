@@ -8,6 +8,7 @@ import crypto from 'crypto';
 import { generateSecret, generateURI, verifySync } from 'otplib';
 import QRCode from 'qrcode';
 import { tryFormatToE164 } from '../utils/phoneUtils';
+import { isDisposableEmail } from '../utils/disposableEmailBlocker';
 import { timingSafeEqual, isTotpReplayed, recordFailedAdminAttempt, recordSuccessfulAdminAuth, getClientIp } from '../middleware/adminSecuritySentinel';
 
 export let ADMIN_EMAIL = 'info@travsify.com';
@@ -60,6 +61,12 @@ export async function register(req: Request, res: Response) {
     }
 
     const cleanEmail = email.toLowerCase().trim();
+    if (isDisposableEmail(cleanEmail)) {
+      return res.status(400).json({
+        error: 'Registration with disposable or temporary email addresses is prohibited. Please use a verified permanent email provider (e.g. Gmail, Outlook, Yahoo).'
+      });
+    }
+
     let cleanPhone = (phoneNumber || '').replace(/[^0-9+]/g, '');
     if (phoneNumber && typeof phoneNumber === 'string' && phoneNumber.trim()) {
       const pRes = tryFormatToE164(phoneNumber.trim());

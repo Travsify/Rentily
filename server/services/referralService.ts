@@ -318,7 +318,7 @@ export class ReferralService {
       refereeRewardAmount: refereeRewardAmount,
       referrerRewardStatus: !config.enabled ? 'disabled' : (hasReferrer && referrerRewardAmount > 0 ? 'pending_kyc' : 'disabled'),
       refereeRewardStatus: !config.enabled ? 'disabled' : (refereeRewardAmount > 0 ? 'pending_kyc' : 'disabled'),
-      kycCompleted: true,
+      kycCompleted: false,
       createdAt: new Date().toISOString()
     };
 
@@ -337,12 +337,12 @@ export class ReferralService {
       }
     }
 
-    // Disburse rewards immediately upon registration
-    await this.disburseRewards(newRecord);
+    // Rewards remain securely pending until referee completes Tier 2 KYC / BVN verification
+    console.log(`[ReferralService] Registered referral for ${params.refereeUser.email}. Reward status: pending_kyc.`);
 
     return {
       success: true,
-      message: referrer ? `Referred by ${referrer.fullName}` : 'Welcome bonus registered',
+      message: referrer ? `Referred by ${referrer.fullName}` : 'Welcome bonus registered (pending verification)',
       record: newRecord
     };
   }
@@ -424,7 +424,7 @@ export class ReferralService {
             title: '🎉 Rentilly Welcome Reward',
             description: `Instant Welcome Bonus (₦${record.refereeRewardAmount.toLocaleString()})`,
             type: 'credit',
-            category: 'wallet_funding',
+            category: 'promotional_bonus',
             amount: record.refereeRewardAmount,
             currency: 'NGN',
             isCredit: true,
@@ -477,7 +477,7 @@ export class ReferralService {
             title: '🎁 Referral Bonus Earned',
             description: `🎁 Referral Bonus - Invited ${record.refereeName || record.refereeEmail} (₦${record.referrerRewardAmount.toLocaleString()})`,
             type: 'credit',
-            category: 'wallet_funding',
+            category: 'promotional_bonus',
             amount: record.referrerRewardAmount,
             currency: 'NGN',
             isCredit: true,
