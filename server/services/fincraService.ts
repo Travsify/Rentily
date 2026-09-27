@@ -875,7 +875,7 @@ export class FincraService {
    * Generate Guaranteed Real-Time FX Conversion Quote for Cross-Border Disbursements
    */
   static async generateCrossBorderQuote(params: {
-    destinationCurrency: 'USD' | 'GBP' | 'EUR' | 'CAD';
+    destinationCurrency: string;
     destinationAmount: number;
     sourceCurrency?: string;
   }): Promise<{
@@ -883,6 +883,7 @@ export class FincraService {
     data?: {
       quoteReference: string;
       rate: number;
+      wholesaleRate: number;
       sourceAmount: number;
       destinationAmount: number;
       expiresAt?: string;
@@ -890,15 +891,13 @@ export class FincraService {
     message?: string;
   }> {
     try {
-      const payload = {
+      const payload: any = {
         action: 'receive',
         transactionType: 'conversion',
-        sourceCurrency: params.sourceCurrency || 'NGN',
-        destinationCurrency: params.destinationCurrency,
-        amount: params.destinationAmount,
-        feeBearer: 'customer',
-        beneficiaryType: 'individual',
-        business: this.BUSINESS_ID
+        sourceCurrency: (params.sourceCurrency || 'NGN').toUpperCase().trim(),
+        destinationCurrency: params.destinationCurrency.toUpperCase().trim(),
+        amount: Number(params.destinationAmount),
+        business: this.BUSINESS_ID.trim()
       };
 
       const res = await fetch(`${this.BASE_URL}/quotes/generate`, {

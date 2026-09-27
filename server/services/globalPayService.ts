@@ -25,6 +25,7 @@ export interface GlobalPayConfig {
 
 export interface GlobalQuote {
   quoteReference: string;
+  fincraQuoteReference?: string;
   sourceCurrency: 'NGN';
   destinationCurrency: string;
   destinationAmount: number;
@@ -75,6 +76,7 @@ export interface GlobalPayoutOrder {
   corridorFeeNgn: number;
   totalDebitedNgn: number;
   quoteReference: string;
+  fincraQuoteReference?: string;
   paymentScheme: 'fps' | 'sepa' | 'fedwire' | 'ach' | 'swift' | 'eft' | 'mobile_money';
   transferPurpose?: string;
   studentName?: string;
@@ -284,15 +286,15 @@ export class GlobalPayService {
         destinationAmount: params.destinationAmount
       });
       if (quoteRes && quoteRes.status && quoteRes.data) {
-        if ((quoteRes.data as any).wholesaleRate) {
-          wholesaleRate = Number((quoteRes.data as any).wholesaleRate);
-        } else if (quoteRes.data.rate) {
+        if (quoteRes.data.wholesaleRate && quoteRes.data.wholesaleRate > 0) {
+          wholesaleRate = Number(quoteRes.data.wholesaleRate);
+        } else if (quoteRes.data.rate && quoteRes.data.rate > 39) {
           wholesaleRate = Math.max(1, Number(quoteRes.data.rate) - 39.0);
         }
         if (quoteRes.data.quoteReference) fincraQuoteRef = quoteRes.data.quoteReference;
       }
-    } catch (_) {
-      // Use benchmark rate
+    } catch (e: any) {
+      console.warn(`[GlobalPayService] Fincra live rate warning for ${destCurr}:`, e.message);
     }
 
     // 2. Standardized FX Exchange Rate (+39 NGN for Naira to foreign currencies)
@@ -306,6 +308,7 @@ export class GlobalPayService {
 
     const quote: GlobalQuote = {
       quoteReference,
+      fincraQuoteReference: fincraQuoteRef,
       sourceCurrency: 'NGN',
       destinationCurrency: destCurr,
       destinationAmount: params.destinationAmount,
@@ -502,6 +505,7 @@ export class GlobalPayService {
       corridorFeeNgn: quote.corridorFeeNgn,
       totalDebitedNgn: quote.totalDebitedNgn,
       quoteReference: quote.quoteReference,
+      fincraQuoteReference: quote.fincraQuoteReference,
       paymentScheme: quote.paymentScheme,
       studentName: params.studentName,
       studentMatricId: params.studentMatricId,
@@ -521,7 +525,7 @@ export class GlobalPayService {
         reference: orderRef,
         destinationCurrency: quote.destinationCurrency,
         destinationAmount: quote.destinationAmount,
-        quoteReference: quote.quoteReference,
+        quoteReference: quote.fincraQuoteReference || quote.quoteReference,
         paymentScheme: quote.paymentScheme,
         beneficiary: {
           name: fullBeneficiary.name,
