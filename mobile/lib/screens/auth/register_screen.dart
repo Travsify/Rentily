@@ -336,7 +336,62 @@ class _RegisterScreenState extends State<RegisterScreen> {
       cleanName = _businessNameController.text.trim().isNotEmpty ? _businessNameController.text.trim() : 'User';
     }
 
-    // 1. Dispatch OTP code to user's email for registration verification
+    // Direct account registration execution function
+    Future<void> executeRegistration() async {
+      setState(() => _isLoading = true);
+
+      final result = await AuthService.register(
+        fullName: cleanName,
+        email: email,
+        phoneNumber: cleanPhone,
+        password: password,
+        role: effectiveRole,
+        buyerType: effectiveRole == 'renter' ? _buyerType : (effectiveRole == 'partner' ? 'corporate' : 'personal'),
+        state: locationState,
+        businessName: (effectiveRole == 'partner' || (effectiveRole == 'renter' && _buyerType == 'corporate')) ? _businessNameController.text.trim() : null,
+        cacNumber: (effectiveRole == 'partner' || (effectiveRole == 'renter' && _buyerType == 'corporate')) ? _cacNumberController.text.trim() : null,
+        tinNumber: (effectiveRole == 'renter' && _buyerType == 'corporate') ? _tinNumberController.text.trim() : null,
+        officeAddress: fullOfficeAddress,
+        signatoryName: (effectiveRole == 'renter' && _buyerType == 'corporate') ? name : null,
+        signatoryRole: (effectiveRole == 'renter' && _buyerType == 'corporate') ? _signatoryRoleController.text.trim() : null,
+        signatoryPhone: (effectiveRole == 'renter' && _buyerType == 'corporate') ? cleanPhone : null,
+        referralCode: _referralCodeController.text.trim().isNotEmpty ? _referralCodeController.text.trim().toUpperCase() : null,
+      );
+
+      if (mounted) setState(() => _isLoading = false);
+
+      if (result['success'] == true) {
+        await PushNotificationService.setUserTags();
+
+        if (!mounted) return;
+        final isPartner = effectiveRole == 'partner';
+        final isLandlord = effectiveRole == 'owner' || effectiveRole == 'landlord';
+
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) => MainNavigationScreen(
+              initialPartnerMode: isPartner,
+              initialLandlordMode: isLandlord,
+            ),
+          ),
+          (route) => false,
+        );
+      } else {
+        if (mounted) {
+          setState(() {
+            _errorMessage = result['message'] ?? 'Sign up failed. Please try again.';
+          });
+        }
+      }
+    }
+
+    // If the user already verified their email address inline, complete registration directly
+    if (_isEmailVerified) {
+      await executeRegistration();
+      return;
+    }
+
+    // Otherwise, dispatch OTP code to user's email for registration verification
     final otpRes = await OtpService.sendOtp(
       email: email,
       phoneNumber: cleanPhone,
@@ -354,58 +409,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     if (!mounted) return;
 
-    // 2. Present 6-digit OTP verification modal
+    // Present 6-digit OTP verification modal in registration mode
     Login2faModal.show(
       context,
       email: email,
+      phoneNumber: cleanPhone,
       userName: cleanName,
-      onVerified: () async {
-        setState(() => _isLoading = true);
-
-        final result = await AuthService.register(
-          fullName: cleanName,
-          email: email,
-          phoneNumber: cleanPhone,
-          password: password,
-          role: effectiveRole,
-          buyerType: effectiveRole == 'renter' ? _buyerType : (effectiveRole == 'partner' ? 'corporate' : 'personal'),
-          state: locationState,
-          businessName: (effectiveRole == 'partner' || (effectiveRole == 'renter' && _buyerType == 'corporate')) ? _businessNameController.text.trim() : null,
-          cacNumber: (effectiveRole == 'partner' || (effectiveRole == 'renter' && _buyerType == 'corporate')) ? _cacNumberController.text.trim() : null,
-          tinNumber: (effectiveRole == 'renter' && _buyerType == 'corporate') ? _tinNumberController.text.trim() : null,
-          officeAddress: fullOfficeAddress,
-          signatoryName: (effectiveRole == 'renter' && _buyerType == 'corporate') ? name : null,
-          signatoryRole: (effectiveRole == 'renter' && _buyerType == 'corporate') ? _signatoryRoleController.text.trim() : null,
-          signatoryPhone: (effectiveRole == 'renter' && _buyerType == 'corporate') ? cleanPhone : null,
-          referralCode: _referralCodeController.text.trim().isNotEmpty ? _referralCodeController.text.trim().toUpperCase() : null,
-        );
-
-        if (mounted) setState(() => _isLoading = false);
-
-        if (result['success'] == true) {
-          await PushNotificationService.setUserTags();
-
-          if (!mounted) return;
-          final isPartner = effectiveRole == 'partner';
-          final isLandlord = effectiveRole == 'owner' || effectiveRole == 'landlord';
-
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (_) => MainNavigationScreen(
-                initialPartnerMode: isPartner,
-                initialLandlordMode: isLandlord,
-              ),
-            ),
-            (route) => false,
-          );
-        } else {
-          if (mounted) {
-            setState(() {
-              _errorMessage = result['message'] ?? 'Sign up failed. Please try again.';
-            });
-          }
-        }
-      },
+      purpose: 'Account Registration Verification',
+      isRegistration: true,
+      onVerified: executeRegistration,
     );
   }
 

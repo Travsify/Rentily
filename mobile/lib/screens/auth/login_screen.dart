@@ -214,7 +214,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       Login2faModal.show(
         context,
         email: email,
+        phoneNumber: user?.phoneNumber,
         userName: user?.fullName,
+        purpose: 'Sign-in Authentication 2FA',
+        isRegistration: false,
         onVerified: () async {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setBool('rentilly_biometrics_enabled', true);
@@ -267,6 +270,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         Login2faModal.show(
           context,
           email: email,
+          purpose: 'Sign-in Login OTP',
+          isRegistration: false,
           onVerified: () async {
             final currentUser = await AuthService.getCurrentUser();
             final isPartner = currentUser != null && currentUser.isPartner;

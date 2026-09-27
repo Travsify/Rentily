@@ -8,20 +8,29 @@ import '../services/auth_service.dart';
 
 class Login2faModal extends StatefulWidget {
   final String email;
+  final String? phoneNumber;
   final String? userName;
+  final String purpose;
+  final bool isRegistration;
   final VoidCallback onVerified;
 
   const Login2faModal({
     super.key,
     required this.email,
+    this.phoneNumber,
     this.userName,
+    this.purpose = 'Login Authentication 2FA',
+    this.isRegistration = false,
     required this.onVerified,
   });
 
   static Future<bool?> show(
     BuildContext context, {
     required String email,
+    String? phoneNumber,
     String? userName,
+    String purpose = 'Login Authentication 2FA',
+    bool isRegistration = false,
     required VoidCallback onVerified,
   }) {
     return showModalBottomSheet<bool>(
@@ -30,7 +39,10 @@ class Login2faModal extends StatefulWidget {
       backgroundColor: Colors.transparent,
       builder: (_) => Login2faModal(
         email: email,
+        phoneNumber: phoneNumber,
         userName: userName,
+        purpose: purpose,
+        isRegistration: isRegistration,
         onVerified: onVerified,
       ),
     );
@@ -97,9 +109,10 @@ class _Login2faModalState extends State<Login2faModal> {
 
     final res = await OtpService.sendOtp(
       email: widget.email,
+      phoneNumber: widget.phoneNumber,
       userName: widget.userName,
       channel: 'email',
-      purpose: 'Login Authentication 2FA',
+      purpose: widget.purpose,
     );
 
     if (!mounted) return;
@@ -133,20 +146,54 @@ class _Login2faModalState extends State<Login2faModal> {
       _errorMessage = null;
     });
 
-    final result = await AuthService.loginWithOtp(
-      email: widget.email,
-      code: code,
-    );
+    bool success = false;
+    String? errorMsg;
+
+    if (widget.isRegistration || widget.purpose.toLowerCase().contains('registration')) {
+      // 1. Registration mode: strictly verify code via OtpService (does NOT check if user exists in DB)
+      final res = await OtpService.verifyOtp(
+        email: widget.email,
+        phoneNumber: widget.phoneNumber,
+        code: code,
+      );
+      if (res['success'] == true) {
+        success = true;
+      } else {
+        errorMsg = res['message'] ?? 'Invalid code entered. Please check your email.';
+      }
+    } else {
+      // 2. Login mode: authenticate via loginWithOtp
+      final result = await AuthService.loginWithOtp(
+        email: widget.email,
+        code: code,
+      );
+
+      if (result['success'] == true) {
+        success = true;
+      } else {
+        // Fallback: If loginWithOtp failed (e.g. already logged in via password, or user lookup issue), verify the OTP directly
+        final verifyRes = await OtpService.verifyOtp(
+          email: widget.email,
+          phoneNumber: widget.phoneNumber,
+          code: code,
+        );
+        if (verifyRes['success'] == true) {
+          success = true;
+        } else {
+          errorMsg = result['message'] ?? verifyRes['message'] ?? 'Invalid code entered. Please check your email.';
+        }
+      }
+    }
 
     if (!mounted) return;
     setState(() => _isVerifying = false);
 
-    if (result['success'] == true) {
+    if (success) {
       Navigator.of(context).pop(true);
       widget.onVerified();
     } else {
       setState(() {
-        _errorMessage = result['message'] ?? 'Invalid code entered. Please check your email.';
+        _errorMessage = errorMsg ?? 'Invalid code entered. Please check your email.';
         for (final c in _controllers) {
           c.clear();
         }

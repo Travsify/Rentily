@@ -351,7 +351,7 @@ export class UserStore {
         const { data: user, error } = await supabase
           .from('profiles')
           .select('*')
-          .eq('email', cleanEmail)
+          .ilike('email', cleanEmail)
           .maybeSingle();
 
         if (!error && user) {

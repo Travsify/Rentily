@@ -728,7 +728,7 @@ export async function loginWithOtp(req: Request, res: Response) {
 
     let user = await UserStore.findByEmail(cleanEmail);
     if (!user && supabase) {
-      const { data } = await supabase.from('profiles').select('*').eq('email', cleanEmail).maybeSingle();
+      const { data } = await supabase.from('profiles').select('*').ilike('email', cleanEmail).maybeSingle();
       if (data) {
         user = {
           id: data.id,
