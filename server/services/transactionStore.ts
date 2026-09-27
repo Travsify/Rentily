@@ -433,8 +433,8 @@ export class TransactionStore {
     return all.find(t => 
       t.reference === cleanRef || 
       t.id === cleanRef || 
-      (t.txRef && t.txRef === cleanRef) ||
-      (t.flwRef && t.flwRef === cleanRef) ||
+      ((t as any).txRef && (t as any).txRef === cleanRef) ||
+      ((t as any).flwRef && (t as any).flwRef === cleanRef) ||
       (t.reference && t.reference.toLowerCase() === cleanRef.toLowerCase())
     );
   }

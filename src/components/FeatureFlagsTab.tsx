@@ -11,11 +11,25 @@ import {
   CheckCircle2, 
   RefreshCw,
   Eye,
-  EyeOff
+  EyeOff,
+  Package,
+  GraduationCap,
+  Truck,
+  DollarSign,
+  Coins
 } from 'lucide-react';
 
 interface FeatureFlags {
   enableVirtualCards: boolean;
+  enableVirtualNgnCards: boolean;
+  enablePhysicalNgnCards: boolean;
+  enableVirtualUsdCards: boolean;
+  enableTuitionPayments: boolean;
+  enableSupplierPayouts: boolean;
+  physicalCardIssuanceFeeNgn: number;
+  physicalCardDeliveryFeeNgn: number;
+  virtualCardIssuanceFeeNgn: number;
+  virtualCardIssuanceFeeUsd: number;
   enableMultiCurrencyVault: boolean;
   enableUtilityBills: boolean;
   enableStatutoryNotices: boolean;
@@ -26,7 +40,16 @@ interface FeatureFlags {
 
 export const FeatureFlagsTab: React.FC = () => {
   const [flags, setFlags] = useState<FeatureFlags>({
-    enableVirtualCards: false,
+    enableVirtualCards: true,
+    enableVirtualNgnCards: true,
+    enablePhysicalNgnCards: true,
+    enableVirtualUsdCards: true,
+    enableTuitionPayments: true,
+    enableSupplierPayouts: true,
+    physicalCardIssuanceFeeNgn: 4500,
+    physicalCardDeliveryFeeNgn: 2000,
+    virtualCardIssuanceFeeNgn: 1500,
+    virtualCardIssuanceFeeUsd: 3.00,
     enableMultiCurrencyVault: false,
     enableUtilityBills: true,
     enableStatutoryNotices: true,
@@ -45,7 +68,7 @@ export const FeatureFlagsTab: React.FC = () => {
       if (res.ok) {
         const data = await res.json();
         if (data.flags) {
-          setFlags(data.flags);
+          setFlags(prev => ({ ...prev, ...data.flags }));
         }
       }
     } catch (_) {}
@@ -60,6 +83,14 @@ export const FeatureFlagsTab: React.FC = () => {
     setFlags(prev => ({
       ...prev,
       [key]: !prev[key]
+    }));
+  };
+
+  const handleFeeChange = (key: keyof FeatureFlags, value: string) => {
+    const num = parseFloat(value);
+    setFlags(prev => ({
+      ...prev,
+      [key]: isNaN(num) ? 0 : num
     }));
   };
 
@@ -91,11 +122,56 @@ export const FeatureFlagsTab: React.FC = () => {
   const items = [
     {
       key: 'enableVirtualCards' as keyof FeatureFlags,
-      title: 'Virtual Dollar & Naira Cards',
-      description: 'Programmatic Visa/Mastercard virtual debit card issuance, card desk, and card funding via Bridgecard/Maplerad.',
-      impact: 'When OFF, hides Card Desk and Issuance cards across all mobile wallets and drawer menus.',
+      title: 'Cards Desk Master Switch',
+      description: 'Master toggle for multi-currency cards across all mobile wallets and drawer menus.',
+      impact: 'When OFF, completely hides the Cards Desk entry point across all dashboards.',
       icon: CreditCard,
       color: 'emerald',
+      isCaution: false
+    },
+    {
+      key: 'enableVirtualNgnCards' as keyof FeatureFlags,
+      title: 'Virtual NGN Cards (Mastercard / Verve)',
+      description: 'Instant Nigerian Naira virtual debit cards for domestic subscriptions and POS checkouts.',
+      impact: 'When OFF, hides the Virtual NGN tab on the cards desk and prevents new NGN issuance.',
+      icon: Coins,
+      color: 'emerald',
+      isCaution: false
+    },
+    {
+      key: 'enablePhysicalNgnCards' as keyof FeatureFlags,
+      title: 'Physical NGN Cards (EMV Chip & Courier Delivery)',
+      description: 'Physical contactless debit cards with nationwide courier dispatch, ATM/POS PIN, and delivery tracking.',
+      impact: 'When OFF, hides the Physical NGN tab and disables the doorstep order modal on mobile.',
+      icon: Package,
+      color: 'blue',
+      isCaution: false
+    },
+    {
+      key: 'enableVirtualUsdCards' as keyof FeatureFlags,
+      title: 'Virtual USD Cards (Visa Platinum)',
+      description: 'Institutional USD Visa cards for international subscriptions, travel, and global software billing.',
+      impact: 'When OFF, hides the Virtual USD tab and disables USD card issuance.',
+      icon: DollarSign,
+      color: 'purple',
+      isCaution: false
+    },
+    {
+      key: 'enableTuitionPayments' as keyof FeatureFlags,
+      title: 'Global Pay — Tuition & University Payments',
+      description: 'Direct foreign student tuition settlement to accredited UK, US, EU, and Canadian universities.',
+      impact: 'When OFF, disables the Tuition quick-action pod on home screens and halts new tuition orders.',
+      icon: GraduationCap,
+      color: 'amber',
+      isCaution: false
+    },
+    {
+      key: 'enableSupplierPayouts' as keyof FeatureFlags,
+      title: 'Global Pay — International Supplier Invoices',
+      description: 'Overseas wholesale manufacturer and commercial vendor payouts via SWIFT, SEPA, and FPS rails.',
+      impact: 'When OFF, disables the Supplier quick-action pod on home screens and halts supplier wires.',
+      icon: Truck,
+      color: 'teal',
       isCaution: false
     },
     {
@@ -190,6 +266,91 @@ export const FeatureFlagsTab: React.FC = () => {
           <span>{statusMessage.text}</span>
         </div>
       )}
+
+      {/* Card Pricing & Courier Delivery Fees Section */}
+      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-bold text-white flex items-center gap-2">
+              <CreditCard className="w-4 h-4 text-emerald-400" />
+              <span>Card Issuance & Nationwide Courier Fee Matrix</span>
+            </h2>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Live fees deducted from user wallets upon card creation or physical card courier dispatch.
+            </p>
+          </div>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800/50">
+            AUTO-SYNCED TO CLIENTS
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800">
+            <label className="text-[11px] font-bold text-slate-300 block mb-1">
+              Virtual NGN Issuance (₦)
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-2 text-xs font-bold text-slate-400">₦</span>
+              <input
+                type="number"
+                value={flags.virtualCardIssuanceFeeNgn || 0}
+                onChange={(e) => handleFeeChange('virtualCardIssuanceFeeNgn', e.target.value)}
+                className="w-full pl-7 pr-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white text-xs font-bold focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+            <p className="text-[10px] text-slate-500 mt-1">Default: ₦1,500</p>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800">
+            <label className="text-[11px] font-bold text-slate-300 block mb-1">
+              Physical NGN Card Fee (₦)
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-2 text-xs font-bold text-slate-400">₦</span>
+              <input
+                type="number"
+                value={flags.physicalCardIssuanceFeeNgn || 0}
+                onChange={(e) => handleFeeChange('physicalCardIssuanceFeeNgn', e.target.value)}
+                className="w-full pl-7 pr-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white text-xs font-bold focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+            <p className="text-[10px] text-slate-500 mt-1">Default: ₦4,500</p>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800">
+            <label className="text-[11px] font-bold text-slate-300 block mb-1">
+              Physical Courier Delivery (₦)
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-2 text-xs font-bold text-slate-400">₦</span>
+              <input
+                type="number"
+                value={flags.physicalCardDeliveryFeeNgn || 0}
+                onChange={(e) => handleFeeChange('physicalCardDeliveryFeeNgn', e.target.value)}
+                className="w-full pl-7 pr-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white text-xs font-bold focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+            <p className="text-[10px] text-slate-500 mt-1">Default: ₦2,000</p>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-slate-950/70 border border-slate-800">
+            <label className="text-[11px] font-bold text-slate-300 block mb-1">
+              Virtual USD Issuance ($)
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-2 text-xs font-bold text-slate-400">$</span>
+              <input
+                type="number"
+                step="0.5"
+                value={flags.virtualCardIssuanceFeeUsd || 0}
+                onChange={(e) => handleFeeChange('virtualCardIssuanceFeeUsd', e.target.value)}
+                className="w-full pl-7 pr-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-white text-xs font-bold focus:outline-none focus:border-emerald-500"
+              />
+            </div>
+            <p className="text-[10px] text-slate-500 mt-1">Default: $3.00</p>
+          </div>
+        </div>
+      </div>
 
       {/* Feature Toggles List */}
       <div className="grid grid-cols-1 gap-4">

@@ -1,25 +1,25 @@
-﻿-- ==============================================================================
+-- ==============================================================================
 -- RENTILLY MIGRATION: EXTERNAL STANDALONE LEGAL & TITLE VERIFICATION DESK
 -- Date: 2026-09-25
 -- ==============================================================================
 
 -- 1. ENUMS FOR EXTERNAL LEGAL SERVICES
-DO  BEGIN
+DO $$ BEGIN
     CREATE TYPE external_legal_service_type AS ENUM (
         'single_doc_50k',
         'multi_doc_100k',
         'doc_preparation_3pct'
     );
-EXCEPTION WHEN duplicate_object THEN null; END ;
+EXCEPTION WHEN duplicate_object THEN null; END $$;
 
-DO  BEGIN
+DO $$ BEGIN
     CREATE TYPE external_legal_order_status AS ENUM (
         'pending_review',
         'in_progress',
         'completed',
         'rejected'
     );
-EXCEPTION WHEN duplicate_object THEN null; END ;
+EXCEPTION WHEN duplicate_object THEN null; END $$;
 
 -- 2. CREATE EXTERNAL LEGAL ORDERS TABLE
 CREATE TABLE IF NOT EXISTS external_legal_orders (
@@ -62,8 +62,8 @@ CREATE INDEX IF NOT EXISTS idx_ext_legal_cert_hash ON external_legal_orders(cert
 ALTER TABLE external_legal_orders ENABLE ROW LEVEL SECURITY;
 
 -- 5. RLS POLICIES
-DROP POLICY IF EXISTS Users can view their own external legal orders ON external_legal_orders;
-CREATE POLICY Users can view their own external legal orders
+DROP POLICY IF EXISTS "Users can view their own external legal orders" ON external_legal_orders;
+CREATE POLICY "Users can view their own external legal orders"
     ON external_legal_orders
     FOR SELECT
     USING (
@@ -72,8 +72,8 @@ CREATE POLICY Users can view their own external legal orders
         (auth.jwt() ->> 'role') IN ('admin', 'legal_counsel', 'support')
     );
 
-DROP POLICY IF EXISTS Authenticated users can submit external legal orders ON external_legal_orders;
-CREATE POLICY Authenticated users can submit external legal orders
+DROP POLICY IF EXISTS "Authenticated users can submit external legal orders" ON external_legal_orders;
+CREATE POLICY "Authenticated users can submit external legal orders"
     ON external_legal_orders
     FOR INSERT
     WITH CHECK (
@@ -81,8 +81,8 @@ CREATE POLICY Authenticated users can submit external legal orders
         auth.jwt() ->> 'email' IS NOT NULL
     );
 
-DROP POLICY IF EXISTS Admins and legal team can update orders ON external_legal_orders;
-CREATE POLICY Admins and legal team can update orders
+DROP POLICY IF EXISTS "Admins and legal team can update orders" ON external_legal_orders;
+CREATE POLICY "Admins and legal team can update orders"
     ON external_legal_orders
     FOR UPDATE
     USING (

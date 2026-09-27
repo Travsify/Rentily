@@ -8,6 +8,10 @@ import '../../constants/app_colors.dart';
 import '../../constants/app_constants.dart';
 import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
+import '../../widgets/rentilly_bottom_bar.dart';
+import '../../widgets/partner_bottom_bar.dart';
+import '../../widgets/landlord_bottom_bar.dart';
+import '../main_navigation_screen.dart';
 import 'global_pay_tracker_screen.dart';
 
 class TuitionPaymentScreen extends StatefulWidget {
@@ -50,6 +54,60 @@ class _TuitionPaymentScreenState extends State<TuitionPaymentScreen> {
     {'code': 'FR', 'name': 'France (EU SEPA)', 'currency': 'EUR', 'rail': 'SEPA Instant', 'flag': '🇫🇷'},
   ];
 
+  bool _isManualSchoolEntry = false;
+  Map<String, String>? _selectedUniversity;
+
+  final List<Map<String, String>> _allUniversities = [
+    // --- UNITED KINGDOM (GB) ---
+    {'name': 'Coventry University', 'country': 'GB', 'city': 'Coventry', 'bank': 'Barclays Bank UK', 'sort': '20-23-55', 'account': '80231940', 'bic': 'BARCGB22'},
+    {'name': 'University of Manchester', 'country': 'GB', 'city': 'Manchester', 'bank': 'NatWest Bank', 'sort': '01-05-51', 'account': '42109845', 'bic': 'NWBKGB2L'},
+    {'name': 'University of Birmingham', 'country': 'GB', 'city': 'Birmingham', 'bank': 'Barclays Bank UK', 'sort': '20-08-44', 'account': '70912340', 'bic': 'BARCGB22'},
+    {'name': 'University of Leeds', 'country': 'GB', 'city': 'Leeds', 'bank': 'HSBC UK Bank', 'sort': '40-27-15', 'account': '61029384', 'bic': 'MIDLGB22'},
+    {'name': 'University of Hertfordshire', 'country': 'GB', 'city': 'Hatfield', 'bank': 'Barclays Bank UK', 'sort': '20-74-05', 'account': '50921478', 'bic': 'BARCGB22'},
+    {'name': 'University of East London', 'country': 'GB', 'city': 'London', 'bank': 'NatWest Bank', 'sort': '60-00-01', 'account': '33419082', 'bic': 'NWBKGB2L'},
+    {'name': 'University of Warwick', 'country': 'GB', 'city': 'Coventry', 'bank': 'Barclays Bank UK', 'sort': '20-23-60', 'account': '10492837', 'bic': 'BARCGB22'},
+    {'name': 'University of Oxford', 'country': 'GB', 'city': 'Oxford', 'bank': 'Barclays Bank UK', 'sort': '20-65-82', 'account': '90281472', 'bic': 'BARCGB22'},
+    {'name': 'University of Cambridge', 'country': 'GB', 'city': 'Cambridge', 'bank': 'Barclays Bank UK', 'sort': '20-17-68', 'account': '40182736', 'bic': 'BARCGB22'},
+    {'name': 'University of Edinburgh', 'country': 'GB', 'city': 'Edinburgh', 'bank': 'Royal Bank of Scotland', 'sort': '83-06-08', 'account': '10293847', 'bic': 'RBOSGB2L'},
+    {'name': 'Northumbria University', 'country': 'GB', 'city': 'Newcastle', 'bank': 'Lloyds Bank', 'sort': '30-93-79', 'account': '01928374', 'bic': 'LOYDGB21'},
+    {'name': 'Teesside University', 'country': 'GB', 'city': 'Middlesbrough', 'bank': 'NatWest Bank', 'sort': '56-00-45', 'account': '20192837', 'bic': 'NWBKGB2L'},
+    {'name': 'Sheffield Hallam University', 'country': 'GB', 'city': 'Sheffield', 'bank': 'Barclays Bank UK', 'sort': '20-76-92', 'account': '50192837', 'bic': 'BARCGB22'},
+
+    // --- UNITED STATES (US) ---
+    {'name': 'Arizona State University (ASU)', 'country': 'US', 'city': 'Tempe, AZ', 'bank': 'JPMorgan Chase Bank', 'sort': '122100024', 'account': '489201948', 'bic': 'CHASUS33'},
+    {'name': 'New York University (NYU)', 'country': 'US', 'city': 'New York, NY', 'bank': 'Citibank N.A.', 'sort': '021000089', 'account': '938401928', 'bic': 'CITIUS33'},
+    {'name': 'Harvard University', 'country': 'US', 'city': 'Cambridge, MA', 'bank': 'Bank of America', 'sort': '011000138', 'account': '748392019', 'bic': 'BOFAUS3N'},
+    {'name': 'University of North Texas (UNT)', 'country': 'US', 'city': 'Denton, TX', 'bank': 'Wells Fargo Bank', 'sort': '111000614', 'account': '582910492', 'bic': 'WFBIUS6S'},
+    {'name': 'University of Texas at Arlington', 'country': 'US', 'city': 'Arlington, TX', 'bank': 'Bank of America', 'sort': '111000025', 'account': '682910482', 'bic': 'BOFAUS3N'},
+    {'name': 'University of South Florida', 'country': 'US', 'city': 'Tampa, FL', 'bank': 'Truist Bank', 'sort': '063100277', 'account': '394820194', 'bic': 'SNTRUS3A'},
+    {'name': 'Illinois Institute of Technology', 'country': 'US', 'city': 'Chicago, IL', 'bank': 'JPMorgan Chase Bank', 'sort': '071000013', 'account': '294810293', 'bic': 'CHASUS33'},
+    {'name': 'Northeastern University', 'country': 'US', 'city': 'Boston, MA', 'bank': 'Bank of America', 'sort': '011000138', 'account': '902819401', 'bic': 'BOFAUS3N'},
+    {'name': 'University of Southern California', 'country': 'US', 'city': 'Los Angeles, CA', 'bank': 'Wells Fargo Bank', 'sort': '121000248', 'account': '102938475', 'bic': 'WFBIUS6S'},
+
+    // --- CANADA (CA) ---
+    {'name': 'University of Toronto', 'country': 'CA', 'city': 'Toronto, ON', 'bank': 'Royal Bank of Canada', 'sort': '00002-003', 'account': '1029384', 'bic': 'ROYCCAT2'},
+    {'name': 'University of British Columbia', 'country': 'CA', 'city': 'Vancouver, BC', 'bank': 'TD Canada Trust', 'sort': '00040-004', 'account': '4920194', 'bic': 'TDOMCATTTOR'},
+    {'name': 'McGill University', 'country': 'CA', 'city': 'Montreal, QC', 'bank': 'Bank of Montreal', 'sort': '00011-001', 'account': '3920194', 'bic': 'BOFMCAM2'},
+    {'name': 'York University', 'country': 'CA', 'city': 'Toronto, ON', 'bank': 'Scotiabank', 'sort': '00022-002', 'account': '5829104', 'bic': 'NOSCCATT'},
+    {'name': 'Conestoga College', 'country': 'CA', 'city': 'Kitchener, ON', 'bank': 'CIBC Bank', 'sort': '00055-010', 'account': '6829104', 'bic': 'CIBCCATT'},
+    {'name': 'Seneca Polytechnic', 'country': 'CA', 'city': 'Toronto, ON', 'bank': 'TD Canada Trust', 'sort': '00040-004', 'account': '7829104', 'bic': 'TDOMCATTTOR'},
+    {'name': 'Centennial College', 'country': 'CA', 'city': 'Toronto, ON', 'bank': 'Scotiabank', 'sort': '00022-002', 'account': '8920194', 'bic': 'NOSCCATT'},
+
+    // --- GERMANY (DE) ---
+    {'name': 'Technical University of Munich (TUM)', 'country': 'DE', 'city': 'Munich', 'bank': 'Deutsche Bank AG', 'sort': 'DEUTDEDBMUC', 'account': 'DE89700700100123456700', 'bic': 'DEUTDEDBMUC'},
+    {'name': 'Heidelberg University', 'country': 'DE', 'city': 'Heidelberg', 'bank': 'BW-Bank', 'sort': 'SOLADEST600', 'account': 'DE23600501010001234567', 'bic': 'SOLADEST600'},
+    {'name': 'Humboldt University of Berlin', 'country': 'DE', 'city': 'Berlin', 'bank': 'Berliner Sparkasse', 'sort': 'BELADEBEXXX', 'account': 'DE77100500001060012345', 'bic': 'BELADEBEXXX'},
+    {'name': 'RWTH Aachen University', 'country': 'DE', 'city': 'Aachen', 'bank': 'Sparkasse Aachen', 'sort': 'AACSDE33XXX', 'account': 'DE45390500000001234567', 'bic': 'AACSDE33XXX'},
+
+    // --- IRELAND (IE) ---
+    {'name': 'Trinity College Dublin', 'country': 'IE', 'city': 'Dublin', 'bank': 'Bank of Ireland', 'sort': 'BOFIIE2D', 'account': 'IE29BOFI90001712345678', 'bic': 'BOFIIE2D'},
+    {'name': 'University College Dublin (UCD)', 'country': 'IE', 'city': 'Dublin', 'bank': 'Allied Irish Banks (AIB)', 'sort': 'AIBKIE2D', 'account': 'IE44AIBK93115212345678', 'bic': 'AIBKIE2D'},
+
+    // --- FRANCE (FR) ---
+    {'name': 'Sorbonne University', 'country': 'FR', 'city': 'Paris', 'bank': 'BNP Paribas', 'sort': 'BNPAFRPP', 'account': 'FR7630004001230001234567890', 'bic': 'BNPAFRPP'},
+    {'name': 'École Polytechnique', 'country': 'FR', 'city': 'Palaiseau', 'bank': 'Société Générale', 'sort': 'SOGEFRPP', 'account': 'FR7630003000450001234567891', 'bic': 'SOGEFRPP'},
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -84,8 +142,273 @@ class _TuitionPaymentScreenState extends State<TuitionPaymentScreen> {
       _selectedCountry = code;
       _selectedCurrency = matched['currency']!;
       _activeQuote = null;
+      _selectedUniversity = null;
+      _isManualSchoolEntry = false;
+      _schoolController.clear();
+      _ibanController.clear();
+      _sortCodeController.clear();
+      _bankNameController.clear();
       _countdownTimer?.cancel();
     });
+  }
+
+  void _selectUniversity(Map<String, String> u) {
+    setState(() {
+      _selectedUniversity = u;
+      _isManualSchoolEntry = false;
+      _schoolController.text = u['name']!;
+      _bankNameController.text = u['bank']!;
+      _sortCodeController.text = u['sort']!;
+      _ibanController.text = u['account']!;
+    });
+  }
+
+  void _showUniversityPickerModal() {
+    final countrySchools = _allUniversities.where((u) => u['country'] == _selectedCountry).toList();
+    final searchCtrl = TextEditingController();
+    List<Map<String, String>> filtered = List.from(countrySchools);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.78,
+            decoration: const BoxDecoration(
+              color: AppColors.surfaceDark,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              border: Border(top: BorderSide(color: AppColors.borderDark)),
+            ),
+            child: Column(
+              children: [
+                const SizedBox(height: 12),
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.borderDark,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Select University',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, color: AppColors.textSecondary),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.backgroundDark,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.borderDark),
+                    ),
+                    child: TextField(
+                      controller: searchCtrl,
+                      style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13),
+                      decoration: InputDecoration(
+                        hintText: 'Search university or city...',
+                        hintStyle: GoogleFonts.plusJakartaSans(color: AppColors.textSecondary, fontSize: 13),
+                        prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary, size: 20),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                      onChanged: (val) {
+                        setModalState(() {
+                          if (val.trim().isEmpty) {
+                            filtered = List.from(countrySchools);
+                          } else {
+                            final term = val.toLowerCase().trim();
+                            filtered = countrySchools.where((u) {
+                              return u['name']!.toLowerCase().contains(term) ||
+                                  u['city']!.toLowerCase().contains(term) ||
+                                  u['bank']!.toLowerCase().contains(term);
+                            }).toList();
+                          }
+                        });
+                      },
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: filtered.isEmpty
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.search_off_rounded, color: AppColors.textSecondary, size: 40),
+                                const SizedBox(height: 10),
+                                Text(
+                                  'School not found in directory',
+                                  style: GoogleFonts.plusJakartaSans(color: AppColors.textPrimary, fontWeight: FontWeight.bold),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  'You can enter your institution\'s bank coordinates manually.',
+                                  textAlign: TextAlign.center,
+                                  style: GoogleFonts.plusJakartaSans(color: AppColors.textSecondary, fontSize: 12),
+                                ),
+                                const SizedBox(height: 16),
+                                ElevatedButton.icon(
+                                  onPressed: () {
+                                    Navigator.pop(ctx);
+                                    setState(() {
+                                      _isManualSchoolEntry = true;
+                                      _selectedUniversity = null;
+                                      _schoolController.text = searchCtrl.text.trim();
+                                    });
+                                  },
+                                  icon: const Icon(Icons.edit_note, size: 18),
+                                  label: const Text('Enter School Manually'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.primary,
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                          itemCount: filtered.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 8),
+                          itemBuilder: (context, idx) {
+                            final item = filtered[idx];
+                            final isSel = _selectedUniversity?['name'] == item['name'];
+                            return InkWell(
+                              onTap: () {
+                                Navigator.pop(ctx);
+                                _selectUniversity(item);
+                              },
+                              borderRadius: BorderRadius.circular(14),
+                              child: Container(
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: isSel ? AppColors.primary.withValues(alpha: 0.12) : AppColors.backgroundDark,
+                                  borderRadius: BorderRadius.circular(14),
+                                  border: Border.all(color: isSel ? AppColors.primary : AppColors.borderDark),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      width: 40,
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        color: AppColors.surfaceDark,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(color: AppColors.borderDark),
+                                      ),
+                                      child: const Icon(Icons.school_rounded, color: AppColors.primary, size: 20),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            item['name']!,
+                                            style: GoogleFonts.plusJakartaSans(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w700,
+                                              color: AppColors.textPrimary,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Row(
+                                            children: [
+                                              Text(
+                                                item['city']!,
+                                                style: GoogleFonts.plusJakartaSans(
+                                                  fontSize: 11,
+                                                  color: AppColors.textSecondary,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(
+                                                  color: const Color(0xFF064E3B).withValues(alpha: 0.35),
+                                                  borderRadius: BorderRadius.circular(6),
+                                                ),
+                                                child: Text(
+                                                  'Verified Bank Coordinates',
+                                                  style: GoogleFonts.plusJakartaSans(
+                                                    fontSize: 9,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: AppColors.mint,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            'Bank: ${item['bank']} • Acc: ${item['account']}',
+                                            style: GoogleFonts.spaceMono(
+                                              fontSize: 10,
+                                              color: AppColors.textSecondary.withValues(alpha: 0.8),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    if (isSel)
+                                      const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 20),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: TextButton.icon(
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      setState(() {
+                        _isManualSchoolEntry = true;
+                        _selectedUniversity = null;
+                      });
+                    },
+                    icon: const Icon(Icons.edit, size: 16, color: AppColors.primary),
+                    label: Text(
+                      'Can\'t find your school? Enter details manually',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 
   Future<void> _fetchRateLockQuote() async {
@@ -312,12 +635,48 @@ class _TuitionPaymentScreenState extends State<TuitionPaymentScreen> {
     );
   }
 
+  Widget _buildBottomBar() {
+    final role = _user?.role.toLowerCase() ?? 'renter';
+    if (role == 'partner') {
+      return PartnerBottomBar(
+        currentIndex: 2,
+        onTap: (i) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => MainNavigationScreen(initialIndex: i, initialPartnerMode: true)),
+            (route) => false,
+          );
+        },
+      );
+    } else if (role == 'owner' || role == 'landlord') {
+      return LandlordBottomBar(
+        currentIndex: 2,
+        onTap: (i) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => MainNavigationScreen(initialIndex: i, initialLandlordMode: true)),
+            (route) => false,
+          );
+        },
+      );
+    } else {
+      return RentillyBottomBar(
+        currentIndex: 3,
+        onTap: (i) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => MainNavigationScreen(initialIndex: i)),
+            (route) => false,
+          );
+        },
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final matchedCountry = _countries.firstWhere((c) => c['code'] == _selectedCountry);
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
+      bottomNavigationBar: _buildBottomBar(),
       appBar: AppBar(
         backgroundColor: AppColors.surfaceDark,
         elevation: 0,
@@ -399,14 +758,149 @@ class _TuitionPaymentScreenState extends State<TuitionPaymentScreen> {
             ),
             const SizedBox(height: 16),
 
-            // University Information
-            _buildSectionLabel('University / Institution'),
-            const SizedBox(height: 8),
-            _buildTextField(
-              controller: _schoolController,
-              hint: 'e.g. University of Manchester / Harvard University',
-              icon: Icons.school,
+            // Official Invoice Advisory Banner
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF6366F1).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.25)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.info_outline_rounded, color: Color(0xFF818CF8), size: 18),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Directory provides standard clearing banks. If your official tuition invoice or admission letter specifies a dedicated student IBAN or bank sub-account, tap "Manual Entry Mode" to input your exact coordinates.',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 11,
+                        color: Colors.white70,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
+
+            // University Information & Searchable Directory
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildSectionLabel('University / Institution'),
+                if (!_isManualSchoolEntry)
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        _isManualSchoolEntry = true;
+                        _selectedUniversity = null;
+                        _schoolController.clear();
+                        _bankNameController.clear();
+                        _sortCodeController.clear();
+                        _ibanController.clear();
+                      });
+                    },
+                    child: Text(
+                      'Manual Entry Mode',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  )
+                else
+                  InkWell(
+                    onTap: () {
+                      setState(() {
+                        _isManualSchoolEntry = false;
+                      });
+                      _showUniversityPickerModal();
+                    },
+                    child: Text(
+                      '← Search Directory',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.mint,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+
+            if (!_isManualSchoolEntry) ...[
+              InkWell(
+                onTap: _showUniversityPickerModal,
+                borderRadius: BorderRadius.circular(14),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceDark,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: _selectedUniversity != null ? AppColors.mint.withOpacity(0.5) : AppColors.borderDark,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: _selectedUniversity != null
+                              ? const Color(0xFF064E3B).withOpacity(0.3)
+                              : AppColors.primary.withOpacity(0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          _selectedUniversity != null ? Icons.verified_rounded : Icons.search_rounded,
+                          color: _selectedUniversity != null ? AppColors.mint : AppColors.primary,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _selectedUniversity != null ? _selectedUniversity!['name']! : 'Select School from Verified Directory',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: _selectedUniversity != null ? AppColors.textPrimary : AppColors.textSecondary,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              _selectedUniversity != null
+                                  ? '${_selectedUniversity!['city']} • ${_selectedUniversity!['bank']} ✓'
+                                  : 'Auto-populates verified bank routing & account coordinates',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 11,
+                                color: _selectedUniversity != null ? AppColors.mint : AppColors.textSecondary.withOpacity(0.7),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.keyboard_arrow_down, color: AppColors.textSecondary),
+                    ],
+                  ),
+                ),
+              ),
+            ] else ...[
+              _buildTextField(
+                controller: _schoolController,
+                hint: 'e.g. University of Manchester / Harvard University',
+                icon: Icons.school,
+              ),
+            ],
             const SizedBox(height: 12),
 
             Row(

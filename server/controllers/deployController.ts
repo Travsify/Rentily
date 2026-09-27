@@ -139,7 +139,7 @@ export async function testMaplerad(req: Request, res: Response) {
     return res.status(401).json({ status: false, error: 'Unauthorized' });
   }
 
-  const apiKey = process.env.MAPLERAD_SECRET_KEY || 'mpr_sk_35d197e6-3f6b-437c-995b-a0dff522b3dc';
+  const apiKey = process.env.MAPLERAD_SECRET_KEY || 'mpr_sk_f7760b49-20ac-4f34-9126-9bea36df1291';
   
   let nodeFetchResult: any = null;
   try {

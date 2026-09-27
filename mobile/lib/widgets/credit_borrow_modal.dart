@@ -459,7 +459,7 @@ class _CreditBorrowModalState extends State<CreditBorrowModal> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Your locked savings continues earning 2.5% p.a. yield uninterrupted! Repay anytime from your Rentilly Wallet to release collateral.',
+                        'Your locked savings continues earning 5% p.a. yield uninterrupted! Repay anytime from your Rentilly Wallet to release collateral.',
                         style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: const Color(0xFF065F46), height: 1.35),
                       ),
                     ),

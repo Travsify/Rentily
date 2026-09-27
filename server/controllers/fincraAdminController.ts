@@ -264,6 +264,18 @@ export async function getFincraPayouts(_req: Request, res: Response) {
     const headers = getHeaders();
     const resRaw = await fetch(`${FINCRA_BASE_URL}/disbursements/payouts?business=${FINCRA_BUSINESS_ID}`, { headers });
     const data = await resRaw.json();
+    if (data && data.data && data.data.rate != null) {
+      const rawRate = Number(data.data.rate);
+      const isNgnSource = sourceCurrency.toUpperCase() === 'NGN';
+      const isNgnDest = destinationCurrency.toUpperCase() === 'NGN';
+      if (isNgnSource && !isNgnDest) {
+        data.data.rate = rawRate + 39.0;
+        data.data.sourceAmount = Math.round(Number(amount) * data.data.rate);
+      } else if (!isNgnSource && isNgnDest) {
+        data.data.rate = Math.max(1, rawRate - 39.0);
+        data.data.destinationAmount = Math.round(Number(amount) * data.data.rate);
+      }
+    }
     return res.json(data);
   } catch (err: any) {
     return res.status(500).json({ success: false, error: err.message });

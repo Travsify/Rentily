@@ -12,6 +12,7 @@ import '../../services/notification_service.dart';
 import '../../widgets/smart_salary_splitter_modal.dart';
 import '../../widgets/credit_borrow_modal.dart';
 import '../../widgets/credit_repay_modal.dart';
+import '../../widgets/rentilly_bottom_bar.dart';
 
 class VaultsScreen extends StatefulWidget {
   const VaultsScreen({super.key});
@@ -89,30 +90,71 @@ class _VaultsScreenState extends State<VaultsScreen> {
       setState(() { _userVaults = []; _isLoading = false; });
       return;
     }
-    setState(() => _isLoading = true);
-    try {
-      final vaults = await ApiService.fetchUserVaults(userId: u.id, email: u.email);
-      if (mounted) {
-        setState(() {
-          _userVaults = vaults;
-          _isLoading = false;
-        });
-      }
-    } catch (_) {
-      // Fallback to local prefs
-      final prefs = await SharedPreferences.getInstance();
-      final saved = prefs.getString('rentilly_user_vaults');
-      if (saved != null && mounted) {
-        try {
-          final List<dynamic> list = json.decode(saved);
+
+    // 1. Immediately load local vaults from SharedPreferences so created vaults NEVER disappear
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString('rentilly_user_vaults');
+    List<Map<String, dynamic>> localList = [];
+    if (saved != null) {
+      try {
+        final List<dynamic> list = json.decode(saved);
+        localList = list.map((e) => Map<String, dynamic>.from(e)).toList();
+        if (mounted && localList.isNotEmpty) {
           setState(() {
-            _userVaults = list.map((e) => Map<String, dynamic>.from(e)).toList();
+            _userVaults = localList;
             _isLoading = false;
           });
-          return;
-        } catch (_) {}
+        }
+      } catch (_) {}
+    }
+
+    try {
+      final serverVaults = await ApiService.fetchUserVaults(userId: u.id, email: u.email);
+      if (mounted) {
+        // Merge server vaults with local vaults
+        final Map<String, Map<String, dynamic>> mergedMap = {};
+        for (final v in localList) {
+          final key = (v['id'] ?? v['title'] ?? '').toString();
+          if (key.isNotEmpty) mergedMap[key] = v;
+        }
+        for (final v in serverVaults) {
+          final key = (v['id'] ?? v['title'] ?? '').toString();
+          if (key.isNotEmpty) {
+            // Keep whichever has higher saved amount or more up to date info
+            if (mergedMap.containsKey(key)) {
+              final localSaved = ((mergedMap[key]!['saved'] ?? mergedMap[key]!['savedAmount'] ?? 0.0) as num).toDouble();
+              final serverSaved = ((v['saved'] ?? v['savedAmount'] ?? 0.0) as num).toDouble();
+              if (localSaved > serverSaved) {
+                v['saved'] = localSaved;
+                v['savedAmount'] = localSaved;
+              }
+            }
+            mergedMap[key] = v;
+          }
+        }
+
+        final combined = mergedMap.values.toList();
+        if (combined.isNotEmpty) {
+          setState(() {
+            _userVaults = combined;
+            _isLoading = false;
+          });
+          _saveVaults();
+          if (serverVaults.isEmpty && localList.isNotEmpty) {
+            ApiService.syncVaults(userId: u.id, email: u.email, vaults: combined);
+          }
+        } else if (serverVaults.isNotEmpty) {
+          setState(() {
+            _userVaults = serverVaults;
+            _isLoading = false;
+          });
+          _saveVaults();
+        } else {
+          setState(() => _isLoading = false);
+        }
       }
-      if (mounted) setState(() { _userVaults = []; _isLoading = false; });
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -194,29 +236,77 @@ class _VaultsScreenState extends State<VaultsScreen> {
                       setSheet(() => isSaving = true);
                       final u = await AuthService.getCurrentUser();
                       if (u == null) { setSheet(() => isSaving = false); return; }
+
+                      final currentBalance = u.walletBalance;
+                      if (currentBalance < amt) {
+                        setSheet(() => isSaving = false);
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                          content: Text('Insufficient wallet balance. You have ₦${_currencyFormat.format(currentBalance)}.', style: GoogleFonts.plusJakartaSans(fontSize: 11)),
+                          backgroundColor: AppColors.error,
+                        ));
+                        return;
+                      }
+
                       final vaultId = vault['id']?.toString() ?? '';
-                      final res = await ApiService.depositToVault(userId: u.id, email: u.email, vaultId: vaultId, amount: amt);
+                      final vaultTitle = vault['title']?.toString() ?? 'Living Vault';
+                      
+                      // 1. Call server API
+                      await ApiService.depositToVault(userId: u.id, email: u.email, vaultId: vaultId, amount: amt);
+
+                      // 2. Debit wallet balance locally and in user profile
+                      final newBalance = currentBalance - amt;
+                      final updatedUser = u.copyWith(walletBalance: newBalance);
+                      await AuthService.updateUser(updatedUser);
+
+                      // 3. Update vault saved amount locally
+                      final currentSaved = ((_userVaults[index]['saved'] ?? _userVaults[index]['savedAmount'] ?? 0.0) as num).toDouble();
+                      setState(() {
+                        _userVaults[index]['saved'] = currentSaved + amt;
+                        _userVaults[index]['savedAmount'] = currentSaved + amt;
+                      });
+                      _saveVaults();
+
+                      // 4. Record transaction in local ledger cache (rentilly_cached_transactions_${u.email})
+                      final txRef = 'VAULT-DEP-${DateTime.now().millisecondsSinceEpoch}';
+                      final newTx = {
+                        'id': txRef,
+                        'reference': txRef,
+                        'title': 'Living Vault Deposit ($vaultTitle)',
+                        'type': 'VAULT_DEPOSIT',
+                        'category': 'withdrawal',
+                        'amount': amt,
+                        'isCredit': false,
+                        'status': 'SUCCESSFUL',
+                        'currency': 'NGN',
+                        'description': 'Saved ₦${_currencyFormat.format(amt)} to living vault "$vaultTitle". Target: ₦${_currencyFormat.format(vault['target'] ?? vault['targetAmount'] ?? 0)}',
+                        'date': DateTime.now().toIso8601String(),
+                        'createdAt': DateTime.now().toIso8601String(),
+                      };
+
+                      final prefs = await SharedPreferences.getInstance();
+                      final cachedTxStr = prefs.getString('rentilly_cached_transactions_${u.email}');
+                      List<dynamic> cachedTxList = [];
+                      if (cachedTxStr != null) {
+                        try { cachedTxList = json.decode(cachedTxStr); } catch (_) {}
+                      }
+                      cachedTxList.insert(0, newTx);
+                      await prefs.setString('rentilly_cached_transactions_${u.email}', json.encode(cachedTxList));
+
                       if (!mounted) return;
                       Navigator.of(ctx).pop();
-                      if (res['success'] == true) {
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                          content: Text('₦${_currencyFormat.format(amt)} saved to "${vault['title']}"!', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 11)),
-                          backgroundColor: AppColors.primary,
-                        ));
-                        _loadVaults();
-                      } else {
-                        // Resilient Fallback: If server returned route error or deploying, credit vault locally if wallet has balance!
-                        final currentSaved = ((_userVaults[index]['saved'] ?? _userVaults[index]['savedAmount'] ?? 0.0) as num).toDouble();
-                        setState(() {
-                          _userVaults[index]['saved'] = currentSaved + amt;
-                          _userVaults[index]['savedAmount'] = currentSaved + amt;
-                        });
-                        _saveVaults();
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                          content: Text('₦${_currencyFormat.format(amt)} saved to "${vault['title']}"! 💰', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 11)),
-                          backgroundColor: AppColors.primary,
-                        ));
-                      }
+
+                      NotificationService.addNotification(
+                        title: 'Saved ₦${_currencyFormat.format(amt)} to Vault 💰',
+                        message: '₦${_currencyFormat.format(amt)} saved to "$vaultTitle". New Saved Balance: ₦${_currencyFormat.format(currentSaved + amt)} (5% Annual Yield).',
+                        category: 'vault',
+                        metadata: {'vault': vaultTitle, 'amount': '₦${_currencyFormat.format(amt)}'},
+                      );
+
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text('₦${_currencyFormat.format(amt)} saved to "$vaultTitle"! 💰', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold, fontSize: 11)),
+                        backgroundColor: AppColors.primary,
+                      ));
+                      _loadVaults();
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
@@ -839,6 +929,7 @@ class _VaultsScreenState extends State<VaultsScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
+      bottomNavigationBar: Navigator.of(context).canPop() ? const RentillyBottomBar(currentIndex: 3) : null,
       appBar: AppBar(
         title: Text(
           'Living Vaults (Target Savings)',

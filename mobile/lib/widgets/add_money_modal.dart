@@ -49,7 +49,7 @@ class AddMoneyModal extends StatefulWidget {
 
 class _AddMoneyModalState extends State<AddMoneyModal> {
   final _amountController = TextEditingController(text: '2000');
-  int _selectedMethodIndex = 0; // 0 = Bank Transfer, 1 = Debit Card / Monnify / Paystack
+  int _selectedMethodIndex = 0; // 0 = Bank Transfer, 1 = Instant Debit Card
   bool _isProcessing = false;
 
   @override

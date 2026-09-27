@@ -50,7 +50,7 @@ export async function sendOtp(req: Request, res: Response) {
     const deliveryResults: { email?: any; sms?: any } = {};
     let atLeastOneSuccess = false;
 
-    // 1. Dispatch Email via Resend if email is provided
+    // 1. Dispatch Email via Resend if email is provided (Primary zero-cost security rail)
     if (cleanEmail) {
       const emailRes = await ResendService.sendOtpEmail({
         to: cleanEmail,
@@ -62,33 +62,31 @@ export async function sendOtp(req: Request, res: Response) {
       if (emailRes.status) atLeastOneSuccess = true;
     }
 
-    // 2. Dispatch Live SMS via Dual-Rail Router (Termii with immediate Twilio fallback)
-    if (cleanPhone) {
-      const smsRes = await SmsRouterService.sendOtpSms({
-        to: cleanPhone,
-        code,
-        purpose
-      });
-      deliveryResults.sms = smsRes;
-      if (smsRes.status) {
-        atLeastOneSuccess = true;
+    // 2. Phone SMS: Deactivated across the platform to eliminate Twilio costs ($0 spend)
+    // Only handle if request is specifically targeted at SMS channel or phone-only
+    const flags = getFeatureFlags();
+    if (cleanPhone && (channel === 'sms' || !cleanEmail)) {
+      if (flags.requirePhoneVerification && flags.enablePhoneOtp) {
+        const smsRes = await SmsRouterService.sendOtpSms({
+          to: cleanPhone,
+          code,
+          purpose
+        });
+        deliveryResults.sms = smsRes;
+        if (smsRes.status) atLeastOneSuccess = true;
       } else {
-        const flags = getFeatureFlags();
-        if (!flags.requirePhoneVerification || !flags.enablePhoneOtp) {
-          console.log(`[OtpController] ℹ️ SMS gateway in review/waived. Pre-seeding code [${code}] for ${cleanPhone}`);
-          atLeastOneSuccess = true;
-          deliveryResults.sms = {
-            status: true,
-            provider: 'system_waived',
-            message: `Verification code generated. Code: ${code}`
-          };
-        }
+        // Phone verification waived: Pre-seed code so any legacy verification check passes instantly
+        console.log(`[OtpController] ℹ️ Phone verification is turned OFF. Pre-seeding code [${code}] for legacy phone: ${cleanPhone}`);
+        atLeastOneSuccess = true;
+        deliveryResults.sms = {
+          status: true,
+          provider: 'system_waived',
+          message: 'Phone verification is deactivated. Verification waived.'
+        };
       }
     }
 
-    const destination = cleanEmail && cleanPhone 
-      ? `${cleanEmail} and ${cleanPhone}`
-      : (cleanEmail || cleanPhone || 'your contact');
+    const destination = cleanEmail || cleanPhone || 'your contact';
 
     return res.json({
       status: atLeastOneSuccess,
@@ -121,6 +119,21 @@ export async function verifyOtp(req: Request, res: Response) {
       });
     }
 
+    const flags = getFeatureFlags();
+
+    // If verification is specifically for a phone number and phone verification is turned off, instantly approve!
+    const isPhoneIdentifier = (!cleanEmail || identifier === cleanPhone);
+    if (isPhoneIdentifier && (!flags.requirePhoneVerification || !flags.enablePhoneOtp)) {
+      console.log(`[OtpController] ✅ Phone verification waived for identifier: ${identifier}`);
+      return res.json({
+        status: true,
+        message: 'Phone verification completed.',
+        isVerified: true,
+        phoneVerified: true,
+        emailVerified: true
+      });
+    }
+
     if (!code) {
       return res.status(400).json({
         status: false,
@@ -137,12 +150,9 @@ export async function verifyOtp(req: Request, res: Response) {
         const altCheck = OtpStore.verifyOtp(cleanPhone, code);
         if (altCheck.valid) altValid = true;
       }
-      const flags = getFeatureFlags();
       if (!altValid && cleanPhone && (!flags.requirePhoneVerification || !flags.enablePhoneOtp)) {
-        if (code === '123456' || (typeof code === 'string' && code.length === 6)) {
-          altValid = true;
-          console.log(`[OtpController] ✅ Phone verification waived - accepted code [${code}] for ${cleanPhone}`);
-        }
+        altValid = true;
+        console.log(`[OtpController] ✅ Phone verification waived - accepted for ${cleanPhone}`);
       }
       if (!altValid) {
         return res.status(400).json({

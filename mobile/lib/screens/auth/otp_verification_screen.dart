@@ -46,9 +46,8 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
   void _sendInitialOtp() async {
     await OtpService.sendOtp(
       email: widget.email,
-      phoneNumber: widget.phoneNumber,
       userName: widget.userName,
-      channel: 'both',
+      channel: 'email',
       purpose: widget.purpose,
     );
   }
@@ -158,7 +157,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     }
   }
 
-  void _resendOtp({String channel = 'both'}) async {
+  void _resendOtp() async {
     if (_resendCountdown > 0) return;
 
     setState(() {
@@ -168,9 +167,8 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
     final res = await OtpService.sendOtp(
       email: widget.email,
-      phoneNumber: widget.phoneNumber,
       userName: widget.userName,
-      channel: channel,
+      channel: 'email',
       purpose: widget.purpose,
     );
 
@@ -283,7 +281,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
                           color: const Color(0xFF16A34A).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: Text('Resend API', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.bold, color: const Color(0xFF16A34A))),
+                        child: Text('Direct Email', style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.bold, color: const Color(0xFF16A34A))),
                       ),
                     ],
                   ),

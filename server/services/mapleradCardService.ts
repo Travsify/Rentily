@@ -6,7 +6,7 @@ dotenv.config();
 
 export class MapleradCardService {
   private static get apiKey(): string {
-    return process.env.MAPLERAD_SECRET_KEY || 'mpr_sk_35d197e6-3f6b-437c-995b-a0dff522b3dc';
+    return process.env.MAPLERAD_SECRET_KEY || 'mpr_sk_f7760b49-20ac-4f34-9126-9bea36df1291';
   }
 
   private static get baseUrl(): string {
@@ -89,23 +89,51 @@ export class MapleradCardService {
         };
       }
 
-      // 3. Issue Card via POST /v1/issuing
+      // 3. Issue Card via Maplerad Issuing API
       const currency = (params.currency || 'USD').toUpperCase() as 'USD' | 'NGN';
       const brand = params.brand || (currency === 'NGN' ? 'MASTERCARD' : 'VISA');
-      console.log(`[Maplerad] Calling POST /v1/issuing for customer ${customerId} (${currency} ${brand})...`);
-      const cardRes = await fetch(`${this.baseUrl}/issuing`, {
-        method: 'POST',
-        headers: this.headers,
-        signal: AbortSignal.timeout(8000),
-        body: JSON.stringify({
-          customer_id: customerId,
-          currency: currency,
-          type: 'VIRTUAL',
-          auto_approve: true,
-          brand: brand,
-          amount: Math.max(0, Math.round((params.initialFunding || 0) * 100))
-        })
-      });
+      const isNgn = currency === 'NGN';
+
+      let cardRes: Response;
+      if (isNgn) {
+        // Maplerad OpenAPI specifies NGN cards (Virtual & Physical) are supported via /issuing/business
+        const cleanBusinessName = (params.cardholderName || 'Rentilly Cardholder')
+          .replace(/[^a-zA-Z0-9 ]/g, '')
+          .trim()
+          .toUpperCase()
+          .slice(0, 50);
+
+        console.log(`[Maplerad] Calling POST /v1/issuing/business for ${cleanBusinessName} (NGN ${brand})...`);
+        cardRes = await fetch(`${this.baseUrl}/issuing/business`, {
+          method: 'POST',
+          headers: this.headers,
+          signal: AbortSignal.timeout(8000),
+          body: JSON.stringify({
+            name: cleanBusinessName,
+            type: 'VIRTUAL',
+            brand: brand,
+            auto_approve: true,
+            currency: 'NGN',
+            amount: Math.max(0, Math.round((params.initialFunding || 0) * 100)) // in kobo
+          })
+        });
+      } else {
+        // Standard USD Virtual Cards via /issuing
+        console.log(`[Maplerad] Calling POST /v1/issuing for customer ${customerId} (USD ${brand})...`);
+        cardRes = await fetch(`${this.baseUrl}/issuing`, {
+          method: 'POST',
+          headers: this.headers,
+          signal: AbortSignal.timeout(8000),
+          body: JSON.stringify({
+            customer_id: customerId,
+            currency: 'USD',
+            type: 'VIRTUAL',
+            auto_approve: true,
+            brand: brand,
+            amount: Math.max(0, Math.round((params.initialFunding || 0) * 100)) // in cents
+          })
+        });
+      }
 
       const cardData = await cardRes.json().catch(() => ({}));
       const sanitizedLog = cardData?.data ? {

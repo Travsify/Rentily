@@ -5,17 +5,19 @@ if (process.platform === 'win32') {
   process.exit(0);
 }
 
-console.log('[Postbuild] Checking PM2 and reloading server processes...');
+const pm2Home = process.env.PM2_HOME || '/root/.pm2';
 const restartCommands = [
+  `export PM2_HOME="${pm2Home}" && pm2 reload rentilly-api --update-env`,
+  `export PM2_HOME="${pm2Home}" && pm2 restart rentilly-api --update-env`,
+  `export PM2_HOME="${pm2Home}" && pm2 reload ecosystem.config.cjs --update-env`,
+  `export PM2_HOME="${pm2Home}" && pm2 start ecosystem.config.cjs --update-env`,
+  `export PM2_HOME="${pm2Home}" && npx --yes pm2 reload rentilly-api --update-env`,
+  `export PM2_HOME="${pm2Home}" && npx --yes pm2 restart rentilly-api --update-env`,
+  `export PM2_HOME="${pm2Home}" && /usr/local/bin/pm2 restart all`,
+  `export PM2_HOME="${pm2Home}" && /usr/bin/pm2 restart all`,
   'pm2 reload rentilly-api --update-env',
   'pm2 restart rentilly-api --update-env',
-  'pm2 start ecosystem.config.cjs --update-env',
-  'pm2 reload ecosystem.config.cjs --update-env',
-  'npx --yes pm2 reload rentilly-api --update-env',
-  'npx --yes pm2 restart rentilly-api --update-env',
-  'npx --yes pm2 restart all --update-env',
-  '/usr/local/bin/pm2 restart all',
-  '/usr/bin/pm2 restart all'
+  'npx --yes pm2 restart all --update-env'
 ];
 
 let restarted = false;

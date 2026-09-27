@@ -5,15 +5,13 @@
 
 -- 1. SYSTEM CONFIGURATIONS TABLE (for Admin-Configurable Pricing & Corridor Fees)
 CREATE TABLE IF NOT EXISTS system_configs (
-    key TEXT PRIMARY KEY,
-    value JSONB NOT NULL,
-    description TEXT,
-    updated_by TEXT,
+    id TEXT PRIMARY KEY,
+    data JSONB NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
 -- Seed Default Global Pay Pricing Configuration
-INSERT INTO system_configs (key, value, description)
+INSERT INTO system_configs (id, data)
 VALUES (
     'global_pay_config',
     '{
@@ -29,11 +27,11 @@ VALUES (
         "supplierInvoiceLimitUsd": 100000,
         "featureEnabled": true,
         "supportedCurrencies": ["USD", "GBP", "EUR", "CAD"]
-    }'::jsonb,
-    'Rentilly Global Pay Pricing, FX Spreads and Corridor Fees'
+    }'::jsonb
 )
-ON CONFLICT (key) DO UPDATE
-SET updated_at = timezone('utc'::text, now());
+ON CONFLICT (id) DO UPDATE
+SET data = EXCLUDED.data,
+    updated_at = timezone('utc'::text, now());
 
 -- 2. WALLET PRE-AUTH HOLDS TABLE (Zero-Risk Double-Entry Invariants)
 CREATE TABLE IF NOT EXISTS wallet_holds (

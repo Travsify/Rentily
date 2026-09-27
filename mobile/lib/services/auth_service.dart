@@ -593,6 +593,7 @@ class AuthService {
           'office_address': user.officeAddress,
           'account_number': user.accountNumber,
           'bank_name': user.bankName,
+          'wallet_balance': user.walletBalance,
         };
         if (user.avatarUrl != null && user.avatarUrl!.isNotEmpty) {
           updatePayload['avatar_url'] = user.avatarUrl;

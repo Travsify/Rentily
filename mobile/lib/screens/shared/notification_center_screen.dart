@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../constants/app_colors.dart';
 import '../../services/notification_service.dart';
+import '../../widgets/rentilly_bottom_bar.dart';
 
 class NotificationCenterScreen extends StatefulWidget {
   const NotificationCenterScreen({super.key});
@@ -94,6 +95,7 @@ class _NotificationCenterScreenState extends State<NotificationCenterScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
+      bottomNavigationBar: const RentillyBottomBar(currentIndex: -1),
       appBar: AppBar(
         title: Row(
           children: [

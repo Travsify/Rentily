@@ -26,7 +26,7 @@ export async function getGlobalPayConfig(_req: Request, res: Response) {
           },
           {
             currency: 'EUR',
-            country: 'Eurozone (SEPA)',
+            country: 'Eurozone (36 SEPA Countries)',
             rail: 'SEPA / SEPA Instant',
             processingTime: 'Same Day (Instant)',
             flatFeeNgn: config.corridorFeesNgn.eurSepaNgn
@@ -39,18 +39,46 @@ export async function getGlobalPayConfig(_req: Request, res: Response) {
             flatFeeNgn: config.corridorFeesNgn.usdWireNgn
           },
           {
-            currency: 'USD',
-            country: 'Global International (China, Turkey, UAE, etc.)',
-            rail: 'SWIFT International Wire',
-            processingTime: '24 - 48 Hours',
-            flatFeeNgn: config.corridorFeesNgn.usdSwiftNgn
-          },
-          {
             currency: 'CAD',
             country: 'Canada',
             rail: 'EFT / Interac Direct',
             processingTime: 'Same Day - 24 Hours',
             flatFeeNgn: config.corridorFeesNgn.cadEftNgn
+          },
+          {
+            currency: 'KES',
+            country: 'Kenya',
+            rail: 'Safaricom M-Pesa / Mobile Money',
+            processingTime: 'Instant (Under 5 Mins)',
+            flatFeeNgn: config.corridorFeesNgn.momoNgn || 2500
+          },
+          {
+            currency: 'GHS',
+            country: 'Ghana',
+            rail: 'MTN MoMo / Vodafone Cash',
+            processingTime: 'Instant (Under 5 Mins)',
+            flatFeeNgn: config.corridorFeesNgn.momoNgn || 2500
+          },
+          {
+            currency: 'ZAR',
+            country: 'South Africa',
+            rail: 'EFT Domestic Clearing',
+            processingTime: 'Same Day - 24 Hours',
+            flatFeeNgn: 4000
+          },
+          {
+            currency: 'AED',
+            country: 'United Arab Emirates (Dubai)',
+            rail: 'UAE Central Bank Clearing',
+            processingTime: '24 Hours',
+            flatFeeNgn: 6500
+          },
+          {
+            currency: 'USD',
+            country: 'Global International (150+ Countries: China, Turkey, etc.)',
+            rail: 'SWIFT International Wire',
+            processingTime: '24 - 48 Hours',
+            flatFeeNgn: config.corridorFeesNgn.usdSwiftNgn
           }
         ]
       }
@@ -106,6 +134,7 @@ export async function submitGlobalPayout(req: Request, res: Response) {
     const {
       quoteReference,
       orderType,
+      transferPurpose,
       beneficiary,
       studentName,
       studentMatricId,
@@ -131,9 +160,9 @@ export async function submitGlobalPayout(req: Request, res: Response) {
         .eq('id', userId)
         .single();
 
-      if (profile?.transaction_pin && pin) {
-        if (profile.transaction_pin !== pin.trim()) {
-          return res.status(403).json({ status: false, error: 'Incorrect transaction PIN.' });
+      if (profile?.transaction_pin) {
+        if (!pin || profile.transaction_pin !== pin.trim()) {
+          return res.status(403).json({ status: false, error: 'Incorrect or missing 4-digit transaction PIN.' });
         }
       }
     }
@@ -143,6 +172,7 @@ export async function submitGlobalPayout(req: Request, res: Response) {
       userEmail,
       quoteReference,
       orderType,
+      transferPurpose,
       beneficiary,
       studentName,
       studentMatricId,

@@ -113,6 +113,7 @@ class StatementPdfService {
     required Map<String, dynamic> transaction,
     required UserProfile user,
     String currency = 'NGN',
+    PdfPageFormat? pageFormat,
   }) async {
     final pdf = pw.Document();
     final primaryColor = PdfColor.fromHex('#0B4F3F');
@@ -228,7 +229,7 @@ class StatementPdfService {
     pdf.addPage(
       pw.Page(
         pageTheme: pw.PageTheme(
-          pageFormat: PdfPageFormat.a4,
+          pageFormat: pageFormat ?? PdfPageFormat.a4,
           margin: const pw.EdgeInsets.all(36),
           buildBackground: (pw.Context context) => _buildWatermarkBackground(),
         ),
@@ -464,6 +465,7 @@ class StatementPdfService {
       transaction: transaction,
       user: user,
       currency: currency,
+      pageFormat: const PdfPageFormat(105 * PdfPageFormat.mm, 195 * PdfPageFormat.mm, marginAll: 14),
     );
     await for (final page in Printing.raster(pdfBytes, pages: [0], dpi: dpi)) {
       final imageBytes = await page.toPng();
@@ -864,7 +866,7 @@ class StatementPdfService {
                             ),
                           ),
                           pw.Text(
-                            'Bridgecard CaaS Cardholder Statement (USD Global Visa)',
+                            'Rentilly Multi-Currency Cardholder Statement (USD Global Visa)',
                             style: const pw.TextStyle(fontSize: 8.5, color: PdfColors.grey700),
                           ),
                         ],
@@ -914,7 +916,7 @@ class StatementPdfService {
                         pw.SizedBox(height: 2),
                         pw.Text(_sanitizePdfText(cardHolder), style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: primaryColor)),
                         pw.Text(_sanitizePdfText(user.email), style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
-                        pw.Text('Issuer: Bridgecard CaaS / Lead Bank USA', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey800)),
+                        pw.Text('Issuer: Rentilly Global Card Protocol / Partner Bank USA', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey800)),
                       ],
                     ),
                   ),
@@ -1044,7 +1046,7 @@ class StatementPdfService {
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
                   pw.Text(
-                    'Rentilly Card Protocol - Powered by Bridgecard CaaS',
+                    'Rentilly Card Protocol - Global Multi-Currency Settlement',
                     style: const pw.TextStyle(fontSize: 7, color: PdfColors.grey600),
                   ),
                   pw.Text(

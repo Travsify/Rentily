@@ -955,7 +955,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
 
-              // SMS Notifications Toggle Card (Termii Direct Rail • ₦20 / SMS)
+              // SMS Notifications Toggle Card (Rentilly Direct SMS Rail • ₦20 / SMS)
               Container(
                 margin: const EdgeInsets.only(bottom: 10),
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

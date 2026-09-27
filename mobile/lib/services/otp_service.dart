@@ -7,15 +7,15 @@ class OtpService {
   static const String primaryUrl = 'https://api.myrentilly.com/api';
   static const String fallbackUrl = AppConstants.apiBaseUrl;
 
-  /// Dispatches a 6-digit OTP code to the user's Email (Resend) and/or Mobile Phone
+  /// Dispatches a 6-digit OTP code to the user's Email (Resend)
   static Future<Map<String, dynamic>> sendOtp({
     String? email,
     String? phoneNumber,
     String? userName,
-    String channel = 'both',
+    String channel = 'email',
     String purpose = 'Account Verification',
   }) async {
-    final sanitizedPhone = PhoneUtils.tryFormatToE164(phoneNumber) ?? phoneNumber;
+    final sanitizedPhone = channel == 'email' ? null : (PhoneUtils.tryFormatToE164(phoneNumber) ?? phoneNumber);
     final endpoints = [primaryUrl, fallbackUrl];
 
     for (final base in endpoints) {

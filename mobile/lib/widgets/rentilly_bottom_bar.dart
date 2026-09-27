@@ -3,6 +3,10 @@ import 'package:google_fonts/google_fonts.dart';
 import '../constants/app_colors.dart';
 import '../screens/main_navigation_screen.dart';
 
+import '../services/auth_service.dart';
+import 'landlord_bottom_bar.dart';
+import 'partner_bottom_bar.dart';
+
 class RentillyBottomBar extends StatelessWidget {
   final int currentIndex;
   final Function(int)? onTap;
@@ -19,10 +23,19 @@ class RentillyBottomBar extends StatelessWidget {
       return;
     }
 
+    // Check role to route correctly
+    final user = AuthService.currentUserNotifier.value;
+    final isPartner = user?.isPartner == true || (user?.role.toLowerCase() == 'partner');
+    final isLandlord = user?.isLandlord == true || (user?.role.toLowerCase() == 'owner' || user?.role.toLowerCase() == 'landlord');
+
     // If tapped from a sub-screen, navigate cleanly to MainNavigationScreen
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(
-        builder: (_) => MainNavigationScreen(initialIndex: index),
+        builder: (_) => MainNavigationScreen(
+          initialIndex: index,
+          initialLandlordMode: isLandlord,
+          initialPartnerMode: isPartner,
+        ),
       ),
       (route) => false,
     );
@@ -30,6 +43,24 @@ class RentillyBottomBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final user = AuthService.currentUserNotifier.value;
+    final isPartner = user?.isPartner == true || (user?.role.toLowerCase() == 'partner');
+    final isLandlord = user?.isLandlord == true || (user?.role.toLowerCase() == 'owner' || user?.role.toLowerCase() == 'landlord');
+
+    if (isPartner) {
+      return PartnerBottomBar(
+        currentIndex: currentIndex >= 0 ? currentIndex : 0,
+        onTap: (index) => _handleTap(context, index),
+      );
+    }
+
+    if (isLandlord) {
+      return LandlordBottomBar(
+        currentIndex: currentIndex >= 0 ? currentIndex : 0,
+        onTap: (index) => _handleTap(context, index),
+      );
+    }
+
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,

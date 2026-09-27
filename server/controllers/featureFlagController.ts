@@ -3,6 +3,15 @@ import { supabase } from '../supabaseClient';
 
 export interface FeatureFlagsConfig {
   enableVirtualCards: boolean;          // Virtual USD & NGN Visa/Mastercard
+  enableVirtualNgnCards: boolean;       // Virtual NGN Mastercard / Verve
+  enablePhysicalNgnCards: boolean;      // Physical NGN Debit Card + Courier Delivery
+  enableVirtualUsdCards: boolean;       // Virtual USD Visa
+  enableTuitionPayments: boolean;       // Global Pay Tuition
+  enableSupplierPayouts: boolean;       // Global Pay Supplier Payouts
+  physicalCardIssuanceFeeNgn: number;   // Physical card embossing fee
+  physicalCardDeliveryFeeNgn: number;   // Nationwide courier delivery fee
+  virtualCardIssuanceFeeNgn: number;    // Virtual NGN card fee
+  virtualCardIssuanceFeeUsd: number;    // Virtual USD card fee
   enableMultiCurrencyVault: boolean;    // USD/GBP/EUR Inbound Bank Coordinates
   enableUtilityBills: boolean;          // Electricity Disco & Airtime Desk
   enableStatutoryNotices: boolean;      // Legal Notices & Tenancy Termination
@@ -23,20 +32,29 @@ export interface FeatureFlagsConfig {
 
 const DEFAULT_FLAGS: FeatureFlagsConfig = {
   enableVirtualCards: true,           // Active across all users
+  enableVirtualNgnCards: true,        // Virtual Naira Mastercard
+  enablePhysicalNgnCards: true,       // Physical Naira Debit Card + Delivery
+  enableVirtualUsdCards: true,        // Virtual USD Visa
+  enableTuitionPayments: true,        // Global Pay Tuition
+  enableSupplierPayouts: true,        // Global Pay Supplier Payouts
+  physicalCardIssuanceFeeNgn: 4500,   // ₦4,500
+  physicalCardDeliveryFeeNgn: 2000,   // ₦2,000
+  virtualCardIssuanceFeeNgn: 1500,    // ₦1,500
+  virtualCardIssuanceFeeUsd: 3.00,    // $3.00
   enableMultiCurrencyVault: false,    // Off by default pending live banking setup
   enableUtilityBills: true,
   enableStatutoryNotices: true,
   enableCautionClaims: true,
   maintenanceMode: false,
-  requirePhoneVerification: false,    // Waived pending Termii activation
+  requirePhoneVerification: false,    // Waived pending gateway activation
   enablePhoneOtp: false,              // Waived
   latestVersionCode: 10,
   latestVersionName: '1.1.0',
   minRequiredVersionCode: 8,
-  apkDownloadUrl: 'https://api.myrentilly.com/Rentily.apk',
+  apkDownloadUrl: 'https://api.myrentilly.com/rentillypay.apk',
   playStoreUrl: 'https://play.google.com/store/apps/details?id=ng.rentilly.rentilly_mobile',
   updateTitle: '⚡ Rentilly 1.1.0 Update Available',
-  updateMessage: 'Upgrade now for 12 new Utility Bills categories (Electricity, Airtime VTU, Cable TV, Water, Tolls, Internet) and 0% caution Co-Living with Split-the-Scroll!',
+  updateMessage: 'Upgrade now for Multi-Currency Cards (Virtual NGN, Physical NGN with Doorstep Delivery, Virtual USD) and Global Pay for Tuition & Supplier Payouts!',
   forceUpdate: false,
   updatedAt: new Date().toISOString()
 };

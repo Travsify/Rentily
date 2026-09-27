@@ -8,6 +8,10 @@ import '../../constants/app_colors.dart';
 import '../../constants/app_constants.dart';
 import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
+import '../../widgets/rentilly_bottom_bar.dart';
+import '../../widgets/partner_bottom_bar.dart';
+import '../../widgets/landlord_bottom_bar.dart';
+import '../main_navigation_screen.dart';
 import 'global_pay_tracker_screen.dart';
 
 class SupplierPayoutScreen extends StatefulWidget {
@@ -309,12 +313,48 @@ class _SupplierPayoutScreenState extends State<SupplierPayoutScreen> {
     );
   }
 
+  Widget _buildBottomBar() {
+    final role = _user?.role.toLowerCase() ?? 'renter';
+    if (role == 'partner') {
+      return PartnerBottomBar(
+        currentIndex: 2,
+        onTap: (i) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => MainNavigationScreen(initialIndex: i, initialPartnerMode: true)),
+            (route) => false,
+          );
+        },
+      );
+    } else if (role == 'owner' || role == 'landlord') {
+      return LandlordBottomBar(
+        currentIndex: 2,
+        onTap: (i) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => MainNavigationScreen(initialIndex: i, initialLandlordMode: true)),
+            (route) => false,
+          );
+        },
+      );
+    } else {
+      return RentillyBottomBar(
+        currentIndex: 3,
+        onTap: (i) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => MainNavigationScreen(initialIndex: i)),
+            (route) => false,
+          );
+        },
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final matchedCountry = _vendorCountries.firstWhere((c) => c['code'] == _selectedCountry);
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
+      bottomNavigationBar: _buildBottomBar(),
       appBar: AppBar(
         backgroundColor: AppColors.surfaceDark,
         elevation: 0,

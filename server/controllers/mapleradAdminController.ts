@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const MAPLERAD_SECRET_KEY = process.env.MAPLERAD_SECRET_KEY || 'mpr_sk_35d197e6-3f6b-437c-995b-a0dff522b3dc';
+const MAPLERAD_SECRET_KEY = process.env.MAPLERAD_SECRET_KEY || 'mpr_sk_f7760b49-20ac-4f34-9126-9bea36df1291';
 const MAPLERAD_BASE_URL = process.env.MAPLERAD_BASE_URL || 'https://api.maplerad.com/v1';
 
 const headers = {
@@ -440,6 +440,17 @@ export async function getFxQuote(req: Request, res: Response) {
         success: false,
         error: data.message || 'Failed to generate quote'
       });
+    }
+
+    if (data && data.data && data.data.rate != null) {
+      const rawRate = Number(data.data.rate);
+      const src = source_currency.toUpperCase();
+      const tgt = target_currency.toUpperCase();
+      if (src === 'NGN' && tgt !== 'NGN') {
+        data.data.rate = rawRate + 39.0;
+      } else if (src !== 'NGN' && tgt === 'NGN') {
+        data.data.rate = Math.max(1, rawRate - 39.0);
+      }
     }
 
     return res.json({

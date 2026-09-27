@@ -8,6 +8,9 @@ const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID || DEFAULT_TWILIO_SID;
 const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN || DEFAULT_TWILIO_TOKEN;
 const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER || DEFAULT_TWILIO_PHONE;
 
+// HARD KILL SWITCH: Deactivated globally per executive directive to eliminate costly Twilio overhead ($0 spend)
+const ENABLE_TWILIO_SMS = process.env.ENABLE_TWILIO_SMS === 'true';
+
 export class TwilioService {
   /**
    * Normalizes a phone number to international E.164 standard (+234...)
@@ -33,6 +36,15 @@ export class TwilioService {
     code: string;
     purpose?: string;
   }): Promise<{ status: boolean; message: string; data?: any }> {
+    if (!ENABLE_TWILIO_SMS) {
+      console.log(`[Twilio] 🚫 Twilio SMS globally deactivated ($0 spend enforced). Blocked OTP dispatch for: ${params.to}`);
+      return {
+        status: false,
+        message: 'Twilio SMS is globally deactivated.',
+        data: { deactivated: true }
+      };
+    }
+
     try {
       // 1. Sanitize & Validate strictly to E.164
       const formatResult = tryFormatToE164(params.to);
@@ -65,6 +77,15 @@ export class TwilioService {
     to: string;
     body: string;
   }): Promise<{ status: boolean; message: string; data?: any }> {
+    if (!ENABLE_TWILIO_SMS) {
+      console.log(`[Twilio] 🚫 Twilio SMS globally deactivated ($0 spend enforced). Blocked alert dispatch for: ${params.to}`);
+      return {
+        status: false,
+        message: 'Twilio SMS is globally deactivated.',
+        data: { deactivated: true }
+      };
+    }
+
     try {
       const formatResult = tryFormatToE164(params.to);
       if (!formatResult.success || !formatResult.formatted) {
@@ -93,6 +114,10 @@ export class TwilioService {
     formattedTo: string,
     body: string
   ): Promise<{ status: boolean; message: string; data?: any }> {
+    if (!ENABLE_TWILIO_SMS) {
+      return { status: false, message: 'Twilio SMS globally deactivated ($0 spend enforced).' };
+    }
+
     const endpoint = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`;
     const basicAuth = Buffer.from(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`).toString('base64');
 

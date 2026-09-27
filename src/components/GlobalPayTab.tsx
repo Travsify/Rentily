@@ -178,7 +178,7 @@ export const GlobalPayTab: React.FC = () => {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="bg-emerald-500/20 text-emerald-300 text-xs px-2.5 py-0.5 rounded-full font-semibold border border-emerald-500/30 flex items-center gap-1">
-                <Globe className="w-3 h-3 text-emerald-400" /> Fincra Cross-Border Rails
+                <Globe className="w-3 h-3 text-emerald-400" /> Rentilly Direct Cross-Border Rails
               </span>
               <span className="bg-blue-500/20 text-blue-300 text-xs px-2.5 py-0.5 rounded-full font-semibold border border-blue-500/30">
                 100% Atomic Balance Holds

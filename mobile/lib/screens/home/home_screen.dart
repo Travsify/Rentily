@@ -14,6 +14,10 @@ import '../messages/messages_screen.dart';
 import '../notifications/notifications_screen.dart';
 import '../roommates/roommates_screen.dart';
 import '../cards/cards_screen.dart';
+import '../global_pay/global_pay_home_screen.dart';
+import '../global_pay/tuition_payment_screen.dart';
+import '../global_pay/supplier_payout_screen.dart';
+import '../lifestyle/lifestyle_hub_screen.dart';
 import '../main_navigation_screen.dart';
 import '../../services/notification_service.dart';
 import '../../widgets/add_money_modal.dart';
@@ -35,7 +39,6 @@ class _HomeScreenState extends State<HomeScreen> {
   final NumberFormat _currencyFormat = NumberFormat('#,###.00', 'en_US');
   bool _hideBalance = false;
   UserProfile? _user;
-  bool _isLoadingUser = true;
 
   String _userLocation = 'Lagos State';
   final List<String> _locations = [
@@ -64,8 +67,8 @@ class _HomeScreenState extends State<HomeScreen> {
     },
     {
       'tag': 'LIVING VAULTS',
-      'title': 'Earn 2.5% Yield on Your Rent Savings',
-      'description': 'Save automatically towards your next annual rent renewal with 2.5% yield to beat inflation.',
+      'title': 'Earn 5% Annual Yield on Your Rent Savings',
+      'description': 'Save automatically towards your next annual rent renewal with 5% annual yield to beat inflation.',
       'icon': Icons.trending_up_rounded,
       'color': AppColors.accentOrange,
     },
@@ -118,7 +121,6 @@ class _HomeScreenState extends State<HomeScreen> {
     if (mounted) {
       setState(() {
         _user = u;
-        _isLoadingUser = false;
         if (u?.state != null && u!.state!.isNotEmpty) {
           _userLocation = '${u?.state ?? "Lagos"}, Nigeria';
         }
@@ -806,7 +808,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 12),
 
-              // 2x3 Grid with Circular Pods
+              // 2x4 Grid with Circular Pods
               GridView.count(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -841,7 +843,35 @@ class _HomeScreenState extends State<HomeScreen> {
                     },
                   ),
 
-                  // Pod 3: Credit Advance -> 80% LTV Instant Borrowing
+                  // Pod 3: Pay Tuition -> Direct Overseas University Payouts
+                  _buildCircularGridPod(
+                    title: 'Pay Tuition',
+                    subtitle: 'UK, US, Canada & EU',
+                    icon: Icons.school_rounded,
+                    color: const Color(0xFF7C3AED),
+                    badge: 'OVERSEAS',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const TuitionPaymentScreen()),
+                      );
+                    },
+                  ),
+
+                  // Pod 4: Pay Suppliers -> Overseas B2B Invoice & Cargo Wire
+                  _buildCircularGridPod(
+                    title: 'Pay Suppliers',
+                    subtitle: 'Direct Wire & FX Lock',
+                    icon: Icons.local_shipping_rounded,
+                    color: const Color(0xFFF59E0B),
+                    badge: 'B2B WIRE',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const SupplierPayoutScreen()),
+                      );
+                    },
+                  ),
+
+                  // Pod 5: Credit Advance -> 80% LTV Instant Borrowing
                   _buildCircularGridPod(
                     title: 'Credit Advance',
                     subtitle: '80% LTV on Savings',
@@ -853,19 +883,19 @@ class _HomeScreenState extends State<HomeScreen> {
                     },
                   ),
 
-                  // Pod 4: Living Vaults -> Switches directly to Tab 3 (Bottom Nav persists!)
+                  // Pod 6: Living Vaults -> Switches directly to Tab 3 (Bottom Nav persists!)
                   _buildCircularGridPod(
                     title: 'Living Vaults',
                     subtitle: 'Target Savings',
                     icon: Icons.savings_rounded,
                     color: AppColors.primaryLight,
-                    badge: '2.5% Yield',
+                    badge: '5% Yield',
                     onTap: () {
                       MainNavigationScreen.of(context)?.switchTab(3);
                     },
                   ),
 
-                  // Pod 5: My Spaces
+                  // Pod 7: My Spaces
                   _buildCircularGridPod(
                     title: 'My Spaces',
                     subtitle: 'Active Lease & Deeds',
@@ -879,22 +909,125 @@ class _HomeScreenState extends State<HomeScreen> {
                     },
                   ),
 
-                  // Pod 6: Bill Payments
+                  // Pod 8: Bill Recharge (Prepaid STS tokens across Discos powered by Direct Settlement Rails)
                   _buildCircularGridPod(
-                    title: 'Bill Payments',
-                    subtitle: 'Disco, Data, Airtime',
+                    title: 'Bill Recharge',
+                    subtitle: 'Electricity & Discos',
                     icon: Icons.electric_meter_rounded,
                     color: const Color(0xFF0284C7),
-                    badge: 'Instant Token',
+                    badge: '20-DIGIT STS',
                     onTap: () {
                       Navigator.of(context).push(
-                        MaterialPageRoute(builder: (_) => const BillsScreen()),
+                        MaterialPageRoute(builder: (_) => const BillsScreen(initialCategory: 'electricity')),
+                      );
+                    },
+                  ),
+
+                  // Pod 9: Lifestyle & Global Desk (International Bills, Gift Cards, Crypto, eSIM)
+                  _buildCircularGridPod(
+                    title: 'Lifestyle Desk',
+                    subtitle: 'Gift, Crypto & eSIM',
+                    icon: Icons.card_giftcard_rounded,
+                    color: const Color(0xFF8B5CF6),
+                    badge: 'GLOBAL',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const LifestyleHubScreen(initialTabIndex: 0)),
+                      );
+                    },
+                  ),
+
+                  // Pod 10: Crypto & Travel eSIM (Binance USDT & Airalo eSIM)
+                  _buildCircularGridPod(
+                    title: 'Crypto & eSIM',
+                    subtitle: 'USDT & Travel Roam',
+                    icon: Icons.currency_bitcoin_rounded,
+                    color: const Color(0xFF10B981),
+                    badge: 'INSTANT',
+                    onTap: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(builder: (_) => const LifestyleHubScreen(initialTabIndex: 2)),
                       );
                     },
                   ),
                 ],
               ),
-              // Dollar Cards Desk - Full Width Quick Action (Controlled Dynamically by Admin Remote Feature Flags)
+              const SizedBox(height: 14),
+
+              // Global Pay & Remittance Desk - Full Width Quick Action
+              GestureDetector(
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const GlobalPayHomeScreen()),
+                  );
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF047857), Color(0xFF064E3B)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF047857).withValues(alpha: 0.2),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.public_rounded, color: Colors.white, size: 22),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  'Global Payout & Remittance',
+                                  style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                                ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Text(
+                                    '150+ Countries',
+                                    style: GoogleFonts.plusJakartaSans(fontSize: 9, fontWeight: FontWeight.w800, color: Colors.white),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Text(
+                              'Send Abroad • Pay Tuition • Pay Overseas Suppliers',
+                              style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: Colors.white70),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.white54),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Multi-Currency Cards Desk - Full Width Quick Action (Controlled Dynamically by Admin Remote Feature Flags)
               if (ApiService.featureFlags.enableVirtualCards) ...[
                 const SizedBox(height: 12),
                 GestureDetector(
@@ -937,11 +1070,11 @@ class _HomeScreenState extends State<HomeScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Virtual Dollar Card',
+                                'Multi-Currency Cards Desk',
                                 style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
                               ),
                               Text(
-                                'USD Visa • Shop globally, subscribe & pay online',
+                                'Virtual NGN • Physical NGN • Virtual USD Visa',
                                 style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: Colors.white70),
                               ),
                             ],
@@ -1203,7 +1336,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 22),
 
-              // 4. Quick Action Utilities Hub (Flutterwave Bills Suite)
+              // 4. Quick Action Utilities Hub (Rentilly Instant Utilities Suite)
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [

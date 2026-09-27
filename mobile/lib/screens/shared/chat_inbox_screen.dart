@@ -6,6 +6,7 @@ import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
 import '../../services/direct_message_service.dart';
 import '../messages/direct_chat_detail_screen.dart';
+import '../../widgets/rentilly_bottom_bar.dart';
 
 /// Landlord / partner inbox — shows all incoming tenant conversations.
 /// Backed by Supabase via [DirectMessageService].
@@ -128,6 +129,7 @@ class _ChatInboxScreenState extends State<ChatInboxScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
+      bottomNavigationBar: const RentillyBottomBar(currentIndex: -1),
       appBar: AppBar(
         title: Row(
           children: [

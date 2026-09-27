@@ -15,6 +15,7 @@ import '../../widgets/verification_modal.dart';
 import '../../services/direct_message_service.dart';
 import '../messages/direct_chat_detail_screen.dart';
 import '../messages/messages_screen.dart';
+import '../../widgets/rentilly_bottom_bar.dart';
 
 class RoommatesScreen extends StatefulWidget {
   const RoommatesScreen({super.key});
@@ -135,6 +136,7 @@ class _RoommatesScreenState extends State<RoommatesScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
+      bottomNavigationBar: const RentillyBottomBar(currentIndex: -1),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,

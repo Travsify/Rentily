@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import '../../constants/app_colors.dart';
+import '../../widgets/rentilly_bottom_bar.dart';
 
 class GlobalPayTrackerScreen extends StatelessWidget {
   final Map<String, dynamic> order;
@@ -28,7 +29,7 @@ class GlobalPayTrackerScreen extends StatelessWidget {
         'completed': true,
       },
       {
-        'title': 'Dispatched via Fincra International Rail',
+        'title': 'Dispatched via Rentilly International Clearing Rail',
         'subtitle': 'Route: ${(order['paymentScheme'] ?? 'SWIFT').toString().toUpperCase()} clearing network.',
         'icon': Icons.send_rounded,
         'completed': status == 'PROCESSING' || status == 'COMPLETED',
@@ -45,6 +46,7 @@ class GlobalPayTrackerScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
+      bottomNavigationBar: const RentillyBottomBar(currentIndex: 3),
       appBar: AppBar(
         backgroundColor: AppColors.surfaceDark,
         elevation: 0,
@@ -194,7 +196,7 @@ class GlobalPayTrackerScreen extends StatelessWidget {
                   const SizedBox(height: 14),
                   _buildDetailRow('Reference:', order['reference'] ?? 'N/A'),
                   if (order['fincraPayoutReference'] != null)
-                    _buildDetailRow('Fincra Rail Ref:', order['fincraPayoutReference']),
+                    _buildDetailRow('Clearing Rail Ref:', (order['fincraPayoutReference'] ?? '').toString().replaceAll('FINCRA_', 'RTLY_').replaceAll('fincra_', 'rtly_')),
                   if (isTuition && order['studentMatricId'] != null)
                     _buildDetailRow('Student ID:', order['studentMatricId']),
                   if (!isTuition && order['invoiceNumber'] != null)

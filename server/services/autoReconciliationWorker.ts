@@ -205,9 +205,23 @@ export class AutoReconciliationWorker {
         }
 
         if (!creditUserId || !creditEmail) {
-          // Cannot identify recipient — mark processed to avoid infinite retry, log for admin
+          // Cannot identify recipient — mark processed to avoid infinite retry, log for admin & suspense ledger
           console.warn(`[AutoReconciliation] ⚠️ Cannot identify recipient for flw_ref: ${flwRef}, tx_ref: ${txRef}, amount: ₦${amount}`);
           await this.markProcessed(flwRef, 'unknown', amount, tx.customer?.email || 'unknown');
+          if (supabase) {
+            try {
+              await supabase.from('wallet_transactions').insert({
+                user_id: 'b0000000-0000-0000-0000-000000000001',
+                email: tx.customer?.email || 'unknown@unallocated.ng',
+                amount: amount,
+                type: 'credit',
+                status: 'completed',
+                flw_ref: flwRef,
+                tx_ref: txRef,
+                narration: `Unallocated Bank Transfer from ${tx.meta?.originatorname || 'Unknown Sender'} [Suspense Clearing]`
+              });
+            } catch (_) {}
+          }
           continue;
         }
 
@@ -261,7 +275,7 @@ export class AutoReconciliationWorker {
    * and dispatches real-time Email, OneSignal Push, and In-App notifications.
    */
   private static async syncMapleradTransactions() {
-    const key = process.env.MAPLERAD_SECRET_KEY || 'mpr_sk_35d197e6-3f6b-437c-995b-a0dff522b3dc';
+    const key = process.env.MAPLERAD_SECRET_KEY || 'mpr_sk_f7760b49-20ac-4f34-9126-9bea36df1291';
     if (!key || !supabase) return;
 
     try {
@@ -375,6 +389,20 @@ export class AutoReconciliationWorker {
         if (!targetUser) {
           console.warn(`[AutoReconciliation] ⚠️ Maplerad: cannot identify recipient for ref: ${ref}, email: ${customerEmail}, amount: ${amount} ${tx.currency || 'NGN'}`);
           await this.markProcessed(ref, 'unknown', amount, customerEmail || 'unknown');
+          if (supabase) {
+            try {
+              await supabase.from('wallet_transactions').insert({
+                user_id: 'b0000000-0000-0000-0000-000000000001',
+                email: customerEmail || 'unknown@unallocated.ng',
+                amount: amount,
+                type: 'credit',
+                status: 'completed',
+                flw_ref: ref,
+                tx_ref: ref,
+                narration: `Unallocated Maplerad Inflow (${tx.currency || 'NGN'}) [Suspense Clearing]`
+              });
+            } catch (_) {}
+          }
           continue;
         }
 

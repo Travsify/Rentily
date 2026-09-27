@@ -86,7 +86,7 @@ class _SearchScreenState extends State<SearchScreen> {
     if (q.contains('vault') || q.contains('save') || q.contains('stash') || q.contains('yield') || q.contains('target')) {
       actions.add({
         'title': 'Living Vaults (Target Savings)',
-        'subtitle': 'Lock funds aside with 2.5% annual yield to beat inflation for rent or bills',
+        'subtitle': 'Lock funds aside with 5% annual yield to beat inflation for rent or bills',
         'icon': Icons.savings_rounded,
         'color': AppColors.accentOrange,
         'onTap': () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const VaultsScreen())),

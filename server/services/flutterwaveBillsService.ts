@@ -330,41 +330,60 @@ export class FlutterwaveBillsService {
         }
       }
 
-      if (response.ok && (resJson.status === 'success' || resJson.data?.status === 'successful')) {
+      const isSuccessOrPending = response.ok && (
+        resJson.status === 'success' ||
+        resJson.status === 'pending' ||
+        resJson.data?.status === 'successful' ||
+        resJson.data?.status === 'pending' ||
+        resJson.data?.code === '300' ||
+        resJson.code === '300'
+      );
+
+      if (isSuccessOrPending) {
         const d = resJson.data || {};
-        let token = d.token || d.extra || d.pin;
+        const flwReference = d.reference || d.flw_ref || d.tx_ref || txRef;
+        let token = d.token || d.extra || d.recharge_token || d.pin;
         let units = d.units || `${(numAmount / 68).toFixed(1)} kWh`;
 
-        // If token not immediately in initial response, query Flutterwave verbose bill status
-        if (!token) {
-          const statusRes = await this.queryBillStatus(txRef);
-          if (statusRes.token) {
-            token = statusRes.token;
-            if (statusRes.units) units = statusRes.units;
+        // If token not immediately in initial response, query Flutterwave verbose bill status using flwReference
+        if (!token && flwReference) {
+          // Quick retry poll (2 attempts with short delay) to catch immediate token generation
+          for (let attempt = 0; attempt < 2; attempt++) {
+            await new Promise(r => setTimeout(r, 1500));
+            const statusRes = await this.queryBillStatus(flwReference);
+            if (statusRes.token) {
+              token = statusRes.token;
+              if (statusRes.units) units = statusRes.units;
+              break;
+            }
           }
         }
+
+        const isStillPending = !token && (resJson.status === 'pending' || d.status === 'pending' || d.code === '300');
 
         return {
           status: true,
           data: {
-            token: token || 'DELIVERED_TO_METER',
+            token: token || (isStillPending ? 'PROCESSING_BY_DISCO' : 'DELIVERED_TO_METER'),
             units: units,
             amount: numAmount,
             txRef: txRef,
-            flwRef: d.flw_ref || d.tx_ref || txRef,
+            flwRef: flwReference,
             meterNumber: cleanMeter,
             disco: discoKey,
-            customerName: d.name,
+            customerName: d.name || 'Verified Meter Holder',
             address: d.address,
-            status: 'SUCCESSFUL'
+            status: isStillPending ? 'PENDING' : 'SUCCESSFUL'
           },
           message: token 
             ? `Electricity recharge token generated: ${token}`
-            : `Electricity recharge successful! ₦${numAmount.toLocaleString()} credited directly to meter ${cleanMeter}.`
+            : (isStillPending 
+                ? `Electricity recharge of ₦${numAmount.toLocaleString()} submitted to ${name}. Token generation is in progress (Ref: ${flwReference}).` 
+                : `Electricity recharge successful! ₦${numAmount.toLocaleString()} credited directly to meter ${cleanMeter}.`)
         };
       }
 
-      // DO NOT GENERATE FAKE TOKENS! Return exact failure from Flutterwave
+      // Return exact failure from Flutterwave
       return {
         status: false,
         message: resJson.message || `Electricity vending was declined by ${name}. Please ensure your meter number is active.`

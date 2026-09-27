@@ -308,13 +308,31 @@ export class VaultController {
 
       await withUserLock(user.id, async () => {
         const all = loadAllVaults();
-        const vaultIndex = all.findIndex(v => 
-          v.id === vaultId && (v.userId === user.id || v.userEmail.toLowerCase() === user.email.toLowerCase())
+        let vaultIndex = all.findIndex((v: LivingVault) => 
+          (v.id === vaultId || (req.body.vaultTitle && v.title.toLowerCase() === req.body.vaultTitle.toLowerCase())) &&
+          (v.userId === user.id || v.userEmail.toLowerCase() === user.email.toLowerCase())
         );
 
         if (vaultIndex === -1) {
-          res.status(404).json({ success: false, error: 'Living vault not found.' });
-          return;
+          // Auto-enroll / create vault if requested with valid ID or title
+          const newVault: LivingVault = {
+            id: vaultId || `vault_${Date.now()}`,
+            userId: user.id,
+            userEmail: user.email.toLowerCase(),
+            title: req.body.vaultTitle || 'Living Vault',
+            category: req.body.category || 'rent',
+            targetAmount: Number(req.body.targetAmount || 1000000),
+            savedAmount: 0,
+            yieldRate: '5% p.a.',
+            yieldNote: '5% Annual Yield',
+            durationMonths: 12,
+            durationLabel: '1 Year (365 Days)',
+            maturityDate: new Date(Date.now() + 365 * 86400000).toISOString(),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          all.push(newVault);
+          vaultIndex = all.length - 1;
         }
 
         const currentWallet = user.walletBalance || 0;
@@ -353,7 +371,7 @@ export class VaultController {
           email: user.email,
           title: `Living Vault Deposit (${vault.title})`,
           type: 'VAULT_DEPOSIT',
-          category: 'deposit',
+          category: 'withdrawal',
           amount: numAmount,
           isCredit: false,
           reference: txRef,
@@ -437,8 +455,8 @@ export class VaultController {
         }
 
         // Check if collateral is locked across all user vaults by an active credit loan
-        const userLoans = CreditEngineService.getUserLoans(user.id);
-        const activeLoan = userLoans.find(l => l.status === 'active' || l.status === 'overdue');
+        const userLoans = await CreditEngineService.getUserLoans(user.id);
+        const activeLoan = userLoans.find((l: any) => l.status === 'active' || l.status === 'overdue');
         if (activeLoan && activeLoan.collateralLocked > 0) {
           const totalUserSavings = all
             .filter(v => v.userId === user.id || v.userEmail.toLowerCase() === user.email.toLowerCase())
@@ -618,8 +636,8 @@ export class VaultController {
         }
 
         // Check collateral lock from active loans (if applicable)
-          const userLoans = CreditEngineService.getUserLoans(user.id);
-          const activeLoan = userLoans.find(l => l.status === 'active' || l.status === 'overdue');
+        const userLoans = await CreditEngineService.getUserLoans(user.id);
+        const activeLoan = userLoans.find((l: any) => l.status === 'active' || l.status === 'overdue');
           if (activeLoan && activeLoan.collateralLocked > 0) {
             const totalUserSavings = all
               .filter(v => v.userId === user.id || v.userEmail.toLowerCase() === user.email.toLowerCase())

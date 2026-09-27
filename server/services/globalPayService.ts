@@ -13,9 +13,11 @@ export interface GlobalPayConfig {
     usdWireNgn: number;
     usdSwiftNgn: number;
     cadEftNgn: number;
+    momoNgn?: number;
   };
   tuitionSemesterLimitUsd: number;
   supplierInvoiceLimitUsd: number;
+  personalRemittanceDailyLimitUsd?: number;
   featureEnabled: boolean;
   supportedCurrencies: string[];
 }
@@ -23,7 +25,7 @@ export interface GlobalPayConfig {
 export interface GlobalQuote {
   quoteReference: string;
   sourceCurrency: 'NGN';
-  destinationCurrency: 'USD' | 'GBP' | 'EUR' | 'CAD';
+  destinationCurrency: string;
   destinationAmount: number;
   sourceAmountNgn: number;
   wholesaleRate: number;
@@ -31,7 +33,7 @@ export interface GlobalQuote {
   fxSpreadPercent: number;
   corridorFeeNgn: number;
   totalDebitedNgn: number;
-  paymentScheme: 'fps' | 'sepa' | 'fedwire' | 'swift' | 'eft';
+  paymentScheme: 'fps' | 'sepa' | 'fedwire' | 'ach' | 'swift' | 'eft' | 'mobile_money';
   expiresAt: string;
   ttlSeconds: number;
 }
@@ -39,16 +41,17 @@ export interface GlobalQuote {
 export interface GlobalBeneficiary {
   id: string;
   userId: string;
-  beneficiaryType: 'tuition_institution' | 'supplier_vendor';
+  beneficiaryType: 'tuition_institution' | 'supplier_vendor' | 'individual' | 'corporate';
   name: string;
   email?: string;
   countryCode: string;
-  currency: 'USD' | 'GBP' | 'EUR' | 'CAD';
-  bankName: string;
+  currency: string;
+  bankName?: string;
   bankAddress?: string;
   accountNumberOrIban: string;
   routingCode?: string;
   swiftBic?: string;
+  mobileOperator?: string;
   institutionStudentId?: string;
   vendorTaxId?: string;
   createdAt: string;
@@ -59,10 +62,10 @@ export interface GlobalPayoutOrder {
   userId: string;
   userEmail?: string;
   reference: string;
-  orderType: 'tuition' | 'supplier';
+  orderType: 'tuition' | 'supplier' | 'remittance' | 'personal' | 'contractor' | 'property' | 'medical' | 'general';
   beneficiary: GlobalBeneficiary;
   sourceCurrency: 'NGN';
-  destinationCurrency: 'USD' | 'GBP' | 'EUR' | 'CAD';
+  destinationCurrency: string;
   destinationAmount: number;
   sourceAmountNgn: number;
   wholesaleRate: number;
@@ -71,7 +74,8 @@ export interface GlobalPayoutOrder {
   corridorFeeNgn: number;
   totalDebitedNgn: number;
   quoteReference: string;
-  paymentScheme: 'fps' | 'sepa' | 'fedwire' | 'swift' | 'eft';
+  paymentScheme: 'fps' | 'sepa' | 'fedwire' | 'ach' | 'swift' | 'eft' | 'mobile_money';
+  transferPurpose?: string;
   studentName?: string;
   studentMatricId?: string;
   institutionName?: string;
@@ -103,12 +107,14 @@ export class GlobalPayService {
       eurSepaNgn: 5000,
       usdWireNgn: 7500,
       usdSwiftNgn: 15000,
-      cadEftNgn: 5000
+      cadEftNgn: 5000,
+      momoNgn: 2500
     },
     tuitionSemesterLimitUsd: 25000,
     supplierInvoiceLimitUsd: 100000,
+    personalRemittanceDailyLimitUsd: 10000,
     featureEnabled: true,
-    supportedCurrencies: ['USD', 'GBP', 'EUR', 'CAD']
+    supportedCurrencies: ['USD', 'GBP', 'EUR', 'CAD', 'KES', 'GHS', 'ZAR', 'AED', 'CNY', 'AUD']
   };
 
   /** Benchmark wholesale rates for offline resilience */
@@ -116,7 +122,13 @@ export class GlobalPayService {
     USD: 1550.00,
     GBP: 2025.50,
     EUR: 1685.20,
-    CAD: 1142.80
+    CAD: 1142.80,
+    KES: 12.10,
+    GHS: 102.50,
+    ZAR: 89.40,
+    AED: 422.00,
+    CNY: 218.00,
+    AUD: 1045.00
   };
 
   /**
@@ -192,17 +204,19 @@ export class GlobalPayService {
    * Determine payment scheme from currency and destination country
    */
   static resolvePaymentScheme(
-    currency: 'USD' | 'GBP' | 'EUR' | 'CAD',
+    currency: string,
     countryCode?: string,
     preferredScheme?: string
-  ): 'fps' | 'sepa' | 'fedwire' | 'swift' | 'eft' {
-    if (preferredScheme && ['fps', 'sepa', 'fedwire', 'swift', 'eft'].includes(preferredScheme)) {
+  ): 'fps' | 'sepa' | 'fedwire' | 'ach' | 'swift' | 'eft' | 'mobile_money' {
+    if (preferredScheme && ['fps', 'sepa', 'fedwire', 'ach', 'swift', 'eft', 'mobile_money'].includes(preferredScheme)) {
       return preferredScheme as any;
     }
     const curr = currency.toUpperCase();
     if (curr === 'GBP') return 'fps'; // UK Faster Payments
     if (curr === 'EUR') return 'sepa'; // EU SEPA Instant
     if (curr === 'CAD') return 'eft'; // Canadian Electronic Funds Transfer
+    if (curr === 'KES' || curr === 'GHS') return 'mobile_money'; // African Mobile Money
+    if (curr === 'ZAR') return 'eft'; // South African EFT
     if (curr === 'USD') {
       const cc = (countryCode || '').toUpperCase();
       if (cc === 'US' || cc === 'USA') return 'fedwire'; // US Fedwire / ACH
@@ -214,13 +228,16 @@ export class GlobalPayService {
   /**
    * Calculate corridor flat fee in NGN
    */
-  static getCorridorFeeNgn(scheme: 'fps' | 'sepa' | 'fedwire' | 'swift' | 'eft'): number {
+  static getCorridorFeeNgn(scheme: 'fps' | 'sepa' | 'fedwire' | 'ach' | 'swift' | 'eft' | 'mobile_money'): number {
     switch (scheme) {
+      case 'mobile_money':
+        return this.config.corridorFeesNgn.momoNgn || 2500;
       case 'fps':
         return this.config.corridorFeesNgn.gbpFpsNgn || 3000;
       case 'sepa':
         return this.config.corridorFeesNgn.eurSepaNgn || 5000;
       case 'fedwire':
+      case 'ach':
         return this.config.corridorFeesNgn.usdWireNgn || 7500;
       case 'swift':
         return this.config.corridorFeesNgn.usdSwiftNgn || 15000;
@@ -235,7 +252,7 @@ export class GlobalPayService {
    * Generate Guaranteed 15-Minute FX Quote
    */
   static async generateQuote(params: {
-    destinationCurrency: 'USD' | 'GBP' | 'EUR' | 'CAD';
+    destinationCurrency: string;
     destinationAmount: number;
     destinationCountry?: string;
     preferredScheme?: string;
@@ -244,7 +261,7 @@ export class GlobalPayService {
       throw new Error('Rentilly Global Pay is temporarily undergoing scheduled maintenance.');
     }
 
-    const destCurr = params.destinationCurrency.toUpperCase() as 'USD' | 'GBP' | 'EUR' | 'CAD';
+    const destCurr = params.destinationCurrency.toUpperCase();
     if (!this.config.supportedCurrencies.includes(destCurr)) {
       throw new Error(`Currency ${destCurr} is not currently supported for cross-border payouts.`);
     }
@@ -266,17 +283,19 @@ export class GlobalPayService {
         destinationAmount: params.destinationAmount
       });
       if (quoteRes && quoteRes.status && quoteRes.data) {
-        if (quoteRes.data.rate) wholesaleRate = Number(quoteRes.data.rate);
+        if ((quoteRes.data as any).wholesaleRate) {
+          wholesaleRate = Number((quoteRes.data as any).wholesaleRate);
+        } else if (quoteRes.data.rate) {
+          wholesaleRate = Math.max(1, Number(quoteRes.data.rate) - 39.0);
+        }
         if (quoteRes.data.quoteReference) fincraQuoteRef = quoteRes.data.quoteReference;
       }
     } catch (_) {
       // Use benchmark rate
     }
 
-    // 2. Apply Admin-Configured FX Spread
-    const spreadMultiplier = 1 + (this.config.fxSpreadPercent / 100);
-    const customerRate = Math.round(wholesaleRate * spreadMultiplier * 100) / 100;
-
+    // 2. Standardized FX Exchange Rate (+39 NGN for Naira to foreign currencies)
+    const customerRate = Number((wholesaleRate + 39.0).toFixed(2));
     const sourceAmountNgn = Math.round(params.destinationAmount * customerRate);
     const totalDebitedNgn = sourceAmountNgn + corridorFeeNgn;
 
@@ -311,20 +330,23 @@ export class GlobalPayService {
     userId: string;
     userEmail: string;
     quoteReference: string;
-    orderType: 'tuition' | 'supplier';
+    orderType: 'tuition' | 'supplier' | 'remittance' | 'personal' | 'contractor' | 'property' | 'medical' | 'general';
     beneficiary: {
       name: string;
       email?: string;
       countryCode: string;
-      currency: 'USD' | 'GBP' | 'EUR' | 'CAD';
-      bankName: string;
+      currency: string;
+      bankName?: string;
       bankAddress?: string;
       accountNumberOrIban: string;
       routingCode?: string;
       swiftBic?: string;
+      mobileOperator?: string;
+      type?: 'individual' | 'corporate';
       institutionStudentId?: string;
       vendorTaxId?: string;
     };
+    transferPurpose?: string;
     studentName?: string;
     studentMatricId?: string;
     institutionName?: string;
@@ -347,9 +369,14 @@ export class GlobalPayService {
       if (quote.destinationAmount > this.config.tuitionSemesterLimitUsd) {
         throw new Error(`Tuition payments cannot exceed $${this.config.tuitionSemesterLimitUsd.toLocaleString()} per semester.`);
       }
-    } else {
+    } else if (params.orderType === 'supplier') {
       if (quote.destinationAmount > this.config.supplierInvoiceLimitUsd) {
         throw new Error(`Supplier invoices cannot exceed $${this.config.supplierInvoiceLimitUsd.toLocaleString()} per transaction.`);
+      }
+    } else {
+      const limitUsd = this.config.personalRemittanceDailyLimitUsd || 10000;
+      if (quote.destinationAmount > limitUsd && quote.destinationCurrency === 'USD') {
+        throw new Error(`Daily payout limit is $${limitUsd.toLocaleString()} USD.`);
       }
     }
 
@@ -418,7 +445,11 @@ export class GlobalPayService {
     const fullBeneficiary: GlobalBeneficiary = {
       id: beneficiaryId,
       userId: params.userId,
-      beneficiaryType: params.orderType === 'tuition' ? 'tuition_institution' : 'supplier_vendor',
+      beneficiaryType: params.orderType === 'tuition' 
+        ? 'tuition_institution' 
+        : params.orderType === 'supplier' 
+        ? 'supplier_vendor' 
+        : (params.beneficiary.type || 'individual'),
       name: params.beneficiary.name,
       email: params.beneficiary.email,
       countryCode: params.beneficiary.countryCode,
@@ -428,6 +459,7 @@ export class GlobalPayService {
       accountNumberOrIban: params.beneficiary.accountNumberOrIban,
       routingCode: params.beneficiary.routingCode,
       swiftBic: params.beneficiary.swiftBic,
+      mobileOperator: params.beneficiary.mobileOperator,
       institutionStudentId: params.studentMatricId,
       vendorTaxId: params.beneficiary.vendorTaxId,
       createdAt: new Date().toISOString()
@@ -457,6 +489,7 @@ export class GlobalPayService {
       userEmail: params.userEmail,
       reference: orderRef,
       orderType: params.orderType,
+      transferPurpose: params.transferPurpose,
       beneficiary: fullBeneficiary,
       sourceCurrency: 'NGN',
       destinationCurrency: quote.destinationCurrency,
@@ -494,9 +527,13 @@ export class GlobalPayService {
           accountNumberOrIban: fullBeneficiary.accountNumberOrIban,
           routingCode: fullBeneficiary.routingCode || fullBeneficiary.swiftBic || '000000',
           bankName: fullBeneficiary.bankName,
-          countryCode: fullBeneficiary.countryCode
+          countryCode: fullBeneficiary.countryCode,
+          type: params.beneficiary.type || (params.orderType === 'supplier' ? 'corporate' : 'individual'),
+          mobileOperator: fullBeneficiary.mobileOperator
         },
-        description: `${params.orderType === 'tuition' ? 'Tuition' : 'Supplier Invoice'} - ${orderRef}`
+        description: params.transferPurpose
+          ? `${params.transferPurpose} - ${orderRef}`
+          : `${params.orderType === 'tuition' ? 'Tuition' : params.orderType === 'supplier' ? 'Supplier Invoice' : 'Global Remittance'} - ${orderRef}`
       });
 
       if (payoutRes && payoutRes.status) {

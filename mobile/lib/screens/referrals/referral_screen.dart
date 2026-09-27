@@ -6,6 +6,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../constants/app_colors.dart';
 import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
+import '../../widgets/rentilly_bottom_bar.dart';
 
 class ReferralScreen extends StatefulWidget {
   final UserProfile? user;
@@ -115,6 +116,7 @@ class _ReferralScreenState extends State<ReferralScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
+      bottomNavigationBar: const RentillyBottomBar(currentIndex: -1),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,

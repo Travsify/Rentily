@@ -1685,7 +1685,7 @@ class _WalletScreenState extends State<WalletScreen> {
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(
-                                      'Fincra Rails',
+                                      'Direct Global Rails',
                                       style: GoogleFonts.plusJakartaSans(
                                         fontSize: 9,
                                         fontWeight: FontWeight.w800,
@@ -1715,7 +1715,7 @@ class _WalletScreenState extends State<WalletScreen> {
                 const SizedBox(height: 24),
               ],
 
-              // Actual Transaction History (Reconciled Live Flutterwave Data)
+              // Actual Transaction History (Reconciled Live Rentilly Data)
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [

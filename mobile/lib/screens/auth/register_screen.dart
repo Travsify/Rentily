@@ -6,7 +6,6 @@ import '../../constants/nigerian_states_cities.dart';
 import '../../services/auth_service.dart';
 import '../../services/push_notification_service.dart';
 import '../../services/otp_service.dart';
-import '../../services/api_service.dart';
 import '../../widgets/login_2fa_modal.dart';
 import '../main_navigation_screen.dart';
 import '../../widgets/inline_otp_verification_widget.dart';
@@ -52,7 +51,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _agreedToTerms = true;
   bool _isLoading = false;
   bool _isEmailVerified = false;
-  bool _isPhoneVerified = false;
   String? _errorMessage;
 
   @override
@@ -296,11 +294,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    if (ApiService.featureFlags.requirePhoneVerification && !_isPhoneVerified) {
-      setState(() => _errorMessage = 'Please tap "Verify" on your Mobile Phone Number and enter your 6-digit SMS code.');
-      return;
-    }
-
     await _finalizeRegistration();
   }
 
@@ -394,7 +387,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     // Otherwise, dispatch OTP code to user's email for registration verification
     final otpRes = await OtpService.sendOtp(
       email: email,
-      phoneNumber: cleanPhone,
       userName: cleanName,
       channel: 'email',
       purpose: 'Account Registration Verification',
@@ -413,7 +405,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     Login2faModal.show(
       context,
       email: email,
-      phoneNumber: cleanPhone,
       userName: cleanName,
       purpose: 'Account Registration Verification',
       isRegistration: true,
@@ -1650,10 +1641,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  // FINAL STEP: Email, Phone Verification, Password, Rules & Terms
+  // FINAL STEP: Email Verification, Mobile Phone, Password, Rules & Terms
   Widget _buildCredentialsStep() {
-    final bool requirePhoneOtp = ApiService.featureFlags.requirePhoneVerification;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1672,9 +1661,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  requirePhoneOtp
-                      ? 'Enter your Email and Phone, then tap the green "Verify" button to receive your 6-digit OTP codes.'
-                      : 'Enter your Email and tap the green "Verify" button to receive your 6-digit security code.',
+                  'Enter your Email and tap the green "Verify" button to receive your 6-digit security code.',
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -1700,37 +1687,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         const SizedBox(height: 14),
 
-        // 2. Phone Input (with SMS OTP if enabled by feature flag, otherwise standard input)
-        if (requirePhoneOtp)
-          InlineOtpVerificationWidget(
-            label: 'Mobile Phone Number (SMS)',
+        // 2. Mobile Phone Number (Direct Contact Input - Phone SMS OTP Turned Off)
+        Text('MOBILE PHONE NUMBER', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
+        const SizedBox(height: 6),
+        TextField(
+          controller: _phoneController,
+          keyboardType: TextInputType.phone,
+          style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: const Color(0xFFF8FAFC),
+            prefixIcon: const Icon(Icons.phone_android_rounded, size: 18, color: AppColors.primary),
             hintText: 'e.g. 0812 345 6789',
-            prefixIcon: Icons.phone_android_rounded,
-            textController: _phoneController,
-            keyboardType: TextInputType.phone,
-            channel: 'sms',
-            isVerified: _isPhoneVerified,
-            onVerifiedChanged: (val) => setState(() => _isPhoneVerified = val),
-          )
-        else ...[
-          Text('MOBILE PHONE NUMBER', style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, letterSpacing: 0.9, color: AppColors.textSecondary)),
-          const SizedBox(height: 6),
-          TextField(
-            controller: _phoneController,
-            keyboardType: TextInputType.phone,
-            style: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textPrimary, fontWeight: FontWeight.w600),
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: const Color(0xFFF8FAFC),
-              prefixIcon: const Icon(Icons.phone_android_rounded, size: 18, color: AppColors.primary),
-              hintText: 'e.g. 0812 345 6789',
-              hintStyle: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textMuted),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
-            ),
+            hintStyle: GoogleFonts.plusJakartaSans(fontSize: 13, color: AppColors.textMuted),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: Color(0xFFE2E8F0))),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
           ),
-        ],
+        ),
         const SizedBox(height: 14),
 
         // Password

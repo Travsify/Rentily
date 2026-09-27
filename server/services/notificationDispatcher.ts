@@ -10,12 +10,14 @@ const SENDER_EMAIL = (process.env.RESEND_FROM_EMAIL && process.env.RESEND_FROM_E
   ? process.env.RESEND_FROM_EMAIL
   : 'Rentilly <info@myrentilly.com>';
 
-export type NotificationCategory = 'security' | 'wallet' | 'escrow' | 'inspection' | 'property' | 'utilities' | 'system';
+export type NotificationCategory = 'security' | 'wallet' | 'escrow' | 'inspection' | 'property' | 'utilities' | 'system' | 'vault' | 'loan' | 'general';
 
 export interface NotificationEvent {
   userId?: string;
-  email: string;
+  email?: string;
+  userEmail?: string;
   userName?: string;
+  phoneNumber?: string;
   title: string;
   category: NotificationCategory;
   message: string;
@@ -200,7 +202,7 @@ export class NotificationDispatcher {
               <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin: 24px 0 16px 0;">
                 <tr>
                   <td align="center">
-                    <a href="${event.actionUrl && event.actionUrl.startsWith('http') ? event.actionUrl : `https://api.myrentilly.com/verify/re-kyc?email=${encodeURIComponent(event.email)}`}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #10B981 0%, #059669 100%); color: #FFFFFF; text-decoration: none; font-size: 15px; font-weight: 800; padding: 16px 36px; border-radius: 14px; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);">
+                    <a href="${event.actionUrl && event.actionUrl.startsWith('http') ? event.actionUrl : `https://api.myrentilly.com/verify/re-kyc?email=${encodeURIComponent(event.email || event.userEmail || '')}`}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #10B981 0%, #059669 100%); color: #FFFFFF; text-decoration: none; font-size: 15px; font-weight: 800; padding: 16px 36px; border-radius: 14px; text-transform: uppercase; letter-spacing: 0.5px; box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);">
                       ${event.actionLabel || 'Confirm Date of Birth & Upgrade Account ⚡'}
                     </a>
                   </td>
@@ -327,6 +329,10 @@ export class NotificationDispatcher {
   /**
    * Dispatches In-App Notification (Database), Instant Email (Resend), OneSignal Push, AND Termii SMS.
    */
+  static async dispatchNotification(event: NotificationEvent): Promise<{ success: boolean; inApp: boolean; email: boolean; push: boolean; sms: boolean }> {
+    return this.dispatch(event);
+  }
+
   static async dispatch(event: NotificationEvent): Promise<{ success: boolean; inApp: boolean; email: boolean; push: boolean; sms: boolean }> {
     let inAppSuccess = false;
     let emailSuccess = false;

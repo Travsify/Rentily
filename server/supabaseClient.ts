@@ -3,8 +3,6 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const DEFAULT_SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inp1eHZ4dXF4b21zeGdpbGp5a3pqIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4ODA4MDM1MywiZXhwIjoyMTAzNjU2MzUzfQ.otHBuZUThdSaLdc_WxlIXClfFnSci30i0_0VbZF5doQ';
-
 function getAuthoritativeServiceKey(): string {
   const envKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
   if (envKey && envKey.startsWith('eyJ') && envKey.includes('.')) {
@@ -13,7 +11,10 @@ function getAuthoritativeServiceKey(): string {
       if (payload.role === 'service_role') return envKey;
     } catch (_) {}
   }
-  return DEFAULT_SERVICE_ROLE_KEY;
+  if (!envKey) {
+    console.warn('[SECURITY WARNING] Neither SUPABASE_SERVICE_ROLE_KEY nor SUPABASE_KEY is set in environment.');
+  }
+  return envKey || '';
 }
 
 let supabaseUrl = process.env.SUPABASE_URL || 'https://zuxvxuqxomsxgiljykzj.supabase.co';

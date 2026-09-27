@@ -33,8 +33,13 @@ class _CardsScreenState extends State<CardsScreen> {
   double _spreadBuyRate = 1370.0;
   double _cardIssuanceFeeUsd = 3.00;
   double _cardIssuanceFeeNgn = 1500.00;
+  double _physicalCardFeeNgn = 4500.00;
+  double _physicalDeliveryFeeNgn = 2000.00;
   double _minFundingNgn = 1000.00;
   double _liquidationFeePercent = 1.0;
+
+  // Segment index: 0 = Virtual NGN, 1 = Physical NGN, 2 = Virtual USD
+  int _selectedSegmentIndex = 0;
 
   // Live user cards loaded from Supabase (ZERO MOCK/DUMMY CARDS)
   List<Map<String, dynamic>> _userCards = [];
@@ -190,9 +195,48 @@ class _CardsScreenState extends State<CardsScreen> {
     }
   }
 
+  List<Map<String, dynamic>> get _filteredCards {
+    if (_selectedSegmentIndex == 0) {
+      // Virtual NGN
+      return _userCards.where((c) {
+        final cur = (c['currency'] ?? 'USD').toString().toUpperCase();
+        final type = (c['cardType'] ?? c['type'] ?? '').toString().toUpperCase();
+        final isPhysical = c['isPhysical'] == true || type.contains('PHYSICAL');
+        return cur == 'NGN' && !isPhysical;
+      }).toList();
+    } else if (_selectedSegmentIndex == 1) {
+      // Physical NGN
+      return _userCards.where((c) {
+        final type = (c['cardType'] ?? c['type'] ?? '').toString().toUpperCase();
+        final isPhysical = c['isPhysical'] == true || type.contains('PHYSICAL');
+        return isPhysical;
+      }).toList();
+    } else {
+      // Virtual USD
+      return _userCards.where((c) {
+        final cur = (c['currency'] ?? 'USD').toString().toUpperCase();
+        final type = (c['cardType'] ?? c['type'] ?? '').toString().toUpperCase();
+        final isPhysical = c['isPhysical'] == true || type.contains('PHYSICAL');
+        return cur == 'USD' && !isPhysical;
+      }).toList();
+    }
+  }
+
   Map<String, dynamic>? get _currentCard {
-    if (_userCards.isEmpty || _selectedCardIndex >= _userCards.length) return null;
-    return _userCards[_selectedCardIndex];
+    final list = _filteredCards;
+    if (list.isEmpty) return null;
+    if (_selectedCardIndex >= list.length) return list.first;
+    return list[_selectedCardIndex];
+  }
+
+  void _onSegmentChanged(int idx) {
+    HapticFeedback.selectionClick();
+    setState(() {
+      _selectedSegmentIndex = idx;
+      _selectedCardIndex = 0;
+      _showCardDetails = false;
+    });
+    _fetchCardTransactions();
   }
 
   bool _isRevealingDetails = false;
@@ -2431,12 +2475,14 @@ class _CardsScreenState extends State<CardsScreen> {
   }
 
   // --- 6. ISSUE NEW VIRTUAL CARD MODAL (DUAL CURRENCY: NGN NAIRA & USD DOLLAR) ---
-  void _showIssueCardModal() {
+  void _showIssueCardModal({String? defaultCurrency}) {
     if (_user == null) return;
 
-    String selectedCardType = 'NGN'; // 'NGN' (default) or 'USD'
-    final initialFundingController = TextEditingController(text: '1000');
-    double initialFundingVal = 1000.0;
+    // Default to USD since NGN cards are Coming Soon on domestic rails
+    String selectedCardType = defaultCurrency == 'NGN' ? 'USD' : (defaultCurrency ?? 'USD');
+    final isDefaultNgn = selectedCardType == 'NGN';
+    final initialFundingController = TextEditingController(text: isDefaultNgn ? '1000' : '5');
+    double initialFundingVal = isDefaultNgn ? 1000.0 : 5.0;
     String selectedSource = 'NGN'; // 'NGN' or 'USDT'
 
     showModalBottomSheet(
@@ -2557,15 +2603,31 @@ class _CardsScreenState extends State<CardsScreen> {
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   const Text('🇳🇬', style: TextStyle(fontSize: 14)),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    'Naira Mastercard',
-                                    style: GoogleFonts.plusJakartaSans(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: isNgn ? Colors.white : AppColors.textPrimary,
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      'Naira Mastercard',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: isNgn ? Colors.white : AppColors.textPrimary,
+                                      ),
                                     ),
-                                  ),
+                                    const SizedBox(width: 4),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                      decoration: BoxDecoration(
+                                        color: isNgn ? Colors.amber.shade300 : const Color(0xFFFEF3C7),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        'SOON',
+                                        style: GoogleFonts.plusJakartaSans(
+                                          fontSize: 7.5,
+                                          fontWeight: FontWeight.w900,
+                                          color: const Color(0xFF92400E),
+                                        ),
+                                      ),
+                                    ),
                                 ],
                               ),
                             ),
@@ -2843,7 +2905,7 @@ class _CardsScreenState extends State<CardsScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton.icon(
-                      onPressed: (!isValidInitial || !hasEnoughBal)
+                      onPressed: (isNgn || !isValidInitial || !hasEnoughBal)
                           ? null
                           : () async {
                               Navigator.pop(ctx);
@@ -2876,13 +2938,13 @@ class _CardsScreenState extends State<CardsScreen> {
                             },
                       icon: const Icon(Icons.flash_on_rounded, color: Colors.white, size: 20),
                       label: Text(
-                        !isValidInitial
-                            ? (isNgn ? 'Min. Initial Funding is ₦${_currencyFormat.format(_minFundingNgn)}' : 'Min. Initial Funding is \$1.00 USD')
-                            : (!hasEnoughBal
-                                ? 'Insufficient Balance'
-                                : (isNgn
-                                    ? 'Pay ₦${_currencyFormat.format(totalNgnCost)} & Issue Naira Card'
-                                    : 'Pay ${selectedSource == 'USDT' ? '\$${totalUsdCost.toStringAsFixed(2)} USDT' : '₦${_currencyFormat.format(totalNgnCost)}'} & Issue Card')),
+                        isNgn
+                            ? 'Naira Cards Coming Soon (Select USD Visa)'
+                            : (!isValidInitial
+                                ? 'Min. Initial Funding is \$1.00 USD'
+                                : (!hasEnoughBal
+                                    ? 'Insufficient Balance'
+                                    : 'Pay ${selectedSource == 'USDT' ? '\${totalUsdCost.toStringAsFixed(2)} USDT' : '₦${_currencyFormat.format(totalNgnCost)}'} & Issue Card')),
                         style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
                       ),
                       style: ElevatedButton.styleFrom(
@@ -2981,7 +3043,7 @@ class _CardsScreenState extends State<CardsScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'Virtual Dollar Cards Desk',
+          'Rentilly Multi-Currency Cards',
           style: GoogleFonts.plusJakartaSans(fontSize: 17, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
         ),
         actions: [
@@ -3001,7 +3063,7 @@ class _CardsScreenState extends State<CardsScreen> {
                       context,
                       user: _user!,
                       transactions: _cardTransactions,
-                      initialCurrency: 'USD',
+                      initialCurrency: _selectedSegmentIndex == 2 ? 'USD' : 'NGN',
                     );
                   }
                 },
@@ -3020,16 +3082,19 @@ class _CardsScreenState extends State<CardsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Segment Selector: [ 💳 Virtual NGN | 🏦 Physical NGN | 🌐 Virtual USD ]
+                    _buildSegmentSelector(),
+
                     if (!hasCard)
-                      // --- ZERO CARD EMPTY STATE (NO MOCK DATA) ---
+                      // --- ZERO CARD EMPTY STATE (TAILORED PER SEGMENT) ---
                       _buildNoCardEmptyState()
                     else ...[
-                      if (_userCards.length > 1) ...[
+                      if (_filteredCards.length > 1) ...[
                         SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
                           child: Row(
-                            children: List.generate(_userCards.length, (idx) {
-                              final c = _userCards[idx];
+                            children: List.generate(_filteredCards.length, (idx) {
+                              final c = _filteredCards[idx];
                               final isSelected = idx == _selectedCardIndex;
                               final last4 = (c['maskedPan'] ?? '').toString().replaceAll(' ', '');
                               final suffix = last4.length >= 4 ? last4.substring(last4.length - 4) : '${idx + 1}';
@@ -3078,8 +3143,10 @@ class _CardsScreenState extends State<CardsScreen> {
                       // --- AUTO-FROZEN / FROZEN STATUS BANNER ---
                       _buildAutoFrozenBanner(card, isFrozen),
 
-                      // --- LIVE VIRTUAL CARD CONTAINER ---
+                      // --- LIVE VIRTUAL / PHYSICAL CARD CONTAINER ---
                       _buildVirtualCardWidget(card, isFrozen, cardBal, cardBalNgn),
+                      if (_selectedSegmentIndex == 1 || card['isPhysical'] == true)
+                        _buildCourierTrackingWidget(card),
                       const SizedBox(height: 18),
 
                       // --- CORE ACTION BUTTONS (DETAILS, TOP-UP, PIN, FREEZE, DELETE) ---
@@ -3103,8 +3170,134 @@ class _CardsScreenState extends State<CardsScreen> {
     );
   }
 
-  // --- 1. NO CARD EMPTY STATE ---
+  // --- 0. SEGMENT SELECTOR [ 💳 Virtual NGN | 🏦 Physical NGN | 🌐 Virtual USD ] ---
+  Widget _buildSegmentSelector() {
+    final segments = [
+      {'title': 'Virtual NGN', 'subtitle': 'SOON', 'icon': Icons.bolt_rounded, 'flag': '🇳🇬'},
+      {'title': 'Physical NGN', 'subtitle': 'SOON', 'icon': Icons.credit_card_rounded, 'flag': '💳'},
+      {'title': 'Virtual USD', 'subtitle': 'ACTIVE', 'icon': Icons.public_rounded, 'flag': '🇺🇸'},
+    ];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: List.generate(segments.length, (idx) {
+          final isSelected = _selectedSegmentIndex == idx;
+          final s = segments[idx];
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => _onSegmentChanged(idx),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(vertical: 9),
+                decoration: BoxDecoration(
+                  color: isSelected ? const Color(0xFF0D5C46) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: isSelected
+                      ? [
+                          BoxShadow(
+                            color: const Color(0xFF0D5C46).withValues(alpha: 0.25),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(s['flag'] as String, style: const TextStyle(fontSize: 12)),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              s['title'] as String,
+                              overflow: TextOverflow.ellipsis,
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 10,
+                                fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                                color: isSelected ? Colors.white : AppColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 3),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 0.5),
+                            decoration: BoxDecoration(
+                              color: s['subtitle'] == 'SOON'
+                                  ? (isSelected ? Colors.amber.shade300 : const Color(0xFFFEF3C7))
+                                  : (isSelected ? const Color(0xFF6EE7B7) : const Color(0xFFDCFCE7)),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              s['subtitle'] as String,
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 7.5,
+                                fontWeight: FontWeight.w900,
+                                color: s['subtitle'] == 'SOON' ? const Color(0xFF92400E) : const Color(0xFF166534),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  // --- 1. TAILORED EMPTY STATE PER SEGMENT ---
   Widget _buildNoCardEmptyState() {
+    IconData icon;
+    String title;
+    String desc;
+    String buttonText;
+    VoidCallback onTap;
+
+    if (_selectedSegmentIndex == 0) {
+      // Virtual NGN - COMING SOON
+      icon = Icons.hourglass_top_rounded;
+      title = 'Naira Virtual Cards Coming Soon';
+      desc = 'Our high-capacity domestic Naira card rails are currently being onboarded for compliance. In the meantime, our USD Virtual Visa Card is 100% active and works for all online purchases, subscriptions, and international payments.';
+      buttonText = 'Issue Active USD Virtual Card Instead';
+      onTap = () => _showIssueCardModal(defaultCurrency: 'USD');
+    } else if (_selectedSegmentIndex == 1) {
+      // Physical NGN - COMING SOON
+      icon = Icons.local_shipping_outlined;
+      title = 'Physical Naira Cards Coming Soon';
+      desc = 'Embossed Rentilly Physical Debit Cards with EMV chip & nationwide ATM/POS access are launching soon across all 36 Nigerian states. Doorstep courier dispatch will open shortly.';
+      buttonText = 'Physical Naira Cards (Coming Soon)';
+      onTap = _showRequestPhysicalCardModal;
+    } else {
+      // Virtual USD
+      icon = Icons.public_rounded;
+      title = 'No Virtual Dollar Card Active';
+      desc = 'Get an institutional USD virtual Visa card. Pay online, subscribe to global services (OpenAI, AWS, Apple, Netflix) with standard US billing address.';
+      buttonText = 'Request Virtual Dollar Card (\$${_cardIssuanceFeeUsd.toStringAsFixed(2)})';
+      onTap = () => _showIssueCardModal(defaultCurrency: 'USD');
+    }
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
@@ -3128,11 +3321,11 @@ class _CardsScreenState extends State<CardsScreen> {
               color: const Color(0xFF0D5C46).withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.credit_card_off_rounded, color: Color(0xFF0D5C46), size: 48),
+            child: Icon(icon, color: const Color(0xFF0D5C46), size: 48),
           ),
           const SizedBox(height: 20),
           Text(
-            'No Virtual Dollar Card Active',
+            title,
             style: GoogleFonts.plusJakartaSans(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -3141,7 +3334,7 @@ class _CardsScreenState extends State<CardsScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Get an institutional USD virtual Visa card. Pay online, subscribe to global services (OpenAI, AWS, Apple, Netflix) with standard US billing address.',
+            desc,
             textAlign: TextAlign.center,
             style: GoogleFonts.plusJakartaSans(
               fontSize: 12.5,
@@ -3153,10 +3346,10 @@ class _CardsScreenState extends State<CardsScreen> {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: _showIssueCardModal,
+              onPressed: onTap,
               icon: const Icon(Icons.add_rounded, color: Colors.white, size: 20),
               label: Text(
-                'Request Virtual Dollar Card',
+                buttonText,
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
@@ -3172,6 +3365,427 @@ class _CardsScreenState extends State<CardsScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // --- 1b. COURIER DELIVERY TRACKING STEPPER FOR PHYSICAL CARDS ---
+  Widget _buildCourierTrackingWidget(Map<String, dynamic> card) {
+    final status = (card['deliveryStatus'] ?? 'DISPATCHED').toString().toUpperCase();
+    final trackingRef = card['courierTrackingRef'] ?? card['tracking_ref'] ?? 'RTL_EXP_882910';
+    final addr = card['shippingAddress'] ?? card['deliveryAddress'] ?? {};
+    final street = addr['street'] ?? 'Nationwide Address';
+    final state = addr['state'] ?? 'Lagos State';
+
+    int currentStep = 2; // 0 = Placed, 1 = Embossed, 2 = Dispatched, 3 = Delivered
+    if (status == 'PENDING' || status == 'ORDERED') currentStep = 0;
+    else if (status == 'EMBOSSED' || status == 'ENCODING') currentStep = 1;
+    else if (status == 'DISPATCHED' || status == 'IN_TRANSIT') currentStep = 2;
+    else if (status == 'DELIVERED') currentStep = 3;
+
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0D5C46).withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.local_shipping_rounded, color: Color(0xFF0D5C46), size: 18),
+                  ),
+                  const SizedBox(width: 10),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Doorstep Courier Tracking',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      Text(
+                        'Ref: $trackingRef',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0D5C46).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  currentStep >= 3 ? 'DELIVERED ✓' : 'IN TRANSIT 🚚',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: const Color(0xFF0D5C46),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Divider(height: 1, color: Color(0xFFF1F5F9)),
+          const SizedBox(height: 16),
+
+          _buildDeliveryStep(1, 'Order Approved & Cleared', 'Payment verified from Rentilly wallet', currentStep >= 0),
+          _buildDeliveryStep(2, 'EMV Chip Encoded & Embossed', 'NFC & contactless security embedded', currentStep >= 1),
+          _buildDeliveryStep(3, 'Dispatched via Courier Partner', 'Handed over for 36-state delivery', currentStep >= 2),
+          _buildDeliveryStep(4, 'Delivered to Destination', '$street, $state', currentStep >= 3, isLast: true),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDeliveryStep(int step, String title, String subtitle, bool isCompleted, {bool isLast = false}) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Column(
+          children: [
+            Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                color: isCompleted ? const Color(0xFF0D5C46) : const Color(0xFFE2E8F0),
+                shape: BoxShape.circle,
+              ),
+              child: Center(
+                child: isCompleted
+                    ? const Icon(Icons.check, size: 13, color: Colors.white)
+                    : Text('$step', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+              ),
+            ),
+            if (!isLast)
+              Container(
+                width: 2,
+                height: 28,
+                color: isCompleted ? const Color(0xFF0D5C46) : const Color(0xFFE2E8F0),
+              ),
+          ],
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: isCompleted ? AppColors.textPrimary : AppColors.textSecondary,
+                ),
+              ),
+              Text(
+                subtitle,
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 11,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // --- 1c. REQUEST PHYSICAL NAIRA CARD MODAL ---
+  void _showRequestPhysicalCardModal() {
+    if (_user == null) return;
+
+    final nameController = TextEditingController(text: _user?.fullName ?? '');
+    final phoneController = TextEditingController(text: _user?.phoneNumber ?? '');
+    final streetController = TextEditingController();
+    final cityController = TextEditingController(text: 'Lagos');
+    final lgaController = TextEditingController(text: 'Ikeja');
+    String selectedState = 'Lagos State';
+    bool isSubmitting = false;
+    String? errorMsg;
+
+    final statesList = [
+      'Lagos State', 'Abuja (FCT)', 'Rivers State', 'Oyo State', 'Enugu State',
+      'Delta State', 'Edo State', 'Kano State', 'Ogun State', 'Kaduna State',
+      'Anambra State', 'Akwa Ibom State', 'Imo State', 'Ondo State', 'Kwara State'
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) {
+          final userBalNgn = _user?.walletBalance ?? 0.0;
+          final totalCost = _physicalCardFeeNgn + _physicalDeliveryFeeNgn;
+          final hasEnough = userBalNgn >= totalCost;
+
+          return Container(
+            padding: EdgeInsets.only(
+              left: 20,
+              right: 20,
+              top: 20,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+            ),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE5E7EB),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0D5C46).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.local_shipping_rounded, color: Color(0xFF0D5C46), size: 24),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Request Physical Naira Card 🇳🇬',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 17,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            Text(
+                              'EMV Chip & PIN • ATM & POS • Doorstep Courier Delivery',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 12,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+
+                  TextField(
+                    controller: nameController,
+                    decoration: InputDecoration(
+                      labelText: 'Cardholder Name (Embossed on Card)',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      prefixIcon: const Icon(Icons.person_outline),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: phoneController,
+                    keyboardType: TextInputType.phone,
+                    decoration: InputDecoration(
+                      labelText: 'Contact Phone for Courier Delivery',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      prefixIcon: const Icon(Icons.phone_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: streetController,
+                    decoration: InputDecoration(
+                      labelText: 'Delivery Street Address',
+                      hintText: 'e.g. 15 Admiralty Way, Lekki Phase 1',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      prefixIcon: const Icon(Icons.location_on_outlined),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: cityController,
+                          decoration: InputDecoration(
+                            labelText: 'City / Town',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: lgaController,
+                          decoration: InputDecoration(
+                            labelText: 'LGA',
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: selectedState,
+                    decoration: InputDecoration(
+                      labelText: 'Delivery State',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    items: statesList.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                    onChanged: (v) => setModalState(() => selectedState = v ?? selectedState),
+                  ),
+                  const SizedBox(height: 18),
+
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF8FAFC),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Card Embossing & Encoding:', style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary)),
+                            Text('₦${_currencyFormat.format(_physicalCardFeeNgn)}', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Nationwide Courier Delivery:', style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textSecondary)),
+                            Text('₦${_currencyFormat.format(_physicalDeliveryFeeNgn)}', style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                        const Divider(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Total Payable from Wallet:', style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                            Text('₦${_currencyFormat.format(totalCost)}', style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w800, color: const Color(0xFF0D5C46))),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (errorMsg != null) ...[
+                    const SizedBox(height: 10),
+                    Text(errorMsg!, style: GoogleFonts.plusJakartaSans(fontSize: 12, color: Colors.red)),
+                  ],
+                  const SizedBox(height: 20),
+
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: isSubmitting || !hasEnough
+                          ? null
+                          : () async {
+                              if (streetController.text.trim().isEmpty) {
+                                setModalState(() => errorMsg = 'Please enter your delivery street address');
+                                return;
+                              }
+                              setModalState(() {
+                                isSubmitting = true;
+                                errorMsg = null;
+                              });
+                              try {
+                                final res = await ApiService.requestPhysicalCard(
+                                  email: _user!.email,
+                                  cardholderName: nameController.text.trim().isEmpty ? _user!.fullName : nameController.text.trim(),
+                                  phone: phoneController.text.trim(),
+                                  street: streetController.text.trim(),
+                                  city: cityController.text.trim(),
+                                  lga: lgaController.text.trim(),
+                                  state: selectedState,
+                                );
+                                if (res['success'] == true || res['status'] == true) {
+                                  Navigator.pop(ctx);
+                                  await _loadData();
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('🎉 Physical Naira Card requested! Your card is being prepared for dispatch.'),
+                                        backgroundColor: Color(0xFF0D5C46),
+                                      ),
+                                    );
+                                  }
+                                } else {
+                                  setModalState(() {
+                                    isSubmitting = false;
+                                    errorMsg = res['message'] ?? 'Failed to request card';
+                                  });
+                                }
+                              } catch (e) {
+                                setModalState(() {
+                                  isSubmitting = false;
+                                  errorMsg = e.toString();
+                                });
+                              }
+                            },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0D5C46),
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      child: isSubmitting
+                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : Text(
+                              hasEnough ? 'Confirm & Order Physical Card (₦${_currencyFormat.format(totalCost)})' : 'Insufficient Balance (₦${_currencyFormat.format(userBalNgn)})',
+                              style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -3234,18 +3848,30 @@ class _CardsScreenState extends State<CardsScreen> {
 
   // --- 2. LIVE VIRTUAL CARD WIDGET ---
   Widget _buildVirtualCardWidget(Map<String, dynamic> card, bool isFrozen, double balanceUsd, double balanceNgn) {
-    final maskedPan = card['maskedPan']?.toString() ?? '4288 5201 •••• 2470';
-    // Only use real synced PAN — never fabricate. If fullPan is null, show masked PAN.
+    final currency = (card['currency'] ?? 'USD').toString().toUpperCase();
+    final isNgn = currency == 'NGN';
+    final isPhysical = card['isPhysical'] == true ||
+        (card['cardType'] ?? card['type'] ?? '').toString().toUpperCase().contains('PHYSICAL');
+    final brand = (card['brand'] ?? (isNgn ? 'MASTERCARD' : 'VISA')).toString().toUpperCase();
+    final cardTitle = isPhysical
+        ? 'Rentilly Physical Naira Debit'
+        : (isNgn ? 'Rentilly Virtual Naira $brand' : 'Rentilly Virtual USD $brand');
+    final cardIcon = isPhysical
+        ? Icons.credit_card_rounded
+        : (isNgn ? Icons.bolt_rounded : Icons.public_rounded);
+
+    final maskedPan = card['maskedPan']?.toString() ?? (brand == 'VISA' ? '4829 •••• •••• 7194' : '5399 •••• •••• 2470');
     final hasRealPan = card['fullPan'] != null && card['fullPan'].toString().isNotEmpty;
     final rawFull = hasRealPan ? card['fullPan'].toString() : maskedPan;
     final cleanDigits = rawFull.replaceAll(RegExp(r'[^0-9]'), '');
     final fullPan = hasRealPan && cleanDigits.length == 16
         ? cleanDigits.replaceAllMapped(RegExp(r'.{4}'), (m) => '${m.group(0)} ').trim()
-        : maskedPan; // show properly masked PAN (with • intact) when real PAN not yet synced
+        : maskedPan;
     final cardholder = (card['cardholderName'] ?? _user?.fullName ?? 'CARDHOLDER').toString().toUpperCase();
     final expMonth = card['expiryMonth']?.toString() ?? '09';
     final expYear = card['expiryYear']?.toString() ?? '29';
     final cvv = card['cvv']?.toString() ?? '226';
+    final cardBal = (card['balance'] as num?)?.toDouble() ?? (isNgn ? balanceNgn : balanceUsd);
 
     return Container(
       width: double.infinity,
@@ -3255,12 +3881,16 @@ class _CardsScreenState extends State<CardsScreen> {
         gradient: LinearGradient(
           colors: isFrozen
               ? [const Color(0xFF1E293B), const Color(0xFF0F172A), const Color(0xFF1E293B)]
-              : [const Color(0xFF064E3B), const Color(0xFF0F172A), const Color(0xFF022C22)],
+              : (isPhysical
+                  ? [const Color(0xFF0F172A), const Color(0xFF1E293B), const Color(0xFF090D16)]
+                  : (isNgn
+                      ? [const Color(0xFF064E3B), const Color(0xFF0F172A), const Color(0xFF022C22)]
+                      : [const Color(0xFF0284C7), const Color(0xFF0F172A), const Color(0xFF075985)])),
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         border: Border.all(
-          color: isFrozen ? Colors.orange.withValues(alpha: 0.4) : AppColors.primary.withValues(alpha: 0.4),
+          color: isFrozen ? Colors.orange.withValues(alpha: 0.4) : (isPhysical ? const Color(0xFF38BDF8).withValues(alpha: 0.4) : AppColors.primary.withValues(alpha: 0.4)),
           width: 1.5,
         ),
         boxShadow: [
@@ -3299,15 +3929,15 @@ class _CardsScreenState extends State<CardsScreen> {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.credit_card_rounded, color: Colors.white, size: 20),
+                        Icon(cardIcon, color: Colors.white, size: 20),
                         const SizedBox(width: 8),
                         Text(
-                          'Rentilly USD Visa',
+                          cardTitle,
                           style: GoogleFonts.plusJakartaSans(
-                            fontSize: 13,
+                            fontSize: 12.5,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
-                            letterSpacing: 0.5,
+                            letterSpacing: 0.3,
                           ),
                         ),
                       ],
@@ -3392,7 +4022,9 @@ class _CardsScreenState extends State<CardsScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          '\$${_currencyFormat.format(balanceUsd)} USD',
+                          isNgn
+                              ? '₦${_currencyFormat.format(cardBal)} NGN'
+                              : '\$${_currencyFormat.format(balanceUsd)} USD',
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 22,
                             fontWeight: FontWeight.w900,
@@ -3401,7 +4033,9 @@ class _CardsScreenState extends State<CardsScreen> {
                           ),
                         ),
                         Text(
-                          '≈ ₦${_currencyFormat.format(balanceNgn)}',
+                          isNgn
+                              ? '≈ \$${_currencyFormat.format(cardBal / _fxUsdToNgn)}'
+                              : '≈ ₦${_currencyFormat.format(balanceNgn)}',
                           style: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: Colors.white70),
                         ),
                       ],
@@ -3456,7 +4090,7 @@ class _CardsScreenState extends State<CardsScreen> {
                   ],
                 ),
 
-                // Bottom Row: Cardholder, Expiry, CVV & Visa Badge (Well-contained, zero overflow)
+                // Bottom Row: Cardholder, Expiry, CVV & Brand Badge
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -3492,15 +4126,25 @@ class _CardsScreenState extends State<CardsScreen> {
                       ],
                     ),
                     const SizedBox(width: 10),
-                    Text(
-                      'VISA',
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                        fontStyle: FontStyle.italic,
-                        color: Colors.white,
-                        letterSpacing: 1.5,
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isPhysical)
+                          const Padding(
+                            padding: EdgeInsets.only(right: 6),
+                            child: Icon(Icons.contactless_rounded, color: Colors.white70, size: 18),
+                          ),
+                        Text(
+                          brand == 'MASTERCARD' ? 'mastercard' : 'VISA',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: brand == 'MASTERCARD' ? 14 : 20,
+                            fontWeight: FontWeight.w900,
+                            fontStyle: brand == 'MASTERCARD' ? FontStyle.normal : FontStyle.italic,
+                            color: Colors.white,
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

@@ -76,24 +76,25 @@ class _TransactionReceiptModalState extends State<TransactionReceiptModal> {
     }
   }
 
-  // 1. Share as Image (PNG) - Guaranteed Uniformity with PDF Receipt
+  // 1. Share as Image (PNG) - Pixel-perfect native capture with zero whitespace
   Future<void> _handleShareImage() async {
     setState(() {
       _isExporting = true;
       _exportActionName = 'image';
     });
     try {
-      Uint8List? rasterBytes;
-      try {
-        rasterBytes = await StatementPdfService.generateReceiptImageBytes(
-          transaction: widget.transaction,
-          user: widget.user,
-          currency: widget.currency,
-          dpi: 288.0,
-        );
-      } catch (e) {
-        debugPrint('Raster generator fallback: $e');
-        rasterBytes = await _captureReceiptImage();
+      Uint8List? rasterBytes = await _captureReceiptImage();
+      if (rasterBytes == null) {
+        try {
+          rasterBytes = await StatementPdfService.generateReceiptImageBytes(
+            transaction: widget.transaction,
+            user: widget.user,
+            currency: widget.currency,
+            dpi: 288.0,
+          );
+        } catch (e) {
+          debugPrint('Raster generator fallback: $e');
+        }
       }
 
       await StatementPdfService.shareReceiptImage(
@@ -149,17 +150,18 @@ class _TransactionReceiptModalState extends State<TransactionReceiptModal> {
       _exportActionName = 'save_img';
     });
     try {
-      Uint8List? rasterBytes;
-      try {
-        rasterBytes = await StatementPdfService.generateReceiptImageBytes(
-          transaction: widget.transaction,
-          user: widget.user,
-          currency: widget.currency,
-          dpi: 288.0,
-        );
-      } catch (e) {
-        debugPrint('Raster generator fallback: $e');
-        rasterBytes = await _captureReceiptImage();
+      Uint8List? rasterBytes = await _captureReceiptImage();
+      if (rasterBytes == null) {
+        try {
+          rasterBytes = await StatementPdfService.generateReceiptImageBytes(
+            transaction: widget.transaction,
+            user: widget.user,
+            currency: widget.currency,
+            dpi: 288.0,
+          );
+        } catch (e) {
+          debugPrint('Raster generator fallback: $e');
+        }
       }
 
       await StatementPdfService.saveReceiptImageToDevice(

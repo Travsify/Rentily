@@ -109,7 +109,6 @@ class _Login2faModalState extends State<Login2faModal> {
 
     final res = await OtpService.sendOtp(
       email: widget.email,
-      phoneNumber: widget.phoneNumber,
       userName: widget.userName,
       channel: 'email',
       purpose: widget.purpose,
@@ -153,7 +152,6 @@ class _Login2faModalState extends State<Login2faModal> {
       // 1. Registration mode: strictly verify code via OtpService (does NOT check if user exists in DB)
       final res = await OtpService.verifyOtp(
         email: widget.email,
-        phoneNumber: widget.phoneNumber,
         code: code,
       );
       if (res['success'] == true) {
@@ -174,7 +172,6 @@ class _Login2faModalState extends State<Login2faModal> {
         // Fallback: If loginWithOtp failed (e.g. already logged in via password, or user lookup issue), verify the OTP directly
         final verifyRes = await OtpService.verifyOtp(
           email: widget.email,
-          phoneNumber: widget.phoneNumber,
           code: code,
         );
         if (verifyRes['success'] == true) {

@@ -34,8 +34,8 @@ export class MultiCurrencyService {
 
   private static spreadConfig = {
     baseRate: 1430.00,
-    buyMargin: 30.00,  // Rentily pays 1400 (base - 30) when user sells USDT
-    sellMargin: 30.00, // Rentily charges 1460 (base + 30) when user buys USDT
+    buyMargin: 39.00,  // Standardized: base - 39 when selling other currencies into NGN
+    sellMargin: 39.00, // Standardized: base + 39 when buying other currencies with NGN, // Rentily charges 1460 (base + 30) when user buys USDT
   };
 
   /**
@@ -78,23 +78,46 @@ export class MultiCurrencyService {
     return this.getFxRates();
   }
 
+  /**
+   * Standardizes any wholesale/base FX rate relative to NGN:
+   * - NGN to Foreign currency: rate + 39 NGN (addition of 39 Naira)
+   * - Foreign currency to NGN: rate - 39 NGN (minus of 39 Naira)
+   */
+  static standardizeRate(baseRate: number, direction: 'NGN_TO_FOREIGN' | 'FOREIGN_TO_NGN'): number {
+    if (direction === 'NGN_TO_FOREIGN') {
+      return Number((baseRate + 39.0).toFixed(4));
+    } else {
+      return Number(Math.max(1, baseRate - 39.0).toFixed(4));
+    }
+  }
+
   static convert(from: string, to: string, amount: number): { from: string; to: string; amount: number; rate: number; convertedAmount: number; fee: number } {
     const f = from.toUpperCase().trim();
     const t = to.toUpperCase().trim();
     if (f === t) {
       return { from: f, to: t, amount, rate: 1.0, convertedAmount: amount, fee: 0 };
     }
-    const key = `${f}_${t}`;
-    const inverseKey = `${t}_${f}`;
-    let rate = this.fxRates[key];
-    if (!rate && this.fxRates[inverseKey]) {
-      rate = 1.0 / this.fxRates[inverseKey];
+
+    // Standardized Naira to other currencies (+39 NGN)
+    if (f === 'NGN') {
+      const baseForeignInNgn = this.fxRates[`${t}_NGN`] || (this.fxRates[`NGN_${t}`] ? 1 / this.fxRates[`NGN_${t}`] : 1510.0);
+      const standardizedRate = this.standardizeRate(baseForeignInNgn, 'NGN_TO_FOREIGN');
+      const effectiveMultiplier = 1.0 / standardizedRate;
+      const convertedAmount = Number((amount * effectiveMultiplier).toFixed(2));
+      return { from: f, to: t, amount, rate: Number(standardizedRate.toFixed(2)), convertedAmount, fee: 0 };
     }
-    if (!rate) {
-      const fromToNgn = f === 'NGN' ? 1.0 : (this.fxRates[`${f}_NGN`] || 1500.0);
-      const toFromNgn = t === 'NGN' ? 1.0 : (this.fxRates[`${t}_NGN`] || 1500.0);
-      rate = fromToNgn / toFromNgn;
+
+    // Standardized other currencies to Naira (-39 NGN)
+    if (t === 'NGN') {
+      const baseForeignInNgn = this.fxRates[`${f}_NGN`] || (this.fxRates[`NGN_${f}`] ? 1 / this.fxRates[`NGN_${f}`] : 1510.0);
+      const standardizedRate = this.standardizeRate(baseForeignInNgn, 'FOREIGN_TO_NGN');
+      const convertedAmount = Number((amount * standardizedRate).toFixed(2));
+      return { from: f, to: t, amount, rate: Number(standardizedRate.toFixed(2)), convertedAmount, fee: 0 };
     }
+
+    const fromBaseInNgn = this.fxRates[`${f}_NGN`] || 1510.0;
+    const toBaseInNgn = this.fxRates[`${t}_NGN`] || 1510.0;
+    const rate = fromBaseInNgn / toBaseInNgn;
     const convertedAmount = Number((amount * rate).toFixed(2));
     return { from: f, to: t, amount, rate: Number(rate.toFixed(4)), convertedAmount, fee: 0 };
   }

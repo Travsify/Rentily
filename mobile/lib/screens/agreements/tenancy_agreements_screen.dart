@@ -9,6 +9,7 @@ import '../../constants/app_colors.dart';
 import '../../services/auth_service.dart';
 import '../../services/api_service.dart';
 import '../properties/properties_screen.dart';
+import '../../widgets/rentilly_bottom_bar.dart';
 
 class TenancyAgreementsScreen extends StatefulWidget {
   const TenancyAgreementsScreen({super.key});
@@ -452,7 +453,7 @@ class _TenancyAgreementsScreenState extends State<TenancyAgreementsScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('DocuSign Digital Lock:', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
+                            Text('Digital Signature Lock:', style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary)),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
@@ -476,7 +477,7 @@ class _TenancyAgreementsScreenState extends State<TenancyAgreementsScreen> {
                 const SizedBox(height: 10),
                 // 5-step Stepper
                 _buildTrackingStep(1, 'Prepared & Vetted by Legal', 'Lease & title covenants customized for property jurisdiction', currentStep >= 0),
-                _buildTrackingStep(2, 'Digital Execution', isDiaspora ? 'DocuSign envelope executed across borders' : 'Landlord counter-signature registered', currentStep >= 1),
+                _buildTrackingStep(2, 'Digital Execution', isDiaspora ? 'Digital legal envelope executed across borders' : 'Landlord counter-signature registered', currentStep >= 1),
                 _buildTrackingStep(3, 'Corporate Seal & Stamped', 'Physical hard copy embossed with Rentilly Corporate Seal', currentStep >= 2),
                 _buildTrackingStep(4, 'Dispatched & In Transit', 'Handed over to $courier with door-to-door waybill', currentStep >= 3),
                 _buildTrackingStep(5, 'Delivered & Received', isConfirmed ? 'Confirmed received by recipient' : 'Awaiting physical delivery confirmation', currentStep >= 4, isLast: true),
@@ -581,6 +582,7 @@ class _TenancyAgreementsScreenState extends State<TenancyAgreementsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
+      bottomNavigationBar: const RentillyBottomBar(currentIndex: -1),
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,

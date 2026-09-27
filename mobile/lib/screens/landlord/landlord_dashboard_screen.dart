@@ -11,7 +11,6 @@ import '../../widgets/landlord_bottom_bar.dart';
 import '../../widgets/verification_modal.dart';
 import '../../widgets/partner_listing_modal.dart';
 import '../../widgets/partner_id_card_modal.dart';
-import '../../widgets/quick_utilities_modal.dart';
 import '../../widgets/add_money_modal.dart';
 import '../../widgets/withdrawal_modal.dart';
 import 'landlord_properties_screen.dart';
@@ -19,6 +18,9 @@ import 'landlord_wallet_screen.dart';
 import 'landlord_profile_screen.dart';
 import 'landlord_digital_leases_screen.dart';
 import '../cards/cards_screen.dart';
+import '../global_pay/global_pay_home_screen.dart';
+import '../global_pay/tuition_payment_screen.dart';
+import '../global_pay/supplier_payout_screen.dart';
 import '../../utils/id_utils.dart';
 import '../../services/notification_service.dart';
 import '../shared/notification_center_screen.dart';
@@ -26,6 +28,8 @@ import '../shared/chat_inbox_screen.dart';
 import '../inspections/inspections_screen.dart';
 import '../home/property_detail_screen.dart';
 import '../services/external_legal_screen.dart';
+import '../lifestyle/lifestyle_hub_screen.dart';
+import '../bills/bills_screen.dart';
 import '../../widgets/biometric_prompt_modal.dart';
 
 class LandlordDashboardScreen extends StatefulWidget {
@@ -72,12 +76,12 @@ class _LandlordDashboardScreenState extends State<LandlordDashboardScreen> {
         width: 44,
         height: 44,
         child: FloatingActionButton(
-          onPressed: () => QuickUtilitiesModal.show(context),
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const BillsScreen(initialCategory: 'electricity'))),
           backgroundColor: AppColors.accentOrange,
           foregroundColor: Colors.white,
           elevation: 3,
           shape: const CircleBorder(),
-          tooltip: 'Bill Payment',
+          tooltip: 'Electricity & Bills',
           child: const Icon(Icons.bolt_rounded, size: 22),
         ),
       ),
@@ -615,12 +619,14 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
                       },
                     ),
                     _buildGridCard(
-                      icon: Icons.receipt_long_rounded,
-                      title: 'Bill Payment',
-                      subtitle: 'Utilities & Units',
+                      icon: Icons.electric_meter_rounded,
+                      title: 'Electricity & Bills',
+                      subtitle: '20-Digit STS Tokens',
                       badge: 'INSTANT',
                       color: AppColors.accentOrange,
-                      onTap: () => QuickUtilitiesModal.show(context),
+                      onTap: () {
+                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const BillsScreen(initialCategory: 'electricity')));
+                      },
                     ),
                     _buildGridCard(
                       icon: Icons.qr_code_scanner_rounded,
@@ -660,17 +666,57 @@ class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
                         }
                       },
                     ),
+                    _buildGridCard(
+                      icon: Icons.public_rounded,
+                      title: 'Global Payout',
+                      subtitle: '150+ Countries Wire',
+                      badge: 'REMIT',
+                      color: const Color(0xFF047857),
+                      onTap: () {
+                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GlobalPayHomeScreen()));
+                      },
+                    ),
+                    _buildGridCard(
+                      icon: Icons.school_rounded,
+                      title: 'Pay Tuition',
+                      subtitle: 'UK, US, Canada & EU',
+                      badge: 'OVERSEAS',
+                      color: const Color(0xFF7C3AED),
+                      onTap: () {
+                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TuitionPaymentScreen()));
+                      },
+                    ),
+                    _buildGridCard(
+                      icon: Icons.local_shipping_rounded,
+                      title: 'Pay Suppliers',
+                      subtitle: 'Direct Wire & FX Lock',
+                      badge: 'B2B WIRE',
+                      color: const Color(0xFFF59E0B),
+                      onTap: () {
+                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SupplierPayoutScreen()));
+                      },
+                    ),
                     if (ApiService.featureFlags.enableVirtualCards)
                       _buildGridCard(
                         icon: Icons.credit_card_rounded,
-                        title: 'Dollar Cards Desk',
-                        subtitle: 'Virtual USD Visa',
-                        badge: 'GLOBAL',
+                        title: 'Cards Desk',
+                        subtitle: 'NGN & USD Cards',
+                        badge: 'INSTANT',
                         color: const Color(0xFF0284C7),
                         onTap: () {
                           Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CardsScreen()));
                         },
                       ),
+                    _buildGridCard(
+                      icon: Icons.card_giftcard_rounded,
+                      title: 'Lifestyle & Gift',
+                      subtitle: 'Crypto, eSIM & Cards',
+                      badge: 'GLOBAL',
+                      color: const Color(0xFF8B5CF6),
+                      onTap: () {
+                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const LifestyleHubScreen(initialTabIndex: 0)));
+                      },
+                    ),
                   ],
                 ),
                 const SizedBox(height: 22),

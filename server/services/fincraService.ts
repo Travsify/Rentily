@@ -910,12 +910,29 @@ export class FincraService {
       const resJson: any = await res.json().catch(() => null);
 
       if (res.ok && resJson && (resJson.status === true || resJson.success === true)) {
+        const rawWholesaleRate = Number(resJson.data?.rate || 0);
+        const srcCurr = (params.sourceCurrency || 'NGN').toUpperCase();
+        const dstCurr = params.destinationCurrency.toUpperCase();
+
+        // Standardized exchange: +39 NGN for Naira to other currencies, -39 NGN for other currencies to Naira
+        let standardizedRate = rawWholesaleRate;
+        if (srcCurr === 'NGN' && dstCurr !== 'NGN') {
+          standardizedRate = rawWholesaleRate > 0 ? (rawWholesaleRate + 39.0) : (1550.0 + 39.0);
+        } else if (srcCurr !== 'NGN' && dstCurr === 'NGN') {
+          standardizedRate = rawWholesaleRate > 0 ? Math.max(1, rawWholesaleRate - 39.0) : Math.max(1, 1550.0 - 39.0);
+        }
+
+        const calculatedSourceAmount = (srcCurr === 'NGN' && dstCurr !== 'NGN')
+          ? Math.round(Number(params.destinationAmount) * standardizedRate)
+          : Number(resJson.data?.sourceAmount || 0);
+
         return {
           status: true,
           data: {
             quoteReference: resJson.data?.quoteReference || resJson.data?.reference,
-            rate: Number(resJson.data?.rate || 0),
-            sourceAmount: Number(resJson.data?.sourceAmount || 0),
+            rate: standardizedRate,
+            wholesaleRate: rawWholesaleRate > 0 ? rawWholesaleRate : 1550.0,
+            sourceAmount: calculatedSourceAmount,
             destinationAmount: Number(resJson.data?.destinationAmount || params.destinationAmount),
             expiresAt: resJson.data?.expiresAt
           },
@@ -943,18 +960,25 @@ export class FincraService {
     destinationCurrency: string;
     destinationAmount: number;
     quoteReference?: string;
-    paymentScheme: 'fps' | 'sepa' | 'fedwire' | 'swift' | 'eft';
+    paymentScheme: 'fps' | 'sepa' | 'fedwire' | 'ach' | 'swift' | 'eft' | 'mobile_money';
+    paymentDestination?: 'bank_account' | 'mobile_money_wallet';
     beneficiary: {
       name: string;
       accountNumberOrIban: string;
-      routingCode: string;
-      bankName: string;
+      routingCode?: string;
+      bankName?: string;
       countryCode: string;
+      type?: 'individual' | 'corporate';
+      mobileOperator?: string;
       address?: {
         street?: string;
         city?: string;
         postalCode?: string;
       };
+    };
+    sender?: {
+      name?: string;
+      email?: string;
     };
     description: string;
   }): Promise<{
@@ -974,15 +998,16 @@ export class FincraService {
         amount: params.destinationAmount,
         customerReference: params.reference,
         description: params.description,
-        paymentDestination: 'bank_account',
+        paymentDestination: params.paymentDestination || (params.paymentScheme === 'mobile_money' ? 'mobile_money_wallet' : 'bank_account'),
         paymentScheme: params.paymentScheme,
         beneficiary: {
           firstName,
           lastName,
           accountHolderName: params.beneficiary.name,
           accountNumber: params.beneficiary.accountNumberOrIban,
-          bankCode: params.beneficiary.routingCode,
-          type: 'individual',
+          bankCode: params.beneficiary.routingCode || '',
+          type: params.beneficiary.type || 'individual',
+          mobileOperator: params.beneficiary.mobileOperator,
           address: {
             country: params.beneficiary.countryCode || 'GB',
             street: params.beneficiary.address?.street || 'Central Avenue',
@@ -991,8 +1016,8 @@ export class FincraService {
           }
         },
         sender: {
-          name: 'Rentilly Core Settlement',
-          email: 'support@myrentilly.com'
+          name: params.sender?.name || 'Rentilly Core Settlement',
+          email: params.sender?.email || 'support@myrentilly.com'
         }
       };
 

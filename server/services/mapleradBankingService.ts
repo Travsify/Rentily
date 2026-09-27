@@ -41,7 +41,7 @@ export interface Tier1ProvisionResult {
 
 export class MapleradBankingService {
   private static get apiKey(): string {
-    return process.env.MAPLERAD_SECRET_KEY || 'mpr_sk_35d197e6-3f6b-437c-995b-a0dff522b3dc';
+    return process.env.MAPLERAD_SECRET_KEY || 'mpr_sk_f7760b49-20ac-4f34-9126-9bea36df1291';
   }
 
   private static get baseUrl(): string {

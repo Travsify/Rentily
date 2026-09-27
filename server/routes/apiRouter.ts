@@ -441,6 +441,7 @@ apiRouter.post('/cards/pricing', paymentController.updateCardPricingHandler);
 apiRouter.get('/cards/user-cards', paymentController.getUserCards);
 apiRouter.get('/cards/all', paymentController.getAllCardsHandler);
 apiRouter.post('/cards/create', paymentController.issueVirtualCard);
+apiRouter.post('/cards/request-physical', paymentController.requestPhysicalCard);
 apiRouter.post('/cards/fund', paymentController.fundVirtualCard);
 apiRouter.post('/cards/withdraw', paymentController.withdrawVirtualCard);
 apiRouter.post('/cards/toggle-freeze', paymentController.toggleFreezeVirtualCard);
@@ -519,6 +520,7 @@ import * as globalPayController from '../controllers/globalPayController';
 apiRouter.get('/global-pay/config', globalPayController.getGlobalPayConfig);
 apiRouter.post('/global-pay/quote', globalPayController.getQuote);
 apiRouter.post('/global-pay/submit', globalPayController.submitGlobalPayout);
+apiRouter.post('/global-pay/payout', globalPayController.submitGlobalPayout);
 apiRouter.get('/global-pay/orders', globalPayController.getUserOrders);
 apiRouter.get('/global-pay/track/:reference', globalPayController.trackOrder);
 
@@ -618,5 +620,15 @@ apiRouter.post('/telemetry/app-download', async (req: Request, res: Response) =>
   }
 });
 
+// 39. Reloadly Global Utilities, Digital Gift Cards, Crypto Vouchers & Travel eSIM
+import * as reloadlyController from '../controllers/reloadlyController';
+apiRouter.get('/reloadly/utilities/billers', reloadlyController.getBillersHandler);
+apiRouter.post('/reloadly/utilities/validate', reloadlyController.validateMeterHandler);
+apiRouter.post('/reloadly/utilities/pay', reloadlyController.payBillHandler);
 
+apiRouter.get('/reloadly/giftcards/products', reloadlyController.getProductsHandler);
+apiRouter.get('/reloadly/giftcards/products/:id', reloadlyController.getProductDetailHandler);
+apiRouter.post('/reloadly/giftcards/order', reloadlyController.orderGiftCardHandler);
+apiRouter.get('/reloadly/giftcards/my-vouchers', reloadlyController.getUserVouchersHandler);
+apiRouter.get('/reloadly/countries', reloadlyController.getCountriesHandler);
 

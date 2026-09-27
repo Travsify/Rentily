@@ -214,7 +214,6 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
       Login2faModal.show(
         context,
         email: email,
-        phoneNumber: user?.phoneNumber,
         userName: user?.fullName,
         purpose: 'Sign-in Authentication 2FA',
         isRegistration: false,

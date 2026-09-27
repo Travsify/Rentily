@@ -7,6 +7,7 @@ import '../../models/user_profile.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../widgets/external_legal_order_modal.dart';
+import '../../widgets/rentilly_bottom_bar.dart';
 
 class ExternalLegalScreen extends StatefulWidget {
   const ExternalLegalScreen({super.key});
@@ -63,6 +64,7 @@ class _ExternalLegalScreenState extends State<ExternalLegalScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
+      bottomNavigationBar: const RentillyBottomBar(currentIndex: -1),
       appBar: AppBar(
         title: Text(
           'Legal & Title Services ⚖️',

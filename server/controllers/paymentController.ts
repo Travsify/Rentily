@@ -3221,7 +3221,7 @@ async function syncMapleradTransactionsForUser(cleanEmail: string) {
       }
     }
 
-    const key = process.env.MAPLERAD_SECRET_KEY || 'mpr_sk_35d197e6-3f6b-437c-995b-a0dff522b3dc';
+    const key = process.env.MAPLERAD_SECRET_KEY || 'mpr_sk_f7760b49-20ac-4f34-9126-9bea36df1291';
     const baseUrl = 'https://api.maplerad.com/v1';
 
     if (!customerId) {
@@ -4764,9 +4764,12 @@ export async function issueVirtualCard(req: Request, res: Response) {
     if (!currentBalNgn && user?.walletBalance != null) currentBalNgn = Number(user.walletBalance);
 
     // ─────────────────────────────────────────────────────────────────────────────
-    // A. VIRTUAL NAIRA (NGN) CARD ISSUANCE
+    // A. VIRTUAL NAIRA (NGN) CARD ISSUANCE - COMING SOON SAFEGUARD
     // ─────────────────────────────────────────────────────────────────────────────
     if (isNgn) {
+      return res.status(400).json({
+        error: 'Naira Virtual and Physical Cards are coming soon on domestic rails. Please issue an active USD Virtual Visa Card today.'
+      });
       const minFundingNgn = pricing.minFundingNgn || 1000.00;
       const initialNgn = Number(initialFunding || 0);
       if (isNaN(initialNgn) || initialNgn < minFundingNgn) {
@@ -5082,7 +5085,8 @@ export async function fundVirtualCard(req: Request, res: Response) {
     }
 
     const source = (paymentSource || 'NGN').toString().toUpperCase(); // 'NGN' or 'USDT'
-    const fxRate = MultiCurrencyService.getFxRates().USD_NGN || 1420.0;
+    const baseFxRate = MultiCurrencyService.getFxRates().USD_NGN || 1510.0;
+    const fxRate = baseFxRate + 39.0; // Standardized NGN to USD (+39 NGN)
     const debitAmountNgn = Number((amountUsd * fxRate).toFixed(2));
 
     if (source === 'USDT') {
@@ -6151,5 +6155,112 @@ export async function transferPlatformCrypto(req: Request, res: Response) {
     return res.status(500).json({ success: false, error: err.message || 'Error processing on-platform transfer' });
   }
 }
+
+/**
+ * Request a Physical Naira Debit Card with Doorstep Courier Delivery
+ */
+export async function requestPhysicalCard(req: Request, res: Response) {
+  try {
+    return res.status(400).json({
+      success: false,
+      error: 'Rentilly Physical Naira Debit Cards are coming soon across all 36 Nigerian states. Stay tuned!'
+    });
+    const { email, cardholderName, phone, shippingAddress } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+    const cleanEmail = email.toString().trim().toLowerCase();
+    const user = await UserStore.findByEmail(cleanEmail);
+    const name = (cardholderName || user?.fullName || 'CARDHOLDER').toString().trim().toUpperCase();
+
+    const pricing = CardIssuingService.getCardPricing?.() || {
+      issuanceFeeNgn: 1500,
+    };
+    const cardFee = 4500;
+    const deliveryFee = 2000;
+    const totalDebitNgn = cardFee + deliveryFee;
+
+    let currentBalNgn = 0;
+    if (supabase) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id, wallet_balance, full_name')
+        .eq('email', cleanEmail)
+        .single();
+      if (profile) currentBalNgn = Number(profile.wallet_balance || 0);
+    }
+    if (!currentBalNgn && user?.walletBalance != null) currentBalNgn = Number(user.walletBalance);
+
+    if (currentBalNgn < totalDebitNgn) {
+      return res.status(400).json({
+        error: `Insufficient Naira balance. Total required is ₦${totalDebitNgn.toLocaleString()} (₦${cardFee.toLocaleString()} card fee + ₦${deliveryFee.toLocaleString()} courier delivery), but your balance is ₦${currentBalNgn.toLocaleString()}.`
+      });
+    }
+
+    const last4 = Math.floor(1000 + Math.random() * 9000).toString();
+    const maskedPan = `5399 •••• •••• ${last4}`;
+    const uuidId = crypto.randomUUID();
+    const cardIdStr = `PHYS_CARD_${Date.now()}_${last4}`;
+    const trackingRef = `RTL_COURIER_${Math.floor(100000 + Math.random() * 900000)}`;
+
+    const physicalCard = {
+      id: uuidId,
+      card_id: cardIdStr,
+      cardholder_name: name,
+      email: cleanEmail,
+      currency: 'NGN',
+      brand: 'MASTERCARD',
+      card_type: 'PHYSICAL_DEBIT',
+      is_physical: true,
+      masked_pan: maskedPan,
+      expiry_month: '12',
+      expiry_year: '30',
+      cvv: '•••',
+      pin: '••••',
+      balance: 0.00,
+      spending_limit: 5000000.00,
+      is_frozen: false,
+      status: 'ACTIVE',
+      delivery_status: 'DISPATCHED',
+      courier_tracking_ref: trackingRef,
+      shipping_address: shippingAddress || {
+        street: 'Direct Client Address',
+        city: 'Lagos',
+        lga: 'Ikeja',
+        state: 'Lagos',
+        country: 'Nigeria'
+      },
+      phone: phone || '',
+      created_at: new Date().toISOString()
+    };
+
+    if (supabase) {
+      try {
+        await supabase.from('virtual_cards').insert([physicalCard]);
+      } catch (e: any) {
+        console.warn('[requestPhysicalCard] Supabase insert note:', e.message);
+      }
+    }
+
+    const newBal = Math.max(0, currentBalNgn - totalDebitNgn);
+    if (supabase) {
+      try {
+        await supabase.from('profiles').update({ wallet_balance: newBal }).eq('email', cleanEmail);
+      } catch (_) {}
+    }
+    if (user) user.walletBalance = newBal;
+
+    return res.json({
+      status: true,
+      message: 'Physical Naira card requested successfully! Your card is being embossed and will be delivered via courier.',
+      data: physicalCard,
+      trackingRef,
+      newBalance: newBal
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+
 
 

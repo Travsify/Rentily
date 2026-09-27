@@ -10,6 +10,7 @@ import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/notification_service.dart';
 import '../../services/payment_security_service.dart';
+import '../../widgets/rentilly_bottom_bar.dart';
 
 class BillsScreen extends StatefulWidget {
   final String initialCategory;
@@ -1007,6 +1008,7 @@ class _BillsScreenState extends State<BillsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
+      bottomNavigationBar: const RentillyBottomBar(currentIndex: 0),
       appBar: AppBar(
         title: Text(
           _appBarTitle,

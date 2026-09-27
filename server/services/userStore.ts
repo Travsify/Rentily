@@ -156,6 +156,31 @@ export class UserStore {
     return this.getAllUsers();
   }
 
+  static getUserByEmail(email: string): StoredUser | null {
+    if (!email) return null;
+    const clean = email.toLowerCase().trim();
+    const users = this.getAllUsers();
+    return users.find(u => (u.email || '').toLowerCase().trim() === clean) || null;
+  }
+
+  static getUserById(id: string): StoredUser | null {
+    if (!id) return null;
+    const users = this.getAllUsers();
+    return users.find(u => u.id === id) || null;
+  }
+
+  static async updateUser(email: string, updates: Partial<StoredUser>): Promise<StoredUser | null> {
+    const user = (await this.findByEmail(email)) || this.getUserByEmail(email);
+    if (!user) return null;
+    const updated: StoredUser = {
+      ...user,
+      ...updates,
+      updatedAt: new Date().toISOString()
+    };
+    this.upsertUser(updated);
+    return updated;
+  }
+
   /**
    * Loads all users: syncs with Supabase PostgreSQL cloud profiles
    * and falls back to cached/seed users if network is offline.
@@ -517,6 +542,13 @@ export class UserStore {
   static upsertUserForced(user: StoredUser): StoredUser {
     _lastSupabasePersist.delete(user.email.toLowerCase().trim()); // reset throttle clock
     return this.upsertUser(user);
+  }
+
+  static async updateWalletBalance(userId: string, newBalance: number): Promise<StoredUser | null> {
+    const user = await this.getUserById(userId);
+    if (!user) return null;
+    user.walletBalance = newBalance;
+    return this.upsertUserForced(user);
   }
 
   static async createUser(data: {

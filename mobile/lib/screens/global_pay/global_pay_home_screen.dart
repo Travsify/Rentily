@@ -8,8 +8,13 @@ import '../../constants/app_colors.dart';
 import '../../constants/app_constants.dart';
 import '../../models/user_profile.dart';
 import '../../services/auth_service.dart';
+import '../../widgets/rentilly_bottom_bar.dart';
+import '../../widgets/partner_bottom_bar.dart';
+import '../../widgets/landlord_bottom_bar.dart';
+import '../main_navigation_screen.dart';
 import 'tuition_payment_screen.dart';
 import 'supplier_payout_screen.dart';
+import 'global_payout_screen.dart';
 import 'global_pay_tracker_screen.dart';
 
 class GlobalPayHomeScreen extends StatefulWidget {
@@ -71,6 +76,13 @@ class _GlobalPayHomeScreenState extends State<GlobalPayHomeScreen> with SingleTi
           final data = jsonDecode(cfgRes.body);
           if (data['status'] == true && data['data'] != null) {
             _config = data['data'];
+            if (_config['corridors'] != null && _config['corridors'] is List) {
+              for (final c in _config['corridors']) {
+                if (c['currency'] != null && c['liveRate'] != null) {
+                  _rates[c['currency'].toString()] = (c['liveRate'] as num).toDouble();
+                }
+              }
+            }
           }
         }
       } catch (_) {}
@@ -97,10 +109,46 @@ class _GlobalPayHomeScreenState extends State<GlobalPayHomeScreen> with SingleTi
     }
   }
 
+  Widget _buildBottomBar() {
+    final role = _user?.role.toLowerCase() ?? 'renter';
+    if (role == 'partner') {
+      return PartnerBottomBar(
+        currentIndex: 2,
+        onTap: (i) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => MainNavigationScreen(initialIndex: i, initialPartnerMode: true)),
+            (route) => false,
+          );
+        },
+      );
+    } else if (role == 'owner' || role == 'landlord') {
+      return LandlordBottomBar(
+        currentIndex: 2,
+        onTap: (i) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => MainNavigationScreen(initialIndex: i, initialLandlordMode: true)),
+            (route) => false,
+          );
+        },
+      );
+    } else {
+      return RentillyBottomBar(
+        currentIndex: 3,
+        onTap: (i) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (_) => MainNavigationScreen(initialIndex: i)),
+            (route) => false,
+          );
+        },
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
+      bottomNavigationBar: _buildBottomBar(),
       appBar: AppBar(
         backgroundColor: AppColors.surfaceDark,
         elevation: 0,
@@ -227,7 +275,7 @@ class _GlobalPayHomeScreenState extends State<GlobalPayHomeScreen> with SingleTi
                     const Icon(Icons.public, size: 13, color: AppColors.mint),
                     const SizedBox(width: 5),
                     Text(
-                      'Fincra Cross-Border Rails',
+                      'Rentilly Direct Cross-Border Rails',
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
@@ -266,7 +314,7 @@ class _GlobalPayHomeScreenState extends State<GlobalPayHomeScreen> with SingleTi
           ),
           const SizedBox(height: 6),
           Text(
-            'Settle international tuition & supplier invoices in UK, US, Canada, Europe & China directly from your Naira balance.',
+            'Send money worldwide to any individual, business, overseas university, or supplier across 150+ countries directly from your Naira balance.',
             style: GoogleFonts.plusJakartaSans(
               fontSize: 12,
               fontWeight: FontWeight.w500,
@@ -367,6 +415,94 @@ class _GlobalPayHomeScreenState extends State<GlobalPayHomeScreen> with SingleTi
   Widget _buildActionCards() {
     return Column(
       children: [
+        // 0. Universal Global Remittance Card
+        InkWell(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const GlobalPayoutScreen()),
+            ).then((_) => _loadData());
+          },
+          borderRadius: BorderRadius.circular(18),
+          child: Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceDark,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: AppColors.primary.withOpacity(0.35)),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primary.withOpacity(0.08),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(Icons.public_rounded, color: AppColors.mint, size: 26),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Send Money Abroad (Pay Anyone)',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppColors.mint.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              'ANY BANK / PERSON',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.mint,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'Direct payouts to any individual or business bank account worldwide via FPS, SEPA, Fedwire, ACH & Mobile Money.',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.arrow_forward_ios, size: 14, color: AppColors.textMuted),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+
         // 1. Tuition Card
         InkWell(
           onTap: () {

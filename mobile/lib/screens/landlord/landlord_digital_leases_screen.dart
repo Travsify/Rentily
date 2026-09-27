@@ -320,12 +320,12 @@ class _LandlordDigitalLeasesScreenState extends State<LandlordDigitalLeasesScree
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Hard Copy & International DocuSign Dispatch',
+                          'Hard Copy & International Legal Dispatch',
                           style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold, color: const Color(0xFF0D5C46)),
                         ),
                         const SizedBox(height: 3),
                         Text(
-                          'In addition to digital escrow signing, the Rentilly Legal Desk dispatches physical stamped agreements via partner courier across all 36 Nigerian states and international DocuSign for diaspora tenants/buyers.',
+                          'In addition to digital escrow signing, the Rentilly Legal Desk dispatches physical stamped agreements via partner courier across all 36 Nigerian states and international digital execution for diaspora tenants/buyers.',
                           style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary, height: 1.35),
                         ),
                       ],
