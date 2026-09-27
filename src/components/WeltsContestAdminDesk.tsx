@@ -27,7 +27,7 @@ interface ContestSubmission {
   id: string;
   creatorName: string;
   handle: string;
-  platform: 'tiktok' | 'instagram' | 'youtube' | 'twitter';
+  platform: 'tiktok' | 'instagram' | 'youtube' | 'twitter' | 'direct';
   videoUrl: string;
   referralCode?: string;
   claimedViews: number;
@@ -1144,7 +1144,11 @@ export const WeltsContestAdminDesk: React.FC = () => {
                         </div>
                       </td>
                       <td className="py-4 px-6 uppercase text-xs font-semibold text-slate-400">
-                        {sub.platform}
+                        {sub.platform === 'direct' ? (
+                          <span className="text-emerald-400 font-bold">🎥 Direct Drop</span>
+                        ) : (
+                          sub.platform
+                        )}
                       </td>
                       <td className="py-4 px-6 text-right">
                         <div className="font-black text-white text-base">

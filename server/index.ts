@@ -102,7 +102,8 @@ let httpServer: ReturnType<typeof app.listen>;
 const isPrimaryWorker = !process.env.NODE_APP_INSTANCE || process.env.NODE_APP_INSTANCE === '0';
 
 app.use(cors({ origin: '*' }));
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
 // 1. Mount Public Partner Verification, Credential Audit, Mandate & Gate Check-in Endpoints
 app.get('/verify/mandate/:id', renderMandateVerificationPage);

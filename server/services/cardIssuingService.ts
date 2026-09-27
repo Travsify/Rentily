@@ -50,9 +50,12 @@ export interface CardTransaction {
 
 export interface CardPricingConfig {
   issuanceFeeUsd: number;
+  issuanceFeeNgn: number;
   fundingFeePercent: number;
   monthlyMaintenanceUsd: number;
+  monthlyMaintenanceNgn: number;
   minFundingUsd: number;
+  minFundingNgn: number;
   liquidationFeePercent: number;
 }
 
@@ -64,9 +67,12 @@ let _cardPins: Record<string, string> = {};
 export class CardIssuingService {
   private static cardPricing: CardPricingConfig = {
     issuanceFeeUsd: 3.00,
+    issuanceFeeNgn: 1500.00,
     fundingFeePercent: 1.5,
     monthlyMaintenanceUsd: 1.00,
-    minFundingUsd: 5.00,
+    monthlyMaintenanceNgn: 500.00,
+    minFundingUsd: 1.00,
+    minFundingNgn: 1000.00,
     liquidationFeePercent: 1.0,
   };
 
@@ -77,6 +83,15 @@ export class CardIssuingService {
     state: 'CA',
     postalCode: '94104',
     country: 'United States',
+  };
+
+  /** Official Nigeria Billing Address for Maplerad Virtual Naira Cards */
+  public static readonly DEFAULT_NGN_BILLING_ADDRESS = {
+    street: '12 Admiralty Way, Lekki Phase 1',
+    city: 'Lagos',
+    state: 'Lagos',
+    postalCode: '105102',
+    country: 'Nigeria',
   };
 
   /**
@@ -170,14 +185,23 @@ export class CardIssuingService {
     if (newConfig.issuanceFeeUsd !== undefined && newConfig.issuanceFeeUsd >= 0) {
       this.cardPricing.issuanceFeeUsd = Number(newConfig.issuanceFeeUsd);
     }
+    if (newConfig.issuanceFeeNgn !== undefined && newConfig.issuanceFeeNgn >= 0) {
+      this.cardPricing.issuanceFeeNgn = Number(newConfig.issuanceFeeNgn);
+    }
     if (newConfig.fundingFeePercent !== undefined && newConfig.fundingFeePercent >= 0) {
       this.cardPricing.fundingFeePercent = Number(newConfig.fundingFeePercent);
     }
     if (newConfig.monthlyMaintenanceUsd !== undefined && newConfig.monthlyMaintenanceUsd >= 0) {
       this.cardPricing.monthlyMaintenanceUsd = Number(newConfig.monthlyMaintenanceUsd);
     }
+    if (newConfig.monthlyMaintenanceNgn !== undefined && newConfig.monthlyMaintenanceNgn >= 0) {
+      this.cardPricing.monthlyMaintenanceNgn = Number(newConfig.monthlyMaintenanceNgn);
+    }
     if (newConfig.minFundingUsd !== undefined && newConfig.minFundingUsd >= 0) {
       this.cardPricing.minFundingUsd = Number(newConfig.minFundingUsd);
+    }
+    if (newConfig.minFundingNgn !== undefined && newConfig.minFundingNgn >= 0) {
+      this.cardPricing.minFundingNgn = Number(newConfig.minFundingNgn);
     }
     if (newConfig.liquidationFeePercent !== undefined && newConfig.liquidationFeePercent >= 0) {
       this.cardPricing.liquidationFeePercent = Number(newConfig.liquidationFeePercent);
@@ -573,8 +597,8 @@ export class CardIssuingService {
   }): Promise<VirtualCard> {
     const cleanEmail = params.email.trim().toLowerCase();
     const cleanName = params.cardholderName.trim().toUpperCase();
-    const brand = params.brand || 'VISA';
-    const currency = params.currency || 'USD';
+    const currency = (params.currency || 'USD').toUpperCase() as 'USD' | 'NGN';
+    const brand = params.brand || (currency === 'NGN' ? 'MASTERCARD' : 'VISA');
     const initialBal = Number(params.initialFunding || 0.00);
     const initialPin = Math.floor(1000 + Math.random() * 9000).toString();
 
@@ -583,7 +607,7 @@ export class CardIssuingService {
 
     // ─── 1. LIVE MAPLERAD API INTEGRATION ───
     try {
-      console.log(`[CardIssuingService] Attempting live card issuance via Maplerad for ${cleanEmail}...`);
+      console.log(`[CardIssuingService] Attempting live card issuance via Maplerad for ${cleanEmail} (${currency} ${brand})...`);
       const mapleradRes = await MapleradCardService.issueCard({
           email: cleanEmail,
           cardholderName: cleanName,
@@ -645,10 +669,10 @@ export class CardIssuingService {
       cvv: cvv,
       pin: initialPin,
       balance: initialBal,
-      spendingLimit: 10000.00,
+      spendingLimit: currency === 'NGN' ? 5000000.00 : 10000.00,
       isFrozen: false,
       status: 'ACTIVE',
-      billingAddress: this.DEFAULT_BILLING_ADDRESS,
+      billingAddress: currency === 'NGN' ? this.DEFAULT_NGN_BILLING_ADDRESS : this.DEFAULT_BILLING_ADDRESS,
       createdAt: new Date().toISOString()
     };
 

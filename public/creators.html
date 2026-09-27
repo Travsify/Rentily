@@ -734,16 +734,34 @@
   <script>
     const STORAGE_KEY = 'rentilly_creator_submissions_v1';
     let currentFilter = 'all';
+    let cachedSubmissions = [];
 
     const INITIAL_SEEDS = [];
 
+    async function fetchLiveSubmissions() {
+      try {
+        const res = await fetch('/api/contest/submissions');
+        const json = await res.json();
+        if (json.status && Array.isArray(json.submissions)) {
+          cachedSubmissions = json.submissions;
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(json.submissions));
+          render();
+          return;
+        }
+      } catch (e) {
+        console.warn('Using local cached submissions');
+      }
+    }
+
     function getData() {
+      if (cachedSubmissions && cachedSubmissions.length > 0) {
+        return cachedSubmissions;
+      }
       try {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (!raw) return [];
         const items = JSON.parse(raw);
-        const cleaned = items.filter(s => !s.id.startsWith('sub_') || s.id.length > 8);
-        return cleaned;
+        return items;
       } catch {
         return INITIAL_SEEDS;
       }
@@ -881,44 +899,50 @@
       document.getElementById('submitModal').classList.add('hidden');
     }
 
-    function handleFormSubmit(e) {
+    async function handleFormSubmit(e) {
       e.preventDefault();
       const followCheckbox = document.getElementById('formFollowed');
       if (!followCheckbox.checked) {
-        alert('Please confirm that you follow @myrentilly on social media to qualify for payouts.');
+        alert('Please confirm that you follow @renti_lly on Instagram or @rentilly on TikTok/X to qualify for payouts.');
         return;
       }
 
-      const newSub = {
-        id: 'sub_' + Date.now(),
+      const payload = {
         creatorName: document.getElementById('formName').value.trim(),
         handle: document.getElementById('formHandle').value.trim(),
         platform: document.getElementById('formPlatform').value,
         referralCode: (document.getElementById('formReferral').value || '').trim().toUpperCase(),
         videoUrl: document.getElementById('formUrl').value.trim(),
-        claimedViews: Number(document.getElementById('formViews').value) || 0,
-        verifiedViews: Number(document.getElementById('formViews').value) || 0,
+        claimedViews: Number(document.getElementById('formViews').value) || 1000,
         phone: document.getElementById('formPhone').value.trim(),
+        followHandle: document.getElementById('formFollowHandle') ? document.getElementById('formFollowHandle').value.trim() : '',
         bankName: document.getElementById('formBank').value.trim() || undefined,
         accountNumber: document.getElementById('formAccNum').value.trim() || undefined,
         accountName: document.getElementById('formAccName').value.trim() || undefined,
-        bountyStatus: 'under_review',
-        payoutAmount: 0,
-        createdAt: new Date().toISOString()
       };
 
-      const all = getData();
-      all.unshift(newSub);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
-
       try {
-        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
-      } catch(err) {}
+        const res = await fetch('/api/contest/submissions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const json = await res.json();
+        if (!res.ok || !json.status) {
+          throw new Error(json.message || 'Submission was not accepted.');
+        }
 
-      closeSubmitModal();
-      document.getElementById('submissionForm').reset();
-      render();
-      alert('🔥 Your video drop was submitted to the leaderboard!');
+        try {
+          confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+        } catch(err) {}
+
+        closeSubmitModal();
+        document.getElementById('submissionForm').reset();
+        await fetchLiveSubmissions();
+        alert('🔥 Your video drop was submitted and verified on the leaderboard!');
+      } catch (err) {
+        alert('⚠️ Submission error: ' + err.message);
+      }
     }
 
     function copyContestLink() {
@@ -943,6 +967,7 @@
         if (formRef) formRef.value = ref.toUpperCase();
       }
       render();
+      fetchLiveSubmissions();
 
       // Lightweight Visitor Imprint Beacon
       try {

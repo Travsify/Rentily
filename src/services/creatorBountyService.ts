@@ -9,16 +9,12 @@ export const CreatorBountyService = {
       if (!raw) return [];
       const items: CreatorSubmission[] = JSON.parse(raw);
       // Cleanse any old dummy/mock accounts permanently
+      const SEED_EXACT_IDS = ['sub_1', 'sub_2', 'sub_3', 'sub_4', 'sub_5', 'sub_6'];
       const cleaned = items.filter(
         (s) =>
           !s.id.startsWith('sub_seed_') &&
           !s.id.startsWith('csub_') &&
-          !s.id.startsWith('sub_1') &&
-          !s.id.startsWith('sub_2') &&
-          !s.id.startsWith('sub_3') &&
-          !s.id.startsWith('sub_4') &&
-          !s.id.startsWith('sub_5') &&
-          !s.id.startsWith('sub_6') &&
+          !SEED_EXACT_IDS.includes(s.id) &&
           s.handle !== '@bigdave_realty' &&
           s.handle !== '@tunde_reels' &&
           s.handle !== '@ada_lagosliving'

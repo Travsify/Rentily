@@ -529,6 +529,7 @@ apiRouter.post('/admin/referrals/config', referralController.updateReferralConfi
 import { contestController } from '../controllers/contestController';
 apiRouter.get('/contest/submissions', contestController.getSubmissions);
 apiRouter.post('/contest/submissions', contestController.createSubmission);
+apiRouter.post('/contest/upload-video', contestController.uploadVideo);
 apiRouter.put('/contest/submissions/:id', contestController.updateSubmission);
 apiRouter.post('/contest/sync-views', contestController.syncViews);
 apiRouter.post('/contest/admin/login', contestController.adminLogin);

@@ -1,4 +1,4 @@
-export type CreatorPlatform = 'tiktok' | 'instagram' | 'youtube' | 'twitter' | 'other';
+export type CreatorPlatform = 'tiktok' | 'instagram' | 'youtube' | 'twitter' | 'direct' | 'other';
 
 export type BountyStatus = 
   | 'under_review' 

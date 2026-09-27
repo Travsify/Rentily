@@ -24,7 +24,11 @@ import {
   Clock,
   ArrowRight,
   XCircle,
-  Activity
+  Activity,
+  Upload,
+  FileVideo,
+  Link2,
+  Loader2
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { CreatorBountyService } from '../services/creatorBountyService';
@@ -222,6 +226,12 @@ export const CreatorLeaderboardPortal: React.FC = () => {
     accountName: '',
   });
 
+  const [submissionType, setSubmissionType] = useState<'link' | 'file'>('file');
+  const [selectedVideoFile, setSelectedVideoFile] = useState<File | null>(null);
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadProgressText, setUploadProgressText] = useState<string>('');
+
   const loadData = async () => {
     try {
       const res = await fetch('/api/contest/submissions');
@@ -293,10 +303,33 @@ export const CreatorLeaderboardPortal: React.FC = () => {
     setIsBadgeModalOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (file.size > 100 * 1024 * 1024) {
+        alert('Video file is too large. Maximum allowed size is 100MB.');
+        return;
+      }
+      setSelectedVideoFile(file);
+      const objUrl = URL.createObjectURL(file);
+      setVideoPreviewUrl(objUrl);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.creatorName || !formData.videoUrl || !formData.handle) {
-      alert('Please fill in your name, handle, and video URL.');
+    if (!formData.creatorName || !formData.handle) {
+      alert('Please fill in your creator name and social handle.');
+      return;
+    }
+
+    if (submissionType === 'link' && !formData.videoUrl.trim()) {
+      alert('Please enter your video link (e.g. TikTok, Instagram Reel, YouTube Shorts, or X).');
+      return;
+    }
+
+    if (submissionType === 'file' && !selectedVideoFile) {
+      alert('Please select a video file (.mp4, .mov) from your device to upload.');
       return;
     }
 
@@ -306,7 +339,7 @@ export const CreatorLeaderboardPortal: React.FC = () => {
     }
 
     if (!formData.hasTaggedRentilly) {
-      alert('Please confirm that you have tagged Rentilly (@renti_lly on Instagram, @rentilly on TikTok/X) in your video and caption so viewers can visit our pages.');
+      alert('Please confirm that you have tagged Rentilly (@renti_lly on Instagram, @rentilly on TikTok/X) in your video and caption.');
       return;
     }
 
@@ -315,104 +348,153 @@ export const CreatorLeaderboardPortal: React.FC = () => {
       return;
     }
 
-    const views = parseInt(formData.claimedViews) || 1000;
-    const topic = (formData as any).topicCategory === 'property_purchase' ? 'purchase' : 'renters';
+    setIsSubmitting(true);
+    setUploadProgressText('Processing submission...');
 
-    CreatorBountyService.submitVideo({
-      creatorName: formData.creatorName,
-      handle: formData.handle.startsWith('@') ? formData.handle : `@${formData.handle}`,
-      platform: formData.platform,
-      videoUrl: formData.videoUrl,
-      topicCategory: topic,
-      claimedViews: views,
-      hasTaggedRentilly: formData.hasTaggedRentilly,
-      phone: formData.phone,
-      bankName: formData.bankName,
-      accountNumber: formData.accountNumber,
-      accountName: formData.accountName,
-    });
+    try {
+      let finalVideoUrl = formData.videoUrl.trim();
+      let detectedPlatform = formData.platform;
 
-    fetch('/api/contest/submissions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+      if (submissionType === 'file' && selectedVideoFile) {
+        setUploadProgressText(`Uploading ${selectedVideoFile.name} (${(selectedVideoFile.size / (1024 * 1024)).toFixed(1)} MB)...`);
+
+        const base64Data = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = (err) => reject(err);
+          reader.readAsDataURL(selectedVideoFile);
+        });
+
+        setUploadProgressText('Saving video to Rentilly CDN storage...');
+        const uploadRes = await fetch('/api/contest/upload-video', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filename: selectedVideoFile.name,
+            data: base64Data
+          })
+        });
+
+        const uploadJson = await uploadRes.json();
+        if (!uploadRes.ok || !uploadJson.status) {
+          throw new Error(uploadJson.message || 'Failed to upload video file to server.');
+        }
+
+        finalVideoUrl = uploadJson.videoUrl;
+        detectedPlatform = 'direct';
+      }
+
+      setUploadProgressText('Submitting to live contest leaderboard...');
+      const views = parseInt(formData.claimedViews) || 1000;
+      const topic = (formData as any).topicCategory === 'property_purchase' ? 'purchase' : 'renters';
+
+      const subRes = await fetch('/api/contest/submissions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          creatorName: formData.creatorName,
+          handle: formData.handle.startsWith('@') ? formData.handle : `@${formData.handle}`,
+          platform: detectedPlatform,
+          videoUrl: finalVideoUrl,
+          topicCategory: topic,
+          referralCode: formData.referralCode,
+          claimedViews: views,
+          phone: formData.phone,
+          followHandle: formData.followHandle,
+          hasTaggedRentilly: formData.hasTaggedRentilly,
+          taggedHandleProof: detectedPlatform === 'instagram' ? '@renti_lly' : '@rentilly',
+          ugcRightsGranted: formData.ugcRightsGranted,
+          bankName: formData.bankName,
+          accountNumber: formData.accountNumber,
+          accountName: formData.accountName,
+        })
+      });
+
+      const subJson = await subRes.json();
+      if (!subRes.ok || !subJson.status) {
+        throw new Error(subJson.message || 'Submission was rejected by the server.');
+      }
+
+      // Sync local storage
+      CreatorBountyService.submitVideo({
         creatorName: formData.creatorName,
         handle: formData.handle.startsWith('@') ? formData.handle : `@${formData.handle}`,
-        platform: formData.platform,
-        videoUrl: formData.videoUrl,
+        platform: detectedPlatform as any,
+        videoUrl: finalVideoUrl,
         topicCategory: topic,
-        referralCode: formData.referralCode,
         claimedViews: views,
-        phone: formData.phone,
-        followHandle: formData.followHandle,
         hasTaggedRentilly: formData.hasTaggedRentilly,
-        taggedHandleProof: formData.platform === 'instagram' ? '@renti_lly' : '@rentilly',
-        ugcRightsGranted: formData.ugcRightsGranted,
+        phone: formData.phone,
         bankName: formData.bankName,
         accountNumber: formData.accountNumber,
         accountName: formData.accountName,
-      })
-    }).catch(() => {});
-
-    try {
-      confetti({
-        particleCount: 120,
-        spread: 80,
-        origin: { y: 0.6 }
       });
-    } catch {
-      // Ignore if confetti is unavailable
+
+      // Instantly refresh live server data
+      await loadData();
+
+      try {
+        confetti({
+          particleCount: 120,
+          spread: 80,
+          origin: { y: 0.6 }
+        });
+      } catch {}
+
+      setIsSubmitModalOpen(false);
+      localStorage.setItem('rentilly_my_creator_handle', formData.handle);
+      setMyTrackedHandle(formData.handle);
+      setSearchQuery(formData.handle);
+
+      // Prepare contestant badge
+      const createdEntry: CreatorSubmission = {
+        id: subJson.submission?.id || ('sub-' + Date.now()),
+        creatorName: formData.creatorName,
+        handle: formData.handle.startsWith('@') ? formData.handle : `@${formData.handle}`,
+        platform: detectedPlatform,
+        videoUrl: finalVideoUrl,
+        topicCategory: topic,
+        claimedViews: views,
+        verifiedViews: subJson.submission?.verifiedViews || views,
+        phone: formData.phone,
+        bountyStatus: 'under_review',
+        payoutAmount: 0,
+        boostsCount: 0,
+        appReferralsCount: 0,
+        totalScore: views,
+        ugcRightsGranted: true,
+        createdAt: new Date().toISOString()
+      };
+      setBadgeCreator(createdEntry);
+      setIsBadgeModalOpen(true);
+
+      showToast(`🎉 Video drop submitted! You're now live on the Leaderboard as ${formData.handle}!`);
+
+      setFormData({
+        topicCategory: 'renters',
+        creatorName: '',
+        handle: '',
+        referralCode: '',
+        followHandle: '',
+        hasFollowed: false,
+        hasTaggedRentilly: false,
+        ugcRightsGranted: false,
+        platform: 'tiktok',
+        videoUrl: '',
+        claimedViews: '',
+        phone: '',
+        bankName: '',
+        accountNumber: '',
+        accountName: '',
+      });
+      setSelectedVideoFile(null);
+      setVideoPreviewUrl(null);
+    } catch (err: any) {
+      alert(`⚠️ Submission Error: ${err.message}`);
+    } finally {
+      setIsSubmitting(false);
+      setUploadProgressText('');
     }
-
-    setIsSubmitModalOpen(false);
-    localStorage.setItem('rentilly_my_creator_handle', formData.handle);
-    setMyTrackedHandle(formData.handle);
-    setSearchQuery(formData.handle);
-
-    // Prepare contestant badge
-    const createdEntry: CreatorSubmission = {
-      id: 'sub-' + Date.now(),
-      creatorName: formData.creatorName,
-      handle: formData.handle.startsWith('@') ? formData.handle : `@${formData.handle}`,
-      platform: formData.platform,
-      videoUrl: formData.videoUrl,
-      topicCategory: topic,
-      claimedViews: views,
-      verifiedViews: views,
-      phone: formData.phone,
-      bountyStatus: 'under_review',
-      payoutAmount: 0,
-      boostsCount: 0,
-      appReferralsCount: 0,
-      totalScore: views,
-      ugcRightsGranted: true,
-      createdAt: new Date().toISOString()
-    };
-    setBadgeCreator(createdEntry);
-    setIsBadgeModalOpen(true);
-
-    showToast(`🎉 Video drop submitted! You're now live on the Leaderboard as ${formData.handle}!`);
-
-    setFormData({
-      topicCategory: 'renters',
-      creatorName: '',
-      handle: '',
-      referralCode: '',
-      followHandle: '',
-      hasFollowed: false,
-      hasTaggedRentilly: false,
-      ugcRightsGranted: false,
-      platform: 'tiktok',
-      videoUrl: '',
-      claimedViews: '',
-      phone: '',
-      bankName: '',
-      accountNumber: '',
-      accountName: '',
-    });
-
-    loadData();
-    showToast('Video successfully submitted to the Leaderboard! You are now in the running.');
   };
 
   // Filtered submissions
@@ -2776,17 +2858,103 @@ export const CreatorLeaderboardPortal: React.FC = () => {
                     </p>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Video Live URL *</label>
-                    <input
-                      type="url"
-                      required
-                      placeholder="https://www.tiktok.com/@... or instagram.com/reel/..."
-                      value={formData.videoUrl}
-                      onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value })}
-                      className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500"
-                    />
+                  {/* DUAL-MODE SELECTION: UPLOAD VIDEO FILE VS PASTE VIDEO LINK */}
+                  <div className="space-y-2">
+                    <label className="block text-xs font-bold text-slate-300 uppercase">
+                      Video Entry Method *
+                    </label>
+                    <div className="grid grid-cols-2 gap-2 p-1 bg-slate-950 border border-slate-800 rounded-2xl">
+                      <button
+                        type="button"
+                        onClick={() => setSubmissionType('file')}
+                        className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-black transition cursor-pointer ${
+                          submissionType === 'file'
+                            ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/30'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Upload Video File</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSubmissionType('link')}
+                        className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl text-xs font-black transition cursor-pointer ${
+                          submissionType === 'link'
+                            ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/30'
+                            : 'text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        <Link2 className="w-3.5 h-3.5" />
+                        <span>Paste Video Link</span>
+                      </button>
+                    </div>
                   </div>
+
+                  {/* OPTION A: DIRECT VIDEO FILE UPLOAD */}
+                  {submissionType === 'file' ? (
+                    <div className="space-y-2">
+                      <label className="block text-xs font-bold text-emerald-400 uppercase">
+                        Select Video File (MP4, MOV, WebM up to 100MB) *
+                      </label>
+                      <div className="relative border-2 border-dashed border-emerald-500/40 hover:border-emerald-500 rounded-2xl p-4 bg-slate-950/70 text-center transition">
+                        <input
+                          type="file"
+                          accept="video/mp4,video/quicktime,video/webm"
+                          onChange={handleFileChange}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                        />
+                        {selectedVideoFile ? (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-center gap-2 text-emerald-400 text-xs font-bold">
+                              <CheckCircle2 className="w-4 h-4" />
+                              <span className="truncate max-w-[240px]">{selectedVideoFile.name}</span>
+                              <span className="text-[10px] text-slate-400">
+                                ({(selectedVideoFile.size / (1024 * 1024)).toFixed(1)} MB)
+                              </span>
+                            </div>
+                            {videoPreviewUrl && (
+                              <video
+                                src={videoPreviewUrl}
+                                controls
+                                playsInline
+                                className="w-full max-h-44 rounded-xl bg-black object-contain mx-auto shadow-lg"
+                              />
+                            )}
+                            <p className="text-[10px] text-slate-400">
+                              Tap or drag to replace with another video
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="py-4 space-y-2">
+                            <div className="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto">
+                              <FileVideo className="w-5 h-5" />
+                            </div>
+                            <p className="text-xs font-bold text-white">
+                              Tap to select video or drag &amp; drop here
+                            </p>
+                            <p className="text-[10px] text-slate-400">
+                              Supported on iPhone, Android &amp; Laptop (.mp4, .mov)
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    /* OPTION B: PASTE SOCIAL VIDEO LINK */
+                    <div>
+                      <label className="block text-xs font-bold text-slate-300 uppercase mb-1">
+                        Video Live URL *
+                      </label>
+                      <input
+                        type="url"
+                        placeholder="https://www.tiktok.com/@... or instagram.com/reel/..."
+                        value={formData.videoUrl}
+                        onChange={(e) => setFormData({ ...formData, videoUrl: e.target.value })}
+                        className="w-full px-4 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  )}
 
                   <div>
                     <label className="block text-xs font-bold text-slate-300 uppercase mb-1">Current Views</label>
@@ -2897,9 +3065,19 @@ export const CreatorLeaderboardPortal: React.FC = () => {
 
                   <button
                     type="submit"
-                    className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 text-slate-950 font-black text-sm shadow-xl shadow-emerald-500/20 transition transform hover:scale-[1.02] cursor-pointer"
+                    disabled={isSubmitting}
+                    className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-400 hover:to-emerald-500 disabled:opacity-60 disabled:cursor-not-allowed text-slate-950 font-black text-sm shadow-xl shadow-emerald-500/20 transition transform active:scale-95 cursor-pointer flex items-center justify-center gap-2"
                   >
-                    🚀 Submit Video &amp; Join Leaderboard
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-slate-950" />
+                        <span>{uploadProgressText || 'Uploading Video & Joining Leaderboard...'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>🚀 Submit Video &amp; Join Leaderboard</span>
+                      </>
+                    )}
                   </button>
                 </form>
               )}

@@ -89,18 +89,20 @@ export class MapleradCardService {
         };
       }
 
-      // 3. Issue Virtual Card via POST /v1/issuing
-      console.log(`[Maplerad] Calling POST /v1/issuing for customer ${customerId}...`);
+      // 3. Issue Card via POST /v1/issuing
+      const currency = (params.currency || 'USD').toUpperCase() as 'USD' | 'NGN';
+      const brand = params.brand || (currency === 'NGN' ? 'MASTERCARD' : 'VISA');
+      console.log(`[Maplerad] Calling POST /v1/issuing for customer ${customerId} (${currency} ${brand})...`);
       const cardRes = await fetch(`${this.baseUrl}/issuing`, {
         method: 'POST',
         headers: this.headers,
         signal: AbortSignal.timeout(8000),
         body: JSON.stringify({
           customer_id: customerId,
-          currency: 'USD',
+          currency: currency,
           type: 'VIRTUAL',
           auto_approve: true,
-          brand: params.brand || 'VISA',
+          brand: brand,
           amount: Math.max(0, Math.round((params.initialFunding || 0) * 100))
         })
       });

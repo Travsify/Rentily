@@ -4713,27 +4713,13 @@ export async function issueVirtualCard(req: Request, res: Response) {
     const user = await UserStore.findByEmail(cleanEmail);
     const name = cardholderName || user?.fullName || user?.businessName || 'Valued Partner';
 
-    // 1. Mandatory Minimum $1.00 USD initial funding
-    const initialUsd = Number(initialFunding || 0);
-    if (isNaN(initialUsd) || initialUsd < 1.00) {
-      return res.status(400).json({
-        error: 'A minimum initial card funding of $1.00 USD is mandatory to create a virtual card.'
-      });
-    }
+    const requestedCurrency = (currency || 'USD').toString().toUpperCase() as 'USD' | 'NGN';
+    const isNgn = requestedCurrency === 'NGN';
+    const pricing = typeof CardIssuingService.getCardPricing === 'function'
+      ? CardIssuingService.getCardPricing()
+      : { issuanceFeeUsd: 3.00, issuanceFeeNgn: 1500.00, minFundingNgn: 1000.00, minFundingUsd: 1.00 };
 
-    const rates = typeof MultiCurrencyService.getFxRates === 'function'
-      ? MultiCurrencyService.getFxRates()
-      : { USD_NGN: 1420.0 };
-    const fxRate = rates.USD_NGN || 1420.0;
-    const pricing = typeof CardIssuingService.getCardPricing === 'function' ? CardIssuingService.getCardPricing() : { issuanceFeeUsd: 3.00 };
-    const issuanceFeeUsd = pricing.issuanceFeeUsd || 3.00;
-    
-    // Total debit in USD = $3.00 fee + initial funding ($1.00 min)
-    const totalDebitUsd = Number((issuanceFeeUsd + initialUsd).toFixed(2));
-    const totalDebitNgn = Number((totalDebitUsd * fxRate).toFixed(2));
-    const source = (paymentSource || 'NGN').toString().toUpperCase(); // 'NGN' or 'USDT'
-
-    // Verify balances based on chosen source
+    // Fetch user balances from Supabase or memory
     let resolvedUserId = user?.id;
     let currentBalNgn = 0;
     let currentBalUsdt = 0;
@@ -4760,6 +4746,108 @@ export async function issueVirtualCard(req: Request, res: Response) {
     if (!currentBalUsdt && user?.usdtBalance != null) currentBalUsdt = Number(user.usdtBalance);
     if (!currentBalNgn && user?.walletBalance != null) currentBalNgn = Number(user.walletBalance);
 
+    // ─────────────────────────────────────────────────────────────────────────────
+    // A. VIRTUAL NAIRA (NGN) CARD ISSUANCE
+    // ─────────────────────────────────────────────────────────────────────────────
+    if (isNgn) {
+      const minFundingNgn = pricing.minFundingNgn || 1000.00;
+      const initialNgn = Number(initialFunding || 0);
+      if (isNaN(initialNgn) || initialNgn < minFundingNgn) {
+        return res.status(400).json({
+          error: `A minimum initial card funding of ₦${minFundingNgn.toLocaleString()} NGN is mandatory to create a Virtual Naira card.`
+        });
+      }
+
+      const issuanceFeeNgn = pricing.issuanceFeeNgn || 1500.00;
+      const totalDebitNgn = Number((issuanceFeeNgn + initialNgn).toFixed(2));
+
+      if (currentBalNgn < totalDebitNgn) {
+        return res.status(400).json({
+          error: `Insufficient Naira balance. Total required is ₦${totalDebitNgn.toLocaleString()} (₦${issuanceFeeNgn.toLocaleString()} issuance fee + ₦${initialNgn.toLocaleString()} initial balance), but your balance is ₦${currentBalNgn.toLocaleString()}.`
+        });
+      }
+
+      // 1. Issue the Virtual Naira card via Maplerad
+      const card = await CardIssuingService.issueCard({
+        email: cleanEmail,
+        cardholderName: name,
+        currency: 'NGN',
+        brand: brand || 'MASTERCARD',
+        initialFunding: initialNgn
+      });
+
+      // 2. Debit individual user balance in Supabase & record in ledger
+      const txRef = `RENTILLY_NGN_CARD_ISSUE_${Date.now()}`;
+      const newNgnBal = Math.max(0, currentBalNgn - totalDebitNgn);
+      if (user) {
+        user.walletBalance = newNgnBal;
+        UserStore.upsertUserForced(user);
+      }
+      if (supabase) {
+        await supabase.from('profiles').update({ wallet_balance: newNgnBal, updated_at: new Date().toISOString() }).eq('email', cleanEmail);
+        await supabase.from('wallet_transactions').insert({
+          user_id: resolvedUserId,
+          email: cleanEmail,
+          amount: totalDebitNgn,
+          currency: 'NGN',
+          type: 'debit',
+          status: 'completed',
+          flw_ref: txRef,
+          tx_ref: txRef,
+          narration: `Virtual Naira Card Issuance & Initial Funding: ₦${totalDebitNgn.toLocaleString('en-NG', { minimumFractionDigits: 2 })} (incl. ₦${issuanceFeeNgn.toLocaleString()} issuance fee)`,
+          created_at: new Date().toISOString()
+        });
+      }
+
+      // 3. Dispatch Notification
+      NotificationDispatcher.dispatch({
+        userId: resolvedUserId,
+        email: cleanEmail,
+        userName: name,
+        category: 'wallet',
+        title: `Virtual Naira Mastercard Issued! 💳`,
+        message: `Your new virtual card ending in ${card.maskedPan.slice(-4)} is active with ₦${initialNgn.toLocaleString()} initial balance. Total debit of ₦${totalDebitNgn.toLocaleString()} was processed from your Rentilly Naira wallet.`,
+        metadata: {
+          cardId: card.id,
+          maskedPan: card.maskedPan,
+          currency: 'NGN',
+          brand: card.brand,
+          amount: totalDebitNgn,
+          reference: txRef
+        }
+      });
+
+      return res.json({
+        status: true,
+        message: `Virtual Naira Mastercard issued successfully with ₦${initialNgn.toLocaleString()} initial balance!`,
+        data: card,
+        debitedAmount: totalDebitNgn,
+        currency: 'NGN',
+        paymentSource: 'NGN'
+      });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // B. VIRTUAL DOLLAR (USD) CARD ISSUANCE
+    // ─────────────────────────────────────────────────────────────────────────────
+    const initialUsd = Number(initialFunding || 0);
+    if (isNaN(initialUsd) || initialUsd < 1.00) {
+      return res.status(400).json({
+        error: 'A minimum initial card funding of $1.00 USD is mandatory to create a virtual card.'
+      });
+    }
+
+    const rates = typeof MultiCurrencyService.getFxRates === 'function'
+      ? MultiCurrencyService.getFxRates()
+      : { USD_NGN: 1420.0 };
+    const fxRate = rates.USD_NGN || 1420.0;
+    const issuanceFeeUsd = pricing.issuanceFeeUsd || 3.00;
+    
+    // Total debit in USD = $3.00 fee + initial funding ($1.00 min)
+    const totalDebitUsd = Number((issuanceFeeUsd + initialUsd).toFixed(2));
+    const totalDebitNgn = Number((totalDebitUsd * fxRate).toFixed(2));
+    const source = (paymentSource || 'NGN').toString().toUpperCase(); // 'NGN' or 'USDT'
+
     if (source === 'USDT') {
       if (currentBalUsdt < totalDebitUsd) {
         return res.status(400).json({
@@ -4778,7 +4866,7 @@ export async function issueVirtualCard(req: Request, res: Response) {
     const card = await CardIssuingService.issueCard({
       email: cleanEmail,
       cardholderName: name,
-      currency: currency || 'USD',
+      currency: 'USD',
       brand: brand || 'VISA',
       initialFunding: initialUsd
     });
@@ -4868,16 +4956,7 @@ export async function fundVirtualCard(req: Request, res: Response) {
     if (!email) {
       return res.status(400).json({ error: 'Email is required' });
     }
-    const amountUsd = Number(amount || 0);
-    if (!cardId || isNaN(amountUsd) || amountUsd < 1.00) {
-      return res.status(400).json({ error: 'Valid cardId and minimum funding amount of $1.00 USD are required.' });
-    }
-
     const cleanEmail = email.toString().trim().toLowerCase();
-    const source = (paymentSource || 'NGN').toString().toUpperCase(); // 'NGN' or 'USDT'
-    const fxRate = MultiCurrencyService.getFxRates().USD_NGN || 1420.0;
-    const debitAmountNgn = Number((amountUsd * fxRate).toFixed(2));
-
     const user = await UserStore.findByEmail(cleanEmail);
     const name = user?.fullName || user?.businessName || 'Valued Partner';
 
@@ -4899,6 +4978,95 @@ export async function fundVirtualCard(req: Request, res: Response) {
     }
     if (!currentBalUsdt && user?.usdtBalance != null) currentBalUsdt = Number(user.usdtBalance);
     if (!currentBalNgn && user?.walletBalance != null) currentBalNgn = Number(user.walletBalance);
+
+    // Resolve target card currency from Supabase
+    let cardCurrency = 'USD';
+    if (supabase) {
+      const { data: cData } = await supabase
+        .from('virtual_cards')
+        .select('currency')
+        .or(`id.eq.${cardId},card_id.eq.${cardId}`)
+        .maybeSingle();
+      if (cData?.currency) {
+        cardCurrency = cData.currency.toUpperCase();
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // A. VIRTUAL NAIRA (NGN) CARD FUNDING
+    // ─────────────────────────────────────────────────────────────────────────────
+    if (cardCurrency === 'NGN') {
+      const fundingAmountNgn = Number(amount || 0);
+      if (!cardId || isNaN(fundingAmountNgn) || fundingAmountNgn < 500) {
+        return res.status(400).json({ error: 'Valid cardId and minimum funding amount of ₦500 NGN are required.' });
+      }
+
+      if (currentBalNgn < fundingAmountNgn) {
+        return res.status(400).json({
+          error: `Insufficient Naira balance. Funding requires ₦${fundingAmountNgn.toLocaleString()}, but your balance is ₦${currentBalNgn.toLocaleString()}.`
+        });
+      }
+
+      // 1. Fund card on Maplerad & Supabase
+      const result = await CardIssuingService.fundCard(cardId, fundingAmountNgn);
+      if (!result.success) {
+        return res.status(400).json({ error: result.message });
+      }
+
+      // 2. Debit user's Naira wallet & record transaction
+      const txRef = `CARD_FUND_NGN_${Date.now()}`;
+      const newNgnBal = Math.max(0, currentBalNgn - fundingAmountNgn);
+      if (user) {
+        user.walletBalance = newNgnBal;
+        UserStore.upsertUserForced(user);
+      }
+      if (supabase) {
+        await supabase.from('profiles').update({ wallet_balance: newNgnBal, updated_at: new Date().toISOString() }).eq('email', cleanEmail);
+        await supabase.from('wallet_transactions').insert({
+          user_id: resolvedUserId,
+          email: cleanEmail,
+          amount: fundingAmountNgn,
+          currency: 'NGN',
+          type: 'debit',
+          status: 'completed',
+          flw_ref: txRef,
+          tx_ref: txRef,
+          narration: `Virtual Naira Card Top-Up: ₦${fundingAmountNgn.toLocaleString('en-NG', { minimumFractionDigits: 2 })}`,
+          created_at: new Date().toISOString()
+        });
+      }
+
+      // 3. Dispatch Notification
+      NotificationDispatcher.dispatch({
+        email: cleanEmail,
+        userName: name,
+        category: 'wallet',
+        title: `Virtual Naira Card Funded! 💳`,
+        message: `Successfully funded ₦${fundingAmountNgn.toLocaleString()} onto your Virtual Naira Card. New card balance: ₦${result.newBalance.toLocaleString()}.`,
+        metadata: { cardId, amountNgn: fundingAmountNgn, paymentSource: 'NGN', newBalance: result.newBalance, currency: 'NGN' }
+      });
+
+      return res.json({
+        status: true,
+        message: `Virtual Naira Card funded with ₦${fundingAmountNgn.toLocaleString()}!`,
+        newBalance: result.newBalance,
+        debitedAmount: fundingAmountNgn,
+        currency: 'NGN',
+        paymentSource: 'NGN'
+      });
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // B. VIRTUAL DOLLAR (USD) CARD FUNDING
+    // ─────────────────────────────────────────────────────────────────────────────
+    const amountUsd = Number(amount || 0);
+    if (!cardId || isNaN(amountUsd) || amountUsd < 1.00) {
+      return res.status(400).json({ error: 'Valid cardId and minimum funding amount of $1.00 USD are required.' });
+    }
+
+    const source = (paymentSource || 'NGN').toString().toUpperCase(); // 'NGN' or 'USDT'
+    const fxRate = MultiCurrencyService.getFxRates().USD_NGN || 1420.0;
+    const debitAmountNgn = Number((amountUsd * fxRate).toFixed(2));
 
     if (source === 'USDT') {
       if (currentBalUsdt < amountUsd) {
