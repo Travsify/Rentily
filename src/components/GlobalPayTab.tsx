@@ -1,20 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import {
   Globe,
-  DollarSign,
   GraduationCap,
-  Building2,
   Save,
   CheckCircle2,
   AlertCircle,
   RefreshCw,
   Search,
-  ExternalLink,
   ShieldCheck,
   Zap,
   Sliders,
-  Clock,
-  ArrowRight
+  Clock
 } from 'lucide-react';
 
 interface GlobalPayConfig {
