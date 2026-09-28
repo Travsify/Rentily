@@ -16,8 +16,10 @@ export async function sendEmailViaResend(to: string, subject: string, html: stri
       const payload = JSON.stringify({
         from: SENDER_EMAIL,
         to: [to.trim().toLowerCase()],
+        reply_to: 'info@myrentilly.com',
         subject,
-        html
+        html,
+        text: `${subject}\n\nYour transaction receipt is attached.\n\nRentilly Global Pay - Built By Landlords for every Tenant/Landlord\nSupport: info@myrentilly.com | https://myrentilly.com`
       });
 
       const req = https.request({

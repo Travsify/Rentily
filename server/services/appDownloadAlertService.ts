@@ -376,8 +376,10 @@ export class AppDownloadAlertService {
           body: JSON.stringify({
             from: SENDER_EMAIL,
             to: [recipient],
+            reply_to: 'info@myrentilly.com',
             subject,
-            html
+            html,
+            text: `${subject}\n\nLocation: ${info.location}\nDevice: ${info.deviceModel}\nDownloads: #${info.totalDownloads}`
           })
         });
 
@@ -396,8 +398,10 @@ export class AppDownloadAlertService {
             body: JSON.stringify({
               from: 'Rentilly <onboarding@resend.dev>',
               to: [recipient],
+              reply_to: 'info@myrentilly.com',
               subject,
-              html
+              html,
+              text: `${subject}\n\nLocation: ${info.location}\nDevice: ${info.deviceModel}\nDownloads: #${info.totalDownloads}`
             })
           }).catch(() => {});
         }

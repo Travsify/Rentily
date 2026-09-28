@@ -410,8 +410,10 @@ export class NotificationDispatcher {
             body: JSON.stringify({
               from: SENDER_EMAIL,
               to: [targetEmail],
+              reply_to: 'info@myrentilly.com',
               subject: event.title,
-              html: htmlBody
+              html: htmlBody,
+              text: `${event.title}\n\n${targetMessage}\n\nRentilly - Built By Landlords for every Tenant/Landlord\nSupport: info@myrentilly.com | https://myrentilly.com`
             })
           });
 
@@ -440,8 +442,10 @@ export class NotificationDispatcher {
               body: JSON.stringify({
                 from: 'Rentilly <onboarding@resend.dev>',
                 to: [targetEmail],
+                reply_to: 'info@myrentilly.com',
                 subject: event.title,
-                html: htmlBody
+                html: htmlBody,
+                text: `${event.title}\n\n${targetMessage}\n\nRentilly - Built By Landlords for every Tenant/Landlord\nSupport: info@myrentilly.com | https://myrentilly.com`
               })
             });
             const fallbackData: any = await fallbackRes.json();

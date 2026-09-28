@@ -284,8 +284,10 @@ export class ExecutiveActivityAlertService {
           body: JSON.stringify({
             from: SENDER_EMAIL,
             to: [EXECUTIVE_RECIPIENT],
+            reply_to: 'info@myrentilly.com',
             subject: `🚨 [Rentilly Threat Intercept] ${payload.title}`,
-            html: htmlBody
+            html: htmlBody,
+            text: `[Rentilly Threat Intercept] ${payload.title}\n\nThreat Level: ${payload.severity}\nDescription: ${payload.description}\nTimestamp: ${new Date().toISOString()}`
           })
         });
 
@@ -310,8 +312,10 @@ export class ExecutiveActivityAlertService {
             body: JSON.stringify({
               from: 'Rentilly Security <onboarding@resend.dev>',
               to: [EXECUTIVE_RECIPIENT],
+              reply_to: 'info@myrentilly.com',
               subject: `🚨 [Rentilly Threat Intercept] ${payload.title}`,
-              html: htmlBody
+              html: htmlBody,
+              text: `[Rentilly Threat Intercept] ${payload.title}\n\nThreat Level: ${payload.severity}\nDescription: ${payload.description}\nTimestamp: ${new Date().toISOString()}`
             })
           });
           const fbData: any = await fallbackRes.json();
