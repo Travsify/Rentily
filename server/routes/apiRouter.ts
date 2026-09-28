@@ -63,7 +63,7 @@ apiRouter.get('/termii/status', async (_req, res) => {
   });
 });
 
-apiRouter.post('/termii/test-sms', async (req, res) => {
+apiRouter.post('/termii/test-sms', adminSecuritySentinel, requireAdminAuth, async (req, res) => {
   const { to, message } = req.body;
   if (!to) return res.status(400).json({ error: 'Recipient phone number is required.' });
   const result = await TermiiService.sendSms({
@@ -74,7 +74,7 @@ apiRouter.post('/termii/test-sms', async (req, res) => {
 });
 
 // 1a. Dynamic Supabase Configuration & Validation
-apiRouter.post('/config/supabase', async (req, res) => {
+apiRouter.post('/config/supabase', adminSecuritySentinel, requireAdminAuth, async (req, res) => {
   try {
     const { url, anonKey, serviceRoleKey } = req.body;
     const keyToUse = (serviceRoleKey || anonKey || '').trim();
@@ -110,7 +110,7 @@ apiRouter.post('/config/supabase', async (req, res) => {
 });
 
 // 1b. Debug: verify AdminDataStore seed data loading (lazy import to avoid circular crash)
-apiRouter.get('/debug/store', (_req, res) => {
+apiRouter.get('/debug/store', adminSecuritySentinel, requireAdminAuth, (_req, res) => {
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { AdminDataStore } = require('../services/adminDataStore');
@@ -154,16 +154,16 @@ apiRouter.get('/auth/admin/sentinel/status', adminSecuritySentinel, getSentinelS
 apiRouter.post('/auth/admin/emergency-lockdown', adminSecuritySentinel, triggerEmergencyLockdown);
 apiRouter.post('/auth/admin/lift-lockdown', adminSecuritySentinel, liftEmergencyLockdown);
 apiRouter.get('/auth/me', authController.getMe);
-apiRouter.get('/users', authController.listUsers);
+apiRouter.get('/users', adminSecuritySentinel, requireAdminAuth, authController.listUsers);
 apiRouter.post('/auth/send-otp', otpController.sendOtp);
 apiRouter.post('/auth/verify-otp', otpController.verifyOtp);
 apiRouter.post('/auth/forgot-password/request-otp', authController.requestPasswordResetOtp);
 apiRouter.post('/auth/forgot-password/reset', authController.resetPasswordWithOtp);
 apiRouter.post('/auth/change-password', authController.changePassword);
 apiRouter.patch('/auth/update-profile', authController.updateProfile); // update name/phone without re-registering
-apiRouter.post('/users/create', authController.adminCreateUser);
-apiRouter.post('/users/:id/reset-password', authController.adminResetPassword);
-apiRouter.patch('/users/:id/role', authController.adminUpdateUserRole);
+apiRouter.post('/users/create', adminSecuritySentinel, requireAdminAuth, authController.adminCreateUser);
+apiRouter.post('/users/:id/reset-password', adminSecuritySentinel, requireAdminAuth, authController.adminResetPassword);
+apiRouter.patch('/users/:id/role', adminSecuritySentinel, requireAdminAuth, authController.adminUpdateUserRole);
 apiRouter.get('/auth/tier-status', authController.getTierStatus);
 apiRouter.post('/auth/upgrade-tier2', authController.upgradeTier2);
 apiRouter.post('/auth/upgrade-tier3', authController.upgradeTier3);
@@ -180,8 +180,8 @@ apiRouter.patch('/properties/:id/status', propertyController.updatePropertyStatu
 apiRouter.delete('/properties/:id', propertyController.deleteProperty);
 
 // 5. KYP Verification Desk
-apiRouter.get('/kyp/records', kypController.getKYPRecords);
-apiRouter.post('/kyp/:id/review', kypController.reviewKYP);
+apiRouter.get('/kyp/records', adminSecuritySentinel, requireAdminAuth, kypController.getKYPRecords);
+apiRouter.post('/kyp/:id/review', adminSecuritySentinel, requireAdminAuth, kypController.reviewKYP);
 
 // 6. Identitypass / Prembly Verification (NIN, BVN, CAC) & Maplerad Banking & Card Provisioning
 apiRouter.post('/verification/verify-and-provision', verificationController.verifyAndProvision);
@@ -285,16 +285,16 @@ apiRouter.post('/payments/crypto/transfer-platform', paymentController.transferP
 apiRouter.get('/payments/beneficiaries', paymentController.getUserBeneficiaries);
 apiRouter.post('/payments/beneficiaries', paymentController.saveUserBeneficiary);
 apiRouter.delete('/payments/beneficiaries', paymentController.deleteUserBeneficiary);
-apiRouter.post('/payments/reconcile', paymentController.adminReconcileBalance);
-apiRouter.post('/payments/register-and-credit', paymentController.adminRegisterAndCreditUser);
+apiRouter.post('/payments/reconcile', adminSecuritySentinel, requireAdminAuth, paymentController.adminReconcileBalance);
+apiRouter.post('/payments/register-and-credit', adminSecuritySentinel, requireAdminAuth, paymentController.adminRegisterAndCreditUser);
 apiRouter.get('/fx/spread-rates', paymentController.getFxSpreadRates);
-apiRouter.post('/fx/spread-rates', paymentController.updateFxSpreadConfig);
+apiRouter.post('/fx/spread-rates', adminSecuritySentinel, requireAdminAuth, paymentController.updateFxSpreadConfig);
 apiRouter.post('/wallet/swap', paymentController.executeCurrencySwap);
 
 // 8. Fraud Blacklist & Rogue Agent Registry
-apiRouter.get('/fraud/blacklist', fraudController.getBlacklist);
-apiRouter.post('/fraud/blacklist', fraudController.addToBlacklist);
-apiRouter.delete('/fraud/blacklist/:id', fraudController.deleteFromBlacklist);
+apiRouter.get('/fraud/blacklist', adminSecuritySentinel, requireAdminAuth, fraudController.getBlacklist);
+apiRouter.post('/fraud/blacklist', adminSecuritySentinel, requireAdminAuth, fraudController.addToBlacklist);
+apiRouter.delete('/fraud/blacklist/:id', adminSecuritySentinel, requireAdminAuth, fraudController.deleteFromBlacklist);
 apiRouter.post('/fraud/check', fraudController.checkBlacklist);
 
 // 9. Inspections & Gate Pass Verification
@@ -308,7 +308,7 @@ apiRouter.get('/inspections/verify-pass', inspectionController.verifyGatePass);
 apiRouter.get('/escrow/transactions', escrowController.getTransactions);
 apiRouter.get('/escrow/partner-commissions', escrowController.getPartnerCommissions);
 apiRouter.get('/partners/onboarded-landlords', getPartnerOnboardedLandlords);
-apiRouter.post('/escrow/:id/release-payout', escrowController.releaseEscrowPayout);
+apiRouter.post('/escrow/:id/release-payout', adminSecuritySentinel, requireAdminAuth, escrowController.releaseEscrowPayout);
 apiRouter.post('/escrow/pay', escrowController.payRentEscrow);
 apiRouter.get('/escrow/landlord-summary', escrowController.getLandlordEscrowSummary);
 apiRouter.post('/escrow/claims', escrowController.submitEscrowClaim);
@@ -417,7 +417,7 @@ apiRouter.get('/broadcast/history', broadcastController.getBroadcastHistory);
 // 17. Caution Deposit & Move-Out Damage Claims
 apiRouter.get('/caution/deposits', cautionController.getCautionDeposits);
 apiRouter.post('/caution/claim', cautionController.submitDamageClaim);
-apiRouter.post('/caution/resolve', cautionController.resolveCautionDeposit);
+apiRouter.post('/caution/resolve', adminSecuritySentinel, requireAdminAuth, cautionController.resolveCautionDeposit);
 
 // 18. Statutory Tenancy Legal Notices Generator
 apiRouter.post('/legal/statutory-notice', legalNoticesController.generateStatutoryNotice);
@@ -434,13 +434,13 @@ apiRouter.get('/reconciliation/audit', reconciliationController.runReconciliatio
 apiRouter.get('/wallet/multi-currency-accounts', paymentController.getMultiCurrencyAccounts);
 apiRouter.post('/wallet/convert-currency', paymentController.convertVaultCurrency);
 apiRouter.get('/wallet/fx-rates', paymentController.getFxRatesHandler);
-apiRouter.post('/wallet/fx-rates', paymentController.updateFxRatesHandler);
+apiRouter.post('/wallet/fx-rates', adminSecuritySentinel, requireAdminAuth, paymentController.updateFxRatesHandler);
 
 // 22. Virtual Card Issuing & Management
 apiRouter.get('/cards/pricing', paymentController.getCardPricingHandler);
-apiRouter.post('/cards/pricing', paymentController.updateCardPricingHandler);
+apiRouter.post('/cards/pricing', adminSecuritySentinel, requireAdminAuth, paymentController.updateCardPricingHandler);
 apiRouter.get('/cards/user-cards', paymentController.getUserCards);
-apiRouter.get('/cards/all', paymentController.getAllCardsHandler);
+apiRouter.get('/cards/all', adminSecuritySentinel, requireAdminAuth, paymentController.getAllCardsHandler);
 apiRouter.post('/cards/create', paymentController.issueVirtualCard);
 apiRouter.post('/cards/request-physical', paymentController.requestPhysicalCard);
 apiRouter.post('/cards/fund', paymentController.fundVirtualCard);
@@ -449,7 +449,7 @@ apiRouter.post('/cards/toggle-freeze', paymentController.toggleFreezeVirtualCard
 apiRouter.post('/cards/delete', paymentController.deleteVirtualCard);
 apiRouter.post('/cards/set-pin', paymentController.setCardPin);
 apiRouter.post('/cards/reveal-details', paymentController.revealCardDetails);
-apiRouter.post('/cards/spend', paymentController.spendCard);
+apiRouter.post('/cards/spend', adminSecuritySentinel, requireAdminAuth, paymentController.spendCard);
 apiRouter.get('/cards/transactions/:cardId', paymentController.getCardTransactions);
 
 // 23. Client Push & Email Notification Dispatch Trigger
@@ -561,7 +561,7 @@ import { telemetryController } from '../controllers/telemetryController';
 apiRouter.post('/telemetry/imprint', telemetryController.recordImprint);
 apiRouter.get('/telemetry/imprint', telemetryController.getStats);
 apiRouter.get('/telemetry/stats', telemetryController.getStats);
-apiRouter.post('/telemetry/reset', telemetryController.resetStats);
+apiRouter.post('/telemetry/reset', adminSecuritySentinel, requireAdminAuth, telemetryController.resetStats);
 
 // 33. Savings-Backed Collateralized Credit Advance Engine (80% LTV, 2.5%/mo)
 apiRouter.get('/credit/eligibility', creditController.getEligibility);

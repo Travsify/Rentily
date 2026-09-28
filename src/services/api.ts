@@ -22,6 +22,15 @@ const STORAGE_KEYS = {
   AUTH_USER: 'rentilly_auth_user'
 };
 
+export const getAdminHeaders = (extra?: Record<string, string>) => {
+  const token = typeof window !== 'undefined' ? (localStorage.getItem('rentilly_auth_token') || sessionStorage.getItem('rentilly_admin_token') || '') : '';
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...extra,
+  };
+};
+
 // Check backend availability
 export async function checkServerHealth() {
   try {
@@ -286,7 +295,7 @@ export class RentillyApiService {
   static async getKYPRecords(status?: string): Promise<KYPRecord[]> {
     try {
       const url = `${activeApiBase}/kyp/records${status ? `?status=${status}` : ''}`;
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: getAdminHeaders() });
       if (res.ok) return await res.json();
     } catch (e) {
       console.error('Error fetching KYP records:', e);
@@ -302,7 +311,7 @@ export class RentillyApiService {
   ): Promise<KYPRecord> {
     const res = await fetch(`${activeApiBase}/kyp/${kypId}/review`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAdminHeaders(),
       body: JSON.stringify({ status, landRegistrySearchNotes, rejectionReason })
     });
 
@@ -367,7 +376,8 @@ export class RentillyApiService {
 
   static async releaseEscrowPayout(transactionId: string): Promise<Transaction> {
     const res = await fetch(`${activeApiBase}/escrow/${transactionId}/release-payout`, {
-      method: 'POST'
+      method: 'POST',
+      headers: getAdminHeaders()
     });
 
     if (!res.ok) throw new Error('Failed to release escrow payout');
@@ -405,7 +415,7 @@ export class RentillyApiService {
   // 7. Users & Stakeholders Audit
   static async getUsers(): Promise<UserProfile[]> {
     try {
-      const res = await fetch(`${activeApiBase}/users`);
+      const res = await fetch(`${activeApiBase}/users`, { headers: getAdminHeaders() });
       if (res.ok) return await res.json();
     } catch (e) {
       console.error('Error fetching users:', e);
@@ -417,7 +427,7 @@ export class RentillyApiService {
   static async configureSupabase(data: { url: string; anonKey?: string; serviceRoleKey?: string }): Promise<{ success: boolean; connected: boolean; message: string }> {
     const res = await fetch(`${activeApiBase}/config/supabase`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAdminHeaders(),
       body: JSON.stringify(data)
     });
     return await res.json();

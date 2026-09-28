@@ -549,16 +549,23 @@ export async function changePassword(req: Request, res: Response) {
 
 export async function adminResetPassword(req: Request, res: Response) {
   try {
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    const adminCheck = verifyAdminSessionToken(token);
+    if (!adminCheck.valid) {
+      return res.status(403).json({ error: 'Administrative clearance required.' });
+    }
+
     const id = req.params.id as string;
     const { newPassword } = req.body;
-    if (!newPassword) {
-      return res.status(400).json({ error: 'New password is required' });
+    if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
+      return res.status(400).json({ error: 'New password of at least 6 characters is required' });
     }
     const user = await UserStore.findById(id);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    const newHash = crypto.createHash('sha256').update(newPassword).digest('hex');
+    const newHash = hashPassword(newPassword);
     UserStore.upsertUser({
       ...user,
       passwordHash: newHash,
@@ -572,6 +579,13 @@ export async function adminResetPassword(req: Request, res: Response) {
 
 export async function adminUpdateUserRole(req: Request, res: Response) {
   try {
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    const adminCheck = verifyAdminSessionToken(token);
+    if (!adminCheck.valid) {
+      return res.status(403).json({ error: 'Administrative clearance required.' });
+    }
+
     const id = req.params.id as string;
     const { role } = req.body;
     if (!role) {
@@ -594,6 +608,13 @@ export async function adminUpdateUserRole(req: Request, res: Response) {
 
 export async function adminCreateUser(req: Request, res: Response) {
   try {
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    const adminCheck = verifyAdminSessionToken(token);
+    if (!adminCheck.valid) {
+      return res.status(403).json({ error: 'Administrative clearance required.' });
+    }
+
     const { fullName, email, phoneNumber, role, password, businessName, cacNumber } = req.body;
     if (!fullName || !email || !password || !role) {
       return res.status(400).json({ error: 'Full name, email, password, and role are required.' });
@@ -1292,13 +1313,29 @@ export async function upgradeTier3(req: Request, res: Response) {
 
 export async function deleteAccount(req: Request, res: Response) {
   try {
-    const email = (req.body.email || req.query.email || (req as any).user?.email || '').toLowerCase().trim();
-    if (!email) {
+    const { email, password } = req.body || {};
+    const cleanEmail = (email || req.query.email || (req as any).user?.email || '').toLowerCase().trim();
+    if (!cleanEmail) {
       return res.status(400).json({ error: 'Email is required to process account deletion.' });
     }
 
-    console.log(`[deleteAccount] Processing account deletion request for: ${email}`);
-    await UserStore.deleteUser(email);
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    const adminCheck = verifyAdminSessionToken(token);
+
+    // If not authenticated admin, must verify user's password
+    if (!adminCheck.valid) {
+      if (!password) {
+        return res.status(401).json({ error: 'Account password is required to confirm permanent deletion.' });
+      }
+      const user = await UserStore.findByEmail(cleanEmail);
+      if (!user || !user.passwordHash || !UserStore.verifyPassword(user, password)) {
+        return res.status(401).json({ error: 'Invalid password. Account deletion unauthorized.' });
+      }
+    }
+
+    console.log(`[deleteAccount] Processing authenticated account deletion request for: ${cleanEmail}`);
+    await UserStore.deleteUser(cleanEmail);
 
     return res.json({
       success: true,

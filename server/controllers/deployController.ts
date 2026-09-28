@@ -194,7 +194,15 @@ export async function setupSsl(req: Request, res: Response) {
     return res.status(401).json({ status: false, error: 'Unauthorized' });
   }
 
-  const domain = (req.query.domain as string) || req.body?.domain || 'contest.myrentilly.com';
+  const rawDomain = (req.query.domain as string) || req.body?.domain || 'contest.myrentilly.com';
+  const domain = String(rawDomain).trim().toLowerCase();
+
+  // Strict domain name validation to prevent command injection
+  const DOMAIN_REGEX = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$/;
+  if (!DOMAIN_REGEX.test(domain) || domain.length > 253) {
+    return res.status(400).json({ status: false, error: 'Invalid domain name format.' });
+  }
+
   console.log(`[SSL] Requesting Let's Encrypt certificate for: ${domain}`);
 
   const cmd = `

@@ -12,6 +12,7 @@ import type {
   MilestoneStatus
 } from '../types';
 import { AdminDataStore } from '../services/adminDataStore';
+import { verifyAdminSessionToken } from './authController';
 
 // In-Memory Storage Fallbacks
 let _inMemoryTitleAudits: LegalTitleAudit[] = [];
@@ -27,31 +28,26 @@ let _inMemoryAuditLogs: LegalAuditLog[] = [];
 export function verifyLegalOfficerClearance(req: Request): { authorized: boolean; actor: any; error?: string } {
   const authHeader = req.headers.authorization || '';
   const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-  const actorRole = (req.headers['x-actor-role'] || req.headers['x-user-role'] || '').toString().toLowerCase();
-  const actorEmail = (req.headers['x-actor-email'] || req.headers['x-user-email'] || 'legal.ops@myrentilly.com').toString();
-  const actorName = (req.headers['x-actor-name'] || 'Rentilly Legal Counsel').toString();
-  const actorId = (req.headers['x-actor-id'] || 'usr_leg_officer_default').toString();
 
-  // 1. Master admin bypass / bearer token check
-  if (token.startsWith('admin-token-') || token.startsWith('rentilly_jwt_') || token.length > 20) {
-    return {
-      authorized: true,
-      actor: { id: actorId, email: actorEmail, name: actorName, role: actorRole || 'legal_officer' }
-    };
-  }
-
-  // 2. Explicit legal_officer or admin role check
-  if (actorRole === 'legal_officer' || actorRole === 'admin') {
-    return {
-      authorized: true,
-      actor: { id: actorId, email: actorEmail, name: actorName, role: actorRole }
-    };
+  if (token) {
+    const adminCheck = verifyAdminSessionToken(token);
+    if (adminCheck.valid) {
+      return {
+        authorized: true,
+        actor: {
+          id: 'admin_legal_officer',
+          email: adminCheck.email || 'info@travsify.com',
+          name: 'Rentilly Chief Legal Officer',
+          role: 'admin'
+        }
+      };
+    }
   }
 
   return {
     authorized: false,
     actor: null,
-    error: 'Clearance Denied: Requires verified legal_officer or admin clearance.'
+    error: 'Clearance Denied: Cryptographically signed admin or legal officer token required.'
   };
 }
 

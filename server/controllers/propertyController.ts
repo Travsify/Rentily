@@ -3,6 +3,7 @@ import type { Request, Response } from 'express';
 import { supabase } from '../supabaseClient';
 import type { Property, KYPRecord } from '../types';
 import { AdminDataStore } from '../services/adminDataStore';
+import { verifyAdminSessionToken } from './authController';
 
 export async function getProperties(req: Request, res: Response) {
   try {
@@ -395,8 +396,19 @@ export async function createProperty(req: Request, res: Response) {
 export async function updatePropertyStatus(req: Request, res: Response) {
   try {
     const id = req.params.id as string;
-    const { status, verifiedBy } = req.body;
+    const { status, verifiedBy, ownerId } = req.body || {};
     const now = new Date().toISOString();
+
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    const adminCheck = verifyAdminSessionToken(token);
+
+    if (!adminCheck.valid) {
+      const existingProp = AdminDataStore.getPropertyById(id);
+      if (!ownerId || (existingProp && existingProp.ownerId && existingProp.ownerId !== ownerId)) {
+        return res.status(403).json({ error: 'Unauthorized: Only the property owner or an administrator can update listing status.' });
+      }
+    }
 
     let updated: Property | null = null;
 
@@ -462,6 +474,17 @@ export async function deleteProperty(req: Request, res: Response) {
   try {
     const id = req.params.id as string;
     const { ownerId } = req.body || {};
+
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    const adminCheck = verifyAdminSessionToken(token);
+
+    if (!adminCheck.valid) {
+      const existingProp = AdminDataStore.getPropertyById(id);
+      if (!ownerId || (existingProp && existingProp.ownerId && existingProp.ownerId !== ownerId)) {
+        return res.status(403).json({ error: 'Unauthorized: Listing owner ID or administrative clearance required to delete property.' });
+      }
+    }
 
     if (supabase) {
       try {

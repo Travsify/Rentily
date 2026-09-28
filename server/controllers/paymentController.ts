@@ -20,6 +20,7 @@ import { PlatformAccountRegistry } from '../services/platformAccountRegistry';
 import { GlobalPayService } from '../services/globalPayService';
 import { TreasuryCircuitBreaker } from '../services/treasuryCircuitBreaker';
 import { timingSafeEqual } from '../middleware/adminSecuritySentinel';
+import { verifyAdminSessionToken } from './authController';
 
 export async function createVirtualAccount(req: Request, res: Response) {
   try {
@@ -281,8 +282,29 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
     const { userId, email, accountNumber, bankCode, bankName, accountName, amount, reason, sourceCurrency, usdtAmount, fxRate } = req.body;
     const cleanEmail = (email || '').toString().toLowerCase().trim();
 
+    if (!cleanEmail) {
+      return res.status(400).json({ error: 'User email is required' });
+    }
+
     if (!accountNumber || !bankCode || !amount || Number(amount) <= 0) {
       return res.status(400).json({ error: 'Account number, bank code, and a valid amount are required' });
+    }
+
+    // Security Verification: Ensure caller is authorized for this account
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    const adminCheck = verifyAdminSessionToken(token);
+
+    if (!adminCheck.valid) {
+      if (!token) {
+        return res.status(401).json({ error: 'Authentication required to initiate bank withdrawals.' });
+      }
+      if (token.startsWith('rentilly_jwt_')) {
+        const memUser = await UserStore.findByEmail(cleanEmail);
+        if (memUser && !token.includes(memUser.id)) {
+          return res.status(403).json({ error: 'Unauthorized: You can only withdraw funds from your own authenticated account.' });
+        }
+      }
     }
 
     const numAmount = Number(amount);
@@ -5412,14 +5434,25 @@ export async function setCardPin(req: Request, res: Response) {
 
 export async function revealCardDetails(req: Request, res: Response) {
   try {
-    const { cardId } = req.body;
+    const { cardId, pin } = req.body;
     if (!cardId) {
       return res.status(400).json({ error: 'cardId is required' });
     }
 
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    const adminCheck = verifyAdminSessionToken(token);
+
     const details = await CardIssuingService.revealDetails(cardId);
     if (!details) {
       return res.status(404).json({ error: 'Card not found' });
+    }
+
+    // Require either valid admin session or matching 4-digit card PIN
+    if (!adminCheck.valid) {
+      if (!pin || String(details.pin).trim() !== String(pin).trim()) {
+        return res.status(401).json({ error: 'Unauthorized: Correct 4-digit card PIN required to reveal sensitive card credentials.' });
+      }
     }
 
     res.json({
@@ -5433,6 +5466,13 @@ export async function revealCardDetails(req: Request, res: Response) {
 
 export async function spendCard(req: Request, res: Response) {
   try {
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    const adminCheck = verifyAdminSessionToken(token);
+    if (!adminCheck.valid) {
+      return res.status(403).json({ error: 'Unauthorized: Card spend simulator is restricted to administrative clearance.' });
+    }
+
     const { cardId, amountUsd, merchantName, merchantCategory } = req.body;
     if (!cardId || amountUsd == null) {
       return res.status(400).json({ error: 'cardId and amountUsd are required' });
