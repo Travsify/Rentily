@@ -696,6 +696,10 @@ class _GlobalPayoutScreenState extends State<GlobalPayoutScreen> {
                     _summaryLine('Exchange Rate:', '1 $currency = ₦${_nairaFormat.format(_quote!.customerRate)}'),
                     const SizedBox(height: 4),
                     _summaryLine('Transfer Cost:', '₦${_nairaFormat.format(_quote!.sourceAmountNgn)}'),
+                    if (_quote!.platformFeeNgn > 0) ...[
+                      const SizedBox(height: 4),
+                      _summaryLine('Platform Fee (${_quote!.platformFeePercent}%):', '₦${_nairaFormat.format(_quote!.platformFeeNgn)}'),
+                    ],
                     const SizedBox(height: 4),
                     _summaryLine('Corridor Rail Fee:', '₦${_nairaFormat.format(_quote!.corridorFeeNgn)}'),
                     const Divider(height: 16, color: AppColors.borderDark),

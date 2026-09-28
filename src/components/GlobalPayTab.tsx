@@ -39,7 +39,10 @@ interface OrderItem {
   sourceAmountNgn: number;
   totalDebitedNgn: number;
   customerRate: number;
+  wholesaleRate?: number;
   corridorFeeNgn: number;
+  platformFeeNgn?: number;
+  totalFeeNgn?: number;
   paymentScheme: string;
   status: 'SUBMITTED' | 'PROCESSING' | 'COMPLETED' | 'FAILED_REFUNDED';
   studentName?: string;
@@ -606,7 +609,12 @@ export const GlobalPayTab: React.FC = () => {
                       <span className="text-sm font-bold text-emerald-400 font-mono">
                         ₦{order.totalDebitedNgn?.toLocaleString()}
                       </span>
-                      <div className="text-slate-500 text-[10px]">Fee: ₦{order.corridorFeeNgn?.toLocaleString()}</div>
+                      <div className="text-slate-500 text-[10px]">
+                        Fee: ₦{(order.totalFeeNgn || (order.corridorFeeNgn + (order.platformFeeNgn || 0)))?.toLocaleString()}
+                        {order.platformFeeNgn ? (
+                          <span className="text-slate-400"> (Rail: ₦{order.corridorFeeNgn?.toLocaleString()} + Rate: ₦{order.platformFeeNgn?.toLocaleString()})</span>
+                        ) : null}
+                      </div>
                     </td>
                     <td className="py-3 px-4">
                       <span className="uppercase text-slate-300 font-semibold bg-slate-800 px-2 py-1 rounded">

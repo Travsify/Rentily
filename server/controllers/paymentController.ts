@@ -6114,7 +6114,7 @@ export async function getCardTransactions(req: Request, res: Response) {
 
 export async function getFxRatesHandler(req: Request, res: Response) {
   try {
-    const rates = MultiCurrencyService.getFxRates();
+    const rates = await MultiCurrencyService.getLiveFxRatesAsync();
     res.json({
       status: true,
       data: rates,

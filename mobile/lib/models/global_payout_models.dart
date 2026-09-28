@@ -33,7 +33,10 @@ class GlobalPayQuote {
   final double wholesaleRate;
   final double customerRate;
   final double fxSpreadPercent;
+  final double platformFeePercent;
+  final double platformFeeNgn;
   final double corridorFeeNgn;
+  final double totalFeeNgn;
   final double totalDebitedNgn;
   final String paymentScheme;
   final String expiresAt;
@@ -48,7 +51,10 @@ class GlobalPayQuote {
     required this.wholesaleRate,
     required this.customerRate,
     required this.fxSpreadPercent,
+    this.platformFeePercent = 1.20,
+    this.platformFeeNgn = 0.0,
     required this.corridorFeeNgn,
+    this.totalFeeNgn = 0.0,
     required this.totalDebitedNgn,
     required this.paymentScheme,
     required this.expiresAt,
@@ -56,6 +62,10 @@ class GlobalPayQuote {
   });
 
   factory GlobalPayQuote.fromJson(Map<String, dynamic> json) {
+    final corridor = (json['corridorFeeNgn'] as num?)?.toDouble() ?? 0.0;
+    final platFee = (json['platformFeeNgn'] as num?)?.toDouble() ?? 0.0;
+    final totFee = (json['totalFeeNgn'] as num?)?.toDouble() ?? (corridor + platFee);
+
     return GlobalPayQuote(
       quoteReference: json['quoteReference']?.toString() ?? '',
       sourceCurrency: json['sourceCurrency']?.toString() ?? 'NGN',
@@ -65,7 +75,10 @@ class GlobalPayQuote {
       wholesaleRate: (json['wholesaleRate'] as num?)?.toDouble() ?? 0.0,
       customerRate: (json['customerRate'] as num?)?.toDouble() ?? 0.0,
       fxSpreadPercent: (json['fxSpreadPercent'] as num?)?.toDouble() ?? 1.2,
-      corridorFeeNgn: (json['corridorFeeNgn'] as num?)?.toDouble() ?? 0.0,
+      platformFeePercent: (json['platformFeePercent'] as num?)?.toDouble() ?? ((json['fxSpreadPercent'] as num?)?.toDouble() ?? 1.2),
+      platformFeeNgn: platFee,
+      corridorFeeNgn: corridor,
+      totalFeeNgn: totFee,
       totalDebitedNgn: (json['totalDebitedNgn'] as num?)?.toDouble() ?? 0.0,
       paymentScheme: json['paymentScheme']?.toString() ?? 'swift',
       expiresAt: json['expiresAt']?.toString() ?? '',

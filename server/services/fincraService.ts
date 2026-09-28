@@ -46,6 +46,7 @@ export class FincraService {
       'api-key': this.SECRET_KEY,
       'x-pub-key': this.PUBLIC_KEY,
       'x-business-id': this.BUSINESS_ID,
+      'business-id': this.BUSINESS_ID,
       'Content-Type': 'application/json',
       'Connection': 'close',
       'User-Agent': 'Rentilly-Core/1.0'
@@ -923,24 +924,19 @@ export class FincraService {
         const srcCurr = (params.sourceCurrency || 'NGN').toUpperCase();
         const dstCurr = params.destinationCurrency.toUpperCase();
 
-        // Standardized exchange: +39 NGN for Naira to foreign currencies
-        let standardizedRate = rawWholesaleRate;
-        if (srcCurr === 'NGN' && dstCurr !== 'NGN') {
-          standardizedRate = rawWholesaleRate > 0 ? (rawWholesaleRate + 39.0) : 1550.0 + 39.0;
-        } else if (srcCurr !== 'NGN' && dstCurr === 'NGN') {
-          standardizedRate = rawWholesaleRate > 0 ? Math.max(1, rawWholesaleRate - 39.0) : Math.max(1, 1550.0 - 39.0);
-        }
+        // Direct Live Fincra Wholesale Rate (No artificial markups at gateway level)
+        const effectiveRate = rawWholesaleRate > 0 ? rawWholesaleRate : 1827.50;
 
         const calculatedSourceAmount = (srcCurr === 'NGN' && dstCurr !== 'NGN')
-          ? Math.round(Number(params.destinationAmount) * standardizedRate)
+          ? Number(d.quotedAmount || Math.round(Number(params.destinationAmount) * effectiveRate))
           : Number(d.sourceAmount || 0);
 
         return {
           status: true,
           data: {
-            quoteReference: d.reference || d.quoteReference,
-            rate: standardizedRate,
-            wholesaleRate: rawWholesaleRate > 0 ? rawWholesaleRate : 1550.0,
+            quoteReference: d.quoteReference || d.reference,
+            rate: effectiveRate,
+            wholesaleRate: effectiveRate,
             sourceAmount: calculatedSourceAmount,
             destinationAmount: Number(d.destinationAmount || params.destinationAmount),
             expiresAt: d.expireAt || d.expiresAt

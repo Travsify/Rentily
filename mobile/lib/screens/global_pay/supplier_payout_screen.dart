@@ -768,6 +768,8 @@ class _SupplierPayoutScreenState extends State<SupplierPayoutScreen> {
           const SizedBox(height: 14),
 
           _buildBreakdownRow('Locked Rate:', '1 $_selectedCurrency = ₦${_currencyFormat.format(_activeQuote!['customerRate'])}'),
+          if (_activeQuote!['platformFeeNgn'] != null && (_activeQuote!['platformFeeNgn'] as num) > 0)
+            _buildBreakdownRow('Platform Fee (${_activeQuote!['platformFeePercent'] ?? 1.2}%):', '₦${_currencyFormat.format(_activeQuote!['platformFeeNgn'])}'),
           _buildBreakdownRow('Corridor Network Fee:', '₦${_currencyFormat.format(_activeQuote!['corridorFeeNgn'])}'),
           _buildBreakdownRow('Clearing Rail:', _activeQuote!['paymentScheme'].toString().toUpperCase()),
           const Divider(color: Colors.white24, height: 20),

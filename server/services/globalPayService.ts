@@ -33,7 +33,10 @@ export interface GlobalQuote {
   wholesaleRate: number;
   customerRate: number;
   fxSpreadPercent: number;
+  platformFeePercent: number;
+  platformFeeNgn: number;
   corridorFeeNgn: number;
+  totalFeeNgn: number;
   totalDebitedNgn: number;
   paymentScheme: 'fps' | 'sepa' | 'fedwire' | 'ach' | 'swift' | 'eft' | 'mobile_money';
   expiresAt: string;
@@ -73,7 +76,10 @@ export interface GlobalPayoutOrder {
   wholesaleRate: number;
   customerRate: number;
   fxSpreadPercent: number;
+  platformFeePercent?: number;
+  platformFeeNgn?: number;
   corridorFeeNgn: number;
+  totalFeeNgn?: number;
   totalDebitedNgn: number;
   quoteReference: string;
   fincraQuoteReference?: string;
@@ -126,7 +132,7 @@ export class GlobalPayService {
   /** Benchmark wholesale rates for offline resilience */
   private static wholesaleBenchmarks: Record<string, number> = {
     USD: 1550.00,
-    GBP: 2025.50,
+    GBP: 1827.50,
     EUR: 1685.20,
     CAD: 1142.80,
     KES: 12.10,
@@ -301,9 +307,15 @@ export class GlobalPayService {
     }
 
     // 2. Standardized FX Exchange Rate with dynamic percentage spread multiplier
-    const spreadMultiplier = 1 + ((this.config.fxSpreadPercent || 1.20) / 100);
+    const fxSpreadPercent = Number(this.config.fxSpreadPercent || 1.20);
+    const spreadMultiplier = 1 + (fxSpreadPercent / 100);
     const customerRate = Number((wholesaleRate * spreadMultiplier).toFixed(2));
+    const wholesaleAmountNgn = Math.round(params.destinationAmount * wholesaleRate);
     const sourceAmountNgn = Math.round(params.destinationAmount * customerRate);
+    
+    // Explicit platform fee amount derived from Rentilly's percentage margin
+    const platformFeeNgn = Math.max(0, sourceAmountNgn - wholesaleAmountNgn);
+    const totalFeeNgn = corridorFeeNgn + platformFeeNgn;
     const totalDebitedNgn = sourceAmountNgn + corridorFeeNgn;
 
     const quoteReference = `RGP_QUO_${Date.now()}_${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
@@ -319,8 +331,11 @@ export class GlobalPayService {
       sourceAmountNgn,
       wholesaleRate,
       customerRate,
-      fxSpreadPercent: this.config.fxSpreadPercent,
+      fxSpreadPercent,
+      platformFeePercent: fxSpreadPercent,
+      platformFeeNgn,
       corridorFeeNgn,
+      totalFeeNgn,
       totalDebitedNgn,
       paymentScheme: scheme,
       expiresAt,
@@ -470,15 +485,17 @@ export class GlobalPayService {
         updated_at: new Date().toISOString()
       });
 
-      // Record pending transaction in ledger
+      // Record pending transaction in ledger with complete fee breakdown
       try {
+        const platFee = quote.platformFeeNgn || Math.max(0, quote.sourceAmountNgn - Math.round(quote.destinationAmount * quote.wholesaleRate));
+        const totFee = quote.totalFeeNgn || (quote.corridorFeeNgn + platFee);
         await supabase.from('transactions').insert({
           user_id: params.userId,
           amount: totalRequiredNgn,
           type: 'debit',
           status: 'pending',
           reference: orderRef,
-          description: `Rentilly Global Pay: ${params.orderType.toUpperCase()} transfer of ${quote.destinationCurrency} ${quote.destinationAmount.toLocaleString()}`,
+          description: `Rentilly Global Pay: ${params.orderType.toUpperCase()} transfer of ${quote.destinationCurrency} ${quote.destinationAmount.toLocaleString()} (Total Fee: ₦${totFee.toLocaleString()} - Rail: ₦${quote.corridorFeeNgn.toLocaleString()}, Platform: ₦${platFee.toLocaleString()})`,
           created_at: new Date().toISOString()
         });
       } catch (_) {}
@@ -541,7 +558,10 @@ export class GlobalPayService {
       wholesaleRate: quote.wholesaleRate,
       customerRate: quote.customerRate,
       fxSpreadPercent: quote.fxSpreadPercent,
+      platformFeePercent: quote.platformFeePercent || quote.fxSpreadPercent,
+      platformFeeNgn: quote.platformFeeNgn || Math.max(0, quote.sourceAmountNgn - Math.round(quote.destinationAmount * quote.wholesaleRate)),
       corridorFeeNgn: quote.corridorFeeNgn,
+      totalFeeNgn: quote.totalFeeNgn || (quote.corridorFeeNgn + (quote.platformFeeNgn || 0)),
       totalDebitedNgn: quote.totalDebitedNgn,
       quoteReference: quote.quoteReference,
       fincraQuoteReference: quote.fincraQuoteReference,

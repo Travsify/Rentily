@@ -24,12 +24,14 @@ export interface VirtualBankAccount {
 export class MultiCurrencyService {
   // Exchange Rates relative to NGN
   private static fxRates: Record<string, number> = {
-    'USD_NGN': 1510.00,
-    'GBP_NGN': 1980.00,
-    'EUR_NGN': 1660.00,
-    'NGN_USD': 1 / 1510.00,
-    'NGN_GBP': 1 / 1980.00,
-    'NGN_EUR': 1 / 1660.00,
+    'USD_NGN': 1550.00,
+    'GBP_NGN': 1827.50,
+    'EUR_NGN': 1685.00,
+    'CAD_NGN': 1142.00,
+    'NGN_USD': 1 / 1550.00,
+    'NGN_GBP': 1 / 1827.50,
+    'NGN_EUR': 1 / 1685.00,
+    'NGN_CAD': 1 / 1142.00,
   };
 
   private static spreadConfig = {
@@ -37,6 +39,9 @@ export class MultiCurrencyService {
     buyMargin: 39.00,  // Standardized: base - 39 when selling other currencies into NGN
     sellMargin: 39.00, // Standardized: base + 39 when buying other currencies with NGN, // Rentily charges 1460 (base + 30) when user buys USDT
   };
+
+  private static lastFincraFetch = 0;
+  private static readonly FINCRA_CACHE_MS = 5 * 60 * 1000; // 5 minutes
 
   /**
    * Hydrates live FX rates and spread config from Supabase Cloud on server boot
@@ -70,12 +75,48 @@ export class MultiCurrencyService {
     }
   }
 
+  /**
+   * Fetch live institutional conversion rates directly from Fincra
+   */
+  static async getLiveFxRatesAsync(): Promise<Record<string, number>> {
+    const now = Date.now();
+    if (now - this.lastFincraFetch > this.FINCRA_CACHE_MS) {
+      this.lastFincraFetch = now;
+      try {
+        const { FincraService } = await import('./fincraService');
+        for (const curr of ['GBP', 'USD', 'EUR', 'CAD']) {
+          const res = await FincraService.generateCrossBorderQuote({
+            destinationCurrency: curr,
+            destinationAmount: 10
+          });
+          if (res?.status && res?.data?.wholesaleRate && res.data.wholesaleRate > 0) {
+            const liveRate = Number(res.data.wholesaleRate);
+            this.fxRates[`${curr}_NGN`] = liveRate;
+            this.fxRates[`NGN_${curr}`] = Number((1 / liveRate).toFixed(6));
+          }
+        }
+      } catch (e: any) {
+        console.warn('[MultiCurrencyService] Fincra live rate sync notice:', e.message);
+      }
+    }
+    return { ...this.fxRates };
+  }
+
   static getFxRates(): Record<string, number> {
     return { ...this.fxRates };
   }
 
   static getRates(): Record<string, number> {
     return this.getFxRates();
+  }
+
+  static updateFxRates(newRates: Partial<Record<string, number>>): Record<string, number> {
+    for (const [key, val] of Object.entries(newRates)) {
+      if (val && !isNaN(Number(val))) {
+        this.fxRates[key] = Number(val);
+      }
+    }
+    return { ...this.fxRates };
   }
 
   /**
