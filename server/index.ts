@@ -112,6 +112,10 @@ app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 // 1. Mount Public Partner Verification, Credential Audit, Mandate & Gate Check-in Endpoints
 app.get('/verify/mandate/:id', renderMandateVerificationPage);
 app.get('/verify/mandate', renderMandateVerificationPage);
+// Corporate Partner Accreditation & Signup Portal
+app.get(['/partner/signup', '/partner-signup', '/partner/register', '/partner-register', '/partners/register', '/partner/join', '/partners'], renderPartnerSignupPage);
+app.post(['/api/partners/register', '/api/partner/register'], handlePublicPartnerRegister);
+
 app.get('/verify/partner', renderPartnerVerificationPage);
 app.get('/verify/partner/:id', renderPartnerVerificationPage);
 app.get('/verify-partner/:id', renderPartnerVerificationPage);
@@ -119,10 +123,6 @@ app.get('/verify-partner', renderPartnerVerificationPage);
 app.get('/partner/:id', renderPartnerVerificationPage);
 app.get('/p/:id', renderPartnerVerificationPage);
 app.get('/p/:slug', renderPartnerVerificationPage);
-
-// Corporate Partner Accreditation & Signup Portal
-app.get(['/partner/signup', '/partner-signup', '/partner/register', '/partner-register', '/partners/register', '/partner/join', '/partners'], renderPartnerSignupPage);
-app.post(['/api/partners/register', '/api/partner/register'], handlePublicPartnerRegister);
 
 app.get('/invite/landlord', renderLandlordInvitePage);
 app.post('/api/public/landlord-register', handlePublicLandlordRegister);
