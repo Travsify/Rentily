@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
-import { supabase } from '../services/supabaseClient';
+import { supabase } from '../supabaseClient';
 import { BotSentinelService } from '../services/botSentinelService';
 import { NotificationDispatcher } from '../services/notificationDispatcher';
 
