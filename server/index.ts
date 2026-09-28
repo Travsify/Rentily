@@ -6,7 +6,7 @@ import path from 'path';
 import fs from 'fs';
 import { ProxyAgent, Agent, setGlobalDispatcher } from 'undici';
 import { apiRouter } from './routes/apiRouter';
-import { renderPartnerVerificationPage, renderLandlordInvitePage, renderReKycPage, renderGatePassPage, renderCredentialVerificationPage, renderMandateVerificationPage, renderInspectionSafetyPage, handlePublicLandlordRegister, renderTransactionReceiptPage, renderLegalNoticePage } from './controllers/publicPartnerPages';
+import { renderPartnerVerificationPage, renderPartnerSignupPage, handlePublicPartnerRegister, renderLandlordInvitePage, renderReKycPage, renderGatePassPage, renderCredentialVerificationPage, renderMandateVerificationPage, renderInspectionSafetyPage, handlePublicLandlordRegister, renderTransactionReceiptPage, renderLegalNoticePage } from './controllers/publicPartnerPages';
 import { renderPublicRoommatePost } from './controllers/publicRoommatesController';
 import { verifyDeedByHash } from './controllers/deedVerificationController';
 import { isSupabaseConfigured } from './supabaseClient';
@@ -119,6 +119,11 @@ app.get('/verify-partner', renderPartnerVerificationPage);
 app.get('/partner/:id', renderPartnerVerificationPage);
 app.get('/p/:id', renderPartnerVerificationPage);
 app.get('/p/:slug', renderPartnerVerificationPage);
+
+// Corporate Partner Accreditation & Signup Portal
+app.get(['/partner/signup', '/partner-signup', '/partner/register', '/partner-register', '/partners/register', '/partner/join', '/partners'], renderPartnerSignupPage);
+app.post(['/api/partners/register', '/api/partner/register'], handlePublicPartnerRegister);
+
 app.get('/invite/landlord', renderLandlordInvitePage);
 app.post('/api/public/landlord-register', handlePublicLandlordRegister);
 app.get('/verify/rekyc', renderReKycPage);

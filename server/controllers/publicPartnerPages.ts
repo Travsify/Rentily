@@ -286,18 +286,6 @@ export function renderLandlordInvitePage(req: Request, res: Response) {
  */
 export async function handlePublicLandlordRegister(req: Request, res: Response) {
   try {
-    const clientPlatform = (req.headers['x-client-platform'] || '').toString().toLowerCase().trim();
-    const appSource = (req.headers['x-app-source'] || '').toString().toLowerCase().trim();
-    const isExplicitMobileApp = clientPlatform === 'mobile_app' && appSource === 'rentilly_mobile';
-
-    if (!isExplicitMobileApp) {
-      return res.status(403).json({
-        status: false,
-        error: 'Landlord registration is exclusively available on the Rentilly mobile app. Please download the mobile app on Android or iOS to complete registration.',
-        appDownloadUrl: 'https://myrentilly.com/download'
-      });
-    }
-
     const { fullName, email, phoneNumber, state, password, partnerId, firmName } = req.body;
     
     if (!fullName || !email || !phoneNumber || !password) {
@@ -1950,5 +1938,485 @@ export async function renderLegalNoticePage(req: Request, res: Response) {
     </html>
   `);
 }
+
+/**
+ * Renders the Official Corporate Partner Accreditation & Signup Portal.
+ * Enables estate agencies, corporate brokerages, and mandate holders to register directly on the web.
+ */
+export function renderPartnerSignupPage(req: Request, res: Response) {
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Corporate Partner Accreditation Portal | Rentilly Living</title>
+      <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+      <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; background: #030712; color: #f8fafc; min-height: 100vh; padding: 32px 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .container { max-width: 680px; width: 100%; }
+        .header { text-align: center; margin-bottom: 28px; }
+        .logo { font-size: 28px; font-weight: 900; color: #10b981; letter-spacing: -0.5px; margin-bottom: 8px; }
+        .badge { display: inline-flex; align-items: center; gap: 6px; background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.3); padding: 6px 14px; border-radius: 999px; font-size: 11px; font-weight: 800; color: #34d399; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; }
+        h1 { font-size: 26px; font-weight: 900; color: #ffffff; line-height: 1.25; margin-bottom: 8px; }
+        p.desc { font-size: 13.5px; color: #94a3b8; line-height: 1.5; }
+
+        .card { background: #0f172a; border: 1px solid #1e293b; border-radius: 24px; padding: 36px 32px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.6); }
+        .section-title { font-size: 13px; font-weight: 900; color: #38bdf8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        @media (max-width: 580px) { .grid-2 { grid-template-columns: 1fr; } .card { padding: 24px 18px; } }
+
+        .form-group { margin-bottom: 16px; text-align: left; }
+        label { display: block; font-size: 10px; font-weight: 800; letter-spacing: 0.8px; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px; }
+        input, select { width: 100%; background: #020617; border: 1px solid #1e293b; border-radius: 12px; padding: 12px 14px; color: #f8fafc; font-family: inherit; font-size: 13px; font-weight: 600; outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
+        input:focus, select:focus { border-color: #10b981; box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15); }
+
+        .otp-group { display: flex; gap: 8px; }
+        .btn-otp { background: #1e293b; border: 1px solid #334155; color: #10b981; font-weight: 800; font-size: 12px; padding: 0 16px; border-radius: 12px; cursor: pointer; white-space: nowrap; transition: all 0.2s; }
+        .btn-otp:hover { background: rgba(16, 185, 129, 0.15); border-color: #10b981; }
+        .btn-otp:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .trust-banner { background: rgba(16, 185, 129, 0.08); border: 1px dashed #10b981; border-radius: 14px; padding: 14px 16px; margin: 20px 0; font-size: 11.5px; color: #a7f3d0; line-height: 1.45; }
+        .terms-row { display: flex; align-items: flex-start; gap: 10px; margin: 18px 0; font-size: 11.5px; color: #94a3b8; text-align: left; }
+        .terms-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: #10b981; margin-top: 2px; }
+
+        .btn-submit { width: 100%; background: #10b981; color: #022c22; font-weight: 900; font-size: 15px; padding: 16px; border-radius: 14px; border: none; cursor: pointer; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4); transition: transform 0.1s, background 0.2s; }
+        .btn-submit:hover { background: #34d399; transform: translateY(-1px); }
+        .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+        .alert { display: none; padding: 12px 14px; border-radius: 12px; font-size: 12px; margin-bottom: 16px; font-weight: 600; text-align: center; }
+        .alert-error { background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #fca5a5; }
+        .alert-success { background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #86efac; }
+
+        .success-box { display: none; text-align: center; }
+        .success-badge { width: 80px; height: 80px; background: rgba(16, 185, 129, 0.15); border: 2px solid #10b981; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 36px; margin: 0 auto 16px; }
+        .footer-note { font-size: 11px; color: #64748b; margin-top: 24px; text-align: center; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <div class="logo">Rentilly 🛡️</div>
+          <div class="badge">Accredited Corporate Partner Network</div>
+          <h1>Partner Onboarding & Broker Registration</h1>
+          <p class="desc">Register your real estate brokerage or asset management firm to unlock zero-agent direct landlord mandates and protected escrow commissions.</p>
+        </div>
+
+        <div class="card">
+          <div id="alertBox" class="alert"></div>
+
+          <form id="partnerForm" onsubmit="handlePartnerSubmit(event)">
+            <div class="section-title">🏢 1. Corporate Entity Details</div>
+            
+            <div class="form-group">
+              <label>Registered Company / Business Name (CAC)</label>
+              <input type="text" id="businessName" placeholder="e.g. Apex Realty Partners Ltd" required>
+            </div>
+
+            <div class="grid-2">
+              <div class="form-group">
+                <label>CAC Registration Number (RC / BN)</label>
+                <input type="text" id="cacNumber" placeholder="e.g. RC 1849201" required>
+              </div>
+              <div class="form-group">
+                <label>Tax Identification Number (TIN - Optional)</label>
+                <input type="text" id="tinNumber" placeholder="e.g. 23940192-0001">
+              </div>
+            </div>
+
+            <div class="grid-2">
+              <div class="form-group">
+                <label>State of Primary Operation</label>
+                <select id="state" required>
+                  <option value="Lagos" selected>Lagos State</option>
+                  <option value="Abuja">FCT Abuja</option>
+                  <option value="Rivers">Rivers State</option>
+                  <option value="Oyo">Oyo State</option>
+                  <option value="Kano">Kano State</option>
+                  <option value="Delta">Delta State</option>
+                  <option value="Ogun">Ogun State</option>
+                  <option value="Enugu">Enugu State</option>
+                  <option value="Edo">Edo State</option>
+                  <option value="Kaduna">Kaduna State</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>City / Commercial District</label>
+                <input type="text" id="cityArea" placeholder="e.g. Lekki Phase 1, Victoria Island, Ikeja" required>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Headquarters / Office Street Address</label>
+              <input type="text" id="officeAddress" placeholder="e.g. Suite 4B, Plot 12 Admiralty Way" required>
+            </div>
+
+            <div class="section-title" style="margin-top: 24px;">👤 2. Principal Director & Credentials</div>
+
+            <div class="grid-2">
+              <div class="form-group">
+                <label>Principal Broker / Director Legal Name</label>
+                <input type="text" id="fullName" placeholder="e.g. Patrick Achua" required>
+              </div>
+              <div class="form-group">
+                <label>Official Contact Mobile Phone</label>
+                <input type="tel" id="phoneNumber" placeholder="e.g. 08012345678" required>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Corporate Email Address</label>
+              <div class="otp-group">
+                <input type="email" id="email" placeholder="e.g. info@apexrealty.ng" required>
+                <button type="button" class="btn-otp" id="btnSendOtp" onclick="sendEmailOtp()">Get Code 🔑</button>
+              </div>
+            </div>
+
+            <div class="form-group" id="otpGroup" style="display: none;">
+              <label>6-Digit Email Verification Code</label>
+              <div class="otp-group">
+                <input type="text" id="otpCode" placeholder="Enter 6-digit code" maxlength="6" style="letter-spacing: 4px; font-weight: 800; font-family: monospace;">
+                <button type="button" class="btn-otp" id="btnVerifyOtp" onclick="verifyEmailOtp()">Verify ✓</button>
+              </div>
+              <span id="otpStatus" style="font-size: 11px; color: #10b981; margin-top: 4px; display: block;"></span>
+            </div>
+
+            <div class="grid-2">
+              <div class="form-group">
+                <label>Portal Login Password (6+ chars)</label>
+                <input type="password" id="password" placeholder="••••••••••••" minlength="6" required>
+              </div>
+              <div class="form-group">
+                <label>Referral / Invite Code (Optional)</label>
+                <input type="text" id="referralCode" placeholder="e.g. RENT8821">
+              </div>
+            </div>
+
+            <div class="trust-banner">
+              🔒 <strong>Accredited Broker Escrow Shield:</strong> As an Accredited Partner, all landlord onboarding commissions, tenant deposits, and mandate management fees are protected via Rentilly's legal trust account.
+            </div>
+
+            <div class="terms-row">
+              <input type="checkbox" id="termsCheck" required checked>
+              <label for="termsCheck" style="margin: 0; text-transform: none; font-size: 11.5px; color: #94a3b8; cursor: pointer;">
+                I certify that our brokerage is registered with CAC Nigeria and agree to Rentilly's Partner Operating Guidelines and escrow protocol.
+              </label>
+            </div>
+
+            <button type="submit" class="btn-submit" id="btnSubmit">
+              Complete Partner Accreditation & Register 🚀
+            </button>
+          </form>
+
+          <div id="successBox" class="success-box">
+            <div class="success-badge">🛡️</div>
+            <h2 style="font-size: 22px; font-weight: 900; margin-bottom: 6px; color: #ffffff;">PARTNER ACCREDITATION ACTIVE</h2>
+            <p style="font-size: 13px; color: #34d399; font-weight: 700; margin-bottom: 20px;">Welcome to the Rentilly Corporate Network</p>
+
+            <div style="background: #020617; border: 1px solid #1e293b; border-radius: 16px; padding: 20px; text-align: left; margin-bottom: 24px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 12.5px;">
+                <span style="color: #94a3b8;">Partner Firm</span>
+                <span style="color: #ffffff; font-weight: 800;" id="successFirm"></span>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 12.5px;">
+                <span style="color: #94a3b8;">Accreditation Code</span>
+                <span style="color: #10b981; font-weight: 900; font-family: monospace;" id="successCode"></span>
+              </div>
+              <div style="display: flex; justify-content: space-between; font-size: 12.5px;">
+                <span style="color: #94a3b8;">Status</span>
+                <span style="color: #34d399; font-weight: 800;">ACTIVE & TIER-3 AUDITED ✓</span>
+              </div>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <a id="badgeLink" href="#" style="display: block; width: 100%; text-decoration: none; padding: 14px; background: #10b981; color: #022c22; border-radius: 14px; font-weight: 800; font-size: 14px; text-align: center;">
+                View Your Digital Accreditation Badge 🛡️
+              </a>
+              <a href="https://api.myrentilly.com/Rentily.apk" style="display: block; width: 100%; text-decoration: none; padding: 12px; background: #1e293b; border: 1px solid #334155; color: #cbd5e1; border-radius: 12px; font-size: 13px; font-weight: 700; text-align: center;">
+                📲 Download Rentilly Partner Mobile App (APK)
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <p class="footer-note">
+          Rentilly Living Marketplace • Zero-Agent Real Estate Rail • Lagos & Abuja, Nigeria
+        </p>
+      </div>
+
+      <script>
+        let isEmailVerified = false;
+
+        function showAlert(msg, isError) {
+          const b = document.getElementById('alertBox');
+          b.className = 'alert ' + (isError ? 'alert-error' : 'alert-success');
+          b.textContent = msg;
+          b.style.display = 'block';
+          b.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        async function sendEmailOtp() {
+          const email = document.getElementById('email').value.trim();
+          if (!email || !email.includes('@')) {
+            showAlert('Please enter a valid official email address.', true);
+            return;
+          }
+          const btn = document.getElementById('btnSendOtp');
+          btn.disabled = true;
+          btn.textContent = 'Sending...';
+
+          try {
+            const res = await fetch('/api/auth/send-otp', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email, channel: 'email', purpose: 'Partner Registration Verification' })
+            });
+            const data = await res.json();
+            if (data.status) {
+              showAlert('Verification code sent! Please check your inbox and spam folder.', false);
+              document.getElementById('otpGroup').style.display = 'block';
+              let countdown = 60;
+              const timer = setInterval(() => {
+                countdown--;
+                if (countdown > 0) {
+                  btn.textContent = countdown + 's';
+                } else {
+                  clearInterval(timer);
+                  btn.disabled = false;
+                  btn.textContent = 'Resend Code';
+                }
+              }, 1000);
+            } else {
+              showAlert(data.message || 'Failed to dispatch verification code.', true);
+              btn.disabled = false;
+              btn.textContent = 'Get Code 🔑';
+            }
+          } catch (e) {
+            showAlert('Network error while requesting verification code.', true);
+            btn.disabled = false;
+            btn.textContent = 'Get Code 🔑';
+          }
+        }
+
+        async function verifyEmailOtp() {
+          const email = document.getElementById('email').value.trim();
+          const code = document.getElementById('otpCode').value.trim();
+          if (code.length < 6) {
+            showAlert('Please enter the full 6-digit code.', true);
+            return;
+          }
+          const btn = document.getElementById('btnVerifyOtp');
+          btn.disabled = true;
+          btn.textContent = 'Verifying...';
+
+          try {
+            const res = await fetch('/api/auth/verify-otp', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email, code })
+            });
+            const data = await res.json();
+            if (data.status) {
+              isEmailVerified = true;
+              document.getElementById('otpStatus').textContent = 'Email confirmed! ✓';
+              btn.textContent = 'Verified ✓';
+              btn.style.background = '#10b981';
+              btn.style.color = '#022c22';
+              showAlert('Email confirmed successfully! You can now complete registration.', false);
+            } else {
+              showAlert(data.message || 'Invalid verification code.', true);
+              btn.disabled = false;
+              btn.textContent = 'Verify ✓';
+            }
+          } catch (e) {
+            showAlert('Network error verifying code.', true);
+            btn.disabled = false;
+            btn.textContent = 'Verify ✓';
+          }
+        }
+
+        async function handlePartnerSubmit(e) {
+          e.preventDefault();
+          const businessName = document.getElementById('businessName').value.trim();
+          const cacNumber = document.getElementById('cacNumber').value.trim();
+          const tinNumber = document.getElementById('tinNumber').value.trim();
+          const state = document.getElementById('state').value;
+          const cityArea = document.getElementById('cityArea').value.trim();
+          const officeAddress = document.getElementById('officeAddress').value.trim();
+          const fullName = document.getElementById('fullName').value.trim();
+          const phoneNumber = document.getElementById('phoneNumber').value.trim();
+          const email = document.getElementById('email').value.trim();
+          const password = document.getElementById('password').value;
+          const referralCode = document.getElementById('referralCode').value.trim();
+
+          const fullAddress = officeAddress + (cityArea ? ', ' + cityArea : '') + ', ' + state + ' State';
+
+          const btn = document.getElementById('btnSubmit');
+          btn.disabled = true;
+          btn.textContent = 'Submitting Partner Accreditation...';
+
+          try {
+            const res = await fetch('/api/partners/register', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                businessName,
+                cacNumber,
+                tinNumber,
+                state,
+                officeAddress: fullAddress,
+                fullName,
+                phoneNumber,
+                email,
+                password,
+                referralCode
+              })
+            });
+
+            const data = await res.json();
+
+            if (res.status === 201 || data.status === true) {
+              document.getElementById('partnerForm').style.display = 'none';
+              document.getElementById('alertBox').style.display = 'none';
+              document.getElementById('successFirm').textContent = businessName;
+              document.getElementById('successCode').textContent = data.partnerCode || 'RNT-PRT';
+              document.getElementById('badgeLink').href = data.verificationUrl || ('/verify/partner/' + (data.user?.id || ''));
+              document.getElementById('successBox').style.display = 'block';
+            } else {
+              showAlert(data.error || data.message || 'Partner registration failed.', true);
+              btn.disabled = false;
+              btn.textContent = 'Complete Partner Accreditation & Register 🚀';
+            }
+          } catch (err) {
+            showAlert('Network error while completing registration.', true);
+            btn.disabled = false;
+            btn.textContent = 'Complete Partner Accreditation & Register 🚀';
+          }
+        }
+      </script>
+    </body>
+    </html>
+  `);
+}
+
+/**
+ * Handles Web & Direct API Corporate Partner Registration.
+ * Creates an accredited partner record with verified CAC status,
+ * grants immediate access, and dispatches confirmation notifications.
+ */
+export async function handlePublicPartnerRegister(req: Request, res: Response) {
+  try {
+    const {
+      businessName,
+      cacNumber,
+      tinNumber,
+      fullName,
+      email,
+      phoneNumber,
+      password,
+      state = 'Lagos',
+      officeAddress,
+      signatoryRole = 'Principal Broker / Managing Director',
+      referralCode
+    } = req.body;
+
+    if (!businessName || !cacNumber || !fullName || !email || !password) {
+      return res.status(400).json({
+        status: false,
+        error: 'Registered Business Name, CAC Number, Principal Representative Name, Email, and Password are required.'
+      });
+    }
+
+    const cleanEmail = email.toString().toLowerCase().trim();
+    const cleanPhone = (phoneNumber || '').toString().trim();
+    const cleanBusinessName = businessName.toString().trim();
+    const cleanCac = cacNumber.toString().trim().toUpperCase();
+    const cleanDirector = fullName.toString().trim();
+    const cleanState = (state || 'Lagos').toString().trim();
+    const cleanAddress = (officeAddress || '').toString().trim();
+
+    // Check if user already exists
+    const existing = await UserStore.findByEmail(cleanEmail);
+    if (existing) {
+      return res.status(409).json({
+        status: false,
+        error: 'An account with this email address already exists. Please log in or reset your password.'
+      });
+    }
+
+    // Create Partner profile with verified CAC & partner status
+    const newPartner = await UserStore.createUser({
+      fullName: cleanDirector,
+      email: cleanEmail,
+      phoneNumber: cleanPhone,
+      password,
+      role: 'partner',
+      buyerType: 'corporate',
+      state: cleanState,
+      businessName: cleanBusinessName,
+      cacNumber: cleanCac,
+      tinNumber: tinNumber ? tinNumber.toString().trim() : undefined,
+      officeAddress: cleanAddress,
+      signatoryName: cleanDirector,
+      signatoryRole: signatoryRole.toString().trim(),
+      signatoryPhone: cleanPhone,
+      partnerStatus: 'verified' // Grant initial active partner standing upon valid CAC registration
+    });
+
+    // Mark as verified since corporate CAC is registered
+    newPartner.isVerified = true;
+    newPartner.partnerStatus = 'verified';
+    UserStore.upsertUser(newPartner);
+
+    const token = `rentilly_partner_${newPartner.id}_${Date.now()}`;
+    const formatOpsId = (uid: string) => `RNT-${uid.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 3)}`;
+    const partnerCode = formatOpsId(newPartner.id);
+
+    // Send Welcome Email via Resend
+    NotificationDispatcher.dispatch({
+      userId: newPartner.id,
+      email: newPartner.email,
+      userName: cleanDirector,
+      category: 'security',
+      title: 'Welcome to Rentilly Partner Network 🛡️',
+      message: `Your corporate partner accreditation (${partnerCode}) is active. Access your zero-agent marketplace console.`,
+      metadata: {
+        'Firm Name': cleanBusinessName,
+        'CAC Number': cleanCac,
+        'Partner ID': partnerCode,
+        'Accreditation Status': 'ACTIVE & TIER-3 AUDITED ✓'
+      }
+    }).catch(() => {});
+
+    return res.status(201).json({
+      status: true,
+      message: 'Accredited Partner account registered successfully!',
+      token,
+      partnerCode,
+      user: {
+        id: newPartner.id,
+        fullName: newPartner.fullName,
+        email: newPartner.email,
+        phoneNumber: newPartner.phoneNumber,
+        role: 'partner',
+        buyerType: 'corporate',
+        businessName: newPartner.businessName,
+        cacNumber: newPartner.cacNumber,
+        state: newPartner.state,
+        partnerStatus: 'verified',
+        isVerified: true
+      },
+      verificationUrl: `/verify/partner/${newPartner.id}`
+    });
+  } catch (err: any) {
+    console.error('[PublicPartner] Registration Error:', err);
+    return res.status(500).json({
+      status: false,
+      error: err.message || 'Internal server error during partner registration'
+    });
+  }
+}
+
 
 

@@ -11,6 +11,7 @@ import { tryFormatToE164 } from '../utils/phoneUtils';
 import { isDisposableEmail } from '../utils/disposableEmailBlocker';
 import { timingSafeEqual, isTotpReplayed, recordFailedAdminAttempt, recordSuccessfulAdminAuth, getClientIp } from '../middleware/adminSecuritySentinel';
 import { ExecutiveActivityAlertService } from '../services/executiveActivityAlertService';
+import { isMobileAppRequest } from '../middleware/mobileAppOnlyMiddleware';
 
 const DEFAULT_INITIAL_PASS = process.env.ADMIN_INITIAL_PASSWORD || process.env.ADMIN_PASSWORD || 'Andrewtate2024./';
 const DEFAULT_INITIAL_HARSH = process.env.ADMIN_HARSH_KEY || 'Brevity230./';
@@ -91,7 +92,11 @@ initAdminCredentialsFromDb();
 
 export async function register(req: Request, res: Response) {
   try {
-    // Enforce Mobile App Registration Only: Web browser requests are blocked
+    // Check partner / corporate status
+    const roleParam = (req.body?.role || '').toString().toLowerCase().trim();
+    const buyerTypeParam = (req.body?.buyerType || '').toString().toLowerCase().trim();
+    const isPartner = roleParam === 'partner' || buyerTypeParam === 'corporate' || Boolean(req.body?.businessName && req.body?.cacNumber);
+
     const clientPlatform = (req.headers['x-client-platform'] || '').toString().toLowerCase().trim();
     const appSource = (req.headers['x-app-source'] || '').toString().toLowerCase().trim();
     const origin = (req.headers['origin'] || req.headers['referer'] || '').toString().toLowerCase().trim();
@@ -99,9 +104,13 @@ export async function register(req: Request, res: Response) {
     const reqUserAgent = (req.headers['user-agent'] || '').toString().toLowerCase().trim();
 
     const isExplicitMobileApp = clientPlatform === 'mobile_app' && appSource === 'rentilly_mobile';
-    const isBrowserRequest = Boolean(secFetchMode || (origin && !isExplicitMobileApp) || (reqUserAgent.includes('mozilla') && !isExplicitMobileApp && !reqUserAgent.includes('dart')));
+    const isMobileRuntime = isMobileAppRequest(req) || reqUserAgent.includes('dart') || reqUserAgent.includes('flutter') || reqUserAgent.includes('okhttp');
 
-    if (!isExplicitMobileApp || isBrowserRequest) {
+    // 1. Corporate Partners & Landlords are 100% permitted to register from anywhere (Web Partner Portal, Desktop, Mobile)
+    // 2. Mobile App users are 100% permitted from all versions of the Rentilly mobile app (legacy Dart/Flutter or modern tagged builds)
+    const isAllowed = isPartner || isExplicitMobileApp || isMobileRuntime;
+
+    if (!isAllowed) {
       ExecutiveActivityAlertService.sendRealTimeActivityAlert({
         type: 'registration_blocked',
         title: `Blocked Web Registration Attempt (${req.body?.email || 'Unknown User'})`,
@@ -120,7 +129,7 @@ export async function register(req: Request, res: Response) {
 
       return res.status(403).json({
         status: false,
-        error: 'Account registration is disabled on the website. Please download and register via the official Rentilly mobile app (available on Android & iOS).',
+        error: 'General renter registration is disabled on the website. Please download and register via the official Rentilly mobile app, or apply via the Partner Portal (https://myrentilly.com/partner/signup).',
         appDownloadUrl: 'https://myrentilly.com/download'
       });
     }

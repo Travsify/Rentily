@@ -195,7 +195,12 @@ class AuthService {
         // Notify backend to save password hash in system_configs
         http.post(
           Uri.parse('$baseUrl/auth/register'),
-          headers: {'Content-Type': 'application/json'},
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Client-Platform': 'mobile_app',
+            'X-App-Source': 'rentilly_mobile',
+            'X-App-Version': '1.0.0',
+          },
           body: json.encode({
             'fullName': fullName,
             'email': cleanEmail,
