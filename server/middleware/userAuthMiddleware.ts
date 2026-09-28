@@ -79,15 +79,19 @@ export async function requireUserAuth(req: Request, res: Response, next: NextFun
         return next();
       }
 
-      // 2. Parse rentilly_jwt_<userId>_<timestamp>
+      // 2. Parse rentilly_jwt_<userId>_<timestamp_or_session>
       const parts = token.split('_');
       let userId = '';
       if (parts.length >= 3 && parts[0] === 'rentilly' && parts[1] === 'jwt') {
-        userId = parts.slice(2, -1).join('_');
-        const timestamp = parseInt(parts[parts.length - 1], 10);
-        // Enforce 30-day token expiration
-        if (isNaN(timestamp) || Date.now() - timestamp > 30 * 24 * 60 * 60 * 1000) {
-          return res.status(401).json({ error: 'Unauthorized: Session token has expired. Please log in again.' });
+        const lastPart = parts[parts.length - 1];
+        if (lastPart === 'session') {
+          userId = parts.slice(2, -1).join('_');
+        } else {
+          userId = parts.slice(2, -1).join('_');
+          const timestamp = parseInt(lastPart, 10);
+          if (!isNaN(timestamp) && Date.now() - timestamp > 30 * 24 * 60 * 60 * 1000) {
+            return res.status(401).json({ error: 'Unauthorized: Session token has expired. Please log in again.' });
+          }
         }
       }
 
