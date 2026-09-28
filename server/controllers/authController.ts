@@ -90,6 +90,24 @@ initAdminCredentialsFromDb();
 
 export async function register(req: Request, res: Response) {
   try {
+    // Enforce Mobile App Registration Only: Web browser requests are blocked
+    const clientPlatform = (req.headers['x-client-platform'] || '').toString().toLowerCase().trim();
+    const appSource = (req.headers['x-app-source'] || '').toString().toLowerCase().trim();
+    const origin = (req.headers['origin'] || req.headers['referer'] || '').toString().toLowerCase().trim();
+    const secFetchMode = (req.headers['sec-fetch-mode'] || '').toString().toLowerCase().trim();
+    const reqUserAgent = (req.headers['user-agent'] || '').toString().toLowerCase().trim();
+
+    const isExplicitMobileApp = clientPlatform === 'mobile_app' && appSource === 'rentilly_mobile';
+    const isBrowserRequest = Boolean(secFetchMode || (origin && !isExplicitMobileApp) || (reqUserAgent.includes('mozilla') && !isExplicitMobileApp && !reqUserAgent.includes('dart')));
+
+    if (!isExplicitMobileApp || isBrowserRequest) {
+      return res.status(403).json({
+        status: false,
+        error: 'Account registration is disabled on the website. Please download and register via the official Rentilly mobile app (available on Android & iOS).',
+        appDownloadUrl: 'https://myrentilly.com/download'
+      });
+    }
+
     const {
       fullName,
       email,

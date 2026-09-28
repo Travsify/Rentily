@@ -207,59 +207,34 @@ export function renderLandlordInvitePage(req: Request, res: Response) {
       <div class="card">
         <div class="logo">Rentilly 🛡️</div>
         
-        <!-- STEP 1: Registration Form -->
+        <!-- MOBILE APP ONBOARDING GATEWAY -->
         <div id="formSection">
           <div class="partner-pill">🤝 Managing Partner: ${firmName} ${partnerCode ? '(' + partnerCode + ')' : ''}</div>
-          <h1>Landlord Onboarding</h1>
-          <p class="subtitle">Register to list your properties under <strong>${firmName}</strong> with direct rent escrow payouts.</p>
-          
-          <div id="errorAlert" class="alert alert-error"></div>
-          
-          <form id="onboardForm" onsubmit="handleRegister(event)">
-            <input type="hidden" id="partnerId" value="${partnerCode}">
-            <input type="hidden" id="firmName" value="${firmName}">
-            
-            <div class="form-group">
-              <label for="fullName">Full Name</label>
-              <input type="text" id="fullName" placeholder="e.g. Chief Adebayo Adeleke" required>
-            </div>
-            
-            <div class="form-group">
-              <label for="phoneNumber">Phone Number</label>
-              <input type="tel" id="phoneNumber" placeholder="e.g. 08031234567" required>
-            </div>
-            
-            <div class="form-group">
-              <label for="email">Email Address</label>
-              <input type="email" id="email" placeholder="e.g. landlord@gmail.com" required>
-            </div>
-            
-            <div class="form-group">
-              <label for="state">State / Region</label>
-              <select id="state">
-                <option value="Lagos" selected>Lagos</option>
-                <option value="Abuja (FCT)">Abuja (FCT)</option>
-                <option value="Rivers">Rivers (Port Harcourt)</option>
-                <option value="Ogun">Ogun</option>
-                <option value="Oyo">Oyo (Ibadan)</option>
-                <option value="Enugu">Enugu</option>
-                <option value="Delta">Delta</option>
-                <option value="Edo">Edo</option>
-                <option value="Anambra">Anambra</option>
-                <option value="Kano">Kano</option>
-                <option value="Kaduna">Kaduna</option>
-                <option value="Akwa Ibom">Akwa Ibom</option>
-              </select>
-            </div>
-            
-            <div class="form-group">
-              <label for="password">Create Account Password</label>
-              <input type="password" id="password" placeholder="Minimum 6 characters" minlength="6" required>
-            </div>
-            
-            <button type="submit" id="submitBtn" class="btn-submit">Complete Registration & Get App 🚀</button>
-          </form>
-          
+          <h1 style="font-size: 24px; font-weight: 900; margin-bottom: 8px;">Landlord Mobile Onboarding</h1>
+          <p class="subtitle" style="font-size: 13px; color: #94a3b8; line-height: 1.5; margin-bottom: 20px;">
+            To safeguard your property assets and enable biometric payment authorizations, landlord registration is exclusively available on the <strong>Rentilly Mobile App</strong>.
+          </p>
+
+          <div style="background: rgba(16, 185, 129, 0.08); border: 1px dashed #10b981; border-radius: 16px; padding: 18px; text-align: center; margin-bottom: 24px;">
+            <p style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #10b981; font-weight: 800; margin-bottom: 6px;">Your Managing Partner Referral Code</p>
+            <div style="font-size: 24px; font-weight: 900; letter-spacing: 2px; color: #ffffff; font-family: monospace; user-select: all;" id="partnerCodeDisplay">${partnerCode}</div>
+            <button onclick="copyPartnerCode()" style="margin-top: 10px; background: #1e293b; border: 1px solid #334155; color: #e2e8f0; font-size: 11px; font-weight: 700; padding: 6px 14px; border-radius: 8px; cursor: pointer; transition: all 0.2s;" id="copyBtn">📋 Copy Partner Code</button>
+          </div>
+
+          <div class="qr-container" style="background: #020617; border: 1px solid #1e293b; border-radius: 16px; padding: 16px; display: inline-block; margin-bottom: 16px;">
+            <img class="qr-image" style="width: 140px; height: 140px; border-radius: 8px;" src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://api.myrentilly.com/Rentily.apk" alt="Scan to Download Rentilly App">
+          </div>
+          <p style="font-size: 11px; color: #94a3b8; margin-bottom: 20px;">Scan with your smartphone to download the Android APK</p>
+
+          <a href="https://api.myrentilly.com/Rentily.apk" class="btn-download" style="display: block; width: 100%; text-decoration: none; padding: 14px; background: #10b981; color: #020617; border-radius: 14px; font-weight: 800; font-size: 14px; margin-bottom: 12px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);">
+            📲 Download Rentilly for Android (APK)
+          </a>
+
+          <div style="display: flex; gap: 10px; margin-bottom: 24px;">
+            <a href="https://myrentilly.com/download" style="flex: 1; text-align: center; text-decoration: none; padding: 10px; background: #1e293b; border: 1px solid #334155; color: #cbd5e1; border-radius: 10px; font-size: 12px; font-weight: 700;">Google Play Store</a>
+            <a href="https://myrentilly.com/download" style="flex: 1; text-align: center; text-decoration: none; padding: 10px; background: #1e293b; border: 1px solid #334155; color: #cbd5e1; border-radius: 10px; font-size: 12px; font-weight: 700;">Apple iOS (TestFlight)</a>
+          </div>
+
           <div class="features">
             <div class="feature-item">
               <span class="feature-icon">💰</span>
@@ -284,78 +259,20 @@ export function renderLandlordInvitePage(req: Request, res: Response) {
             </div>
           </div>
         </div>
-        
-        <!-- STEP 2: Success & Download Screen -->
-        <div id="successSection" class="success-box">
-          <div class="success-icon">🎉</div>
-          <h1 id="successName">Congratulations!</h1>
-          <p class="subtitle" id="successMsg">You have successfully registered as a verified Landlord on Rentilly.</p>
-          
-          <div class="qr-container">
-            <img class="qr-image" src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://api.myrentilly.com/Rentily.apk" alt="Scan to Download Rentilly App">
-          </div>
-          <p style="font-size: 11px; color: #94a3b8; margin-bottom: 12px;">Scan with your phone camera to download the Android App</p>
-          
-          <a href="https://api.myrentilly.com/Rentily.apk" class="btn-download">
-            <span>📲 Download Rentilly App (Android APK)</span>
-          </a>
-          
-          <div class="steps-card">
-            <strong>Next steps to start managing your properties:</strong><br/>
-            1. Install the downloaded <strong>Rentily.apk</strong> on your device.<br/>
-            2. Open the app and log in with your <strong>Email or Phone</strong> and password.<br/>
-            3. Tap <strong>List New Property</strong> to add your units with instant escrow coverage.
-          </div>
-        </div>
-        
+
         <p class="footer-note">Rentilly Escrow Network • Secure Real Estate Rail</p>
       </div>
-      
+
       <script>
-        async function handleRegister(e) {
-          e.preventDefault();
-          const btn = document.getElementById('submitBtn');
-          const errorAlert = document.getElementById('errorAlert');
-          
-          errorAlert.style.display = 'none';
-          btn.disabled = true;
-          btn.innerText = 'Creating Account... ⏳';
-          
-          const payload = {
-            fullName: document.getElementById('fullName').value.trim(),
-            phoneNumber: document.getElementById('phoneNumber').value.trim(),
-            email: document.getElementById('email').value.trim(),
-            state: document.getElementById('state').value,
-            password: document.getElementById('password').value,
-            partnerId: document.getElementById('partnerId').value.trim(),
-            firmName: document.getElementById('firmName').value.trim()
-          };
-          
-          try {
-            const res = await fetch('/api/public/landlord-register', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload)
-            });
-            
-            const data = await res.json();
-            if (res.ok && (data.success || data.status)) {
-              document.getElementById('formSection').style.display = 'none';
-              document.getElementById('successSection').style.display = 'block';
-              document.getElementById('successName').innerText = 'Congratulations, ' + payload.fullName.split(' ')[0] + '!';
-              document.getElementById('successMsg').innerHTML = 'You have successfully registered as a verified Landlord under <strong>' + payload.firmName + '</strong>.';
-            } else {
-              errorAlert.innerText = data.error || data.message || 'Registration failed. Please check your details.';
-              errorAlert.style.display = 'block';
-              btn.disabled = false;
-              btn.innerText = 'Complete Registration & Get App 🚀';
-            }
-          } catch (err) {
-            errorAlert.innerText = 'Network error. Please try again.';
-            errorAlert.style.display = 'block';
-            btn.disabled = false;
-            btn.innerText = 'Complete Registration & Get App 🚀';
-          }
+        function copyPartnerCode() {
+          const code = document.getElementById('partnerCodeDisplay').innerText.trim();
+          navigator.clipboard.writeText(code).then(() => {
+            const btn = document.getElementById('copyBtn');
+            btn.innerText = '✅ Code Copied!';
+            setTimeout(() => { btn.innerText = '📋 Copy Partner Code'; }, 2500);
+          }).catch(() => {
+            alert('Partner Code: ' + code);
+          });
         }
       </script>
     </body>
@@ -369,6 +286,18 @@ export function renderLandlordInvitePage(req: Request, res: Response) {
  */
 export async function handlePublicLandlordRegister(req: Request, res: Response) {
   try {
+    const clientPlatform = (req.headers['x-client-platform'] || '').toString().toLowerCase().trim();
+    const appSource = (req.headers['x-app-source'] || '').toString().toLowerCase().trim();
+    const isExplicitMobileApp = clientPlatform === 'mobile_app' && appSource === 'rentilly_mobile';
+
+    if (!isExplicitMobileApp) {
+      return res.status(403).json({
+        status: false,
+        error: 'Landlord registration is exclusively available on the Rentilly mobile app. Please download the mobile app on Android or iOS to complete registration.',
+        appDownloadUrl: 'https://myrentilly.com/download'
+      });
+    }
+
     const { fullName, email, phoneNumber, state, password, partnerId, firmName } = req.body;
     
     if (!fullName || !email || !phoneNumber || !password) {

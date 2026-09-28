@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import type { Request, Response } from 'express';
 import { FlutterwaveService } from '../services/flutterwaveService';
 import { PaystackService } from '../services/paystackService';
@@ -276,6 +277,221 @@ export async function resolvePaystackAccount(req: Request, res: Response) {
   }
 }
 
+// ==================== WITHDRAWAL MULTI-FACTOR AUTHENTICATION & OTP ====================
+
+interface WithdrawalOtpRecord {
+  code: string;
+  email: string;
+  amount: number;
+  currency: string;
+  accountNumber?: string;
+  bankName?: string;
+  cryptoAddress?: string;
+  expiresAt: number;
+  attempts: number;
+}
+
+const _withdrawalOtps = new Map<string, WithdrawalOtpRecord>();
+
+export function generateWithdrawalOtp(params: {
+  email: string;
+  amount: number;
+  currency?: string;
+  accountNumber?: string;
+  bankName?: string;
+  cryptoAddress?: string;
+}): string {
+  const cleanEmail = params.email.toLowerCase().trim();
+  const code = crypto.randomInt(100000, 999999).toString();
+  const record: WithdrawalOtpRecord = {
+    code,
+    email: cleanEmail,
+    amount: Number(params.amount),
+    currency: params.currency || 'NGN',
+    accountNumber: params.accountNumber,
+    bankName: params.bankName,
+    cryptoAddress: params.cryptoAddress,
+    expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes TTL
+    attempts: 0,
+  };
+  _withdrawalOtps.set(cleanEmail, record);
+
+  if (supabase) {
+    (async () => {
+      try {
+        await supabase.from('system_configs').upsert({
+          id: `withdrawal_otp_${cleanEmail}`,
+          data: record,
+          updated_at: new Date().toISOString()
+        });
+      } catch (_) {}
+    })();
+  }
+
+  return code;
+}
+
+export async function verifyWithdrawalOtp(email: string, enteredCode: string): Promise<{ valid: boolean; reason?: string }> {
+  const cleanEmail = email.toLowerCase().trim();
+  let record = _withdrawalOtps.get(cleanEmail);
+
+  if (!record && supabase) {
+    try {
+      const { data } = await supabase.from('system_configs').select('data').eq('id', `withdrawal_otp_${cleanEmail}`).maybeSingle();
+      if (data?.data) {
+        record = data.data as WithdrawalOtpRecord;
+      }
+    } catch (_) {}
+  }
+
+  if (!record) {
+    return { valid: false, reason: 'No withdrawal authorization code was requested for this email. Please request an email verification code first.' };
+  }
+
+  if (Date.now() > record.expiresAt) {
+    _withdrawalOtps.delete(cleanEmail);
+    if (supabase) {
+      try {
+        await supabase.from('system_configs').delete().eq('id', `withdrawal_otp_${cleanEmail}`);
+      } catch (_) {}
+    }
+    return { valid: false, reason: 'Withdrawal email confirmation code has expired. Please request a new code.' };
+  }
+
+  record.attempts = (record.attempts || 0) + 1;
+  if (record.attempts > 5) {
+    _withdrawalOtps.delete(cleanEmail);
+    if (supabase) {
+      try {
+        await supabase.from('system_configs').delete().eq('id', `withdrawal_otp_${cleanEmail}`);
+      } catch (_) {}
+    }
+    return { valid: false, reason: 'Too many incorrect attempts. For security, this confirmation code has been revoked. Please request a new code.' };
+  }
+
+  if (record.code !== enteredCode.trim()) {
+    return { valid: false, reason: 'Incorrect 6-digit confirmation code. Please check your email.' };
+  }
+
+  // Consume OTP immediately so it cannot be reused
+  _withdrawalOtps.delete(cleanEmail);
+  if (supabase) {
+    try {
+      await supabase.from('system_configs').delete().eq('id', `withdrawal_otp_${cleanEmail}`);
+    } catch (_) {}
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Request an email confirmation OTP for withdrawal
+ * Gated strictly: User MUST be fully verified (KYC/KYB/KYP) before an OTP is dispatched.
+ */
+export async function requestWithdrawalOtp(req: Request, res: Response) {
+  try {
+    const { email, amount, accountNumber, bankName, cryptoAddress, currency = 'NGN' } = req.body;
+    const cleanEmail = (email || '').toString().toLowerCase().trim();
+
+    if (!cleanEmail) {
+      return res.status(400).json({ status: false, error: 'User email is required' });
+    }
+
+    if (!amount || Number(amount) <= 0) {
+      return res.status(400).json({ status: false, error: 'A valid withdrawal amount is required' });
+    }
+
+    // Security Verification: Ensure caller is authorized for this account
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    const adminCheck = verifyAdminSessionToken(token);
+
+    if (!adminCheck.valid) {
+      if (!token) {
+        return res.status(401).json({ status: false, error: 'Authentication required to request withdrawal OTP.' });
+      }
+      if (token.startsWith('rentilly_jwt_')) {
+        const memUser = await UserStore.findByEmail(cleanEmail);
+        if (memUser && !token.includes(memUser.id)) {
+          return res.status(403).json({ status: false, error: 'Unauthorized: You can only request withdrawal codes for your own authenticated account.' });
+        }
+      }
+    }
+
+    // STRICT IDENTITY GATING: User MUST have completed full KYC/KYB/KYP before receiving withdrawal OTP!
+    let isFullyVerified = false;
+    const memUser = await UserStore.findByEmail(cleanEmail);
+    if (memUser?.isVerified || memUser?.bvnVerified || memUser?.partnerStatus === 'verified') {
+      isFullyVerified = true;
+    }
+
+    if (supabase) {
+      try {
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('is_verified, bvn_verified, role, full_name, partner_status')
+          .eq('email', cleanEmail)
+          .maybeSingle();
+        if (prof) {
+          if (prof.is_verified || prof.bvn_verified || prof.partner_status === 'verified') {
+            isFullyVerified = true;
+          }
+        }
+      } catch (_) {}
+    }
+
+    const isAdminUser = cleanEmail === 'patrickachua3@gmail.com' || cleanEmail === 'info@travsify.com' || memUser?.role === 'admin';
+    if (!isAdminUser && !isFullyVerified) {
+      return res.status(403).json({
+        status: false,
+        error: 'Withdrawals require full identity verification (KYC/KYB/KYP) with verified BVN/NIN or Corporate CAC. Please complete verification under Account > Identity Verification before withdrawing funds.',
+        verificationRequired: true
+      });
+    }
+
+    const otp = generateWithdrawalOtp({
+      email: cleanEmail,
+      amount: Number(amount),
+      currency,
+      accountNumber,
+      bankName,
+      cryptoAddress
+    });
+
+    const destinationDesc = currency === 'USDT'
+      ? `USDT address ${cryptoAddress ? cryptoAddress.slice(0, 6) + '...' + cryptoAddress.slice(-4) : 'TRC-20'}`
+      : `${bankName || 'bank account'} (${accountNumber || 'NUBAN'})`;
+
+    const formattedAmount = currency === 'USDT'
+      ? `$${Number(amount).toFixed(2)} USDT`
+      : `₦${Number(amount).toLocaleString()}`;
+
+    // Dispatch Security Confirmation Email
+    NotificationDispatcher.dispatch({
+      userId: memUser?.id || `usr_${Date.now()}`,
+      email: cleanEmail,
+      userName: memUser?.fullName || 'Rentilly User',
+      category: 'security',
+      title: `🔐 Rentilly Withdrawal Confirmation Code: ${otp}`,
+      message: `You requested a withdrawal of ${formattedAmount} to ${destinationDesc}.\n\nYour one-time authorization code is: ${otp}\n\nThis code is valid for 10 minutes. NEVER share this code with anyone. If you did not make this request, contact support immediately.`,
+      metadata: {
+        'Activity': 'Withdrawal OTP Request',
+        'Amount': formattedAmount,
+        'Destination': destinationDesc,
+        'Expires In': '10 Minutes'
+      }
+    });
+
+    return res.status(200).json({
+      status: true,
+      message: `Withdrawal confirmation code has been dispatched to ${cleanEmail}. Please enter the 6-digit code to complete withdrawal.`,
+      expiresInMinutes: 10
+    });
+  } catch (err: any) {
+    return res.status(500).json({ status: false, error: err.message });
+  }
+}
+
 // 3. Execute Bank Transfer Payout (Maplerad Primary, Paystack Fallback, Flutterwave Fallback)
 export async function withdrawWithPaystack(req: Request, res: Response) {
   try {
@@ -326,6 +542,108 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
     const totalDebit = numAmount + withdrawalFee;
 
     const memUser = await UserStore.findByEmail(cleanEmail);
+
+    let liveDbBal: number | null = null;
+    let isBvnVerified = false;
+    let isFullyVerified = false;
+    let storedPin: string | null = null;
+    let accountCreatedAt: string | null = null;
+    let userDbRole = memUser?.role || 'renter';
+
+    if (supabase) {
+      try {
+        const { data: dbProf } = await supabase
+          .from('profiles')
+          .select('wallet_balance, bvn_verified, is_verified, created_at, role, transaction_pin, partner_status')
+          .eq('email', cleanEmail)
+          .maybeSingle();
+        if (dbProf) {
+          if (dbProf.wallet_balance != null) liveDbBal = Number(dbProf.wallet_balance);
+          isBvnVerified = Boolean(dbProf.bvn_verified || dbProf.is_verified);
+          isFullyVerified = Boolean(dbProf.is_verified || dbProf.bvn_verified || dbProf.partner_status === 'verified');
+          accountCreatedAt = dbProf.created_at;
+          userDbRole = dbProf.role || userDbRole;
+          storedPin = dbProf.transaction_pin || null;
+        }
+      } catch (_) {}
+    }
+
+    if (!isFullyVerified && (memUser?.bvnVerified || memUser?.isVerified || memUser?.partnerStatus === 'verified')) {
+      isFullyVerified = true;
+      isBvnVerified = true;
+    }
+    if (!storedPin && (memUser as any)?.transactionPin) {
+      storedPin = (memUser as any).transactionPin;
+    }
+
+    const isAdminUser = cleanEmail === 'patrickachua3@gmail.com' || cleanEmail === 'info@travsify.com' || memUser?.role === 'admin' || userDbRole === 'admin';
+
+    // 1. Mandatory Full Identity Verification (KYC/KYB/KYP) for bank transfer withdrawals
+    if (!isAdminUser && (!isFullyVerified || !isBvnVerified)) {
+      return res.status(403).json({
+        status: false,
+        error: 'Withdrawals are strictly restricted to verified accounts. Full completion of KYC/KYB/KYP identity verification (including BVN/NIN validation) is required before withdrawing funds.',
+        verificationRequired: true
+      });
+    }
+
+    // 2. Mandatory Transaction PIN or Biometric Authorization
+    const pin = (req.body.pin || req.body.transactionPin || req.body.paymentPin || '').toString().trim();
+    const biometricVerified = Boolean(req.body.biometricVerified || req.body.isBiometricAuthorized);
+
+    if (!isAdminUser) {
+      if (biometricVerified) {
+        console.log(`[Withdrawal] Biometric authorization verified for ${cleanEmail}`);
+      } else if (pin) {
+        if (storedPin) {
+          if (pin !== storedPin.trim()) {
+            return res.status(403).json({ status: false, error: 'Incorrect 4-digit transaction PIN.' });
+          }
+        } else {
+          if (pin.length < 4 || pin.length > 6 || !/^\d+$/.test(pin)) {
+            return res.status(400).json({ status: false, error: 'Transaction PIN must be 4 to 6 numeric digits.' });
+          }
+          if (supabase) {
+            (async () => {
+              try {
+                await supabase.from('profiles').update({ transaction_pin: pin }).eq('email', cleanEmail);
+              } catch (_) {}
+            })();
+          }
+          if (memUser) {
+            (memUser as any).transactionPin = pin;
+            UserStore.upsertUserForced(memUser);
+          }
+        }
+      } else {
+        return res.status(403).json({
+          status: false,
+          error: 'Transaction PIN or Biometric authorization is required to authorize withdrawal.'
+        });
+      }
+    }
+
+    // 3. Mandatory Thorough Email Confirmation OTP
+    const withdrawalOtp = (req.body.withdrawalOtp || req.body.emailOtp || req.body.otp || '').toString().trim();
+    if (!isAdminUser) {
+      if (!withdrawalOtp) {
+        return res.status(403).json({
+          status: false,
+          error: 'Email confirmation code is required to authorize withdrawal. Please enter the 6-digit confirmation code sent to your registered email address.',
+          otpRequired: true
+        });
+      }
+
+      const otpCheck = await verifyWithdrawalOtp(cleanEmail, withdrawalOtp);
+      if (!otpCheck.valid) {
+        return res.status(403).json({
+          status: false,
+          error: otpCheck.reason || 'Invalid or expired email confirmation code.',
+          otpRequired: true
+        });
+      }
+    }
+
     let currentBalUsdt = 0;
     let currentBal = 0;
 
@@ -350,40 +668,6 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
       await syncFlutterwaveTransactionsForUser(cleanEmail);
       await syncMapleradTransactionsForUser(cleanEmail);
       await syncPaystackInboundTransactionsForUser(cleanEmail);
-
-      let liveDbBal: number | null = null;
-      let isBvnVerified = false;
-      let accountCreatedAt: string | null = null;
-      let userDbRole = 'renter';
-
-      if (supabase) {
-        try {
-          const { data: dbProf } = await supabase
-            .from('profiles')
-            .select('wallet_balance, bvn_verified, is_verified, created_at, role')
-            .eq('email', cleanEmail)
-            .maybeSingle();
-          if (dbProf) {
-            if (dbProf.wallet_balance != null) liveDbBal = Number(dbProf.wallet_balance);
-            isBvnVerified = Boolean(dbProf.bvn_verified || dbProf.is_verified);
-            accountCreatedAt = dbProf.created_at;
-            userDbRole = dbProf.role || 'renter';
-          }
-        } catch (_) {}
-      }
-
-      if (!isBvnVerified && (memUser?.bvnVerified || memUser?.isVerified)) {
-        isBvnVerified = true;
-      }
-
-      const isAdminUser = cleanEmail === 'patrickachua3@gmail.com' || cleanEmail === 'info@travsify.com' || memUser?.role === 'admin' || userDbRole === 'admin';
-
-      // 1. Mandatory Identity Verification (BVN/NIN) for bank transfer withdrawals
-      if (!isAdminUser && !isBvnVerified) {
-        return res.status(403).json({
-          error: 'Tier 2 Identity Verification (BVN/NIN) is required before initiating external bank withdrawals. Please verify your identity under Account > Verification.'
-        });
-      }
 
       currentBal = liveDbBal !== null
         ? liveDbBal
@@ -689,8 +973,128 @@ export async function withdrawCrypto(req: Request, res: Response) {
     const cleanEmail = (email || '').toString().toLowerCase().trim();
     const numUsdt = Number(amountUsdt || req.body.amount || 0);
 
+    if (!cleanEmail) {
+      return res.status(400).json({ error: 'User email is required' });
+    }
+
     if (!address || numUsdt <= 0) {
       return res.status(400).json({ error: 'Valid recipient crypto address and USDT amount are required.' });
+    }
+
+    // Security Verification: Ensure caller is authorized for this account
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    const adminCheck = verifyAdminSessionToken(token);
+
+    if (!adminCheck.valid) {
+      if (!token) {
+        return res.status(401).json({ error: 'Authentication required to initiate crypto withdrawals.' });
+      }
+      if (token.startsWith('rentilly_jwt_')) {
+        const memUser = await UserStore.findByEmail(cleanEmail);
+        if (memUser && !token.includes(memUser.id)) {
+          return res.status(403).json({ error: 'Unauthorized: You can only withdraw funds from your own authenticated account.' });
+        }
+      }
+    }
+
+    const memUser = await UserStore.findByEmail(cleanEmail);
+
+    let isFullyVerified = false;
+    let isBvnVerified = false;
+    let storedPin: string | null = null;
+    let userDbRole = memUser?.role || 'renter';
+
+    if (supabase) {
+      try {
+        const { data: dbProf } = await supabase
+          .from('profiles')
+          .select('wallet_balance, bvn_verified, is_verified, created_at, role, transaction_pin, partner_status')
+          .eq('email', cleanEmail)
+          .maybeSingle();
+        if (dbProf) {
+          isBvnVerified = Boolean(dbProf.bvn_verified || dbProf.is_verified);
+          isFullyVerified = Boolean(dbProf.is_verified || dbProf.bvn_verified || dbProf.partner_status === 'verified');
+          userDbRole = dbProf.role || userDbRole;
+          storedPin = dbProf.transaction_pin || null;
+        }
+      } catch (_) {}
+    }
+
+    if (!isFullyVerified && (memUser?.bvnVerified || memUser?.isVerified || memUser?.partnerStatus === 'verified')) {
+      isFullyVerified = true;
+      isBvnVerified = true;
+    }
+    if (!storedPin && (memUser as any)?.transactionPin) {
+      storedPin = (memUser as any).transactionPin;
+    }
+
+    const isAdminUser = cleanEmail === 'patrickachua3@gmail.com' || cleanEmail === 'info@travsify.com' || memUser?.role === 'admin' || userDbRole === 'admin';
+
+    // 1. Mandatory Full Identity Verification (KYC/KYB/KYP) for crypto withdrawals
+    if (!isAdminUser && (!isFullyVerified || !isBvnVerified)) {
+      return res.status(403).json({
+        status: false,
+        error: 'Withdrawals are strictly restricted to verified accounts. Full completion of KYC/KYB/KYP identity verification (including BVN/NIN validation) is required before withdrawing funds.',
+        verificationRequired: true
+      });
+    }
+
+    // 2. Mandatory Transaction PIN or Biometric Authorization
+    const pin = (req.body.pin || req.body.transactionPin || req.body.paymentPin || '').toString().trim();
+    const biometricVerified = Boolean(req.body.biometricVerified || req.body.isBiometricAuthorized);
+
+    if (!isAdminUser) {
+      if (biometricVerified) {
+        console.log(`[WithdrawalCrypto] Biometric authorization verified for ${cleanEmail}`);
+      } else if (pin) {
+        if (storedPin) {
+          if (pin !== storedPin.trim()) {
+            return res.status(403).json({ status: false, error: 'Incorrect 4-digit transaction PIN.' });
+          }
+        } else {
+          if (pin.length < 4 || pin.length > 6 || !/^\d+$/.test(pin)) {
+            return res.status(400).json({ status: false, error: 'Transaction PIN must be 4 to 6 numeric digits.' });
+          }
+          if (supabase) {
+            (async () => {
+              try {
+                await supabase.from('profiles').update({ transaction_pin: pin }).eq('email', cleanEmail);
+              } catch (_) {}
+            })();
+          }
+          if (memUser) {
+            (memUser as any).transactionPin = pin;
+            UserStore.upsertUserForced(memUser);
+          }
+        }
+      } else {
+        return res.status(403).json({
+          status: false,
+          error: 'Transaction PIN or Biometric authorization is required to authorize withdrawal.'
+        });
+      }
+    }
+
+    // 3. Mandatory Thorough Email Confirmation OTP
+    const withdrawalOtp = (req.body.withdrawalOtp || req.body.emailOtp || req.body.otp || '').toString().trim();
+    if (!isAdminUser) {
+      if (!withdrawalOtp) {
+        return res.status(403).json({
+          status: false,
+          error: 'Email confirmation code is required to authorize withdrawal. Please enter the 6-digit confirmation code sent to your registered email address.',
+          otpRequired: true
+        });
+      }
+
+      const otpCheck = await verifyWithdrawalOtp(cleanEmail, withdrawalOtp);
+      if (!otpCheck.valid) {
+        return res.status(403).json({
+          status: false,
+          error: otpCheck.reason || 'Invalid or expired email confirmation code.',
+          otpRequired: true
+        });
+      }
     }
 
     // Normalize chain
@@ -724,7 +1128,6 @@ export async function withdrawCrypto(req: Request, res: Response) {
         }
       }
     }
-    const memUser = await UserStore.findByEmail(cleanEmail);
     if (!currentBalUsdt && memUser?.usdtBalance != null) {
       currentBalUsdt = Number(memUser.usdtBalance);
     }

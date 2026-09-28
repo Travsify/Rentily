@@ -349,6 +349,7 @@ export class ReferralService {
 
   /**
    * Called when a user completes KYC or KYB verification to disburse ₦1,000 and ₦500
+   * Strictly requires BOTH verified identity (KYC/KYB) AND an assigned dedicated bank account!
    */
   static async processKycRewards(userId: string, email: string): Promise<void> {
     await this.ensureLogsLoaded();
@@ -356,6 +357,32 @@ export class ReferralService {
     if (!config.enabled) return;
 
     const cleanEmail = email.toLowerCase().trim();
+
+    // Check referee user: MUST be fully verified AND have an assigned dedicated bank account
+    const user = (await UserStore.findById(userId)) || (await UserStore.findByEmail(cleanEmail));
+    let accountNumber = user?.accountNumber;
+    let isVerified = Boolean(user?.isVerified || user?.bvnVerified);
+
+    if (supabase && (!accountNumber || !isVerified)) {
+      try {
+        const { data: dbProf } = await supabase
+          .from('profiles')
+          .select('is_verified, bvn_verified, account_number')
+          .or(`id.eq.${userId},email.eq.${cleanEmail}`)
+          .maybeSingle();
+        if (dbProf) {
+          if (dbProf.account_number) accountNumber = dbProf.account_number;
+          if (dbProf.is_verified || dbProf.bvn_verified) isVerified = true;
+        }
+      } catch (_) {}
+    }
+
+    const hasDedicatedBankAccount = Boolean(accountNumber && accountNumber.trim().length >= 8);
+
+    if (!isVerified || !hasDedicatedBankAccount) {
+      console.log(`[ReferralService] User ${cleanEmail} is not yet eligible for referral rewards. Verified: ${isVerified}, Dedicated Bank Account: ${hasDedicatedBankAccount}. Status remains pending.`);
+      return;
+    }
 
     // Check if user already got a welcome bonus previously to prevent duplicate payouts
     const existingTxs = await TransactionStore.getTransactionsByEmail(cleanEmail);
@@ -381,8 +408,7 @@ export class ReferralService {
 
     // Standalone verified user without prior referral record: only pay once if not already credited
     if (!alreadyReceivedWelcome) {
-      const user = await UserStore.findById(userId) || await UserStore.findByEmail(cleanEmail);
-      if (user && user.isVerified) {
+      if (user && isVerified && hasDedicatedBankAccount) {
         await this.creditWelcomeBonus(user, config.signupBonusAmount);
       }
     }
@@ -390,6 +416,7 @@ export class ReferralService {
 
   /**
    * Disburses the actual monetary credits into wallet accounts & emits ledger transactions
+   * Dual-gated: Referee must have both verified status AND an assigned bank account.
    */
   private static async disburseRewards(record: ReferralRecord): Promise<void> {
     const config = await this.getConfig();
@@ -397,9 +424,34 @@ export class ReferralService {
 
     const now = new Date().toISOString();
 
+    // Check referee verification AND dedicated bank account status
+    const referee = await UserStore.findByEmail(record.refereeEmail) || await UserStore.findById(record.refereeId);
+    let refAccNo = referee?.accountNumber;
+    let refVerified = Boolean(referee?.isVerified || referee?.bvnVerified);
+
+    if (supabase && (!refAccNo || !refVerified)) {
+      try {
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('is_verified, bvn_verified, account_number')
+          .or(`id.eq.${record.refereeId},email.eq.${record.refereeEmail}`)
+          .maybeSingle();
+        if (prof) {
+          if (prof.account_number) refAccNo = prof.account_number;
+          if (prof.is_verified || prof.bvn_verified) refVerified = true;
+        }
+      } catch (_) {}
+    }
+
+    const refereeEligible = refVerified && Boolean(refAccNo && refAccNo.trim().length >= 8);
+
+    if (!refereeEligible) {
+      console.log(`[ReferralService] Reward disbursement held for ${record.refereeEmail}: Referee must complete verification and receive dedicated bank account.`);
+      return;
+    }
+
     // 1. Credit Referee (+₦1,000 Welcome Bonus)
     if (record.refereeRewardStatus === 'pending_kyc' && record.refereeRewardAmount > 0) {
-      const referee = await UserStore.findByEmail(record.refereeEmail) || await UserStore.findById(record.refereeId);
       if (referee) {
         const prevBal = referee.walletBalance || 0;
         referee.walletBalance = prevBal + record.refereeRewardAmount;
@@ -523,6 +575,13 @@ export class ReferralService {
    * Credits a standalone welcome bonus
    */
   private static async creditWelcomeBonus(user: StoredUser, amount: number): Promise<void> {
+    const hasDedicatedBankAccount = Boolean(user.accountNumber && user.accountNumber.trim().length >= 8);
+    const isVerified = Boolean(user.isVerified || user.bvnVerified);
+    if (!isVerified || !hasDedicatedBankAccount) {
+      console.log(`[ReferralService] Standalone welcome bonus held for ${user.email}: requires full verification & dedicated bank account.`);
+      return;
+    }
+
     const prevBal = user.walletBalance || 0;
     user.walletBalance = prevBal + amount;
     UserStore.upsertUserForced(user);
