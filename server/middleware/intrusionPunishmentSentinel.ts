@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { supabase } from '../supabaseClient';
 import { BotSentinelService } from '../services/botSentinelService';
 import { NotificationDispatcher } from '../services/notificationDispatcher';
+import { ExecutiveActivityAlertService } from '../services/executiveActivityAlertService';
 
 // ============================================================================
 // AGENT 8: In-Memory Quarantine & Subnet Sentinel Cache
@@ -326,10 +327,27 @@ async function logSecurityThreat(clientIp: string, details: any) {
     } catch (_) {}
   }
 
-  // Dispatch emergency alert to Admin Console
+  // Dispatch real-time threat alert directly to info@myrentilly.com
+  ExecutiveActivityAlertService.sendRealTimeActivityAlert({
+    type: 'security_alert',
+    title: `🚨 CRITICAL: Malicious Probe Intercepted from ${clientIp}`,
+    summary: `Intrusion Sentinel intercepted malicious attempt:\nIP: ${clientIp}\nVector: ${details.trigger}\nURI: ${details.path}\nPayload: ${details.payloadSnippet || 'N/A'}\nAction Taken: ${details.actionTaken}`,
+    ipAddress: clientIp,
+    userAgent: details.userAgent,
+    details: {
+      'IP Address': clientIp,
+      'Attack Vector': details.trigger,
+      'Probed URI': details.path,
+      'Raw Payload': details.payloadSnippet || 'N/A',
+      'Action Executed': details.actionTaken,
+      'Timestamp': details.timestamp || new Date().toISOString()
+    }
+  }).catch(() => {});
+
+  // Dispatch emergency alert to Admin Operations
   NotificationDispatcher.dispatch({
     userId: 'admin_security_ops',
-    email: 'security@myrentilly.com',
+    email: 'info@myrentilly.com',
     userName: 'Security Operations',
     category: 'security',
     title: `🚨 CRITICAL: Malicious Probe Intercepted from ${clientIp}`,

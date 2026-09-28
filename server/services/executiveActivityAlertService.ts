@@ -243,21 +243,36 @@ export class ExecutiveActivityAlertService {
   }
 
   /**
-   * Main dispatch method: Sends real-time alert to info@myrentilly.com via Resend
+   * Main dispatch method: Sends real-time threat/fraud alert to info@myrentilly.com via Resend.
+   * STRICT POLICY: Only fraudulent, attempted hacking, or malicious threat alerts are processed.
+   * All routine platform operations (deposits, normal withdrawals, KYC submissions) are suppressed.
    */
   static async sendRealTimeActivityAlert(payload: ActivityAlertPayload): Promise<boolean> {
     try {
-      // De-duplicate rapid identical alerts within 15 seconds
-      const dedupeKey = `${payload.type}:${payload.actorEmail || payload.ipAddress || ''}:${payload.title}`;
+      // 1. Strict Threat & Fraud Filter Gate
+      const titleLower = (payload.title || '').toLowerCase();
+      const summaryLower = (payload.summary || '').toLowerCase();
+      const isSecurityType = payload.type === 'security_alert' || payload.type === 'sentinel_lockdown' || payload.type === 'registration_blocked';
+      
+      const threatKeywordsRegex = /\b(threat|hack|hacker|hacking|probe|scanner|exploit|malicious|syndicate|fraud|fraudulent|attack|injection|traversal|breach|tarpit|canary|honeytoken|lockdown|banned|unauthorized|tamper|bypass)\b/i;
+      const isThreatOrFraud = isSecurityType || threatKeywordsRegex.test(titleLower) || threatKeywordsRegex.test(summaryLower);
+
+      if (!isThreatOrFraud) {
+        // Discard routine operational notifications
+        return false;
+      }
+
+      // 2. De-duplicate rapid identical alerts within 30 seconds to prevent alert fatigue
+      const dedupeKey = `${payload.type}:${payload.actorEmail || payload.ipAddress || ''}:${titleLower.slice(0, 40)}`;
       const lastSent = this.recentAlerts.get(dedupeKey) || 0;
-      if (Date.now() - lastSent < 15000) {
+      if (Date.now() - lastSent < 30000) {
         return true;
       }
       this.recentAlerts.set(dedupeKey, Date.now());
 
       const htmlBody = this.buildExecutiveEmailHtml(payload);
 
-      // Primary Resend dispatch
+      // Primary Resend dispatch to info@myrentilly.com
       let success = false;
       try {
         const response = await fetch('https://api.resend.com/emails', {
@@ -269,18 +284,18 @@ export class ExecutiveActivityAlertService {
           body: JSON.stringify({
             from: SENDER_EMAIL,
             to: [EXECUTIVE_RECIPIENT],
-            subject: `[Rentilly Ops] ${payload.title}`,
+            subject: `🚨 [Rentilly Threat Intercept] ${payload.title}`,
             html: htmlBody
           })
         });
 
         const resData: any = await response.json();
         if (response.ok && (resData.id || resData.data?.id)) {
-          console.log(`[ExecutiveAlert] Real-time alert dispatched to ${EXECUTIVE_RECIPIENT}: "${payload.title}"`);
+          console.log(`🛡️ [ThreatAlert] Security/Fraud email successfully dispatched to ${EXECUTIVE_RECIPIENT}: "${payload.title}"`);
           success = true;
         }
       } catch (e: any) {
-        console.warn('[ExecutiveAlert] Primary delivery notice:', e.message);
+        console.warn('[ThreatAlert] Primary delivery notice:', e.message);
       }
 
       // Fallback sender if custom domain fails
@@ -293,15 +308,15 @@ export class ExecutiveActivityAlertService {
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              from: 'Rentilly Ops <onboarding@resend.dev>',
+              from: 'Rentilly Security <onboarding@resend.dev>',
               to: [EXECUTIVE_RECIPIENT],
-              subject: `[Rentilly Ops] ${payload.title}`,
+              subject: `🚨 [Rentilly Threat Intercept] ${payload.title}`,
               html: htmlBody
             })
           });
           const fbData: any = await fallbackRes.json();
           if (fallbackRes.ok && (fbData.id || fbData.data?.id)) {
-            console.log(`[ExecutiveAlert] Delivered via fallback to ${EXECUTIVE_RECIPIENT}: "${payload.title}"`);
+            console.log(`🛡️ [ThreatAlert] Delivered via fallback to ${EXECUTIVE_RECIPIENT}: "${payload.title}"`);
             success = true;
           }
         } catch (_) {}
@@ -309,43 +324,49 @@ export class ExecutiveActivityAlertService {
 
       return success;
     } catch (err: any) {
-      console.error('[ExecutiveAlert] Failed to dispatch activity alert:', err.message);
+      console.error('[ThreatAlert] Failed to dispatch security alert:', err.message);
       return false;
     }
   }
 
   /**
-   * Helper to forward relevant user events from NotificationDispatcher
+   * Helper to forward ONLY fraudulent, attempted hacking, or malicious threat events from NotificationDispatcher
    */
   static notifyFromEvent(event: any): void {
     const targetEmail = (event.email || event.userEmail || '').toLowerCase().trim();
     if (targetEmail === EXECUTIVE_RECIPIENT) return; // avoid looping self-reports
 
     const cat = event.category;
-    let type: ActivityType = 'system_event';
+    // Strictly discard all non-security categories (wallet, escrow, inspection, utilities, system, general)
+    if (cat !== 'security') {
+      return;
+    }
 
-    if (cat === 'wallet') {
-      type = (event.title || '').toLowerCase().includes('withdraw') ? 'withdrawal_request' : 'wallet_deposit';
-    } else if (cat === 'escrow') {
-      type = (event.title || '').toLowerCase().includes('release') ? 'escrow_released' : 'escrow_created';
-    } else if (cat === 'security') {
-      type = 'security_alert';
-    } else if (cat === 'system') {
-      type = 'kyc_submission';
+    const titleLower = (event.title || '').toLowerCase();
+    const msgLower = (event.message || '').toLowerCase();
+
+    // Discard routine OTP codes / user confirmation codes
+    if (titleLower.includes('code:') || titleLower.includes('confirmation code') || titleLower.includes('verification code') || titleLower.includes('otp')) {
+      return;
+    }
+
+    // Must match threat or fraud keywords
+    const threatRegex = /\b(threat|hack|hacker|hacking|probe|scanner|exploit|malicious|syndicate|fraud|fraudulent|attack|injection|traversal|breach|tarpit|canary|honeytoken|lockdown|banned|unauthorized|tamper|bypass)\b/i;
+    if (!threatRegex.test(titleLower + ' ' + msgLower)) {
+      return;
     }
 
     this.sendRealTimeActivityAlert({
-      type,
+      type: 'security_alert',
       title: event.title,
       summary: event.message,
-      actorEmail: targetEmail,
+      actorEmail: targetEmail || undefined,
       actorName: event.userName,
-      amount: event.metadata?.amount,
+      ipAddress: event.metadata?.ipAddress || event.metadata?.ip,
+      userAgent: event.metadata?.userAgent,
       details: {
         category: cat,
-        reference: event.metadata?.reference,
-        bankName: event.metadata?.bankName,
-        accountNumber: event.metadata?.accountNumber
+        ...event.metadata
       }
     }).catch(() => {});
   }
