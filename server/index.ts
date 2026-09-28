@@ -113,8 +113,15 @@ app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 app.get('/verify/mandate/:id', renderMandateVerificationPage);
 app.get('/verify/mandate', renderMandateVerificationPage);
 // Corporate Partner Accreditation & Signup Portal
-app.get(['/partner/signup', '/partner-signup', '/partner/register', '/partner-register', '/partners/register', '/partner/join', '/partners'], renderPartnerSignupPage);
-app.post(['/api/partners/register', '/api/partner/register'], handlePublicPartnerRegister);
+app.get('/partner/signup', renderPartnerSignupPage);
+app.get('/partner-signup', renderPartnerSignupPage);
+app.get('/partner/register', renderPartnerSignupPage);
+app.get('/partner-register', renderPartnerSignupPage);
+app.get('/partners/register', renderPartnerSignupPage);
+app.get('/partner/join', renderPartnerSignupPage);
+app.get('/partners', renderPartnerSignupPage);
+app.post('/api/partners/register', handlePublicPartnerRegister);
+app.post('/api/partner/register', handlePublicPartnerRegister);
 
 app.get('/verify/partner', renderPartnerVerificationPage);
 app.get('/verify/partner/:id', renderPartnerVerificationPage);
