@@ -21,6 +21,8 @@ import { initBroadcastsFromSupabase } from './controllers/broadcastController';
 import { initFeatureFlagsFromSupabase } from './controllers/featureFlagController';
 import { UserStore } from './services/userStore';
 import { AppDownloadAlertService } from './services/appDownloadAlertService';
+import { register as handleRegister } from './controllers/authController';
+import { registrationRateLimiter } from './middleware/registrationRateLimiter';
 
 import dns from 'dns';
 dotenv.config();
@@ -202,6 +204,13 @@ app.get('/dl/:code', (req: Request, res: Response) => {
   AppDownloadAlertService.recordAndAlertDownload({ req, channel: 'play_store', referralCode: code }).catch(() => {});
   res.redirect(302, `${GOOGLE_PLAY_URL}&referrer=utm_source%3Dcreator%26utm_campaign%3Dcontest%26utm_content%3D${code}`);
 });
+
+// Web Registration Guards: Block web browser signups and redirect web users to download the mobile app
+app.get(['/register', '/signup', '/auth/register'], (req: Request, res: Response) => {
+  AppDownloadAlertService.recordAndAlertDownload({ req, channel: 'play_store' }).catch(() => {});
+  res.redirect(302, GOOGLE_PLAY_URL);
+});
+app.post(['/auth/register', '/register', '/signup'], registrationRateLimiter, handleRegister);
 
 // 2. Mount API Router under /api
 app.use('/api', apiRouter);

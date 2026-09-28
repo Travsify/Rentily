@@ -292,6 +292,7 @@ interface WithdrawalOtpRecord {
 }
 
 const _withdrawalOtps = new Map<string, WithdrawalOtpRecord>();
+const _consumedWithdrawalOtps = new Set<string>();
 
 export function generateWithdrawalOtp(params: {
   email: string;
@@ -333,6 +334,12 @@ export function generateWithdrawalOtp(params: {
 
 export async function verifyWithdrawalOtp(email: string, enteredCode: string): Promise<{ valid: boolean; reason?: string }> {
   const cleanEmail = email.toLowerCase().trim();
+  const cleanCode = (enteredCode || '').trim();
+
+  if (_consumedWithdrawalOtps.has(`${cleanEmail}:${cleanCode}`)) {
+    return { valid: false, reason: 'This confirmation code has already been used and cannot be reused.' };
+  }
+
   let record = _withdrawalOtps.get(cleanEmail);
 
   if (!record && supabase) {
@@ -369,11 +376,13 @@ export async function verifyWithdrawalOtp(email: string, enteredCode: string): P
     return { valid: false, reason: 'Too many incorrect attempts. For security, this confirmation code has been revoked. Please request a new code.' };
   }
 
-  if (record.code !== enteredCode.trim()) {
+  if (record.code !== cleanCode) {
     return { valid: false, reason: 'Incorrect 6-digit confirmation code. Please check your email.' };
   }
 
   // Consume OTP immediately so it cannot be reused
+  _consumedWithdrawalOtps.add(`${cleanEmail}:${record.code}`);
+  setTimeout(() => _consumedWithdrawalOtps.delete(`${cleanEmail}:${record.code}`), 15 * 60 * 1000);
   _withdrawalOtps.delete(cleanEmail);
   if (supabase) {
     try {
