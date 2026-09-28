@@ -708,12 +708,8 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
         return;
       }
     } else {
-      if (currentBal < 3000) {
-        setState(() => _errorMessage = 'The minimum bank withdrawal amount is ₦3,000. Your current wallet balance is ₦${NumberFormat('#,###.00').format(currentBal)}. You can fund your wallet to reach the threshold, or use your balance for airtime, electricity, and bill payments.');
-        return;
-      }
-      if (entered < 3000) {
-        setState(() => _errorMessage = 'The minimum bank withdrawal amount is ₦3,000. Please enter an amount of ₦3,000 or greater, or spend your balance on platform utilities.');
+      if (entered < 100) {
+        setState(() => _errorMessage = 'The minimum bank withdrawal amount is ₦100.');
         return;
       }
       final double totalNgnRequired = _computedNgnAmount;
@@ -1272,7 +1268,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Bonus Policy: Minimum bank withdrawal for signup or referral bonus rewards is ₦3,000. Alternatively, bonus balances can be spent anytime for platform activities, utilities, electricity, and airtime with zero minimum.',
+                      'Flexible Withdrawals: Personal deposits can be withdrawn at any amount. Referral & bonus rewards unlock for flexible bank payouts once you achieve ₦3,000 in bonus earnings. Alternatively, bonus balances can be spent anytime for platform utilities, electricity, and airtime with zero minimum.',
                       style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: const Color(0xFF1E40AF), height: 1.35),
                     ),
                   ),

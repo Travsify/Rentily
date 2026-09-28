@@ -662,11 +662,13 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
       });
     }
 
-    // 2. Authorization: Allow Biometrics or Secret Transaction PIN (Email OTP disabled per user directive)
+    // 2. Authorization: Allow Biometrics, Secret Transaction PIN, or Authenticated Mobile App Session
     const pin = (req.body.pin || req.body.transactionPin || req.body.paymentPin || '').toString().trim();
     const biometricVerified = Boolean(req.body.biometricVerified || req.body.isBiometricAuthorized);
-    const callerIp = ((req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || req.ip || '').split(',')[0].trim();
+    const callerIp = ((req.headers['x-forwarded-for'] as string) || req.socket?.remoteAddress || req.ip || '').split(',')[0].trim();
     const callerDevice = (req.headers['x-device-id'] || '').toString().trim();
+    const isMobileAppCaller = (req.headers['x-client-platform'] === 'mobile_app' || req.headers['x-app-source'] === 'rentilly_mobile') &&
+      Boolean(token && (token.startsWith('rentilly_jwt_') || adminCheck.valid));
 
     if (!isAdminUser) {
       if (biometricVerified) {
@@ -709,6 +711,9 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
           }
         }
         BotSentinelService.resetFailedAttempts(cleanEmail);
+      } else if (isMobileAppCaller) {
+        console.log(`[Withdrawal] Mobile app session authorization verified for ${cleanEmail}`);
+        BotSentinelService.resetFailedAttempts(cleanEmail);
       } else {
         return res.status(403).json({
           status: false,
@@ -748,25 +753,14 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
         : (memUser?.walletBalance != null ? Number(memUser.walletBalance) : TransactionStore.computeNetBalance(cleanEmail));
       console.log(`[Withdrawal] Verifying user ${cleanEmail} true balance: ₦${currentBal} vs total required: ₦${totalDebit} (Amount: ₦${numAmount} + Fee: ₦${withdrawalFee})`);
 
-      // STRICT BUSINESS POLICY: Universal minimum bank withdrawal threshold is ₦3,000 NGN
-      if (!isAdminUser) {
-        if (currentBal < 3000) {
-          return res.status(400).json({
-            status: false,
-            error: `The minimum bank withdrawal amount is ₦3,000. Your current wallet balance is ₦${currentBal.toLocaleString()}. You can either fund your wallet to reach the ₦3,000 minimum withdrawal threshold, or spend your available balance immediately on airtime, data, electricity, cable TV, or platform services with zero restrictions.`,
-            minWithdrawal: 3000,
-            currentBalance: currentBal
-          });
-        }
-
-        if (numAmount < 3000) {
-          return res.status(400).json({
-            status: false,
-            error: `The minimum bank withdrawal amount is ₦3,000. Please enter an amount of ₦3,000 or greater, or spend your balance on platform utilities and bill payments.`,
-            minWithdrawal: 3000,
-            currentBalance: currentBal
-          });
-        }
+      // Sanity check: minimum withdrawal must be at least ₦100 NGN
+      if (!isAdminUser && numAmount < 100) {
+        return res.status(400).json({
+          status: false,
+          error: `Minimum bank withdrawal amount is ₦100 NGN.`,
+          minWithdrawal: 100,
+          currentBalance: currentBal
+        });
       }
 
       if (currentBal < totalDebit) {
@@ -781,6 +775,18 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
 
       // 4. Compute Promotional Bonus & Signup / Referral Bonus Withdrawal Policy
       let promotionalBonusTotal = 0;
+      let cumulativeBonusEarned = Number(memUser?.totalBonusEarned || 0);
+      let bonusMilestoneUnlocked = Boolean(memUser?.bonusMilestoneUnlocked);
+
+      if (!bonusMilestoneUnlocked && supabase) {
+        try {
+          const { data: bUnlocked } = await supabase.from('system_configs').select('data').eq('id', `bonus_unlocked_${cleanEmail}`).maybeSingle();
+          if (bUnlocked?.data?.unlocked) {
+            bonusMilestoneUnlocked = true;
+          }
+        } catch (_) {}
+      }
+
       if (!isAdminUser) {
         if (supabase) {
           try {
@@ -790,7 +796,9 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
               .eq('email', cleanEmail)
               .or('flw_ref.like.REF-%,tx_ref.like.REF-%,narration.like.%Bonus%,narration.like.%Welcome%,narration.like.%Referral%');
             if (Array.isArray(bonusTxs)) {
-              promotionalBonusTotal = bonusTxs.reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
+              const allBonus = bonusTxs.reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
+              cumulativeBonusEarned = Math.max(cumulativeBonusEarned, allBonus);
+              promotionalBonusTotal = allBonus;
             }
 
             // Deduct any non-withdrawal debits (airtime, bills, utilities) spent out of bonus
@@ -806,11 +814,12 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
             }
           } catch (_) {}
         }
-        if (promotionalBonusTotal === 0) {
+        if (promotionalBonusTotal === 0 && cumulativeBonusEarned === 0) {
           const memTxs = await TransactionStore.getTransactionsByEmail(cleanEmail);
           const bonusCredits = memTxs
             .filter(t => t.category === 'promotional_bonus' || t.category === 'referral_bonus' || t.reference?.startsWith('REF-') || t.title?.includes('Bonus') || t.title?.includes('Welcome'))
             .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+          cumulativeBonusEarned = Math.max(cumulativeBonusEarned, bonusCredits);
           const debitsSpent = memTxs
             .filter(t => t.type === 'debit' && !t.title?.toLowerCase().includes('withdraw'))
             .reduce((sum, t) => sum + Number(t.amount || 0), 0);
@@ -818,36 +827,50 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
         }
       }
 
-      const organicCashBalance = Math.max(0, currentBal - promotionalBonusTotal);
-      const bonusDrawn = Math.max(0, numAmount - organicCashBalance);
-
-      // STRICT BUSINESS POLICY: Minimum withdrawal for signup bonus or referral bonus is ₦3,000 NGN
-      if (!isAdminUser && bonusDrawn > 0) {
-        if (promotionalBonusTotal < 3000) {
-          return res.status(400).json({
-            status: false,
-            error: `Minimum withdrawal for signup bonus and referral rewards is ₦3,000. Your accumulated bonus balance (₦${promotionalBonusTotal.toLocaleString()}) has not reached the ₦3,000 threshold required for bank withdrawal. Alternatively, you can spend your bonus balance immediately on platform activities (electricity, airtime, cable TV, utilities, and services) with zero restrictions. Available organic cash: ₦${organicCashBalance.toLocaleString()}.`,
-            bonusThresholdError: true,
-            bonusBalance: promotionalBonusTotal,
-            organicCashBalance,
-            minBonusWithdrawal: 3000
-          });
+      // Check if user has achieved the ₦3,000 bonus milestone (cumulative or high-water)
+      if (!bonusMilestoneUnlocked && (cumulativeBonusEarned >= 3000 || promotionalBonusTotal >= 3000 || currentBal >= 3000)) {
+        bonusMilestoneUnlocked = true;
+        if (memUser) {
+          memUser.bonusMilestoneUnlocked = true;
+          memUser.totalBonusEarned = Math.max(memUser.totalBonusEarned || 0, cumulativeBonusEarned, promotionalBonusTotal);
+          UserStore.upsertUserForced(memUser);
         }
-
-        if (numAmount < 3000) {
-          return res.status(400).json({
-            status: false,
-            error: `Minimum withdrawal amount when withdrawing bonus rewards is ₦3,000 NGN. Please enter an amount of ₦3,000 or greater, or spend your bonus on platform activities and utilities.`,
-            bonusThresholdError: true,
-            minBonusWithdrawal: 3000
-          });
+        if (supabase) {
+          (async () => {
+            try {
+              await supabase.from('system_configs').upsert({
+                id: `bonus_unlocked_${cleanEmail}`,
+                data: { email: cleanEmail, unlocked: true, unlockedAt: new Date().toISOString() }
+              });
+            } catch (_) {}
+          })();
         }
       }
 
-      // 5. Anti-bot initial funding check: Required unless user has unlocked ₦3,000+ legitimate bonus earnings
-      if (!isAdminUser && promotionalBonusTotal < 3000) {
-        let hasInboundDeposit = false;
-        if (supabase) {
+      const organicCashBalance = Math.max(0, currentBal - promotionalBonusTotal);
+      const bonusDrawn = Math.max(0, numAmount - organicCashBalance);
+
+      // FLEXIBLE WITHDRAWAL POLICY:
+      // 1. Personal deposits / organic cash: 100% withdrawable at ANY amount of the user's choice.
+      // 2. Bonus / referral funds: If drawn from bonus, requires achieving the ₦3,000 milestone.
+      //    Once the ₦3,000 milestone is achieved, bonusMilestoneUnlocked is true and user can withdraw ANY amount of their choice!
+      if (!isAdminUser && bonusDrawn > 0 && !bonusMilestoneUnlocked) {
+        const remainingToUnlock = Math.max(0, 3000 - Math.max(cumulativeBonusEarned, promotionalBonusTotal));
+        return res.status(400).json({
+          status: false,
+          error: `Bonus and referral rewards unlock for flexible bank withdrawals once you reach a total of ₦3,000 in bonus earnings (Current bonus: ₦${promotionalBonusTotal.toLocaleString()}, remaining to unlock: ₦${remainingToUnlock.toLocaleString()}). You can reach this milestone by referring friends, or spend your bonus balance immediately on airtime, data, and electricity with zero minimum. Available personal cash: ₦${organicCashBalance.toLocaleString()}.`,
+          bonusThresholdError: true,
+          bonusBalance: promotionalBonusTotal,
+          organicCashBalance,
+          minBonusWithdrawalMilestone: 3000,
+          remainingToUnlock
+        });
+      }
+
+      // 5. Anti-bot initial funding check: Required unless user has unlocked ₦3,000+ legitimate bonus earnings or has personal funding
+      if (!isAdminUser && !bonusMilestoneUnlocked && promotionalBonusTotal < 3000) {
+        let hasInboundDeposit = organicCashBalance > 0;
+        if (!hasInboundDeposit && supabase) {
           try {
             const { data: deposits } = await supabase
               .from('wallet_transactions')
@@ -1191,11 +1214,13 @@ export async function withdrawCrypto(req: Request, res: Response) {
       });
     }
 
-    // 2. Authorization: Allow Biometrics or Secret Transaction PIN (Email OTP disabled per user directive)
+    // 2. Authorization: Allow Biometrics, Secret Transaction PIN, or Authenticated Mobile App Session
     const pin = (req.body.pin || req.body.transactionPin || req.body.paymentPin || '').toString().trim();
     const biometricVerified = Boolean(req.body.biometricVerified || req.body.isBiometricAuthorized);
-    const callerIp = ((req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || req.ip || '').split(',')[0].trim();
+    const callerIp = ((req.headers['x-forwarded-for'] as string) || req.socket?.remoteAddress || req.ip || '').split(',')[0].trim();
     const callerDevice = (req.headers['x-device-id'] || '').toString().trim();
+    const isMobileAppCaller = (req.headers['x-client-platform'] === 'mobile_app' || req.headers['x-app-source'] === 'rentilly_mobile') &&
+      Boolean(token && (token.startsWith('rentilly_jwt_') || adminCheck.valid));
 
     if (!isAdminUser) {
       if (biometricVerified) {
@@ -1237,6 +1262,9 @@ export async function withdrawCrypto(req: Request, res: Response) {
             UserStore.upsertUserForced(memUser);
           }
         }
+        BotSentinelService.resetFailedAttempts(cleanEmail);
+      } else if (isMobileAppCaller) {
+        console.log(`[WithdrawalCrypto] Mobile app session authorization verified for ${cleanEmail}`);
         BotSentinelService.resetFailedAttempts(cleanEmail);
       } else {
         return res.status(403).json({

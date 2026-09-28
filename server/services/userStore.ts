@@ -41,6 +41,8 @@ export interface StoredUser {
   banReason?: string;
   bannedAt?: string;
   transactionPin?: string | null;
+  bonusMilestoneUnlocked?: boolean;
+  totalBonusEarned?: number;
   createdAt: string;
   updatedAt: string;
 }
