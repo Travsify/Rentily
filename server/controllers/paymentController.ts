@@ -792,18 +792,34 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
             if (Array.isArray(bonusTxs)) {
               promotionalBonusTotal = bonusTxs.reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
             }
+
+            // Deduct any non-withdrawal debits (airtime, bills, utilities) spent out of bonus
+            const { data: spentTxs } = await supabase
+              .from('wallet_transactions')
+              .select('amount')
+              .eq('email', cleanEmail)
+              .eq('type', 'debit')
+              .not('narration', 'ilike', '%Withdraw%');
+            if (Array.isArray(spentTxs)) {
+              const totalSpent = spentTxs.reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
+              promotionalBonusTotal = Math.max(0, promotionalBonusTotal - totalSpent);
+            }
           } catch (_) {}
         }
         if (promotionalBonusTotal === 0) {
           const memTxs = await TransactionStore.getTransactionsByEmail(cleanEmail);
-          promotionalBonusTotal = memTxs
+          const bonusCredits = memTxs
             .filter(t => t.category === 'promotional_bonus' || t.category === 'referral_bonus' || t.reference?.startsWith('REF-') || t.title?.includes('Bonus') || t.title?.includes('Welcome'))
             .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+          const debitsSpent = memTxs
+            .filter(t => t.type === 'debit' && !t.title?.toLowerCase().includes('withdraw'))
+            .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+          promotionalBonusTotal = Math.max(0, bonusCredits - debitsSpent);
         }
       }
 
       const organicCashBalance = Math.max(0, currentBal - promotionalBonusTotal);
-      const bonusDrawn = Math.max(0, totalDebit - organicCashBalance);
+      const bonusDrawn = Math.max(0, numAmount - organicCashBalance);
 
       // STRICT BUSINESS POLICY: Minimum withdrawal for signup bonus or referral bonus is ₦3,000 NGN
       if (!isAdminUser && bonusDrawn > 0) {
