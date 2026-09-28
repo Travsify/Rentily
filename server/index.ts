@@ -23,6 +23,7 @@ import { UserStore } from './services/userStore';
 import { AppDownloadAlertService } from './services/appDownloadAlertService';
 import { register as handleRegister } from './controllers/authController';
 import { registrationRateLimiter } from './middleware/registrationRateLimiter';
+import { intrusionPunishmentSentinel } from './middleware/intrusionPunishmentSentinel';
 
 import dns from 'dns';
 dotenv.config();
@@ -104,6 +105,7 @@ let httpServer: ReturnType<typeof app.listen>;
 const isPrimaryWorker = !process.env.NODE_APP_INSTANCE || process.env.NODE_APP_INSTANCE === '0';
 
 app.use(cors({ origin: '*' }));
+app.use(intrusionPunishmentSentinel);
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
