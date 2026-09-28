@@ -261,12 +261,24 @@ class _VerificationModalState extends State<VerificationModal> {
       }
     }
 
-    if (idNum.isEmpty || idNum.length < 6) {
+    bool isBogus(String digits) {
+      if (digits.length != 11) return true;
+      if (RegExp(r'^(\d)\1{10}$').hasMatch(digits)) return true;
+      if (digits == '12345678901' || digits == '01234567890') return true;
+      return false;
+    }
+
+    if (_selectedIdType == 'nin') {
+      if (idNum.length != 11 || isBogus(idNum)) {
+        setState(() => _errorMessage = 'Please enter a valid 11-digit National Identity Number (NIN).');
+        return;
+      }
+    } else if (idNum.isEmpty || idNum.length < 6) {
       setState(() => _errorMessage = 'Please enter a valid $_idTypeLabel number.');
       return;
     }
 
-    if (bvn.isEmpty || bvn.length != 11) {
+    if (bvn.length != 11 || isBogus(bvn)) {
       setState(() => _errorMessage = 'Please enter a valid 11-digit Bank Verification Number (BVN).');
       return;
     }
@@ -862,6 +874,8 @@ class _VerificationModalState extends State<VerificationModal> {
           'businessName': user.businessName,
           'phoneNumber': user.phoneNumber,
           'dob': formattedDob,
+          'bvn': user.bvn,
+          'nin': user.ninNumber,
         }),
       ).timeout(const Duration(seconds: 30));
 

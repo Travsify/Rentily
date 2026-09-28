@@ -35,6 +35,7 @@ class _TuitionPaymentScreenState extends State<TuitionPaymentScreen> {
   final _sortCodeController = TextEditingController();
   final _bankNameController = TextEditingController();
   final _invoiceUrlController = TextEditingController();
+  final _bursarEmailController = TextEditingController();
 
   String _selectedCountry = 'GB';
   String _selectedCurrency = 'GBP';
@@ -126,6 +127,7 @@ class _TuitionPaymentScreenState extends State<TuitionPaymentScreen> {
     _sortCodeController.dispose();
     _bankNameController.dispose();
     _invoiceUrlController.dispose();
+    _bursarEmailController.dispose();
     super.dispose();
   }
 
@@ -571,6 +573,11 @@ class _TuitionPaymentScreenState extends State<TuitionPaymentScreen> {
       return;
     }
 
+    if (_ibanController.text.trim().isEmpty || _sortCodeController.text.trim().isEmpty) {
+      _showSnackbar('Please provide university bank clearing coordinates (Account/IBAN and Sort/Routing code).');
+      return;
+    }
+
     setState(() => _isSubmitting = true);
     try {
       final token = await AuthService.getToken();
@@ -583,6 +590,7 @@ class _TuitionPaymentScreenState extends State<TuitionPaymentScreen> {
         'studentMatricId': _studentIdController.text.trim(),
         'institutionName': _schoolController.text.trim(),
         'semesterSession': _semesterController.text.trim(),
+        'bursarEmail': _bursarEmailController.text.trim(),
         'documentUrl': _invoiceUrlController.text.trim(),
         'pin': pin,
         'beneficiary': {
@@ -591,13 +599,9 @@ class _TuitionPaymentScreenState extends State<TuitionPaymentScreen> {
           'currency': _selectedCurrency,
           'bankName': _bankNameController.text.trim().isNotEmpty
               ? _bankNameController.text.trim()
-              : 'University Settlement Account',
-          'accountNumberOrIban': _ibanController.text.trim().isNotEmpty
-              ? _ibanController.text.trim()
-              : 'GB29NWBK60161331926819',
-          'routingCode': _sortCodeController.text.trim().isNotEmpty
-              ? _sortCodeController.text.trim()
-              : '601613',
+              : '${_schoolController.text.trim()} Settlement Bank',
+          'accountNumberOrIban': _ibanController.text.trim(),
+          'routingCode': _sortCodeController.text.trim(),
         }
       };
 
@@ -935,6 +939,50 @@ class _TuitionPaymentScreenState extends State<TuitionPaymentScreen> {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 14),
+
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildSectionLabel('Academic Term / Semester'),
+                      const SizedBox(height: 6),
+                      _buildTextField(
+                        controller: _semesterController,
+                        hint: 'e.g. Fall Semester 2026/2027',
+                        icon: Icons.calendar_today,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildSectionLabel('Bursar / Finance Email'),
+                      const SizedBox(height: 6),
+                      _buildTextField(
+                        controller: _bursarEmailController,
+                        hint: 'bursar@university.ac.uk',
+                        icon: Icons.email,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+
+            _buildSectionLabel('Tuition Invoice / Offer Letter (URL or Ref)'),
+            const SizedBox(height: 6),
+            _buildTextField(
+              controller: _invoiceUrlController,
+              hint: 'Paste document link or university payment reference',
+              icon: Icons.attach_file_rounded,
             ),
             const SizedBox(height: 16),
 

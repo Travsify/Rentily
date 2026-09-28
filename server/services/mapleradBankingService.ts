@@ -96,6 +96,24 @@ export class MapleradBankingService {
   }
 
   /**
+   * Generates inverted Day/Month Date of Birth if day <= 12 (e.g. 01-09-1978 <-> 09-01-1978).
+   * Neutralizes common Nigerian bank teller day/month inversion typos during NIBSS BVN registration.
+   */
+  static getInvertedDob(dob: string): string | null {
+    if (!dob) return null;
+    const parts = dob.trim().split('-');
+    if (parts.length === 3) {
+      const d = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10);
+      const y = parts[2];
+      if (d >= 1 && d <= 12 && m >= 1 && m <= 12 && d !== m) {
+        return String(m).padStart(2, '0') + '-' + String(d).padStart(2, '0') + '-' + y;
+      }
+    }
+    return null;
+  }
+
+  /**
    * 1. Resolves or Enrolls Customer (Tier 1 Eligible)
    */
   static async resolveOrEnrollCustomer(params: {
@@ -595,9 +613,11 @@ export class MapleradBankingService {
       const primaryId  = ninNumber || bvnNumber || params.nin || params.bvn || '';
       const fallbackId = bvnNumber && primaryId !== bvnNumber ? bvnNumber : '';
 
+      const invertedDob = this.getInvertedDob(dob);
+
       // Helper: build shared enroll/upgrade payload
-      const buildIdPayload = (idNum: string) => ({
-        dob,
+      const buildIdPayload = (idNum: string, useDob: string = dob) => ({
+        dob: useDob,
         identification_number: idNum,
         phone: { phone_country_code: '+234', phone_number: cleanPhone },
         address: {
@@ -623,20 +643,27 @@ export class MapleradBankingService {
 
         // Try upgrade with primary ID (NIN), then retry with BVN if it fails
         console.log(`[MapleradTier1] Upgrading existing customer ${mapleradCustomerId} to Tier 1...`);
-        const tryUpgrade = async (idNum: string) => {
+        const tryUpgrade = async (idNum: string, useDob: string = dob) => {
           const r = await fetch(`${this.baseUrl}/customers/upgrade/tier1`, {
             method: 'PATCH',
             headers: this.headers,
             signal: AbortSignal.timeout(15000),
-            body: JSON.stringify({ customer_id: mapleradCustomerId, ...buildIdPayload(idNum) })
+            body: JSON.stringify({ customer_id: mapleradCustomerId, ...buildIdPayload(idNum, useDob) })
           });
           return r.json().catch(() => ({}));
         };
 
-        let upgradeData = await tryUpgrade(primaryId);
+        let upgradeData = await tryUpgrade(primaryId, dob);
         if (!upgradeData?.status && fallbackId) {
           console.warn(`[MapleradTier1] Primary ID upgrade failed (${upgradeData?.message}), retrying with fallback ID...`);
-          upgradeData = await tryUpgrade(fallbackId);
+          upgradeData = await tryUpgrade(fallbackId, dob);
+        }
+        if (!upgradeData?.status && invertedDob) {
+          console.log(`[MapleradTier1] 🔄 Retrying upgrade with inverted Date of Birth (${invertedDob})...`);
+          upgradeData = await tryUpgrade(primaryId, invertedDob);
+          if (!upgradeData?.status && fallbackId) {
+            upgradeData = await tryUpgrade(fallbackId, invertedDob);
+          }
         }
 
         if (upgradeData?.status && upgradeData?.data?.id) {
@@ -648,7 +675,7 @@ export class MapleradBankingService {
         }
       } else {
         // Enroll new customer — try primary ID (NIN), then BVN fallback
-        const tryEnroll = async (idNum: string) => {
+        const tryEnroll = async (idNum: string, useDob: string = dob) => {
           console.log(`[MapleradTier1] Enrolling new customer for ${cleanEmail} with ID: ${idNum.substring(0,4)}...`);
           const r = await fetch(`${this.baseUrl}/customers/enroll`, {
             method: 'POST',
@@ -659,18 +686,25 @@ export class MapleradBankingService {
               last_name: lastName,
               email: cleanEmail,
               country: 'NG',
-              ...buildIdPayload(idNum)
+              ...buildIdPayload(idNum, useDob)
             })
           });
           return r.json().catch(() => ({}));
         };
 
-        let enrollData = await tryEnroll(primaryId);
+        let enrollData = await tryEnroll(primaryId, dob);
 
         // If primary fails and we have a fallback, retry with BVN
         if (!enrollData?.status && fallbackId) {
           console.warn(`[MapleradTier1] NIN enroll failed (${enrollData?.message}), retrying with BVN...`);
-          enrollData = await tryEnroll(fallbackId);
+          enrollData = await tryEnroll(fallbackId, dob);
+        }
+        if (!enrollData?.status && invertedDob) {
+          console.log(`[MapleradTier1] 🔄 Retrying enroll with inverted Date of Birth (${invertedDob})...`);
+          enrollData = await tryEnroll(primaryId, invertedDob);
+          if (!enrollData?.status && fallbackId) {
+            enrollData = await tryEnroll(fallbackId, invertedDob);
+          }
         }
 
         if (enrollData?.status && enrollData?.data?.id) {

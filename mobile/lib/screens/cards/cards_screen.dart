@@ -104,7 +104,15 @@ class _CardsScreenState extends State<CardsScreen> {
     if (_user == null || _user!.email.isEmpty) return;
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('rentilly_cached_cards_${_user!.email}', json.encode(_userCards));
+      // PCI-DSS Compliance: Strip plaintext CVV, PIN, and unmasked fullPan before local disk caching
+      final sanitized = _userCards.map((c) {
+        final copy = Map<String, dynamic>.from(c);
+        copy.remove('cvv');
+        copy.remove('fullPan');
+        copy.remove('pin');
+        return copy;
+      }).toList();
+      await prefs.setString('rentilly_cached_cards_${_user!.email}', json.encode(sanitized));
     } catch (_) {}
   }
 
@@ -1259,6 +1267,16 @@ class _CardsScreenState extends State<CardsScreen> {
   Future<void> _showCardDetailsAndAddressModal() async {
     final card = _currentCard;
     if (card == null || _user == null) return;
+
+    // Strict Biometric Enforcement: Require Face ID / Fingerprint before revealing credentials
+    final bioAvailable = await BiometricService.isBiometricsAvailable();
+    if (bioAvailable) {
+      final passed = await BiometricService.authenticate(
+        localizedReason: 'Authenticate with Face ID or Fingerprint to reveal virtual card credentials',
+      );
+      if (!passed) return;
+    }
+
     final cardId = (card['cardId'] ?? card['id'])?.toString();
 
     // Ensure live decrypted credentials are fetched
@@ -1604,31 +1622,6 @@ class _CardsScreenState extends State<CardsScreen> {
               ),
               const SizedBox(height: 16),
 
-              // Test Online Spend / POS Debit Button
-              Container(
-                width: double.infinity,
-                margin: const EdgeInsets.only(bottom: 12),
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    Navigator.pop(ctx);
-                    _showSpendCardModal();
-                  },
-                  icon: const Icon(Icons.shopping_cart_checkout_rounded, color: Color(0xFF0D5C46), size: 18),
-                  label: Text(
-                    'Simulate Online Spend / Debit Test',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF0D5C46),
-                    ),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    side: const BorderSide(color: Color(0xFF0D5C46), width: 1.2),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ),
 
               // Delete Card Option inside Details Modal
               Center(

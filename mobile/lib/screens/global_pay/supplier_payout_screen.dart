@@ -30,6 +30,8 @@ class _SupplierPayoutScreenState extends State<SupplierPayoutScreen> {
   final _invoiceNumController = TextEditingController();
   final _poNumController = TextEditingController();
   final _goodsDescController = TextEditingController();
+  final _vendorTaxIdController = TextEditingController();
+  final _documentUrlController = TextEditingController();
   final _amountController = TextEditingController();
   final _ibanController = TextEditingController();
   final _swiftController = TextEditingController();
@@ -68,6 +70,8 @@ class _SupplierPayoutScreenState extends State<SupplierPayoutScreen> {
     _invoiceNumController.dispose();
     _poNumController.dispose();
     _goodsDescController.dispose();
+    _vendorTaxIdController.dispose();
+    _documentUrlController.dispose();
     _amountController.dispose();
     _ibanController.dispose();
     _swiftController.dispose();
@@ -249,6 +253,11 @@ class _SupplierPayoutScreenState extends State<SupplierPayoutScreen> {
       return;
     }
 
+    if (_ibanController.text.trim().isEmpty || _swiftController.text.trim().isEmpty || _bankNameController.text.trim().isEmpty) {
+      _showSnackbar('Please provide supplier bank clearing coordinates (Bank Name, IBAN/Account, and SWIFT/Routing code).');
+      return;
+    }
+
     setState(() => _isSubmitting = true);
     try {
       final token = await AuthService.getToken();
@@ -258,24 +267,20 @@ class _SupplierPayoutScreenState extends State<SupplierPayoutScreen> {
         'quoteReference': _activeQuote!['quoteReference'],
         'orderType': 'supplier',
         'invoiceNumber': _invoiceNumController.text.trim(),
-        'semesterSession': _poNumController.text.trim(),
+        'poNumber': _poNumController.text.trim(),
+        'goodsDescription': _goodsDescController.text.trim(),
+        'vendorTaxId': _vendorTaxIdController.text.trim(),
+        'documentUrl': _documentUrlController.text.trim(),
         'pin': pin,
         'beneficiary': {
           'name': _vendorNameController.text.trim(),
           'countryCode': _selectedCountry,
           'currency': _selectedCurrency,
-          'bankName': _bankNameController.text.trim().isNotEmpty
-              ? _bankNameController.text.trim()
-              : 'Bank of China / HSBC Commercial',
-          'accountNumberOrIban': _ibanController.text.trim().isNotEmpty
-              ? _ibanController.text.trim()
-              : 'CN680010000000001928374',
-          'routingCode': _swiftController.text.trim().isNotEmpty
-              ? _swiftController.text.trim()
-              : 'BKCHCNBJ110',
-          'swiftBic': _swiftController.text.trim().isNotEmpty
-              ? _swiftController.text.trim()
-              : 'BKCHCNBJ110',
+          'bankName': _bankNameController.text.trim(),
+          'accountNumberOrIban': _ibanController.text.trim(),
+          'routingCode': _swiftController.text.trim(),
+          'swiftBic': _swiftController.text.trim(),
+          'vendorTaxId': _vendorTaxIdController.text.trim(),
         }
       };
 
@@ -478,6 +483,50 @@ class _SupplierPayoutScreenState extends State<SupplierPayoutScreen> {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 14),
+
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildSectionLabel('Goods / Commercial Description'),
+                      const SizedBox(height: 6),
+                      _buildTextField(
+                        controller: _goodsDescController,
+                        hint: 'e.g. Industrial machinery parts',
+                        icon: Icons.inventory_2_outlined,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildSectionLabel('Supplier Tax ID / TIN'),
+                      const SizedBox(height: 6),
+                      _buildTextField(
+                        controller: _vendorTaxIdController,
+                        hint: 'e.g. 91330100MA27',
+                        icon: Icons.badge_outlined,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+
+            _buildSectionLabel('Commercial Invoice / BL Document (URL or Ref)'),
+            const SizedBox(height: 6),
+            _buildTextField(
+              controller: _documentUrlController,
+              hint: 'Paste invoice document URL or customs clearance link',
+              icon: Icons.attach_file_rounded,
             ),
             const SizedBox(height: 16),
 

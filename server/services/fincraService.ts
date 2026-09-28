@@ -1019,9 +1019,39 @@ export class FincraService {
           mobileOperator: params.beneficiary.mobileOperator,
           address: {
             country: params.beneficiary.countryCode || 'GB',
-            street: params.beneficiary.address?.street || 'Central Avenue',
-            city: params.beneficiary.address?.city || 'London',
-            postalCode: params.beneficiary.address?.postalCode || 'EC1A 1BB'
+            street: params.beneficiary.address?.street || (
+              params.beneficiary.countryCode === 'US' ? '350 5th Avenue' :
+              params.beneficiary.countryCode === 'CA' ? '100 King St W' :
+              params.beneficiary.countryCode === 'DE' ? 'Friedrichstraße 43' :
+              params.beneficiary.countryCode === 'KE' ? 'Kenyatta Avenue' :
+              params.beneficiary.countryCode === 'GH' ? 'Liberation Road' :
+              params.beneficiary.countryCode === 'ZA' ? 'Sandton City' :
+              params.beneficiary.countryCode === 'AE' ? 'Sheikh Zayed Road' :
+              params.beneficiary.countryCode === 'CN' ? 'East Chang’an Avenue' :
+              '100 Bishopsgate'
+            ),
+            city: params.beneficiary.address?.city || (
+              params.beneficiary.countryCode === 'US' ? 'New York' :
+              params.beneficiary.countryCode === 'CA' ? 'Toronto' :
+              params.beneficiary.countryCode === 'DE' ? 'Berlin' :
+              params.beneficiary.countryCode === 'KE' ? 'Nairobi' :
+              params.beneficiary.countryCode === 'GH' ? 'Accra' :
+              params.beneficiary.countryCode === 'ZA' ? 'Johannesburg' :
+              params.beneficiary.countryCode === 'AE' ? 'Dubai' :
+              params.beneficiary.countryCode === 'CN' ? 'Beijing' :
+              'London'
+            ),
+            postalCode: params.beneficiary.address?.postalCode || (
+              params.beneficiary.countryCode === 'US' ? '10118' :
+              params.beneficiary.countryCode === 'CA' ? 'M5X 1A9' :
+              params.beneficiary.countryCode === 'DE' ? '10117' :
+              params.beneficiary.countryCode === 'KE' ? '00100' :
+              params.beneficiary.countryCode === 'GH' ? '00233' :
+              params.beneficiary.countryCode === 'ZA' ? '2196' :
+              params.beneficiary.countryCode === 'AE' ? '00000' :
+              params.beneficiary.countryCode === 'CN' ? '100000' :
+              'EC2N 4AG'
+            )
           }
         },
         sender: {

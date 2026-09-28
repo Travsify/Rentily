@@ -13,11 +13,11 @@ interface TokenCache {
 const _tokenCaches: Map<string, TokenCache> = new Map();
 
 /**
- * Low-level HTTPS JSON request helper
+ * Low-level HTTPS JSON request helper with 8000ms timeout
  */
 function httpsRequest(options: https.RequestOptions, postData?: string): Promise<{ statusCode: number; data: any }> {
   return new Promise((resolve, reject) => {
-    const req = https.request({ ...options, timeout: 4000 }, (res) => {
+    const req = https.request({ ...options, timeout: 8000 }, (res) => {
       let raw = '';
       res.on('data', chunk => raw += chunk);
       res.on('end', () => {
@@ -343,6 +343,121 @@ export class ReloadlyService {
         'Accept': 'application/com.reloadly.giftcards-v1+json'
       }
     });
+    return res.data;
+  }
+
+  // =========================================================================
+  // 3. TOPUPS API (Airtime & International Mobile Data)
+  // =========================================================================
+
+  /**
+   * Fetch active topups balance (USD)
+   */
+  public static async getTopupsBalance(): Promise<any> {
+    const token = await this.getAccessToken('https://topups.reloadly.com');
+    const res = await httpsRequest({
+      hostname: 'topups.reloadly.com',
+      path: '/accounts/balance',
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/com.reloadly.topups-v1+json'
+      }
+    });
+    return res.data;
+  }
+
+  /**
+   * Auto-detect mobile network operator by phone number and country code
+   */
+  public static async autoDetectOperator(phone: string, countryCode: string): Promise<any> {
+    const token = await this.getAccessToken('https://topups.reloadly.com');
+    const cleanPhone = phone.replace(/[^0-9]/g, '');
+    const cleanCountry = countryCode.trim().toUpperCase();
+    const res = await httpsRequest({
+      hostname: 'topups.reloadly.com',
+      path: `/operators/auto-detect/phone/${encodeURIComponent(cleanPhone)}/countries/${encodeURIComponent(cleanCountry)}`,
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/com.reloadly.topups-v1+json'
+      }
+    });
+    return res.data;
+  }
+
+  /**
+   * Get all mobile network operators in a given country
+   */
+  public static async getOperatorsByCountry(countryCode: string): Promise<any> {
+    const token = await this.getAccessToken('https://topups.reloadly.com');
+    const cleanCountry = countryCode.trim().toUpperCase();
+    const res = await httpsRequest({
+      hostname: 'topups.reloadly.com',
+      path: `/operators/countries/${encodeURIComponent(cleanCountry)}?includeBundles=true&includeData=true`,
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/com.reloadly.topups-v1+json'
+      }
+    });
+    return res.data;
+  }
+
+  /**
+   * Get operator details by operator ID
+   */
+  public static async getOperatorById(operatorId: number): Promise<any> {
+    const token = await this.getAccessToken('https://topups.reloadly.com');
+    const res = await httpsRequest({
+      hostname: 'topups.reloadly.com',
+      path: `/operators/${operatorId}`,
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/com.reloadly.topups-v1+json'
+      }
+    });
+    return res.data;
+  }
+
+  /**
+   * Send international airtime or data topup
+   */
+  public static async sendTopup(params: {
+    operatorId: number;
+    amount: number;
+    recipientPhone: { countryCode: string; number: string };
+    senderPhone?: { countryCode: string; number: string };
+    useLocalAmount?: boolean;
+    customIdentifier?: string;
+  }): Promise<any> {
+    const token = await this.getAccessToken('https://topups.reloadly.com');
+    const payload = JSON.stringify({
+      operatorId: params.operatorId,
+      amount: params.amount,
+      useLocalAmount: params.useLocalAmount !== false,
+      recipientPhone: params.recipientPhone,
+      senderPhone: params.senderPhone || { countryCode: 'NG', number: '08000000000' },
+      customIdentifier: params.customIdentifier
+    });
+
+    const res = await httpsRequest({
+      hostname: 'topups.reloadly.com',
+      path: '/topups',
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/com.reloadly.topups-v1+json',
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(payload)
+      }
+    }, payload);
+
+    if (res.statusCode >= 400) {
+      throw new Error(res.data?.message || res.data?.error_description || 'Airtime/Data topup failed with upstream operator rail.');
+    }
+
     return res.data;
   }
 }

@@ -50,6 +50,7 @@ class VerificationService {
           'phoneNumber': phone,
           'idType': idType,
           'idNumber': idNumber.trim(),
+          'nin': idType == 'nin' ? idNumber.trim() : (currentUser?.ninNumber ?? ''),
           'bvn': bvnToUse,
           'dob': dob,
           'role': currentUser?.role ?? 'renter',

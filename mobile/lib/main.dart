@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'constants/app_colors.dart';
+import 'routes/app_routes.dart';
 import 'screens/splash_screen.dart';
 import 'services/push_notification_service.dart';
 import 'widgets/inactivity_watcher.dart';
@@ -34,6 +35,7 @@ class RentillyApp extends StatelessWidget {
         title: 'Rentilly',
         navigatorKey: rootNavigatorKey,
         debugShowCheckedModeBanner: false,
+        onGenerateRoute: AppRoutes.onGenerateRoute,
         theme: ThemeData(
           brightness: Brightness.light,
           scaffoldBackgroundColor: AppColors.backgroundDark,

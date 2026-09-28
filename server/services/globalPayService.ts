@@ -84,6 +84,9 @@ export interface GlobalPayoutOrder {
   institutionName?: string;
   semesterSession?: string;
   invoiceNumber?: string;
+  poNumber?: string;
+  goodsDescription?: string;
+  bursarEmail?: string;
   documentUrl?: string;
   fincraPayoutReference?: string;
   fincraPayoutId?: string;
@@ -288,8 +291,8 @@ export class GlobalPayService {
       if (quoteRes && quoteRes.status && quoteRes.data) {
         if (quoteRes.data.wholesaleRate && quoteRes.data.wholesaleRate > 0) {
           wholesaleRate = Number(quoteRes.data.wholesaleRate);
-        } else if (quoteRes.data.rate && quoteRes.data.rate > 39) {
-          wholesaleRate = Math.max(1, Number(quoteRes.data.rate) - 39.0);
+        } else if (quoteRes.data.rate && quoteRes.data.rate > 0) {
+          wholesaleRate = Number(quoteRes.data.rate);
         }
         if (quoteRes.data.quoteReference) fincraQuoteRef = quoteRes.data.quoteReference;
       }
@@ -297,8 +300,9 @@ export class GlobalPayService {
       console.warn(`[GlobalPayService] Fincra live rate warning for ${destCurr}:`, e.message);
     }
 
-    // 2. Standardized FX Exchange Rate (+39 NGN for Naira to foreign currencies)
-    const customerRate = Number((wholesaleRate + 39.0).toFixed(2));
+    // 2. Standardized FX Exchange Rate with dynamic percentage spread multiplier
+    const spreadMultiplier = 1 + ((this.config.fxSpreadPercent || 1.20) / 100);
+    const customerRate = Number((wholesaleRate * spreadMultiplier).toFixed(2));
     const sourceAmountNgn = Math.round(params.destinationAmount * customerRate);
     const totalDebitedNgn = sourceAmountNgn + corridorFeeNgn;
 
@@ -324,6 +328,18 @@ export class GlobalPayService {
     };
 
     _quotesCache.set(quoteReference, quote);
+
+    // Persist quote to Supabase system_configs so it survives server restarts
+    if (supabase) {
+      try {
+        await supabase.from('system_configs').upsert({
+          id: `global_quote_${quoteReference}`,
+          data: quote,
+          updated_at: new Date().toISOString()
+        });
+      } catch (_) {}
+    }
+
     return quote;
   }
 
@@ -356,10 +372,27 @@ export class GlobalPayService {
     institutionName?: string;
     semesterSession?: string;
     invoiceNumber?: string;
+    poNumber?: string;
+    goodsDescription?: string;
+    bursarEmail?: string;
     documentUrl?: string;
   }): Promise<GlobalPayoutOrder> {
-    // 1. Validate Quote
-    const quote = _quotesCache.get(params.quoteReference);
+    // 1. Validate Quote (check memory, fallback to Supabase persistence)
+    let quote = _quotesCache.get(params.quoteReference);
+    if (!quote && supabase) {
+      try {
+        const { data: dbQuote } = await supabase
+          .from('system_configs')
+          .select('data')
+          .eq('id', `global_quote_${params.quoteReference}`)
+          .maybeSingle();
+        if (dbQuote?.data) {
+          quote = dbQuote.data;
+          _quotesCache.set(params.quoteReference, quote!);
+        }
+      } catch (_) {}
+    }
+
     if (!quote) {
       throw new Error('Quote reference not found or has expired. Please request a fresh quote.');
     }
@@ -368,19 +401,25 @@ export class GlobalPayService {
       throw new Error('Quote rate lock expired. Please refresh to lock in the latest exchange rate.');
     }
 
-    // 2. Validate Limits
+    // 2. Validate Limits with USD Conversion
+    let amountInUsd = quote.destinationAmount;
+    if (quote.destinationCurrency !== 'USD') {
+      const usdRate = this.wholesaleBenchmarks['USD'] || 1550.0;
+      amountInUsd = quote.sourceAmountNgn / usdRate;
+    }
+
     if (params.orderType === 'tuition') {
-      if (quote.destinationAmount > this.config.tuitionSemesterLimitUsd) {
-        throw new Error(`Tuition payments cannot exceed $${this.config.tuitionSemesterLimitUsd.toLocaleString()} per semester.`);
+      if (amountInUsd > this.config.tuitionSemesterLimitUsd) {
+        throw new Error(`Tuition payments cannot exceed $${this.config.tuitionSemesterLimitUsd.toLocaleString()} USD equivalent per semester (Current: $${Math.round(amountInUsd).toLocaleString()} USD).`);
       }
     } else if (params.orderType === 'supplier') {
-      if (quote.destinationAmount > this.config.supplierInvoiceLimitUsd) {
-        throw new Error(`Supplier invoices cannot exceed $${this.config.supplierInvoiceLimitUsd.toLocaleString()} per transaction.`);
+      if (amountInUsd > this.config.supplierInvoiceLimitUsd) {
+        throw new Error(`Supplier invoices cannot exceed $${this.config.supplierInvoiceLimitUsd.toLocaleString()} USD equivalent per transaction (Current: $${Math.round(amountInUsd).toLocaleString()} USD).`);
       }
     } else {
       const limitUsd = this.config.personalRemittanceDailyLimitUsd || 10000;
-      if (quote.destinationAmount > limitUsd && quote.destinationCurrency === 'USD') {
-        throw new Error(`Daily payout limit is $${limitUsd.toLocaleString()} USD.`);
+      if (amountInUsd > limitUsd) {
+        throw new Error(`Daily payout limit is $${limitUsd.toLocaleString()} USD equivalent (Current: $${Math.round(amountInUsd).toLocaleString()} USD).`);
       }
     }
 
@@ -512,6 +551,9 @@ export class GlobalPayService {
       institutionName: params.institutionName,
       semesterSession: params.semesterSession,
       invoiceNumber: params.invoiceNumber,
+      poNumber: params.poNumber,
+      goodsDescription: params.goodsDescription,
+      bursarEmail: params.bursarEmail,
       documentUrl: params.documentUrl,
       status: 'PROCESSING',
       timeline: initialTimeline,
@@ -544,10 +586,16 @@ export class GlobalPayService {
       if (payoutRes && payoutRes.status) {
         order.fincraPayoutReference = payoutRes.data?.reference || orderRef;
         order.fincraPayoutId = payoutRes.data?.id || payoutRes.data?._id;
+      } else if (payoutRes && payoutRes.status === false) {
+        console.error('[GlobalPayService] Fincra dispatch rejected:', payoutRes.message);
+        await this.reverseOrder(orderRef, payoutRes.message || 'Payment rejected by foreign settlement network');
+        throw new Error(`Payout dispatch declined by foreign banking network: ${payoutRes.message || 'Invalid banking coordinates'}`);
       }
     } catch (railErr: any) {
+      if (railErr.message?.includes('declined by foreign banking network')) {
+        throw railErr;
+      }
       console.warn('[GlobalPayService] Fincra dispatch warning:', railErr.message);
-      // Even if Fincra network throws, the order is safely in PROCESSING and tracked by reference
     }
 
     _ordersCache.set(orderRef, order);

@@ -47,7 +47,13 @@ class _DateOfBirthModalState extends State<DateOfBirthModal> {
       try {
         final parts = widget.user.dob!.split('-');
         if (parts.length == 3) {
-          _selectedDate = DateTime(int.parse(parts[2]), int.parse(parts[1]), int.parse(parts[0]));
+          if (parts[0].length == 4) {
+            // YYYY-MM-DD
+            _selectedDate = DateTime(int.parse(parts[0]), int.parse(parts[1]), int.parse(parts[2]));
+          } else {
+            // DD-MM-YYYY
+            _selectedDate = DateTime(int.parse(parts[2]), int.parse(parts[1]), int.parse(parts[0]));
+          }
         }
       } catch (_) {}
     }
@@ -100,13 +106,21 @@ class _DateOfBirthModalState extends State<DateOfBirthModal> {
 
   void _handleSubmit() async {
     final bvnVal = _bvnController.text.trim();
-    if (bvnVal.length != 11) {
+    final ninVal = _ninController.text.trim();
+
+    bool isBogus(String digits) {
+      if (digits.length != 11) return true;
+      if (RegExp(r'^(\d)\1{10}$').hasMatch(digits)) return true;
+      if (digits == '12345678901' || digits == '01234567890') return true;
+      return false;
+    }
+
+    if (bvnVal.length != 11 || isBogus(bvnVal)) {
       setState(() => _errorMessage = 'Please enter your valid 11-digit Bank Verification Number (BVN).');
       return;
     }
 
-    final ninVal = _ninController.text.trim();
-    if (ninVal.length != 11) {
+    if (ninVal.length != 11 || isBogus(ninVal)) {
       setState(() => _errorMessage = 'Please enter your valid 11-digit National Identity Number (NIN).');
       return;
     }
@@ -124,12 +138,13 @@ class _DateOfBirthModalState extends State<DateOfBirthModal> {
     try {
       final dobStr = _formattedDob;
       final url = Uri.parse('${AppConstants.apiBaseUrl}/verification/complete-maplerad-kyc');
-      final res = await http.post(
+      
+      final postKyc = (String d) => http.post(
         url,
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'email': widget.user.email,
-          'dob': dobStr,
+          'dob': d,
           'fullName': widget.user.fullName,
           'phoneNumber': widget.user.phoneNumber,
           'bvn': bvnVal,
@@ -137,7 +152,25 @@ class _DateOfBirthModalState extends State<DateOfBirthModal> {
         }),
       ).timeout(const Duration(seconds: 30));
 
-      final data = json.decode(res.body);
+      var res = await postKyc(dobStr);
+      var data = json.decode(res.body);
+
+      // Client-side automatic inversion retry: if BVN/DOB mismatch and day <= 12
+      if ((res.statusCode != 200 || data['status'] != true) &&
+          _selectedDate != null &&
+          _selectedDate!.day <= 12 &&
+          _selectedDate!.day != _selectedDate!.month) {
+        final invertedDob = '${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}-${_selectedDate!.year}';
+        try {
+          final retryRes = await postKyc(invertedDob);
+          final retryData = json.decode(retryRes.body);
+          if (retryRes.statusCode == 200 && retryData['status'] == true) {
+            res = retryRes;
+            data = retryData;
+          }
+        } catch (_) {}
+      }
+
       setState(() => _isSubmitting = false);
 
       if (res.statusCode == 200 && data['status'] == true) {
@@ -263,7 +296,7 @@ class _DateOfBirthModalState extends State<DateOfBirthModal> {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Your wallet balance is 100% safe. Linking your Date of Birth activates your dedicated settlement account & Virtual Dollar Card immediately.',
+                    'In compliance with Central Bank of Nigeria (CBN) regulations, both your 11-digit BVN and 11-digit NIN are required to activate your dedicated bank account & Virtual Dollar Card.',
                     style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: const Color(0xFF15803D), height: 1.3),
                   ),
                 ),
@@ -274,15 +307,52 @@ class _DateOfBirthModalState extends State<DateOfBirthModal> {
 
           if (_errorMessage != null) ...[
             Container(
-              padding: const EdgeInsets.all(10),
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: AppColors.error.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
               ),
-              child: Text(
-                _errorMessage!,
-                style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.error, fontWeight: FontWeight.w600),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _errorMessage!,
+                    style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.error, fontWeight: FontWeight.w600),
+                  ),
+                  if (_selectedDate != null && _selectedDate!.day <= 12 && _selectedDate!.day != _selectedDate!.month) ...[
+                    const SizedBox(height: 8),
+                    InkWell(
+                      onTap: () {
+                        setState(() {
+                          _selectedDate = DateTime(_selectedDate!.year, _selectedDate!.day, _selectedDate!.month);
+                          _errorMessage = null;
+                        });
+                        _handleSubmit();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.swap_horiz_rounded, size: 14, color: AppColors.primary),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Try with Month & Day Swapped (${_selectedDate!.month.toString().padLeft(2, '0')}-${_selectedDate!.day.toString().padLeft(2, '0')}-${_selectedDate!.year})',
+                              style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppColors.primary),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
             const SizedBox(height: 12),

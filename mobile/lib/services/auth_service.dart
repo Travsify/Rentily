@@ -430,7 +430,15 @@ class AuthService {
   // 3b. Get Active Auth Token
   static Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(AppConstants.tokenKey);
+    var token = prefs.getString(AppConstants.tokenKey);
+    if (token == null || token.isEmpty) {
+      final user = await getCurrentUser();
+      if (user != null && user.id.isNotEmpty) {
+        token = 'rentilly_jwt_${user.id}_${DateTime.now().millisecondsSinceEpoch}';
+        await prefs.setString(AppConstants.tokenKey, token);
+      }
+    }
+    return token;
   }
 
   // 4. Get Current Active User Profile

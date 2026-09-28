@@ -33,6 +33,8 @@ import { FlutterwaveService } from '../services/flutterwaveService';
 import { TermiiService } from '../services/termiiService';
 import { adminSecuritySentinel, requireAdminAuth, triggerEmergencyLockdown, liftEmergencyLockdown, getSentinelStatus } from '../middleware/adminSecuritySentinel';
 import { registrationRateLimiter } from '../middleware/registrationRateLimiter';
+import { requireUserAuth } from '../middleware/userAuthMiddleware';
+import { requireMobileAppOnly } from '../middleware/mobileAppOnlyMiddleware';
 import { AutomatedKycNudgeAndReportWorker } from '../services/automatedKycNudgeAndReportWorker';
 export const apiRouter = Router();
 
@@ -192,6 +194,8 @@ apiRouter.post('/verify/bvn', verificationController.verifyBVN);
 apiRouter.post('/verify/cac', verificationController.verifyCAC);
 apiRouter.post('/verification/complete-maplerad-kyc', verificationController.completeMapleradKyc);
 apiRouter.post('/admin/request-rekyc', adminSecuritySentinel, requireAdminAuth, verificationController.requestReKyc);
+apiRouter.get('/admin/users/health-audit', adminSecuritySentinel, requireAdminAuth, verificationController.runPlatformUserHealthAudit);
+apiRouter.post('/admin/users/health-audit', adminSecuritySentinel, requireAdminAuth, verificationController.runPlatformUserHealthAudit);
 apiRouter.post('/admin/trigger-nudge-and-report', adminSecuritySentinel, requireAdminAuth, async (_req, res) => {
   try {
     const report = await AutomatedKycNudgeAndReportWorker.runCycle();
@@ -278,9 +282,9 @@ apiRouter.post('/wallet/sync-transfers', paymentController.syncInboundTransfersE
 apiRouter.get('/wallet/crypto-address', paymentController.getUserCryptoAddress);
 apiRouter.get('/payments/paystack-banks', paymentController.getPaystackBanks);
 apiRouter.get('/payments/resolve-account', paymentController.resolvePaystackAccount);
-apiRouter.post('/payments/withdraw/request-otp', paymentController.requestWithdrawalOtp);
-apiRouter.post('/payments/withdraw-paystack', paymentController.withdrawWithPaystack);
-apiRouter.post('/payments/withdraw-crypto', paymentController.withdrawCrypto);
+apiRouter.post('/payments/withdraw/request-otp', requireMobileAppOnly, requireUserAuth, paymentController.requestWithdrawalOtp);
+apiRouter.post('/payments/withdraw-paystack', requireMobileAppOnly, requireUserAuth, paymentController.withdrawWithPaystack);
+apiRouter.post('/payments/withdraw-crypto', requireMobileAppOnly, requireUserAuth, paymentController.withdrawCrypto);
 apiRouter.get('/payments/crypto/resolve-recipient', paymentController.resolveCryptoRecipient);
 apiRouter.post('/payments/crypto/transfer-platform', paymentController.transferPlatformCrypto);
 apiRouter.get('/payments/beneficiaries', paymentController.getUserBeneficiaries);
@@ -440,18 +444,18 @@ apiRouter.post('/wallet/fx-rates', adminSecuritySentinel, requireAdminAuth, paym
 // 22. Virtual Card Issuing & Management
 apiRouter.get('/cards/pricing', paymentController.getCardPricingHandler);
 apiRouter.post('/cards/pricing', adminSecuritySentinel, requireAdminAuth, paymentController.updateCardPricingHandler);
-apiRouter.get('/cards/user-cards', paymentController.getUserCards);
+apiRouter.get('/cards/user-cards', requireUserAuth, paymentController.getUserCards);
 apiRouter.get('/cards/all', adminSecuritySentinel, requireAdminAuth, paymentController.getAllCardsHandler);
-apiRouter.post('/cards/create', paymentController.issueVirtualCard);
-apiRouter.post('/cards/request-physical', paymentController.requestPhysicalCard);
-apiRouter.post('/cards/fund', paymentController.fundVirtualCard);
-apiRouter.post('/cards/withdraw', paymentController.withdrawVirtualCard);
-apiRouter.post('/cards/toggle-freeze', paymentController.toggleFreezeVirtualCard);
-apiRouter.post('/cards/delete', paymentController.deleteVirtualCard);
-apiRouter.post('/cards/set-pin', paymentController.setCardPin);
-apiRouter.post('/cards/reveal-details', paymentController.revealCardDetails);
+apiRouter.post('/cards/create', requireUserAuth, paymentController.issueVirtualCard);
+apiRouter.post('/cards/request-physical', requireUserAuth, paymentController.requestPhysicalCard);
+apiRouter.post('/cards/fund', requireUserAuth, paymentController.fundVirtualCard);
+apiRouter.post('/cards/withdraw', requireUserAuth, paymentController.withdrawVirtualCard);
+apiRouter.post('/cards/toggle-freeze', requireUserAuth, paymentController.toggleFreezeVirtualCard);
+apiRouter.post('/cards/delete', requireUserAuth, paymentController.deleteVirtualCard);
+apiRouter.post('/cards/set-pin', requireUserAuth, paymentController.setCardPin);
+apiRouter.post('/cards/reveal-details', requireUserAuth, paymentController.revealCardDetails);
 apiRouter.post('/cards/spend', adminSecuritySentinel, requireAdminAuth, paymentController.spendCard);
-apiRouter.get('/cards/transactions/:cardId', paymentController.getCardTransactions);
+apiRouter.get('/cards/transactions/:cardId', requireUserAuth, paymentController.getCardTransactions);
 
 // 23. Client Push & Email Notification Dispatch Trigger
 apiRouter.post('/notifications/dispatch', paymentController.clientDispatchNotification);
@@ -521,9 +525,9 @@ apiRouter.get('/admin/fincra/banks', adminSecuritySentinel, requireAdminAuth, fi
 import * as globalPayController from '../controllers/globalPayController';
 apiRouter.get('/global-pay/config', globalPayController.getGlobalPayConfig);
 apiRouter.post('/global-pay/quote', globalPayController.getQuote);
-apiRouter.post('/global-pay/submit', globalPayController.submitGlobalPayout);
-apiRouter.post('/global-pay/payout', globalPayController.submitGlobalPayout);
-apiRouter.get('/global-pay/orders', globalPayController.getUserOrders);
+apiRouter.post('/global-pay/submit', requireUserAuth, globalPayController.submitGlobalPayout);
+apiRouter.post('/global-pay/payout', requireUserAuth, globalPayController.submitGlobalPayout);
+apiRouter.get('/global-pay/orders', requireUserAuth, globalPayController.getUserOrders);
 apiRouter.get('/global-pay/track/:reference', globalPayController.trackOrder);
 
 // Rentilly Global Pay Admin Controls
@@ -586,7 +590,7 @@ apiRouter.post('/rnpl/mandate', rnplController.submitMandate);
 
 // 36. Universal Mobile & Client Compatibility Aliases
 apiRouter.get('/payments/banks', paymentController.getPaystackBanks);
-apiRouter.post('/payments/withdraw', paymentController.withdrawWithPaystack);
+apiRouter.post('/payments/withdraw', requireMobileAppOnly, requireUserAuth, paymentController.withdrawWithPaystack);
 apiRouter.get('/escrow/agreements', legalController.getLegalAgreements);
 apiRouter.post('/escrow/create', escrowController.payRentEscrow);
 apiRouter.get('/vault/plans', vaultController.VaultController.getVaultPlans);
@@ -626,11 +630,34 @@ apiRouter.post('/telemetry/app-download', async (req: Request, res: Response) =>
 import * as reloadlyController from '../controllers/reloadlyController';
 apiRouter.get('/reloadly/utilities/billers', reloadlyController.getBillersHandler);
 apiRouter.post('/reloadly/utilities/validate', reloadlyController.validateMeterHandler);
-apiRouter.post('/reloadly/utilities/pay', reloadlyController.payBillHandler);
+apiRouter.post('/reloadly/utilities/pay', requireUserAuth, reloadlyController.payBillHandler);
 
 apiRouter.get('/reloadly/giftcards/products', reloadlyController.getProductsHandler);
 apiRouter.get('/reloadly/giftcards/products/:id', reloadlyController.getProductDetailHandler);
-apiRouter.post('/reloadly/giftcards/order', reloadlyController.orderGiftCardHandler);
-apiRouter.get('/reloadly/giftcards/my-vouchers', reloadlyController.getUserVouchersHandler);
+apiRouter.post('/reloadly/giftcards/order', requireUserAuth, reloadlyController.orderGiftCardHandler);
+apiRouter.get('/reloadly/giftcards/my-vouchers', requireUserAuth, reloadlyController.getUserVouchersHandler);
+apiRouter.post('/reloadly/giftcards/redeem', requireUserAuth, reloadlyController.redeemVoucherHandler);
 apiRouter.get('/reloadly/countries', reloadlyController.getCountriesHandler);
+
+// Topups API (Airtime & International Mobile Data)
+apiRouter.post('/reloadly/topups/auto-detect', reloadlyController.autoDetectOperatorHandler);
+apiRouter.get('/reloadly/topups/operators', reloadlyController.getOperatorsHandler);
+apiRouter.get('/reloadly/topups/operator/:id', reloadlyController.getOperatorByIdHandler);
+apiRouter.post('/reloadly/topups/send', requireUserAuth, reloadlyController.sendTopupHandler);
+
+// Lifestyle Hub route aliases for mobile app interoperability
+apiRouter.get('/lifestyle/utilities/billers', reloadlyController.getBillersHandler);
+apiRouter.post('/lifestyle/utilities/validate', reloadlyController.validateMeterHandler);
+apiRouter.post('/lifestyle/utilities/pay', requireUserAuth, reloadlyController.payBillHandler);
+apiRouter.get('/lifestyle/giftcards/products', reloadlyController.getProductsHandler);
+apiRouter.get('/lifestyle/giftcards/products/:id', reloadlyController.getProductDetailHandler);
+apiRouter.post('/lifestyle/giftcards/order', requireUserAuth, reloadlyController.orderGiftCardHandler);
+apiRouter.get('/lifestyle/giftcards/my-vouchers', requireUserAuth, reloadlyController.getUserVouchersHandler);
+apiRouter.post('/lifestyle/giftcards/redeem', requireUserAuth, reloadlyController.redeemVoucherHandler);
+apiRouter.get('/lifestyle/countries', reloadlyController.getCountriesHandler);
+apiRouter.post('/lifestyle/topups/auto-detect', reloadlyController.autoDetectOperatorHandler);
+apiRouter.get('/lifestyle/topups/operators', reloadlyController.getOperatorsHandler);
+apiRouter.get('/lifestyle/topups/operator/:id', reloadlyController.getOperatorByIdHandler);
+apiRouter.post('/lifestyle/topups/send', requireUserAuth, reloadlyController.sendTopupHandler);
+
 

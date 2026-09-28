@@ -6,7 +6,7 @@ dotenv.config();
 
 export class MapleradCardService {
   private static get apiKey(): string {
-    return process.env.MAPLERAD_SECRET_KEY || 'mpr_sk_f7760b49-20ac-4f34-9126-9bea36df1291';
+    return process.env.MAPLERAD_SECRET_KEY || '';
   }
 
   private static get baseUrl(): string {

@@ -737,10 +737,12 @@ export class CardIssuingService {
         .or(`id.eq.${cardId},card_id.eq.${cardId}`)
         .single();
 
+      let cardCurrency = 'USD';
       if (!error && data) {
         currentBalance = Number(data.balance || 0);
         cardLast4 = (data.masked_pan || '').slice(-4);
         cardEmail = data.email || '';
+        cardCurrency = (data.currency || 'USD').toUpperCase();
         if (data.card_id) {
           targetCardId = data.card_id;
         }
@@ -750,7 +752,12 @@ export class CardIssuingService {
     // Invoke Maplerad Live Funding API if valid Maplerad issuing card
     if (process.env.MAPLERAD_SECRET_KEY && targetCardId) {
       try {
-        console.log(`[CardIssuingService] Calling Maplerad fund API for card ${targetCardId} with $${amount}...`);
+        let amountUsd = amount;
+        if (cardCurrency === 'NGN') {
+          const fxRate = 1420.0;
+          amountUsd = Number((amount / fxRate).toFixed(2));
+        }
+        console.log(`[CardIssuingService] Calling Maplerad fund API for card ${targetCardId} with $${amountUsd} USD (${cardCurrency} ${amount})...`);
         const mprRes = await fetch(`https://api.maplerad.com/v1/issuing/${targetCardId}/fund`, {
           method: 'POST',
           headers: {
@@ -758,7 +765,7 @@ export class CardIssuingService {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            amount: Math.round(amount * 100) // in cents
+            amount: Math.max(100, Math.round(amountUsd * 100)) // in cents
           })
         });
         const mprData = await mprRes.json().catch(() => ({}));
@@ -1408,22 +1415,9 @@ export class CardIssuingService {
           fullPan = raw.match(/.{1,4}/g)?.join(' ') || raw;
         }
 
-        // Persist revealed credentials to system_configs cache
-        if (supabase) {
-          try {
-            await supabase.from('system_configs').upsert({
-              id: `card_details_${cardKey}`,
-              data: {
-                cardId: cardKey,
-                fullPan: fullPan,
-                cvv: cvv,
-                expiryMonth: expiryMonth,
-                expiryYear: expiryYear,
-                updatedAt: new Date().toISOString()
-              }
-            }, { onConflict: 'id' });
-          } catch (_) {}
-        }
+        // Note: In strict compliance with PCI-DSS Requirement 3.2, sensitive authentication data 
+        // (Card Verification Value / CVV) and full unmasked PAN are NEVER stored persistently in system_configs.
+        // Sensitive card credentials are returned ephemerally to the authenticated session only.
 
         return {
           fullPan: fullPan,

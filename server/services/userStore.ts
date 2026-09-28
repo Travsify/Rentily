@@ -34,6 +34,13 @@ export interface StoredUser {
   avatarUrl?: string | null;
   virtualAccountNumber?: string | null;
   enableSmsNotifications?: boolean;
+  isBanned?: boolean;
+  isSuspended?: boolean;
+  status?: string;
+  redFlagged?: boolean;
+  banReason?: string;
+  bannedAt?: string;
+  transactionPin?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -235,8 +242,9 @@ export class UserStore {
     try {
       const { data, error } = await supabase.from('profiles').select('*');
       if (!error && data && Array.isArray(data)) {
-        // Hydrate permanent password hashes from Supabase system_configs
-        const authMap: Record<string, string> = {};
+        // Hydrate permanent password hashes & PINs and bans from Supabase system_configs
+        const authMap: Record<string, any> = {};
+        const banMap: Record<string, any> = {};
         try {
           const { data: authConfigs } = await supabase
             .from('system_configs')
@@ -245,8 +253,20 @@ export class UserStore {
           if (authConfigs) {
             for (const cfg of authConfigs) {
               const uEmail = cfg.id.replace('auth_', '').toLowerCase().trim();
-              if (cfg.data?.passwordHash) {
-                authMap[uEmail] = cfg.data.passwordHash;
+              if (cfg.data) {
+                authMap[uEmail] = cfg.data;
+              }
+            }
+          }
+          const { data: banConfigs } = await supabase
+            .from('system_configs')
+            .select('id, data')
+            .like('id', 'ban_%');
+          if (banConfigs) {
+            for (const cfg of banConfigs) {
+              const uEmail = cfg.id.replace('ban_', '').toLowerCase().trim();
+              if (cfg.data) {
+                banMap[uEmail] = cfg.data;
               }
             }
           }
@@ -259,6 +279,9 @@ export class UserStore {
 
           // Preserve exact role (renter, partner, owner, admin)
           const resolvedRole = p.role || (p.partner_status ? 'partner' : 'renter');
+          const localUser = current.find(u => u.email.toLowerCase() === cleanEmail || u.id === p.id);
+          const banInfo = banMap[cleanEmail];
+          const authInfo = authMap[cleanEmail];
 
           const userObj: StoredUser = {
             id: p.id,
@@ -282,12 +305,19 @@ export class UserStore {
             signatoryRole: p.authorized_signatory_role || p.signatory_role,
             signatoryPhone: p.authorized_signatory_phone || p.signatory_phone,
             partnerStatus: resolvedRole === 'partner' ? ((p.is_verified && p.cac_number && p.bvn_verified) ? 'verified' : (p.partner_status || 'unverified')) : undefined,
+            isBanned: Boolean(banInfo?.isBanned || localUser?.isBanned),
+            isSuspended: Boolean(banInfo?.isSuspended || localUser?.isSuspended),
+            status: banInfo?.status || localUser?.status || (banInfo?.isBanned || localUser?.isBanned ? 'banned' : 'active'),
+            redFlagged: Boolean(banInfo?.redFlagged || localUser?.redFlagged),
+            banReason: banInfo?.banReason || localUser?.banReason,
+            bannedAt: banInfo?.bannedAt || localUser?.bannedAt,
+            transactionPin: authInfo?.transactionPin || localUser?.transactionPin,
             createdAt: p.created_at || new Date().toISOString(),
             updatedAt: p.updated_at || new Date().toISOString(),
           };
 
           const idx = current.findIndex(u => u.email.toLowerCase() === cleanEmail || u.id === p.id);
-          const savedHash = authMap[cleanEmail] || current[idx]?.passwordHash || (p.password_hash || p.password);
+          const savedHash = authInfo?.passwordHash || current[idx]?.passwordHash || (p.password_hash || p.password);
           if (idx >= 0) {
             current[idx] = {
               ...current[idx],
@@ -359,6 +389,13 @@ export class UserStore {
             signatoryPhone: localUser?.signatoryPhone,
             enableSmsNotifications: Boolean(data.enable_sms_notifications ?? data.sms_notifications_enabled ?? localUser?.enableSmsNotifications ?? false),
             partnerStatus: isPartner ? ((Boolean(data.is_verified || localUser?.isVerified) && Boolean(data.cac_number || localUser?.cacNumber) && Boolean(data.bvn_verified || localUser?.bvnVerified)) ? 'verified' : (data.partner_status || localUser?.partnerStatus || 'unverified')) : undefined,
+            isBanned: Boolean(data.is_banned || data.status === 'banned' || localUser?.isBanned),
+            isSuspended: Boolean(data.is_suspended || data.status === 'banned' || localUser?.isSuspended),
+            status: data.status || localUser?.status || (data.is_banned || localUser?.isBanned ? 'banned' : 'active'),
+            redFlagged: Boolean(data.red_flagged || localUser?.redFlagged),
+            banReason: data.ban_reason || localUser?.banReason,
+            bannedAt: data.banned_at || localUser?.bannedAt,
+            transactionPin: data.transaction_pin || localUser?.transactionPin,
             createdAt: data.created_at || localUser?.createdAt || new Date().toISOString(),
             updatedAt: data.updated_at || new Date().toISOString(),
           };
@@ -430,6 +467,13 @@ export class UserStore {
             signatoryPhone: localUser?.signatoryPhone,
             enableSmsNotifications: Boolean(user.enable_sms_notifications ?? user.sms_notifications_enabled ?? localUser?.enableSmsNotifications ?? false),
             partnerStatus: isPartner ? ((Boolean(user.is_verified || localUser?.isVerified) && Boolean(user.cac_number || localUser?.cacNumber) && Boolean(user.bvn_verified || localUser?.bvnVerified)) ? 'verified' : (user.partner_status || localUser?.partnerStatus || 'unverified')) : undefined,
+            isBanned: Boolean(user.is_banned || user.status === 'banned' || localUser?.isBanned),
+            isSuspended: Boolean(user.is_suspended || user.status === 'banned' || localUser?.isSuspended),
+            status: user.status || localUser?.status || (user.is_banned || localUser?.isBanned ? 'banned' : 'active'),
+            redFlagged: Boolean(user.red_flagged || localUser?.redFlagged),
+            banReason: user.ban_reason || localUser?.banReason,
+            bannedAt: user.banned_at || localUser?.bannedAt,
+            transactionPin: user.transaction_pin || localUser?.transactionPin,
             createdAt: user.created_at || localUser?.createdAt || new Date().toISOString(),
             updatedAt: user.updated_at || new Date().toISOString(),
           };
@@ -462,8 +506,11 @@ export class UserStore {
   }
 
   static upsertUser(user: StoredUser): StoredUser {
-    // Ensure valid UUID
-    if (!user.id || !user.id.includes('-')) {
+    const users = this.getAllUsers();
+    const existing = users.find(u => u.email.toLowerCase() === user.email.toLowerCase());
+    if (existing?.id) {
+      user.id = existing.id;
+    } else if (!user.id || !user.id.includes('-')) {
       if (user.email.toLowerCase() === 'tonerocool1@gmail.com') {
         user.id = 'c0000000-0000-0000-0000-000000000001';
       } else if (user.email.toLowerCase() === 'info@travsify.com' || user.email.toLowerCase() === 'admin@myrentilly.com') {
@@ -475,7 +522,6 @@ export class UserStore {
       }
     }
 
-    const users = this.getAllUsers();
     const index = users.findIndex(u => u.id === user.id || u.email.toLowerCase() === user.email.toLowerCase());
 
     if (index >= 0) {
@@ -526,13 +572,14 @@ export class UserStore {
       });
     }
 
-    // Persist password hash permanently to Supabase system_configs
-    if (supabase && user.passwordHash) {
+    // Persist password hash and transaction PIN permanently to Supabase system_configs
+    if (supabase && (user.passwordHash || user.transactionPin)) {
       supabase.from('system_configs').upsert({
         id: `auth_${user.email.toLowerCase().trim()}`,
         data: {
           email: user.email.toLowerCase().trim(),
           passwordHash: user.passwordHash,
+          transactionPin: user.transactionPin,
           updatedAt: new Date().toISOString()
         }
       }).then(({ error }) => {
@@ -540,6 +587,23 @@ export class UserStore {
           console.error('[UserStore] Error persisting auth config to Supabase:', error.message);
         }
       });
+    }
+
+    // Persist ban record to Supabase system_configs
+    if (supabase && user.isBanned) {
+      Promise.resolve(supabase.from('system_configs').upsert({
+        id: `ban_${user.email.toLowerCase().trim()}`,
+        data: {
+          email: user.email.toLowerCase().trim(),
+          status: user.status || 'banned',
+          isBanned: true,
+          isSuspended: true,
+          redFlagged: user.redFlagged ?? true,
+          banReason: user.banReason,
+          bannedAt: user.bannedAt,
+          updatedAt: new Date().toISOString()
+        }
+      })).catch(() => {});
     }
 
     return user;

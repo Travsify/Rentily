@@ -13,7 +13,7 @@ import { TransactionStore } from './transactionStore';
 const GLOBAL_HOURLY_DISBURSEMENT_CAP = 100000;
 
 // Permanent Blacklist of bank accounts identified in the September 27 bot exploit
-const FLAGGED_SYNDICATE_ACCOUNTS = new Set([
+export const FLAGGED_SYNDICATE_ACCOUNTS = new Set([
   '7067990054', // ABDULMUTALIB ENESI AHMADU (Repeat hit x3)
   '8085627638', // JIMADA SAGIRU JIMADA (Repeat hit x2)
   '8143375948', // OLATUNJI DAVID ABODUNRIN

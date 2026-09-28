@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import '../../constants/app_colors.dart';
 import '../../widgets/rentilly_bottom_bar.dart';
 
@@ -218,10 +221,200 @@ class GlobalPayTrackerScreen extends StatelessWidget {
                 ],
               ),
             ),
+            const SizedBox(height: 18),
+
+            // Official PDF Remittance Certificate Button
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton.icon(
+                onPressed: () => _generateAndSharePdfReceipt(context),
+                icon: const Icon(Icons.picture_as_pdf_rounded, color: Colors.white, size: 20),
+                label: Text(
+                  'Download Official Remittance Advice (PDF)',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                ),
+              ),
+            ),
             const SizedBox(height: 30),
           ],
         ),
       ),
+    );
+  }
+
+  Future<void> _generateAndSharePdfReceipt(BuildContext context) async {
+    final currencyFormat = NumberFormat('#,##0.00', 'en_US');
+    final isTuition = order['orderType'] == 'tuition';
+    final pdf = pw.Document();
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(32),
+        build: (pw.Context ctx) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text('RENTILLY GLOBAL PAY', style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold, color: PdfColors.teal900)),
+                      pw.Text('Official Cross-Border Remittance Certificate', style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
+                    ],
+                  ),
+                  pw.Container(
+                    padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: pw.BoxDecoration(
+                      color: PdfColors.green100,
+                      borderRadius: pw.BorderRadius.circular(6),
+                    ),
+                    child: pw.Text('VERIFIED DISPATCH', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColors.green900)),
+                  ),
+                ],
+              ),
+              pw.Divider(color: PdfColors.grey300, thickness: 1, height: 24),
+              pw.SizedBox(height: 10),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text('Remittance Reference:', style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey600)),
+                      pw.Text('${order['reference'] ?? 'RGP_TRANSFER'}', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold)),
+                    ],
+                  ),
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.end,
+                    children: [
+                      pw.Text('Issue Date & Timestamp:', style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey600)),
+                      pw.Text('${DateTime.now().toUtc().toString().split('.')[0]} UTC', style: const pw.TextStyle(fontSize: 11)),
+                    ],
+                  ),
+                ],
+              ),
+              pw.SizedBox(height: 20),
+              pw.Container(
+                padding: const pw.EdgeInsets.all(16),
+                decoration: pw.BoxDecoration(
+                  color: PdfColors.grey100,
+                  borderRadius: pw.BorderRadius.circular(8),
+                ),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text('TRANSACTION SUMMARY', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold, color: PdfColors.teal900)),
+                    pw.SizedBox(height: 10),
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Text('Remittance Type:', style: const pw.TextStyle(fontSize: 10)),
+                        pw.Text(isTuition ? 'Tuition & University Fees' : 'Commercial Supplier Payment', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                      ],
+                    ),
+                    pw.SizedBox(height: 6),
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Text('Beneficiary Institution / Entity:', style: const pw.TextStyle(fontSize: 10)),
+                        pw.Text('${order['beneficiary']?['name'] ?? order['institutionName'] ?? 'Beneficiary'}', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                      ],
+                    ),
+                    if (isTuition && order['studentMatricId'] != null) ...[
+                      pw.SizedBox(height: 6),
+                      pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Text('Student Matric / App ID:', style: const pw.TextStyle(fontSize: 10)),
+                          pw.Text('${order['studentMatricId']}', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                        ],
+                      ),
+                    ],
+                    if (!isTuition && order['invoiceNumber'] != null) ...[
+                      pw.SizedBox(height: 6),
+                      pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Text('Proforma Invoice #:', style: const pw.TextStyle(fontSize: 10)),
+                          pw.Text('${order['invoiceNumber']}', style: pw.TextStyle(fontSize: 10, fontWeight: pw.FontWeight.bold)),
+                        ],
+                      ),
+                    ],
+                    pw.SizedBox(height: 6),
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Text('Clearing Rail & Route:', style: const pw.TextStyle(fontSize: 10)),
+                        pw.Text('${(order['paymentScheme'] ?? 'SWIFT').toString().toUpperCase()} Clearing Network', style: const pw.TextStyle(fontSize: 10)),
+                      ],
+                    ),
+                    pw.SizedBox(height: 6),
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Text('Settlement Currency & Amount:', style: const pw.TextStyle(fontSize: 10)),
+                        pw.Text('${order['destinationCurrency']} ${currencyFormat.format(order['destinationAmount'] ?? 0)}', style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, color: PdfColors.teal800)),
+                      ],
+                    ),
+                    pw.SizedBox(height: 6),
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Text('Locked FX Exchange Rate:', style: const pw.TextStyle(fontSize: 10)),
+                        pw.Text('1 ${order['destinationCurrency']} = NGN ${currencyFormat.format(order['customerRate'] ?? 0)}', style: const pw.TextStyle(fontSize: 10)),
+                      ],
+                    ),
+                    pw.Divider(color: PdfColors.grey300, height: 16),
+                    pw.Row(
+                      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                      children: [
+                        pw.Text('Total Source Debited:', style: pw.TextStyle(fontSize: 11, fontWeight: pw.FontWeight.bold)),
+                        pw.Text('NGN ${currencyFormat.format(order['totalDebitedNgn'] ?? 0)}', style: pw.TextStyle(fontSize: 13, fontWeight: pw.FontWeight.bold, color: PdfColors.teal900)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              pw.Spacer(),
+              pw.Container(
+                padding: const pw.EdgeInsets.all(12),
+                decoration: pw.BoxDecoration(
+                  border: pw.Border.all(color: PdfColors.grey300),
+                  borderRadius: pw.BorderRadius.circular(6),
+                ),
+                child: pw.Row(
+                  children: [
+                    pw.Expanded(
+                      child: pw.Text(
+                        'This document serves as official remittance proof issued by Rentilly Global Pay. Remitted funds are cleared via licensed Central Bank and international correspondent rails.',
+                        style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    await Printing.sharePdf(
+      bytes: await pdf.save(),
+      filename: 'Rentilly_Remittance_${order['reference'] ?? 'Certificate'}.pdf',
     );
   }
 

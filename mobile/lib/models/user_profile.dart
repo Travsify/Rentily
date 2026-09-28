@@ -192,9 +192,11 @@ class UserProfile {
       signatoryName: json['signatoryName']?.toString() ?? json['signatory_name']?.toString() ?? json['authorized_signatory_name']?.toString(),
       signatoryRole: json['signatoryRole']?.toString() ?? json['signatory_role']?.toString() ?? json['authorized_signatory_role']?.toString(),
       signatoryPhone: json['signatoryPhone']?.toString() ?? json['signatory_phone']?.toString() ?? json['authorized_signatory_phone']?.toString(),
-      partnerStatus: isPartnerRole ? 'verified' : (json['partnerStatus']?.toString() ?? json['partner_status']?.toString() ?? 'unverified'),
-      rekycRequired: json['rekycRequired'] ?? json['rekyc_required'] ?? false,
-      dob: json['dob']?.toString(),
+      rekycRequired: ((json['accountNumber'] != null && json['accountNumber'].toString().trim().isNotEmpty) ||
+                      (json['account_number'] != null && json['account_number'].toString().trim().isNotEmpty)) &&
+                     (json['isVerified'] == true || json['is_verified'] == true)
+          ? false
+          : (json['rekycRequired'] ?? json['rekyc_required'] ?? false),
       bvn: json['bvn']?.toString() ?? json['bvn_number']?.toString(),
       kycFailureReason: json['kycFailureReason']?.toString() ?? json['kyc_failure_reason']?.toString() ?? json['reason']?.toString(),
       mapleradTier: (json['mapleradTier'] as num?)?.toInt() ?? 0,

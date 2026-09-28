@@ -124,8 +124,9 @@ export async function getQuote(req: Request, res: Response) {
  */
 export async function submitGlobalPayout(req: Request, res: Response) {
   try {
-    const userId = (req as any).user?.id || req.body.userId;
-    const userEmail = (req as any).user?.email || req.body.userEmail;
+    const authUser = (req as any).user;
+    const userId = authUser?.id || req.body.userId;
+    const userEmail = authUser?.email || req.body.userEmail;
 
     if (!userId) {
       return res.status(401).json({ status: false, error: 'User must be authenticated.' });
@@ -141,6 +142,9 @@ export async function submitGlobalPayout(req: Request, res: Response) {
       institutionName,
       semesterSession,
       invoiceNumber,
+      poNumber,
+      goodsDescription,
+      bursarEmail,
       documentUrl,
       pin
     } = req.body;
@@ -149,6 +153,31 @@ export async function submitGlobalPayout(req: Request, res: Response) {
       return res.status(400).json({
         status: false,
         error: 'quoteReference, orderType, and beneficiary details are required.'
+      });
+    }
+
+    // Specific order validation
+    if (orderType === 'tuition') {
+      if (!studentName?.trim() || !studentMatricId?.trim() || !institutionName?.trim()) {
+        return res.status(400).json({
+          status: false,
+          error: 'Tuition payouts require verified Student Name, Matriculation ID, and Institution Name.'
+        });
+      }
+    } else if (orderType === 'supplier') {
+      if (!invoiceNumber?.trim()) {
+        return res.status(400).json({
+          status: false,
+          error: 'Supplier commercial payouts require a valid Invoice Number.'
+        });
+      }
+    }
+
+    // Beneficiary account validation
+    if (!beneficiary.accountNumberOrIban?.trim() || !beneficiary.name?.trim()) {
+      return res.status(400).json({
+        status: false,
+        error: 'Beneficiary account number / IBAN and beneficiary name are mandatory.'
       });
     }
 
@@ -179,6 +208,9 @@ export async function submitGlobalPayout(req: Request, res: Response) {
       institutionName,
       semesterSession,
       invoiceNumber,
+      poNumber,
+      goodsDescription,
+      bursarEmail,
       documentUrl
     });
 

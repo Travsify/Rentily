@@ -90,6 +90,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _bannerController.dispose();
     AuthService.currentUserNotifier.removeListener(_onUserUpdated);
     super.dispose();
   }
@@ -156,7 +157,8 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
 
-      final bool needsUpgrade = u!.rekycRequired == true;
+      final bool hasAccount = u!.accountNumber != null && u!.accountNumber!.trim().isNotEmpty;
+      final bool needsUpgrade = !hasAccount && (u!.rekycRequired == true || !u!.isVerified);
 
       if (needsUpgrade) {
         Future.delayed(const Duration(milliseconds: 600), () {
@@ -426,7 +428,9 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 18),
 
               // 1b. Action Required: Verification & ₦1,000 Welcome Bonus Banner
-              if (_user != null && (_user!.rekycRequired == true || !_user!.isVerified || _user!.accountNumber == null)) ...[
+              if (_user != null &&
+                  (_user!.accountNumber == null || _user!.accountNumber!.trim().isEmpty) &&
+                  (_user!.rekycRequired == true || !_user!.isVerified)) ...[
                 GestureDetector(
                   onTap: () {
                     DateOfBirthModal.show(
@@ -483,7 +487,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               const SizedBox(height: 3),
                               Text(
-                                'Confirm your 11-digit BVN or NIN to claim your ₦1,000 reward, activate dedicated Wema Bank NUBAN & Dollar Card.',
+                                'Confirm your 11-digit BVN and NIN to claim your ₦1,000 reward, activate dedicated Wema Bank NUBAN & Dollar Card.',
                                 style: GoogleFonts.plusJakartaSans(
                                   fontSize: 10.5,
                                   fontWeight: FontWeight.w500,
