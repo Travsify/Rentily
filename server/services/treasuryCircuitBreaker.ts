@@ -139,11 +139,17 @@ export class TreasuryCircuitBreaker {
     // 2. Enforce 1 Bank Account = 1 Rentilly User (Syndicate Isolation)
     if (supabase) {
       try {
+        const ADMIN_EMAILS = ['patrickachua3@gmail.com', 'info@travsify.com'];
         const { data: matchedTxs } = await supabase
           .from('wallet_transactions')
           .select('email, narration')
           .like('narration', `%${cleanAcc}%`)
           .neq('email', cleanEmail)
+          .not('email', 'in', `(${ADMIN_EMAILS.map(e => `"${e}"`).join(',')})`)
+          .not('narration', 'ilike', '%Ugc%')
+          .not('narration', 'ilike', '%Salary%')
+          .not('narration', 'ilike', '%Admin Payout%')
+          .not('narration', 'ilike', '%Manual Payout%')
           .limit(1);
 
         if (Array.isArray(matchedTxs) && matchedTxs.length > 0) {
