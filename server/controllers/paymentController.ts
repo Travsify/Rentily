@@ -598,7 +598,7 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
       }
     }
 
-    const numAmount = Number(amount);
+    let numAmount = Number(amount);
     let cleanReason = (reason && !reason.toLowerCase().includes('living escrow') ? reason : 'Rentilly Payout')
       .replace(/transify/gi, '')
       .replace(/living escrow/gi, '')
