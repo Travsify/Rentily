@@ -28,7 +28,7 @@ class LandlordWalletScreen extends StatefulWidget {
 }
 
 class _LandlordWalletScreenState extends State<LandlordWalletScreen> {
-  final NumberFormat _currencyFormat = NumberFormat('#,###.00', 'en_US');
+  final NumberFormat _currencyFormat = NumberFormat('#,##0.00', 'en_US');
   UserProfile? _user;
   bool _isLoading = true;
   String _selectedLedgerFilter = 'All';

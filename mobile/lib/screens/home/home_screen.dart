@@ -36,7 +36,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final NumberFormat _currencyFormat = NumberFormat('#,###.00', 'en_US');
+  final NumberFormat _currencyFormat = NumberFormat('#,##0.00', 'en_US');
   bool _hideBalance = false;
   UserProfile? _user;
 

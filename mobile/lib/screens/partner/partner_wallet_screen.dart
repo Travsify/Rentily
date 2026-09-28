@@ -28,7 +28,7 @@ class PartnerWalletScreen extends StatefulWidget {
 }
 
 class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
-  final NumberFormat _currencyFormat = NumberFormat('#,###.00', 'en_US');
+  final NumberFormat _currencyFormat = NumberFormat('#,##0.00', 'en_US');
   UserProfile? _user;
   bool _isLoading = true;
   bool _isSyncing = false;

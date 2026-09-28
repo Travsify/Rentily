@@ -35,7 +35,7 @@ class WalletScreen extends StatefulWidget {
 }
 
 class _WalletScreenState extends State<WalletScreen> {
-  final NumberFormat _currencyFormat = NumberFormat('#,###.00', 'en_US');
+  final NumberFormat _currencyFormat = NumberFormat('#,##0.00', 'en_US');
   bool _hideBalance = false;
   UserProfile? _user;
   bool _isLoading = true;

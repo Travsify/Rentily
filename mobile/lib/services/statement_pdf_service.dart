@@ -12,7 +12,7 @@ import 'package:share_plus/share_plus.dart';
 import '../models/user_profile.dart';
 
 class StatementPdfService {
-  static final NumberFormat _currencyFormat = NumberFormat('#,###.00', 'en_US');
+  static final NumberFormat _currencyFormat = NumberFormat('#,##0.00', 'en_US');
   static final DateFormat _dateFormat = DateFormat('dd MMM yyyy, hh:mm a');
 
   static pw.MemoryImage? _cachedLogo;

@@ -47,8 +47,8 @@ class EscrowCheckoutModal extends StatefulWidget {
 }
 
 class _EscrowCheckoutModalState extends State<EscrowCheckoutModal> {
-  final NumberFormat _currency = NumberFormat('#,###.00', 'en_US');
-  final NumberFormat _currencyShort = NumberFormat('#,###', 'en_US');
+  final NumberFormat _currency = NumberFormat('#,##0.00', 'en_US');
+  final NumberFormat _currencyShort = NumberFormat('#,##0', 'en_US');
 
   bool _isProcessing = false;
   UserProfile? _liveUser;

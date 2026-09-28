@@ -96,7 +96,7 @@ class _PartnerHubTab extends StatefulWidget {
 }
 
 class _PartnerHubTabState extends State<_PartnerHubTab> {
-  final NumberFormat _currencyFormat = NumberFormat('#,###.00', 'en_US');
+  final NumberFormat _currencyFormat = NumberFormat('#,##0.00', 'en_US');
   UserProfile? _user;
   List<Property> _mandateProperties = [];
   bool _isLoading = true;
@@ -454,10 +454,18 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
                           style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.bold, color: const Color(0xFFFBBF24)),
                         ),
                         const SizedBox(height: 4),
-                        Text(
-                          'Rep: ${_user?.fullName ?? "Principal Broker"} • ${_user?.email ?? ""}',
-                          style: GoogleFonts.plusJakartaSans(fontSize: 10, color: Colors.white60),
-                        ),
+                        Builder(builder: (_) {
+                          final isRedundant = (_user?.fullName == null) ||
+                              (_user!.fullName.trim().isEmpty) ||
+                              (_user!.fullName.trim().toLowerCase() == businessName.trim().toLowerCase()) ||
+                              (_user!.fullName.toLowerCase().contains('logistics')) ||
+                              (_user!.fullName.toLowerCase().contains('ltd'));
+                          final repTitle = isRedundant ? 'Accredited Representative' : _user!.fullName.trim();
+                          return Text(
+                            'Rep: $repTitle • ${_user?.email ?? ""}',
+                            style: GoogleFonts.plusJakartaSans(fontSize: 10, color: Colors.white60),
+                          );
+                        }),
                         const SizedBox(height: 18),
 
                         // Metrics Dual Balances

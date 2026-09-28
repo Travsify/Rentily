@@ -114,7 +114,7 @@ class _EnterPinSheetState extends State<_EnterPinSheet> {
 
   void _tryBiometricAuth() async {
     final passed = await BiometricService.authenticate(
-      reason: 'Authorize payment of ₦${NumberFormat('#,###.00').format(widget.amount)} for ${widget.title}',
+      reason: 'Authorize payment of ₦${NumberFormat('#,##0.00').format(widget.amount)} for ${widget.title}',
     );
     if (passed && mounted) {
       HapticFeedback.mediumImpact();
@@ -181,7 +181,7 @@ class _EnterPinSheetState extends State<_EnterPinSheet> {
                   ),
                 ),
                 Text(
-                  '₦${NumberFormat('#,###.00').format(widget.amount)}',
+                  '₦${NumberFormat('#,##0.00').format(widget.amount)}',
                   style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w900, color: AppColors.primary),
                 ),
               ],

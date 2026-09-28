@@ -27,7 +27,7 @@ class SplitEscrowModal extends StatefulWidget {
 
 class _SplitEscrowModalState extends State<SplitEscrowModal> {
   bool _isLocking = false;
-  final NumberFormat _currencyFormat = NumberFormat('#,###.00');
+  final NumberFormat _currencyFormat = NumberFormat('#,##0.00', 'en_US');
 
   void _confirmSplitEscrow() async {
     setState(() => _isLocking = true);

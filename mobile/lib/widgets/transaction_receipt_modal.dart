@@ -45,7 +45,7 @@ class _TransactionReceiptModalState extends State<TransactionReceiptModal> {
   final GlobalKey _receiptKey = GlobalKey();
   bool _isExporting = false;
   String? _exportActionName;
-  static final NumberFormat _currencyFormat = NumberFormat('#,###.00', 'en_US');
+  static final NumberFormat _currencyFormat = NumberFormat('#,##0.00', 'en_US');
 
   String _getCurrencySymbol(String curr) {
     switch (curr.toUpperCase()) {

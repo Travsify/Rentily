@@ -16,7 +16,7 @@ class LandlordDigitalLeasesScreen extends StatefulWidget {
 }
 
 class _LandlordDigitalLeasesScreenState extends State<LandlordDigitalLeasesScreen> {
-  final NumberFormat _currencyFormat = NumberFormat('#,###.00', 'en_US');
+  final NumberFormat _currencyFormat = NumberFormat('#,##0.00', 'en_US');
   List<Map<String, dynamic>> _leases = [];
   bool _isLoading = true;
 

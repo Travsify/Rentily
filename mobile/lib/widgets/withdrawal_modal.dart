@@ -714,7 +714,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
       }
       final double totalNgnRequired = _computedNgnAmount;
       if (totalNgnRequired > currentBal) {
-        setState(() => _errorMessage = 'Insufficient funds. Available balance: ₦${NumberFormat('#,###.00').format(currentBal)}');
+        setState(() => _errorMessage = 'Insufficient funds. Available balance: ₦${NumberFormat('#,##0.00').format(currentBal)}');
         return;
       }
     }
@@ -983,7 +983,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
     final authorized = await PaymentSecurityService.authorizeTransaction(
       context,
       title: _withdrawalMode == 'USDT' 
-          ? 'Payout $entered USDT (₦${NumberFormat('#,###.00').format(totalNgnRequired)})'
+          ? 'Payout $entered USDT (₦${NumberFormat('#,##0.00').format(totalNgnRequired)})'
           : 'Withdrawal to $_selectedBankName ($accNum)',
       amount: totalNgnRequired,
       recipient: confirmedRecipient,
@@ -1082,10 +1082,10 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
 
         NotificationService.addNotification(
           title: 'Bank Withdrawal Dispatched 💳',
-          message: 'Payout of ₦${NumberFormat('#,###.00').format(totalNgnRequired)} to $_selectedBankName ($accNum - $confirmedRecipient) was processed.',
+          message: 'Payout of ₦${NumberFormat('#,##0.00').format(totalNgnRequired)} to $_selectedBankName ($accNum - $confirmedRecipient) was processed.',
           category: 'transaction',
           metadata: {
-            'amount': '₦${NumberFormat('#,###.00').format(totalNgnRequired)}',
+            'amount': '₦${NumberFormat('#,##0.00').format(totalNgnRequired)}',
             'bank': _selectedBankName,
             'account': accNum,
           },
@@ -1093,7 +1093,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
 
         SecurityTelemetryService.recordActivity(
           title: 'Bank Withdrawal Dispatched 💳',
-          message: 'Payout of ₦${NumberFormat('#,###.00').format(totalNgnRequired)} to $_selectedBankName ($accNum - $confirmedRecipient) was processed.',
+          message: 'Payout of ₦${NumberFormat('#,##0.00').format(totalNgnRequired)} to $_selectedBankName ($accNum - $confirmedRecipient) was processed.',
           category: 'wallet',
           userEmail: currentUser.email,
           userName: currentUser.fullName,
@@ -1112,7 +1112,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Withdrawal of ₦${NumberFormat('#,###.00').format(totalNgnRequired)} initiated successfully!',
+              'Withdrawal of ₦${NumberFormat('#,##0.00').format(totalNgnRequired)} initiated successfully!',
               style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold),
             ),
             backgroundColor: AppColors.primary,
@@ -1617,7 +1617,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
                     child: Text(
                       _withdrawalMode == 'USDT'
                           ? 'Avail: \$${widget.user.usdtBalance.toStringAsFixed(2)} USDT (Max)'
-                          : 'Avail: ₦${NumberFormat('#,###.00').format(widget.user.walletBalance)} (Max)',
+                          : 'Avail: ₦${NumberFormat('#,##0.00').format(widget.user.walletBalance)} (Max)',
                       style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary),
                     ),
                   ),
@@ -1668,7 +1668,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            '≈ ₦${NumberFormat('#,###.00').format(_computedNgnAmount)} NGN',
+                            '≈ ₦${NumberFormat('#,##0.00').format(_computedNgnAmount)} NGN',
                             style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w900, color: Colors.white),
                           ),
                         ],
@@ -2123,8 +2123,8 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
                                 ? 'Send ${_enteredAmount.toStringAsFixed(2)} USDT (0% Fee)'
                                 : (_usdtDestinationType == 'ONCHAIN' || _usdtDestinationType == 'CRYPTO'
                                     ? 'Authorize & Send ${_enteredAmount.toStringAsFixed(2)} USDT' 
-                                    : 'Convert & Payout ₦${NumberFormat('#,###.00').format(_computedNgnAmount)}'))
-                            : 'Authorize & Send ₦${NumberFormat('#,###.00').format(_computedNgnAmount)}',
+                                    : 'Convert & Payout ₦${NumberFormat('#,##0.00').format(_computedNgnAmount)}'))
+                            : 'Authorize & Send ₦${NumberFormat('#,##0.00').format(_computedNgnAmount)}',
                         style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold),
                       ),
               ),

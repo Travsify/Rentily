@@ -20,7 +20,7 @@ class LandlordPropertiesScreen extends StatefulWidget {
 class _LandlordPropertiesScreenState extends State<LandlordPropertiesScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  final NumberFormat _currencyFormat = NumberFormat('#,###.00', 'en_US');
+  final NumberFormat _currencyFormat = NumberFormat('#,##0.00', 'en_US');
 
   UserProfile? _user;
   List<Property> _myProperties = [];

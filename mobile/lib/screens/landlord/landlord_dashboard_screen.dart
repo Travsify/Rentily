@@ -100,7 +100,7 @@ class _LandlordPortfolioTab extends StatefulWidget {
 }
 
 class _LandlordPortfolioTabState extends State<_LandlordPortfolioTab> {
-  final NumberFormat _currencyFormat = NumberFormat('#,###.00', 'en_US');
+  final NumberFormat _currencyFormat = NumberFormat('#,##0.00', 'en_US');
   UserProfile? _user;
   List<Property> _properties = [];
   double _escrowBalance = 0.0;
