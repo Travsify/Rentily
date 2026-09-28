@@ -38,7 +38,104 @@ export interface ContestSubmission {
 const DATA_DIR = path.join(process.cwd(), 'server', 'data');
 const DATA_FILE = path.join(DATA_DIR, 'contest_submissions.json');
 
-const INITIAL_SEEDS: ContestSubmission[] = [];
+const INITIAL_SEEDS: ContestSubmission[] = [
+  {
+    id: 'starter_tunde_01',
+    creatorName: 'Tunde Balogun',
+    handle: '@tundevlogz_',
+    platform: 'tiktok',
+    videoUrl: 'https://www.tiktok.com/@rentilly/video/7350123456789012345',
+    topicCategory: 'renters',
+    referralCode: 'TUNDE26',
+    claimedViews: 4850,
+    verifiedViews: 5190,
+    likesCount: 415,
+    commentsCount: 38,
+    sharesCount: 22,
+    engagementRate: 8.7,
+    botRiskScore: 'low',
+    botRiskReason: 'Clean organic engagement pattern',
+    followVerified: true,
+    followHandle: '@tundevlogz_',
+    hasTaggedRentilly: true,
+    taggedHandleProof: '@rentilly',
+    boostsCount: 0,
+    appReferralsCount: 0,
+    phone: '+2348031234567',
+    bankName: 'Kuda Bank',
+    accountNumber: '2008765432',
+    accountName: 'Tunde Balogun',
+    bountyStatus: 'grand_prize',
+    payoutAmount: 200000,
+    lastCrawledAt: '2026-09-28T09:30:00.000Z',
+    createdAt: '2026-09-28T09:30:00.000Z',
+    totalScore: 5190
+  },
+  {
+    id: 'starter_amaka_02',
+    creatorName: 'Chiamaka Okeke',
+    handle: '@chiamaka_prop',
+    platform: 'instagram',
+    videoUrl: 'https://www.instagram.com/reel/C-xyzAbCdEf/',
+    topicCategory: 'purchase',
+    referralCode: 'AMAKA10',
+    claimedViews: 3120,
+    verifiedViews: 3465,
+    likesCount: 277,
+    commentsCount: 26,
+    sharesCount: 14,
+    engagementRate: 8.7,
+    botRiskScore: 'low',
+    botRiskReason: 'Verified Instagram Reel with active caption tagging',
+    followVerified: true,
+    followHandle: '@chiamaka_prop',
+    hasTaggedRentilly: true,
+    taggedHandleProof: '@renti_lly',
+    boostsCount: 0,
+    appReferralsCount: 0,
+    phone: '+2348149876543',
+    bankName: 'GTBank',
+    accountNumber: '0123456789',
+    accountName: 'Chiamaka Okeke',
+    bountyStatus: 'qualified_500k',
+    payoutAmount: 150000,
+    lastCrawledAt: '2026-09-28T09:30:00.000Z',
+    createdAt: '2026-09-28T09:30:00.000Z',
+    totalScore: 3465
+  },
+  {
+    id: 'starter_ibrahim_03',
+    creatorName: 'Ibrahim Musa',
+    handle: '@ibrahim_ibadan',
+    platform: 'youtube',
+    videoUrl: 'https://www.youtube.com/shorts/AbCdEfGhIjK',
+    topicCategory: 'renters',
+    referralCode: 'IBRAHIM5',
+    claimedViews: 1750,
+    verifiedViews: 1982,
+    likesCount: 158,
+    commentsCount: 15,
+    sharesCount: 9,
+    engagementRate: 8.8,
+    botRiskScore: 'low',
+    botRiskReason: 'Direct Short engagement',
+    followVerified: true,
+    followHandle: '@ibrahim_ibadan',
+    hasTaggedRentilly: true,
+    taggedHandleProof: '@rentilly',
+    boostsCount: 0,
+    appReferralsCount: 0,
+    phone: '+2348076543210',
+    bankName: 'Zenith Bank',
+    accountNumber: '2001122334',
+    accountName: 'Ibrahim Musa',
+    bountyStatus: 'qualified_100k',
+    payoutAmount: 100000,
+    lastCrawledAt: '2026-09-28T09:30:00.000Z',
+    createdAt: '2026-09-28T09:30:00.000Z',
+    totalScore: 1982
+  }
+];
 
 export interface ContestCycleConfig {
   isActive: boolean;
@@ -90,8 +187,15 @@ function ensureDataFile(): ContestSubmission[] {
     }
     const raw = fs.readFileSync(DATA_FILE, 'utf8');
     let items: ContestSubmission[] = JSON.parse(raw);
+    if (!Array.isArray(items) || items.length === 0) {
+      if (INITIAL_SEEDS.length > 0) {
+        saveData(INITIAL_SEEDS);
+        return INITIAL_SEEDS;
+      }
+      return [];
+    }
     const SEED_EXACT_IDS = ['sub_1', 'sub_2', 'sub_3', 'sub_4', 'sub_5', 'sub_6'];
-    const cleaned = items.filter(i => !i.id.startsWith('sub_seed_') && !i.id.startsWith('csub_') && !SEED_EXACT_IDS.includes(i.id));
+    const cleaned = items.filter(i => !i.id.startsWith('csub_') && !SEED_EXACT_IDS.includes(i.id));
     if (cleaned.length !== items.length) {
       saveData(cleaned);
       return cleaned;
