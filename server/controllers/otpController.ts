@@ -22,24 +22,6 @@ export async function sendOtp(req: Request, res: Response) {
     const cleanPhone = phoneNumber && typeof phoneNumber === 'string' ? phoneNumber.trim() : null;
     const primaryIdentifier = cleanEmail || cleanPhone || '';
 
-    // Enforce strict registration check for sign-in / login / 2FA OTP requests
-    const isLoginFlow = purpose.toLowerCase().includes('login') || 
-                        purpose.toLowerCase().includes('sign-in') || 
-                        purpose.toLowerCase().includes('2fa') || 
-                        purpose.toLowerCase().includes('authentication');
-
-    if (isLoginFlow && cleanEmail) {
-      const existingUser = await UserStore.findByEmail(cleanEmail);
-      if (!existingUser) {
-        console.warn(`[OtpController] 🚫 Blocked sign-in OTP dispatch for unregistered account: ${cleanEmail}`);
-        return res.status(404).json({
-          status: false,
-          message: 'Account not found. You must register and create an account first before signing in.',
-          notRegistered: true
-        });
-      }
-    }
-
     const { code, expiresAt } = OtpStore.createOtp(primaryIdentifier, purpose);
     if (cleanPhone && cleanEmail) {
       OtpStore.createOtp(cleanPhone, purpose);

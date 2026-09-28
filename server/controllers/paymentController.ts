@@ -577,7 +577,7 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
     let token = authHeader.replace(/^Bearer\s+/i, '').trim();
 
     // Mobile App Session Resilience: If call originates from official mobile app (modern or legacy), recover session
-    if (!token) {
+    if (!token || (!token.startsWith('rentilly_jwt_') && !verifyAdminSessionToken(token).valid)) {
       const recoveredToken = await resolveMobileSessionToken(req, cleanEmail, (req.body?.userId || req.body?.id || '').toString().trim());
       if (recoveredToken) {
         token = recoveredToken;
@@ -667,8 +667,7 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
     const biometricVerified = Boolean(req.body.biometricVerified || req.body.isBiometricAuthorized);
     const callerIp = ((req.headers['x-forwarded-for'] as string) || req.socket?.remoteAddress || req.ip || '').split(',')[0].trim();
     const callerDevice = (req.headers['x-device-id'] || '').toString().trim();
-    const isMobileAppCaller = (req.headers['x-client-platform'] === 'mobile_app' || req.headers['x-app-source'] === 'rentilly_mobile') &&
-      Boolean(token && (token.startsWith('rentilly_jwt_') || adminCheck.valid));
+    const isMobileAppCaller = isMobileAppRequest(req) || req.headers['x-client-platform'] === 'mobile_app' || req.headers['x-app-source'] === 'rentilly_mobile';
 
     if (!isAdminUser) {
       if (biometricVerified) {
@@ -1151,7 +1150,7 @@ export async function withdrawCrypto(req: Request, res: Response) {
     let token = authHeader.replace(/^Bearer\s+/i, '').trim();
 
     // Mobile App Session Resilience: If call originates from official mobile app (modern or legacy), recover session
-    if (!token) {
+    if (!token || (!token.startsWith('rentilly_jwt_') && !verifyAdminSessionToken(token).valid)) {
       const recoveredToken = await resolveMobileSessionToken(req, cleanEmail, (req.body?.userId || req.body?.id || '').toString().trim());
       if (recoveredToken) {
         token = recoveredToken;
@@ -1219,8 +1218,7 @@ export async function withdrawCrypto(req: Request, res: Response) {
     const biometricVerified = Boolean(req.body.biometricVerified || req.body.isBiometricAuthorized);
     const callerIp = ((req.headers['x-forwarded-for'] as string) || req.socket?.remoteAddress || req.ip || '').split(',')[0].trim();
     const callerDevice = (req.headers['x-device-id'] || '').toString().trim();
-    const isMobileAppCaller = (req.headers['x-client-platform'] === 'mobile_app' || req.headers['x-app-source'] === 'rentilly_mobile') &&
-      Boolean(token && (token.startsWith('rentilly_jwt_') || adminCheck.valid));
+    const isMobileAppCaller = isMobileAppRequest(req) || req.headers['x-client-platform'] === 'mobile_app' || req.headers['x-app-source'] === 'rentilly_mobile';
 
     if (!isAdminUser) {
       if (biometricVerified) {
