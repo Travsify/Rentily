@@ -15,8 +15,12 @@ export function isMobileAppRequest(req: Request): boolean {
 
   // 1. Explicit modern mobile client headers
   if (
-    (clientPlatform === 'mobile_app' || clientPlatform === 'mobile' || clientPlatform === 'ios' || clientPlatform === 'android') &&
-    (appSource === 'rentilly_mobile' || appSource === 'mobile_app' || !appSource)
+    clientPlatform === 'mobile_app' ||
+    clientPlatform === 'mobile' ||
+    clientPlatform === 'ios' ||
+    clientPlatform === 'android' ||
+    appSource === 'rentilly_mobile' ||
+    appSource === 'mobile_app'
   ) {
     return true;
   }
@@ -56,6 +60,7 @@ export async function requireMobileAppOnly(req: Request, res: Response, next: Ne
   const isMobile = isMobileAppRequest(req);
   const secFetchMode = (req.headers['sec-fetch-mode'] || '').toString().toLowerCase().trim();
   const clientPlatform = (req.headers['x-client-platform'] || '').toString().toLowerCase().trim();
+  const appSource = (req.headers['x-app-source'] || '').toString().toLowerCase().trim();
   const userAgent = (req.headers['user-agent'] || '').toString().toLowerCase().trim();
   const origin = (req.headers['origin'] || req.headers['referer'] || '').toString().toLowerCase().trim();
 
