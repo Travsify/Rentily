@@ -10,6 +10,7 @@ import QRCode from 'qrcode';
 import { tryFormatToE164 } from '../utils/phoneUtils';
 import { isDisposableEmail } from '../utils/disposableEmailBlocker';
 import { timingSafeEqual, isTotpReplayed, recordFailedAdminAttempt, recordSuccessfulAdminAuth, getClientIp } from '../middleware/adminSecuritySentinel';
+import { ExecutiveActivityAlertService } from '../services/executiveActivityAlertService';
 
 const DEFAULT_INITIAL_PASS = process.env.ADMIN_INITIAL_PASSWORD || process.env.ADMIN_PASSWORD || 'Andrewtate2024./';
 const DEFAULT_INITIAL_HARSH = process.env.ADMIN_HARSH_KEY || 'Brevity230./';
@@ -101,6 +102,22 @@ export async function register(req: Request, res: Response) {
     const isBrowserRequest = Boolean(secFetchMode || (origin && !isExplicitMobileApp) || (reqUserAgent.includes('mozilla') && !isExplicitMobileApp && !reqUserAgent.includes('dart')));
 
     if (!isExplicitMobileApp || isBrowserRequest) {
+      ExecutiveActivityAlertService.sendRealTimeActivityAlert({
+        type: 'registration_blocked',
+        title: `Blocked Web Registration Attempt (${req.body?.email || 'Unknown User'})`,
+        summary: `A user or bot attempted to register via a web browser. Request was blocked with HTTP 403 and directed to the mobile app.`,
+        actorEmail: req.body?.email,
+        actorName: req.body?.fullName,
+        ipAddress: (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress,
+        userAgent: req.headers['user-agent'] as string,
+        details: {
+          origin,
+          secFetchMode,
+          clientPlatform,
+          appSource
+        }
+      }).catch(() => {});
+
       return res.status(403).json({
         status: false,
         error: 'Account registration is disabled on the website. Please download and register via the official Rentilly mobile app (available on Android & iOS).',

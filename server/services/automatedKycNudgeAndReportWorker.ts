@@ -17,6 +17,24 @@ export interface CycleReport {
   executiveEmailStatus: boolean;
 }
 
+const DISPOSABLE_PATTERNS = [
+  'yopmail', 'pickmail', 'dropmail', '10mail', 'ozsaip', 'shopdevo',
+  'emltmp', 'voewo', 'duck.com', 'ncleap', '282mail', 'olipii',
+  'gmeenramy', 'otona.uk', 'spamok', 'vendprop', 'pretoct', 'kywa.uk',
+  'sendapp.uk', 'tempmail', 'throwaway', 'trashmail', 'guerrillamail',
+  'mailinator', 'sharklasers', 'dispostable', 'fakeinbox', 'getairmail',
+  'fuwamofu', 'instaddr'
+];
+
+function isGenuineUser(u: any): boolean {
+  const email = (u.email || '').toLowerCase().trim();
+  if (!email || !email.includes('@')) return false;
+  const domain = email.split('@')[1];
+  if (DISPOSABLE_PATTERNS.some(p => domain.includes(p))) return false;
+  if (/^(bot_|referee_\d+|referrer_\d+|mobile_user_\d+|unverified_wd_\d+|verified_wd_\d+|syndicate_)/i.test(email)) return false;
+  return true;
+}
+
 export class AutomatedKycNudgeAndReportWorker {
   private static timer: NodeJS.Timeout | null = null;
   private static isRunning = false;
@@ -70,6 +88,13 @@ export class AutomatedKycNudgeAndReportWorker {
     console.log(`[AutomatedKycWorker] ⏳ Starting cycle at ${now.toISOString()}...`);
 
     try {
+      // 1. Sync freshest profile records from Supabase Cloud
+      try {
+        await UserStore.syncFromSupabase();
+      } catch (syncErr: any) {
+        console.warn('[AutomatedKycWorker] Supabase sync notice:', syncErr.message);
+      }
+
       const allUsers = UserStore.getAllUsers();
       let verifiedCount = 0;
       let unverifiedCount = 0;
@@ -77,21 +102,30 @@ export class AutomatedKycNudgeAndReportWorker {
       let nudgedLandlords = 0;
       let nudgedPartners = 0;
       let provisionedAccounts = 0;
+      let skippedBotsCount = 0;
 
       for (const u of allUsers) {
-        if (u.isVerified && u.accountNumber) {
+        const isVerified = Boolean(u.isVerified || u.bvnVerified);
+        const hasAccount = Boolean(u.accountNumber && u.accountNumber.length >= 8);
+
+        if (isVerified && hasAccount) {
           verifiedCount++;
         } else {
           unverifiedCount++;
         }
 
-        if (u.accountNumber) {
+        if (hasAccount) {
           provisionedAccounts++;
         }
 
-        // Only nudge unverified users or users without dedicated NUBAN
-        const isUnverified = !u.isVerified || !u.accountNumber;
-        if (!isUnverified) continue;
+        // Only nudge unverified users or users missing dedicated bank account
+        if (isVerified && hasAccount) continue;
+
+        // Skip detected bot accounts or disposable burner addresses
+        if (!isGenuineUser(u)) {
+          skippedBotsCount++;
+          continue;
+        }
 
         const cleanEmail = (u.email || '').toLowerCase().trim();
         if (!cleanEmail || !cleanEmail.includes('@')) continue;
@@ -116,8 +150,8 @@ export class AutomatedKycNudgeAndReportWorker {
           nudgedLandlords++;
         } else {
           // Standard Renter / Tenant
-          title = 'Claim Your ₦1,000 Welcome Bonus & Activate Dedicated Account 🎁';
-          message = `Welcome to Rentilly! Confirm your 11-digit BVN or NIN in the app to instantly claim your ₦1,000 Welcome Reward, activate your dedicated Wema Bank account, and unlock your Virtual Dollar Card.`;
+          title = 'Complete Verification to Unlock ₦1,000 & Your Dedicated Bank Account 🎁';
+          message = `Welcome to Rentilly! Confirm your 11-digit BVN or NIN in the app to immediately claim your ₦1,000 Welcome Reward, receive your dedicated Wema Bank virtual account (NUBAN), and unlock instant withdrawals.`;
           actionLabel = 'Confirm BVN & Claim ₦1,000 ⚡';
           nudgedRenters++;
         }
@@ -157,7 +191,7 @@ export class AutomatedKycNudgeAndReportWorker {
       await new Promise(r => setTimeout(r, 1000));
 
       const totalNudged = nudgedRenters + nudgedLandlords + nudgedPartners;
-      console.log(`[AutomatedKycWorker] ✅ Nudges dispatched to ${totalNudged} unverified accounts (Renters: ${nudgedRenters}, Landlords: ${nudgedLandlords}, Partners: ${nudgedPartners}).`);
+      console.log(`[AutomatedKycWorker] ✅ Nudges dispatched to ${totalNudged} genuine unverified accounts (Renters: ${nudgedRenters}, Landlords: ${nudgedLandlords}, Partners: ${nudgedPartners}, Filtered Bots: ${skippedBotsCount}).`);
 
       // ========================================================================
       // 2. DISPATCH EXECUTIVE ACTIVITY REPORT TO info@myrentilly.com

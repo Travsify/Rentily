@@ -3,6 +3,7 @@ import { TermiiService } from './termiiService';
 import { SmsRouterService } from './smsRouterService';
 import { UserStore } from './userStore';
 import { TransactionStore } from './transactionStore';
+import { ExecutiveActivityAlertService } from './executiveActivityAlertService';
 
 const DEFAULT_RESEND_KEY = ['re_', 'TDzSXw', 'pG_EiKY', 'cSEVf46', 'LAbtYv5', 'jHs8En'].join('');
 const RESEND_API_KEY = process.env.RESEND_API_KEY || DEFAULT_RESEND_KEY;
@@ -341,6 +342,11 @@ export class NotificationDispatcher {
 
     const targetEmail = (event.email || (event as any).userEmail || (event as any).recipientEmail || (event as any).to || '').toString().trim().toLowerCase();
     const targetMessage = event.message || (event as any).body || '';
+
+    // Forward real-time activity alert to info@myrentilly.com (fire-and-forget, non-blocking)
+    try {
+      ExecutiveActivityAlertService.notifyFromEvent(event);
+    } catch (_) {}
 
     // 1. Dispatch In-App Notification (Supabase / Database)
     try {
