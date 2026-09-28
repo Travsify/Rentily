@@ -68,12 +68,37 @@ export async function sendOtp(req: Request, res: Response) {
       }
     }
 
+    // 3. Multi-channel Notification: In-App notification & Push Notification
+    if (cleanEmail) {
+      (async () => {
+        try {
+          const { pushToEmail } = await import('../services/onesignalService');
+          await pushToEmail(cleanEmail, `🔑 Rentilly Security Code: ${code}`, `Your single-use verification code is ${code}. Expires in 10 minutes.`, { action: 'open_profile' });
+
+          if (supabase) {
+            const { data: prof } = await supabase.from('profiles').select('id').eq('email', cleanEmail).maybeSingle();
+            if (prof?.id) {
+              await supabase.from('notifications').insert({
+                user_id: prof.id,
+                title: 'Security Verification Code',
+                category: 'security',
+                message: `Your single-use verification code for ${purpose} is ${code}. Expires in 10 minutes.`,
+                metadata: { code, purpose },
+                read: false,
+                created_at: new Date().toISOString()
+              });
+            }
+          }
+        } catch (_) {}
+      })();
+    }
+
     const destination = cleanEmail || cleanPhone || 'your contact';
 
     return res.json({
       status: atLeastOneSuccess,
       message: atLeastOneSuccess
-        ? `Security verification code sent successfully to ${destination}.`
+        ? `Security verification code sent successfully to ${destination}. Please check your inbox and spam/junk folder.`
         : 'Failed to deliver verification code. Please check your contact information.',
       expiresAt,
       delivery: deliveryResults

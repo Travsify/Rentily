@@ -112,8 +112,10 @@ export class ResendService {
         body: JSON.stringify({
           from: SENDER_EMAIL,
           to: [cleanEmail],
+          reply_to: 'info@myrentilly.com',
           subject: `${code} is your Rentilly security code`,
-          html: htmlContent
+          html: htmlContent,
+          text: `Hello ${displayName},\n\nYour single-use verification code for ${purpose} on your Rentilly account is: ${code}\n\nThis code expires in 10 minutes. Never share this code with anyone.\n\nRentilly - Built By Landlords for every Tenant/Landlord\nSupport: info@myrentilly.com | https://myrentilly.com`
         })
       });
 
@@ -142,8 +144,10 @@ export class ResendService {
           body: JSON.stringify({
             from: 'Rentilly <onboarding@resend.dev>',
             to: [cleanEmail],
+            reply_to: 'info@myrentilly.com',
             subject: `${code} is your Rentilly security code`,
-            html: htmlContent
+            html: htmlContent,
+            text: `Hello ${displayName},\n\nYour single-use verification code for ${purpose} on your Rentilly account is: ${code}\n\nThis code expires in 10 minutes. Never share this code with anyone.\n\nRentilly - Built By Landlords for every Tenant/Landlord\nSupport: info@myrentilly.com | https://myrentilly.com`
           })
         });
         const retryData: any = await retryRes.json();
