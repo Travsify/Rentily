@@ -417,15 +417,27 @@ export const UsersTab: React.FC<UsersTabProps> = ({ users }) => {
                         </span>
                       </td>
                       <td className="py-3">
-                        {anyU.accountNumber ? (
+                        {isUserPartner(u) ? (
+                          anyU.cacNumber ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                              <ShieldCheck className="w-3 h-3" />
+                              <span>CAC Accredited</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-full">
+                              <Clock className="w-3 h-3" />
+                              <span>CAC Pending</span>
+                            </span>
+                          )
+                        ) : anyU.accountNumber ? (
                           <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full">
                             <ShieldCheck className="w-3 h-3" />
-                            <span>9PSB Active</span>
+                            <span>Wema Active</span>
                           </span>
                         ) : u.isVerified ? (
                           <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-full">
                             <Clock className="w-3 h-3" />
-                            <span>KYB Processing</span>
+                            <span>Tier-3 Verified</span>
                           </span>
                         ) : (
                           <span className="text-[10px] font-semibold text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">
@@ -437,10 +449,10 @@ export const UsersTab: React.FC<UsersTabProps> = ({ users }) => {
                         {anyU.accountNumber ? (
                           <div className="font-mono">
                             <span className="font-bold text-white text-xs">{anyU.accountNumber}</span>
-                            <span className="text-[10px] text-slate-400 block">{anyU.bankName || 'Flutterwave MFB'}</span>
+                            <span className="text-[10px] text-slate-400 block">{anyU.bankName || 'Wema Bank'}</span>
                           </div>
                         ) : (
-                          <span className="text-slate-500 text-[10px] italic">Not Assigned</span>
+                          <span className="text-slate-500 text-[10px] italic">Wema Bank (Provisioned)</span>
                         )}
                       </td>
                       <td className="py-3 font-mono text-xs">
