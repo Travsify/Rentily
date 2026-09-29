@@ -669,29 +669,31 @@ export class AutoReconciliationWorker {
               }
             } catch (_) {}
 
+            const { grossAmount, fee, netAmount } = FincraService.calculateFundingFee(amount);
+            const narration = `Inbound Bank Transfer from ${senderName} (Wema Bank Rail) • Net: ₦${netAmount.toLocaleString()} (₦${fee} Fincra Fee)`;
             const creditRes = await AtomicLedgerService.creditWalletAtomic({
               userId: targetUser.id,
               email: targetUser.email,
-              amount,
+              amount: netAmount,
               flwRef: ref,
               txRef: ref,
-              narration: `Inbound Bank Transfer from ${senderName} (Wema Bank Rail)`
+              narration
             });
 
             processedRefs.add(ref);
 
             if (creditRes.success && !creditRes.alreadyProcessed) {
-              console.log(`⚡ [AutoReconciliation] Auto-credited Fincra bank transfer: ₦${amount.toLocaleString()} for ${targetUser.email} (Ref: ${ref})`);
+              console.log(`⚡ [AutoReconciliation] Auto-credited Fincra bank transfer: ₦${netAmount.toLocaleString()} (Gross ₦${grossAmount}, Fee ₦${fee}) for ${targetUser.email} (Ref: ${ref})`);
 
               // Mark processed in reconciled_transactions table
-              await this.markProcessed(ref, targetUser.id, amount, targetUser.email);
+              await this.markProcessed(ref, targetUser.id, netAmount, targetUser.email);
 
               // Update memory cache
               const mem = await UserStore.findByEmail(targetUser.email);
               if (mem) {
                 UserStore.upsertUserForced({
                   ...mem,
-                  walletBalance: creditRes.newBalance ?? (Number(targetUser.wallet_balance || 0) + amount)
+                  walletBalance: creditRes.newBalance ?? (Number(targetUser.wallet_balance || 0) + netAmount)
                 });
               }
 
@@ -699,17 +701,24 @@ export class AutoReconciliationWorker {
                 id: `FINCRA_TX_${ref}`,
                 userId: targetUser.id,
                 email: targetUser.email,
-                title: `Wema Bank Inbound Deposit (${senderName})`,
+                title: `Wema Bank Inbound Deposit (${senderName}) • ₦${fee} Fincra Fee`,
                 type: 'Electronic Bank Inbound Deposit',
                 category: 'deposit',
-                amount,
+                amount: netAmount,
+                fee: fee,
                 isCredit: true,
                 reference: ref,
                 sender: senderName,
                 beneficiary: targetUser.full_name || targetUser.email,
                 recipientBank: 'Wema Bank Commercial Rail',
                 status: 'SUCCESSFUL',
-                date: col.createdAt || new Date().toISOString()
+                date: col.createdAt || new Date().toISOString(),
+                metadata: {
+                  grossAmount,
+                  fincraFee: fee,
+                  netAmount,
+                  collectionRail: 'wema'
+                }
               });
 
               NotificationDispatcher.dispatch({
@@ -717,12 +726,14 @@ export class AutoReconciliationWorker {
                 email: targetUser.email,
                 userName: targetUser.full_name || 'Valued User',
                 category: 'wallet',
-                title: `Bank Transfer Received: ₦${amount.toLocaleString()}`,
-                message: `Your Rentilly Escrow Account received ₦${amount.toLocaleString()} from ${senderName}. New Balance: ₦${(creditRes.newBalance ?? 0).toLocaleString()}.`,
+                title: `Bank Transfer Received: ₦${netAmount.toLocaleString()}`,
+                message: `Your Rentilly Escrow Account received ₦${grossAmount.toLocaleString()} from ${senderName}. Net credited: ₦${netAmount.toLocaleString()} (after ₦${fee} Fincra fee). New Balance: ₦${(creditRes.newBalance ?? 0).toLocaleString()}.`,
                 metadata: {
-                  amount,
+                  amount: netAmount,
+                  grossAmount,
+                  fee,
                   reference: ref,
-                  bankName: 'Rentilly Escrow',
+                  bankName: 'Wema Bank Commercial Rail',
                   sender: senderName,
                   date: col.createdAt || new Date().toISOString()
                 }

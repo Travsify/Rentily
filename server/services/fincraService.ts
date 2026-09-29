@@ -24,6 +24,25 @@ export interface FincraBeneficiary {
   type?: 'individual' | 'corporate';
 }
 
+export interface FincraFundingFeeResult {
+  grossAmount: number;
+  fee: number;
+  netAmount: number;
+}
+
+/**
+ * Calculates Fincra's collection funding fee: 1% capped at ₦300 flat.
+ * - Under ₦30,000: 1% fee (e.g. ₦10,000 -> ₦100 fee, ₦9,900 net)
+ * - ₦30,000 and above: ₦300 flat cap (e.g. ₦100,000 -> ₦300 fee, ₦99,700 net)
+ */
+export function calculateFincraFundingFee(amount: number): FincraFundingFeeResult {
+  const gross = Math.max(0, Number(amount) || 0);
+  const rawFee = Math.round(gross * 0.01 * 100) / 100;
+  const fee = Math.min(rawFee, 300);
+  const netAmount = Math.max(0, Math.round((gross - fee) * 100) / 100);
+  return { grossAmount: gross, fee, netAmount };
+}
+
 export class FincraService {
   private static get BASE_URL(): string {
     return process.env.FINCRA_BASE_URL || 'https://api.fincra.com';
@@ -792,13 +811,49 @@ export class FincraService {
         payload.KYCInformation.lastName = params.KYCInformation.lastName || 'User';
       }
 
-      const res = await fetch(`${this.BASE_URL}/profile/virtual-accounts/requests`, {
+      let res = await fetch(`${this.BASE_URL}/profile/virtual-accounts/requests`, {
         method: 'POST',
         headers: this.getHeaders(),
         body: JSON.stringify(payload)
       });
 
-      const resJson: any = await res.json().catch(() => null);
+      let resJson: any = await res.json().catch(() => null);
+
+      // If corporate validation failed due to name/bvn mismatch, attempt individual fallback if director name is available
+      if (!res.ok && params.accountType === 'corporate') {
+        const indFirstName = params.KYCInformation.firstName || (params.KYCInformation.bvnName || '').split(' ')[0] || '';
+        const indLastName = params.KYCInformation.lastName || (params.KYCInformation.bvnName || '').split(' ').slice(1).join(' ') || '';
+        if (indFirstName && indLastName) {
+          console.log(`[FincraService] Corporate VA failed (${resJson?.error || res.status}), retrying as individual for ${indFirstName} ${indLastName}...`);
+          const indPayload = {
+            currency: params.currency || 'NGN',
+            accountType: 'individual',
+            channel: params.channel || 'wema',
+            KYCInformation: {
+              firstName: indFirstName,
+              lastName: indLastName,
+              email: params.KYCInformation.email,
+              bvn: params.KYCInformation.bvn
+            },
+            metadata: {
+              platform: 'RENTILLY',
+              app: 'rentilly',
+              businessName: params.KYCInformation.businessName,
+              ...(params.metadata || {})
+            }
+          };
+          const indRes = await fetch(`${this.BASE_URL}/profile/virtual-accounts/requests`, {
+            method: 'POST',
+            headers: this.getHeaders(),
+            body: JSON.stringify(indPayload)
+          });
+          const indJson: any = await indRes.json().catch(() => null);
+          if (indRes.ok && indJson && (indJson.status === true || indJson.success === true)) {
+            res = indRes;
+            resJson = indJson;
+          }
+        }
+      }
 
       if (res.ok && resJson && (resJson.status === true || resJson.success === true)) {
         return {
@@ -821,6 +876,13 @@ export class FincraService {
         message: err.message || 'Error connecting to Fincra Virtual Account creation API'
       };
     }
+  }
+
+  /**
+   * Helper to calculate collection funding fee: 1% capped at ₦300
+   */
+  static calculateFundingFee(amount: number): FincraFundingFeeResult {
+    return calculateFincraFundingFee(amount);
   }
 
   /**

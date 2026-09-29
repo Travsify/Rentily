@@ -2987,11 +2987,12 @@ export async function fincraWebhook(req: Request, res: Response) {
         }
 
         if (targetUser) {
-          const narration = `High-Value Escrow Deposit (Fincra Commercial Rail) from ${senderName}`;
+          const { grossAmount, fee, netAmount } = FincraService.calculateFundingFee(amountPaid);
+          const narration = `High-Value Escrow Deposit (Wema Bank Rail) from ${senderName} • Net: ₦${netAmount.toLocaleString()} (₦${fee} Fincra Fee)`;
           const creditRes = await AtomicLedgerService.creditWalletAtomic({
             userId: targetUser.id,
             email: targetUser.email,
-            amount: amountPaid,
+            amount: netAmount,
             flwRef: ref,
             txRef: ref,
             narration
@@ -3002,10 +3003,11 @@ export async function fincraWebhook(req: Request, res: Response) {
             id: `FINCRA_TX_${ref}`,
             userId: targetUser.id,
             email: targetUser.email,
-            title: `Wema Bank Inbound Deposit (${senderName})`,
+            title: `Wema Bank Inbound Deposit (${senderName}) • ₦${fee} Fincra Fee`,
             type: 'Electronic Bank Inbound Deposit',
             category: 'deposit',
-            amount: amountPaid,
+            amount: netAmount,
+            fee: fee,
             isCredit: true,
             reference: ref,
             sender: senderName,
@@ -3013,10 +3015,16 @@ export async function fincraWebhook(req: Request, res: Response) {
             recipientAccount: incomingAccNo,
             recipientBank: 'Wema Bank Commercial Rail',
             status: 'SUCCESSFUL',
-            date: new Date().toISOString()
+            date: new Date().toISOString(),
+            metadata: {
+              grossAmount,
+              fincraFee: fee,
+              netAmount,
+              collectionRail: 'wema'
+            }
           });
 
-          console.log(`[Fincra Webhook] ✅ Credited ₦${amountPaid.toLocaleString()} to ${targetUser.email}`);
+          console.log(`[Fincra Webhook] ✅ Credited ₦${netAmount.toLocaleString()} (Gross ₦${grossAmount}, Fee ₦${fee}) to ${targetUser.email}`);
 
           // Remove from pending system configs if present
           if (supabase && ref) {
@@ -3026,19 +3034,21 @@ export async function fincraWebhook(req: Request, res: Response) {
           }
 
           if (creditRes.success && !creditRes.alreadyProcessed) {
-            const newBal = creditRes.newBalance ?? (Number(targetUser.wallet_balance || 0) + amountPaid);
+            const newBal = creditRes.newBalance ?? (Number(targetUser.wallet_balance || 0) + netAmount);
 
             NotificationDispatcher.dispatch({
               userId: targetUser.id,
               email: targetUser.email,
               userName: targetUser.full_name || 'Valued User',
               category: 'wallet',
-              title: `High-Value Escrow Alert: ₦${amountPaid.toLocaleString()} Received`,
-              message: `Your Rentilly High-Value Escrow Vault received ₦${amountPaid.toLocaleString()} via Fincra Commercial Rail. New Balance: ₦${newBal.toLocaleString()}.`,
+              title: `Wema Bank Deposit: ₦${netAmount.toLocaleString()} Received`,
+              message: `Your Rentilly Escrow Vault received ₦${grossAmount.toLocaleString()} via Wema Bank. Net credited: ₦${netAmount.toLocaleString()} (after ₦${fee} Fincra collection fee). New Balance: ₦${newBal.toLocaleString()}.`,
               metadata: {
-                amount: amountPaid,
+                amount: netAmount,
+                grossAmount,
+                fee,
                 reference: ref,
-                bankName: 'Fincra Commercial Rail',
+                bankName: 'Wema Bank Commercial Rail',
                 sender: senderName,
                 date: new Date().toISOString()
               }
@@ -4475,11 +4485,12 @@ export async function autoCaptureInboundTransfers(targetEmail?: string): Promise
 
       // 3. Credit the Matched User Atomically
       if (matchedUser) {
-        const narration = `Inbound Bank Deposit from ${senderName} (Rentilly Escrow)`;
+        const { grossAmount, fee, netAmount } = FincraService.calculateFundingFee(amount);
+        const narration = `Inbound Bank Deposit from ${senderName} (Wema Bank Rail) • Net: ₦${netAmount.toLocaleString()} (₦${fee} Fincra Fee)`;
         const creditRes = await AtomicLedgerService.creditWalletAtomic({
           userId: matchedUser.id,
           email: matchedUser.email,
-          amount,
+          amount: netAmount,
           flwRef: ref,
           txRef: ref,
           narration
@@ -4488,15 +4499,15 @@ export async function autoCaptureInboundTransfers(targetEmail?: string): Promise
         if (creditRes.success && !creditRes.alreadyProcessed) {
           processedRefs.add(ref);
           capturedCount++;
-          totalAmountCaptured += amount;
-          console.log(`⚡ [AutoCapture] ✅ Successfully credited +₦${amount.toLocaleString()} to ${matchedUser.email} (New Bal: ₦${creditRes.newBalance})`);
+          totalAmountCaptured += netAmount;
+          console.log(`⚡ [AutoCapture] ✅ Successfully credited +₦${netAmount.toLocaleString()} (Gross ₦${grossAmount}, Fee ₦${fee}) to ${matchedUser.email} (New Bal: ₦${creditRes.newBalance})`);
 
           // Update local memory cache
           const mem = await UserStore.findByEmail(matchedUser.email);
           if (mem) {
             UserStore.upsertUserForced({
               ...mem,
-              walletBalance: creditRes.newBalance ?? (Number(matchedUser.wallet_balance || 0) + amount)
+              walletBalance: creditRes.newBalance ?? (Number(matchedUser.wallet_balance || 0) + netAmount)
             });
           }
 
@@ -4506,7 +4517,7 @@ export async function autoCaptureInboundTransfers(targetEmail?: string): Promise
               flw_ref: ref,
               user_id: matchedUser.id,
               email: matchedUser.email,
-              amount,
+              amount: netAmount,
               processed_at: new Date().toISOString()
             }, { onConflict: 'flw_ref' });
           } catch (_) {}
@@ -4516,12 +4527,13 @@ export async function autoCaptureInboundTransfers(targetEmail?: string): Promise
             await supabase.from('wallet_transactions').upsert({
               user_id: matchedUser.id,
               email: matchedUser.email,
-              amount,
+              amount: netAmount,
+              fee: fee,
               type: 'credit',
               status: 'completed',
               flw_ref: ref,
               tx_ref: ref,
-              narration: `Inbound Bank Deposit from ${senderName} (Rentilly Escrow)`,
+              narration: `Inbound Bank Deposit from ${senderName} • Net: ₦${netAmount.toLocaleString()} (₦${fee} Fincra Fee)`,
               created_at: col.createdAt || new Date().toISOString()
             }, { onConflict: 'flw_ref' });
           } catch (wErr: any) {
@@ -4534,11 +4546,12 @@ export async function autoCaptureInboundTransfers(targetEmail?: string): Promise
               id: `TX_INBOUND_${ref}`,
               userId: matchedUser.id,
               email: matchedUser.email,
-              title: `Inbound Bank Deposit (${senderName})`,
+              title: `Inbound Bank Deposit (${senderName}) • ₦${fee} Fincra Fee`,
               description: 'Rentilly Escrow Dedicated Transfer',
               type: 'credit',
               category: 'deposit',
-              amount,
+              amount: netAmount,
+              fee: fee,
               currency: 'NGN',
               isCredit: true,
               reference: ref,
@@ -4547,7 +4560,13 @@ export async function autoCaptureInboundTransfers(targetEmail?: string): Promise
               recipientAccount: col.accountNumber || matchedUser.account_number,
               recipientBank: 'Wema Bank',
               status: 'SUCCESSFUL',
-              date: col.createdAt || new Date().toISOString()
+              date: col.createdAt || new Date().toISOString(),
+              metadata: {
+                grossAmount,
+                fincraFee: fee,
+                netAmount,
+                collectionRail: 'wema'
+              }
             });
           } catch (_) {}
 
@@ -4557,16 +4576,18 @@ export async function autoCaptureInboundTransfers(targetEmail?: string): Promise
             email: matchedUser.email,
             userName: matchedUser.full_name || 'Valued User',
             category: 'wallet',
-            title: `Bank Transfer Received: ₦${amount.toLocaleString()}`,
-            message: `Your Rentilly Account (Wema Bank) received ₦${amount.toLocaleString()} from ${senderName}. New Balance: ₦${(creditRes.newBalance ?? 0).toLocaleString()}.`,
+            title: `Bank Transfer Received: ₦${netAmount.toLocaleString()}`,
+            message: `Your Rentilly Escrow Account received ₦${grossAmount.toLocaleString()} from ${senderName}. Net credited: ₦${netAmount.toLocaleString()} (after ₦${fee} Fincra fee). New Balance: ₦${(creditRes.newBalance ?? 0).toLocaleString()}.`,
             metadata: {
-              amount,
+              amount: netAmount,
+              grossAmount,
+              fee,
               reference: ref,
               bankName: 'Wema Bank',
               sender: senderName,
-              date: col.createdAt || new Date().toISOString()
+              date: new Date().toISOString()
             }
-          }).catch(e => console.warn('[AutoCapture] Notification notice:', e.message));
+          }).catch(e => console.warn('[AutoCapture] Notification dispatch error:', e.message));
         }
       } else {
         console.warn(`[AutoCapture] ⚠️ Unmatched collection — ₦${amount}, ref: ${ref}, payee: ${col.payeeName}, va: ${virtualAccId}`);

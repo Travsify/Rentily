@@ -186,21 +186,26 @@ export async function verifyAndProvision(req: Request, res: Response) {
       console.warn('[verifyAndProvision] Fincra virtual account warning:', fincraErr.message);
     }
 
-    // C. Fallback to Maplerad account if Fincra is initializing
-    if (!accountNumber && mapleRes.accountNumber) {
-      accountNumber = mapleRes.accountNumber;
-      bankName = 'Rentilly Escrow';
-      console.log(`[verifyAndProvision] ✅ Account provisioned: ${accountNumber} (${bankName}) for ${cleanEmail}`);
+    // C. Check if user already has an existing Fincra VA in system_configs or existing profile
+    if (!accountNumber) {
+      if (existing?.accountNumber && !existing.accountNumber.startsWith('990')) {
+        accountNumber = existing.accountNumber;
+        bankName = existing.bankName || 'Wema Bank';
+      } else if (supabase) {
+        try {
+          const { data: cfg } = await supabase.from('system_configs').select('data').eq('id', `fincra_va_${cleanEmail}`).maybeSingle();
+          if (cfg?.data?.accountNumber && !cfg.data.accountNumber.startsWith('990')) {
+            accountNumber = cfg.data.accountNumber;
+            bankName = cfg.data.bankName || 'Wema Bank';
+          }
+        } catch (_) {}
+      }
     }
 
-    // D. Guaranteed Dedicated Virtual Account Fallback (Zero-Lockout Protection)
+    // D. Authentic bank status — Never assign synthetic fake 990 accounts
     if (!accountNumber) {
-      const suffix = cleanBvn.length >= 7 
-        ? cleanBvn.slice(-7) 
-        : (cleanNin.length >= 7 ? cleanNin.slice(-7) : '2329511');
-      accountNumber = `990${suffix}`;
-      bankName = await FincraService.resolveBankName('035');
-      console.log(`[verifyAndProvision] 🛡️ Guaranteed Dedicated Virtual Account assigned: ${accountNumber} (${bankName}) for ${cleanEmail}`);
+      bankName = 'Wema Bank';
+      console.log(`[verifyAndProvision] ℹ️ Fincra Wema Bank provisioning queued / pending KYC approval for ${cleanEmail}`);
     }
 
     const isProcessing = false;
@@ -752,12 +757,12 @@ export async function completeMapleradKyc(req: Request, res: Response) {
       }
     }
 
-    // Step 3: Guaranteed Dedicated Virtual Account Fallback
+    // Step 3: Check existing authentic account or persist Wema Bank
     if (!accountNumber) {
-      const suffix = cleanBvn.length >= 7 ? cleanBvn.slice(-7) : (cleanNin.length >= 7 ? cleanNin.slice(-7) : '2329511');
-      accountNumber = `990${suffix}`;
-      bankName = await FincraService.resolveBankName('035');
-      console.log(`[completeMapleradKyc] 🛡️ Dedicated Virtual Account assigned: ${accountNumber} (${bankName})`);
+      if (existing?.accountNumber && !existing.accountNumber.startsWith('990')) {
+        accountNumber = existing.accountNumber;
+      }
+      bankName = existing?.bankName || 'Wema Bank';
     }
 
     // Update in-memory user cache with real dedicated account
@@ -1107,20 +1112,53 @@ export async function runPlatformUserHealthAudit(_req: Request, res: Response) {
       let needsUpdate = false;
       const patch: any = {};
 
+      // If user currently has a synthetic 990 account, clear it so authentic Wema Bank is provisioned
+      if (accountNumber && accountNumber.startsWith('990')) {
+        accountNumber = null;
+      }
+
       if (!accountNumber && (isVerified || p.bvn_verified || p.role === 'partner' || p.role === 'owner')) {
-        const bvnDigits = (p.bvn || '').replace(/\D/g, '');
-        const ninDigits = (p.nin_number || '').replace(/\D/g, '');
-        const suffix = bvnDigits.length >= 7 
-          ? bvnDigits.slice(-7) 
-          : (ninDigits.length >= 7 ? ninDigits.slice(-7) : String(Math.floor(1000000 + Math.random() * 9000000)));
-        accountNumber = `990${suffix}`;
-        bankName = 'Wema Bank';
-        patch.account_number = accountNumber;
-        patch.bank_name = bankName;
-        patch.is_verified = true;
-        patch.bvn_verified = true;
-        isVerified = true;
-        needsUpdate = true;
+        const cfg = safeConfigs.find(c => c.id === `fincra_va_${email}`);
+        if (cfg?.data?.accountNumber && !cfg.data.accountNumber.startsWith('990')) {
+          accountNumber = cfg.data.accountNumber;
+          bankName = cfg.data.bankName || 'Wema Bank';
+          patch.account_number = accountNumber;
+          patch.bank_name = bankName;
+          needsUpdate = true;
+        } else if (FincraService.isConfigured() && (p.bvn || p.nin_number)) {
+          // Attempt authentic Wema Bank provisioning via Fincra
+          try {
+            const cleanName = (p.full_name || p.business_name || 'Rentilly Partner').trim();
+            const bvnToUse = (p.bvn || '').replace(/\D/g, '');
+            if (bvnToUse.length === 11) {
+              const fincraRes = await FincraService.createVirtualAccount({
+                accountType: p.business_name ? 'corporate' : 'individual',
+                channel: 'wema',
+                KYCInformation: {
+                  firstName: cleanName.split(' ')[0] || 'Rentilly',
+                  lastName: cleanName.split(' ').slice(1).join(' ') || 'Partner',
+                  businessName: p.business_name || undefined,
+                  bvn: bvnToUse,
+                  email
+                }
+              });
+              const newAcc = fincraRes.data?.accountNumber || fincraRes.data?.accountInformation?.accountNumber;
+              if (fincraRes.status && newAcc) {
+                accountNumber = newAcc;
+                bankName = 'Wema Bank';
+                patch.account_number = accountNumber;
+                patch.bank_name = bankName;
+                needsUpdate = true;
+              }
+            }
+          } catch (_) {}
+        }
+
+        if (bankName !== 'Wema Bank') {
+          bankName = 'Wema Bank';
+          patch.bank_name = bankName;
+          needsUpdate = true;
+        }
       }
 
       if (bankName && bankName.toLowerCase().includes('rentilly escrow')) {
