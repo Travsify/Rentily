@@ -80,6 +80,13 @@ export const UsersTab: React.FC<UsersTabProps> = ({ users }) => {
     }
   }, [users]);
 
+  const isUserPartner = (u: any) => 
+    u.role === 'partner' || 
+    u.role === 'broker' || 
+    Boolean(u.businessName && u.cacNumber) || 
+    u.buyerType === 'corporate' || 
+    u.partnerStatus === 'verified';
+
   const filteredUsers = localUsers.filter(u => {
     const matchesSearch = 
       (u.fullName || '').toLowerCase().includes(search.toLowerCase()) ||
@@ -88,15 +95,19 @@ export const UsersTab: React.FC<UsersTabProps> = ({ users }) => {
       ((u as any).businessName || '').toLowerCase().includes(search.toLowerCase()) ||
       ((u as any).accountNumber || '').includes(search);
 
-    const matchesRole = roleFilter === 'all' || u.role === roleFilter;
+    const matchesRole = 
+      roleFilter === 'all' || 
+      (roleFilter === 'partner' ? isUserPartner(u) : 
+       roleFilter === 'owner' ? (u.role === 'owner' && !isUserPartner(u)) : 
+       u.role === roleFilter);
 
     return matchesSearch && matchesRole;
   });
 
   const totalUsers = localUsers.length;
   const verifiedCount = localUsers.filter(u => u.isVerified).length;
-  const partnerCount = localUsers.filter(u => u.role === ('partner' as any)).length;
-  const landlordCount = localUsers.filter(u => u.role === 'owner').length;
+  const partnerCount = localUsers.filter(isUserPartner).length;
+  const landlordCount = localUsers.filter(u => u.role === 'owner' && !isUserPartner(u)).length;
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -374,7 +385,7 @@ export const UsersTab: React.FC<UsersTabProps> = ({ users }) => {
                         <div className="font-bold text-white flex items-center gap-1.5 flex-wrap">
                           <span>{u.fullName || 'Unnamed User'}</span>
                           <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
-                            {formatOpsId(u.id, u.role === ('partner' as any))}
+                            {formatOpsId(u.id, isUserPartner(u))}
                           </span>
                           {anyU.businessName && (
                             <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-blue-950 text-blue-300 border border-blue-800">
@@ -396,13 +407,13 @@ export const UsersTab: React.FC<UsersTabProps> = ({ users }) => {
                         <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                           u.role === 'admin'
                             ? 'bg-purple-500/10 text-purple-400 border border-purple-500/30'
-                            : u.role === ('partner' as any)
+                            : isUserPartner(u)
                             ? 'bg-blue-500/10 text-blue-400 border border-blue-500/30'
                             : u.role === 'owner'
                             ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
                             : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
                         }`}>
-                          {u.role === 'owner' ? 'Landlord' : u.role}
+                          {isUserPartner(u) ? 'Corporate Partner' : (u.role === 'owner' ? 'Landlord' : u.role)}
                         </span>
                       </td>
                       <td className="py-3">

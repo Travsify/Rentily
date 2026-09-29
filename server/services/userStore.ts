@@ -279,9 +279,13 @@ export class UserStore {
           const cleanEmail = (p.email || '').toLowerCase().trim();
           if (!cleanEmail) continue;
 
-          // Preserve exact role (renter, partner, owner, admin)
-          const resolvedRole = p.role || (p.partner_status ? 'partner' : 'renter');
           const localUser = current.find(u => u.email.toLowerCase() === cleanEmail || u.id === p.id);
+          const isPartner = (localUser && (localUser.role === 'partner' || localUser.role === 'broker')) || 
+                            Boolean((p.business_name || localUser?.businessName) && (p.cac_number || localUser?.cacNumber)) || 
+                            p.partner_status === 'verified' || 
+                            p.role === 'partner' || 
+                            p.role === 'broker';
+          const resolvedRole = isPartner ? 'partner' : (p.role || 'renter');
           const banInfo = banMap[cleanEmail];
           const authInfo = authMap[cleanEmail];
 
@@ -291,22 +295,22 @@ export class UserStore {
             fullName: p.full_name || cleanEmail,
             phoneNumber: p.phone_number || '',
             role: resolvedRole,
-            buyerType: p.buyer_type || (p.business_name ? 'corporate' : 'personal'),
-            isVerified: resolvedRole === 'partner' ? Boolean(p.is_verified && p.cac_number && p.bvn_verified) : Boolean(p.is_verified),
+            buyerType: p.buyer_type || (p.business_name ? 'corporate' : (localUser?.buyerType || 'personal')),
+            isVerified: isPartner ? true : Boolean(p.is_verified),
             ninNumber: p.nin_number,
             bvnVerified: Boolean(p.bvn_verified),
-            accountNumber: p.account_number,
-            bankName: cleanCanonicalBankName(p.bank_name),
+            accountNumber: p.account_number || localUser?.accountNumber,
+            bankName: cleanCanonicalBankName(p.bank_name || localUser?.bankName),
             state: p.state || 'Lagos',
             walletBalance: Number(p.wallet_balance || 0),
-            businessName: p.business_name,
-            cacNumber: p.cac_number,
-            tinNumber: p.tin_number,
-            officeAddress: p.office_address,
-            signatoryName: p.authorized_signatory_name || p.signatory_name,
-            signatoryRole: p.authorized_signatory_role || p.signatory_role,
-            signatoryPhone: p.authorized_signatory_phone || p.signatory_phone,
-            partnerStatus: resolvedRole === 'partner' ? ((p.is_verified && p.cac_number && p.bvn_verified) ? 'verified' : (p.partner_status || 'unverified')) : undefined,
+            businessName: p.business_name || localUser?.businessName,
+            cacNumber: p.cac_number || localUser?.cacNumber,
+            tinNumber: p.tin_number || localUser?.tinNumber,
+            officeAddress: p.office_address || localUser?.officeAddress,
+            signatoryName: p.authorized_signatory_name || p.signatory_name || localUser?.signatoryName,
+            signatoryRole: p.authorized_signatory_role || p.signatory_role || localUser?.signatoryRole,
+            signatoryPhone: p.authorized_signatory_phone || p.signatory_phone || localUser?.signatoryPhone,
+            partnerStatus: isPartner ? (localUser?.partnerStatus || p.partner_status || 'verified') : undefined,
             isBanned: Boolean(banInfo?.isBanned || localUser?.isBanned),
             isSuspended: Boolean(banInfo?.isSuspended || localUser?.isSuspended),
             status: banInfo?.status || localUser?.status || (banInfo?.isBanned || localUser?.isBanned ? 'banned' : 'active'),
@@ -658,7 +662,7 @@ export class UserStore {
       fullName: cleanName,
       phoneNumber: data.phoneNumber || '',
       passwordHash: data.password ? hashPassword(data.password) : undefined,
-      role: data.role || 'renter',
+      role: (isPartner || Boolean(data.businessName && data.cacNumber)) ? 'partner' : (data.role || 'renter'),
       buyerType: data.buyerType || (data.businessName ? 'corporate' : 'personal'),
       isVerified: isPartner ? hasPassedKyb : false,
       state: data.state || 'Lagos',

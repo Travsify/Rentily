@@ -484,13 +484,17 @@ export async function listUsers(_req: Request, res: Response) {
       const tronAddr = tronMap.get(em) ?? u.usdtTronAddress ?? null;
       const liveBal = prof?.wallet_balance != null ? Number(prof.wallet_balance) : (u.walletBalance || 0);
 
+      const isPartner = u.role === 'partner' || u.role === 'broker' || u.buyerType === 'corporate' || Boolean(u.businessName && u.cacNumber) || u.partnerStatus === 'verified';
+      const effectiveRole = isPartner ? 'partner' : (u.role === 'partner' ? 'partner' : (prof?.role || u.role));
+
       return {
         id: prof?.id || u.id,
         fullName: prof?.full_name || u.fullName,
         email: u.email,
         phoneNumber: prof?.phone_number || u.phoneNumber,
-        role: prof?.role || u.role,
-        isVerified: prof?.is_verified ?? u.isVerified,
+        role: effectiveRole,
+        buyerType: u.buyerType || (isPartner ? 'corporate' : 'personal'),
+        isVerified: isPartner ? true : (prof?.is_verified ?? u.isVerified),
         ninNumber: u.ninNumber,
         bvnVerified: u.bvnVerified,
         accountNumber: prof?.account_number || u.accountNumber,
@@ -498,7 +502,7 @@ export async function listUsers(_req: Request, res: Response) {
         state: u.state,
         businessName: u.businessName,
         cacNumber: u.cacNumber,
-        partnerStatus: u.partnerStatus,
+        partnerStatus: isPartner ? (u.partnerStatus || 'verified') : u.partnerStatus,
         walletBalance: liveBal,
         usdtBalance: usdtBal,
         usdtTronAddress: tronAddr,
