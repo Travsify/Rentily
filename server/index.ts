@@ -313,6 +313,12 @@ if (process.env.NODE_ENV !== 'test') {
       AutoReconciliationWorker.start();
       AutomatedKycNudgeAndReportWorker.start();
       try {
+        const { EmailSupportAgent } = await import('./services/emailSupportAgent');
+        EmailSupportAgent.startImapPoller();
+      } catch (err: any) {
+        console.warn('[Server] Could not start EmailSupportAgent IMAP poller:', err.message);
+      }
+      try {
         const { contestController } = await import('./controllers/contestController');
         contestController.startAutonomousCrawlerWorker();
       } catch (err: any) {
@@ -321,6 +327,7 @@ if (process.env.NODE_ENV !== 'test') {
     } else {
       console.log(`[⚡ Server] Worker instance ${process.env.NODE_APP_INSTANCE} — AutoReconciliationWorker skipped (primary only).`);
     }
+
   });
 }
 

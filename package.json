@@ -30,8 +30,10 @@
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "html2canvas": "^1.4.1",
+    "imapflow": "^2.1.2",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.37.0",
+    "mailparser": "^3.9.31",
     "otplib": "^13.5.0",
     "pg": "^8.23.0",
     "postcss": "^8.5.26",
@@ -46,6 +48,7 @@
     "vite": "^8.2.2"
   },
   "devDependencies": {
+    "@types/mailparser": "^3.9.0",
     "oxlint": "^1.79.0"
   }
 }

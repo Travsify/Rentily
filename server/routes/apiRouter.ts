@@ -368,6 +368,12 @@ apiRouter.post('/external-legal/admin/orders/:id/update', adminSecuritySentinel,
 apiRouter.post('/support/tickets', supportController.submitTicket);
 apiRouter.get('/support/tickets', supportController.listTickets);
 
+// 12a. Autonomous AI Email Support Agent (Webhook & Direct Inbound)
+import { EmailSupportAgent } from '../services/emailSupportAgent';
+apiRouter.post('/support/inbound-email', EmailSupportAgent.handleInboundWebhook);
+apiRouter.post('/support/inbound-webhook', EmailSupportAgent.handleInboundWebhook);
+
+
 // 12b. In-App Live Support Chat (Supabase realtime, two-way)
 import * as supportChatController from '../controllers/supportChatController';
 apiRouter.post('/support/conversations', supportChatController.createOrGetConversation);

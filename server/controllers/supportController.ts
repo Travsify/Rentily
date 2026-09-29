@@ -77,6 +77,19 @@ export async function submitTicket(req: Request, res: Response) {
       metadata: { ticketId, category: newTicket.category }
     });
 
+    // Autonomous AI Email Support Agent: Evaluates inquiry and sends tailored resolution email
+    import('../services/emailSupportAgent').then(({ EmailSupportAgent }) => {
+      EmailSupportAgent.processIncomingEmail({
+        fromEmail: newTicket.userEmail,
+        fromName: newTicket.userName,
+        toEmail: 'info@myrentilly.com',
+        subject: newTicket.subject,
+        textBody: newTicket.message,
+        messageId: `ticket_${newTicket.id}`
+      }).catch(e => console.warn('[EmailSupportAgent] Ticket auto-response warning:', e.message));
+    }).catch(() => {});
+
+
     res.status(201).json({
       success: true,
       ticketId,
