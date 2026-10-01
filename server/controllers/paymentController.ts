@@ -24,6 +24,8 @@ import { timingSafeEqual } from '../middleware/adminSecuritySentinel';
 import { verifyAdminSessionToken } from './authController';
 import { BotSentinelService } from '../services/botSentinelService';
 import { isMobileAppRequest } from '../middleware/mobileAppOnlyMiddleware';
+import { BonusGovernanceService } from '../services/bonusGovernanceService';
+import { ReferralService } from '../services/referralService';
 
 /**
  * Recovers authenticated session token for legitimate mobile app requests (both modern and legacy versions).
@@ -450,11 +452,11 @@ export async function requestWithdrawalOtp(req: Request, res: Response) {
       return res.status(400).json({ status: false, error: 'A valid withdrawal amount is required' });
     }
 
-    if (currency === 'NGN' && numAmount < 3000) {
+    if (currency === 'NGN' && numAmount < 100) {
       return res.status(400).json({
         status: false,
-        error: 'The minimum bank withdrawal amount is ₦3,000. Please enter an amount of ₦3,000 or greater, or use your balance for bill payments.',
-        minWithdrawal: 3000
+        error: 'The minimum bank withdrawal amount is ₦100 for direct or external funding.',
+        minWithdrawal: 100
       });
     }
 
@@ -506,7 +508,7 @@ export async function requestWithdrawalOtp(req: Request, res: Response) {
       } catch (_) {}
     }
 
-    const isAdminUser = cleanEmail === 'patrickachua3@gmail.com' || cleanEmail === 'info@travsify.com' || memUser?.role === 'admin';
+    const isAdminUser = cleanEmail === 'patrickachua3@gmail.com' || cleanEmail === 'info@myrentilly.com' || memUser?.role === 'admin';
     if (!isAdminUser && !isFullyVerified) {
       return res.status(403).json({
         status: false,
@@ -624,15 +626,17 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
     let storedPin: string | null = null;
     let accountCreatedAt: string | null = null;
     let userDbRole = memUser?.role || 'renter';
+    let dbProf: any = null;
 
     if (supabase) {
       try {
-        const { data: dbProf } = await supabase
+        const { data: profData } = await supabase
           .from('profiles')
           .select('wallet_balance, bvn_verified, is_verified, created_at, role, transaction_pin, partner_status')
           .eq('email', cleanEmail)
           .maybeSingle();
-        if (dbProf) {
+        if (profData) {
+          dbProf = profData;
           if (dbProf.wallet_balance != null) liveDbBal = Number(dbProf.wallet_balance);
           isBvnVerified = Boolean(dbProf.bvn_verified || dbProf.is_verified);
           isFullyVerified = Boolean(dbProf.is_verified || dbProf.bvn_verified || dbProf.partner_status === 'verified');
@@ -651,14 +655,25 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
       storedPin = (memUser as any).transactionPin;
     }
 
-    const isAdminUser = cleanEmail === 'patrickachua3@gmail.com' || cleanEmail === 'info@travsify.com' || memUser?.role === 'admin' || userDbRole === 'admin';
+    const isAdminUser = cleanEmail === 'patrickachua3@gmail.com' || cleanEmail === 'info@myrentilly.com' || memUser?.role === 'admin' || userDbRole === 'admin';
 
-    // 1. Mandatory Full Identity Verification (KYC/KYB/KYP) for bank transfer withdrawals
-    if (!isAdminUser && (!isFullyVerified || !isBvnVerified)) {
+    // 1. Mandatory 100% Identity Verification (KYC/KYB) for all bank transfer withdrawals
+    const verCheck = BonusGovernanceService.isUser100PercentVerified(memUser, dbProf);
+    if (!isAdminUser && !verCheck.verified) {
       return res.status(403).json({
         status: false,
-        error: 'Withdrawals are strictly restricted to verified accounts. Full completion of KYC/KYB/KYP identity verification (including BVN/NIN validation) is required before withdrawing funds.',
+        error: verCheck.reason || 'Withdrawals are strictly restricted to 100% verified accounts (KYC/KYB with valid BVN/NIN or CAC).',
         verificationRequired: true
+      });
+    }
+
+    // 2. Mandatory Fincra Provisioned Bank Account (Wema Bank 10-digit NUBAN)
+    const accCheck = BonusGovernanceService.hasFincraProvisionedAccount(memUser, dbProf);
+    if (!isAdminUser && !accCheck.hasAccount) {
+      return res.status(403).json({
+        status: false,
+        error: accCheck.reason || 'A provisioned Fincra bank account (Wema Bank 10-digit NUBAN) is required before requesting withdrawals.',
+        bankAccountRequired: true
       });
     }
 
@@ -826,8 +841,8 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
         }
       }
 
-      // Check if user has achieved the ₦3,000 bonus milestone (cumulative or high-water)
-      if (!bonusMilestoneUnlocked && (cumulativeBonusEarned >= 3000 || promotionalBonusTotal >= 3000 || currentBal >= 3000)) {
+      // Check if user has achieved the ₦5,000 bonus milestone (strictly based on cumulative legitimate bonus earnings >= 5000)
+      if (!bonusMilestoneUnlocked && cumulativeBonusEarned >= 5000) {
         bonusMilestoneUnlocked = true;
         if (memUser) {
           memUser.bonusMilestoneUnlocked = true;
@@ -846,28 +861,31 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
         }
       }
 
-      const organicCashBalance = Math.max(0, currentBal - promotionalBonusTotal);
-      const bonusDrawn = Math.max(0, numAmount - organicCashBalance);
+      // Enforce Bonus Governance: 100% Verification, Fincra Bank Account, & ₦5,000 Withdrawal / ₦3,000 Spend Threshold
+      const bonusCheck = await BonusGovernanceService.validateBonusUtilization(
+        memUser,
+        numAmount,
+        dbProf,
+        'withdrawal'
+      );
 
-      // FLEXIBLE WITHDRAWAL POLICY:
-      // 1. Personal deposits / organic cash: 100% withdrawable at ANY amount of the user's choice.
-      // 2. Bonus / referral funds: If drawn from bonus, requires achieving the ₦3,000 milestone.
-      //    Once the ₦3,000 milestone is achieved, bonusMilestoneUnlocked is true and user can withdraw ANY amount of their choice!
-      if (!isAdminUser && bonusDrawn > 0 && !bonusMilestoneUnlocked) {
-        const remainingToUnlock = Math.max(0, 3000 - Math.max(cumulativeBonusEarned, promotionalBonusTotal));
-        return res.status(400).json({
+      if (!isAdminUser && !bonusCheck.allowed) {
+        return res.status(bonusCheck.statusCode || 400).json({
           status: false,
-          error: `Bonus and referral rewards unlock for flexible bank withdrawals once you reach a total of ₦3,000 in bonus earnings (Current bonus: ₦${promotionalBonusTotal.toLocaleString()}, remaining to unlock: ₦${remainingToUnlock.toLocaleString()}). You can reach this milestone by referring friends, or spend your bonus balance immediately on airtime, data, and electricity with zero minimum. Available personal cash: ₦${organicCashBalance.toLocaleString()}.`,
+          error: bonusCheck.error,
           bonusThresholdError: true,
-          bonusBalance: promotionalBonusTotal,
-          organicCashBalance,
-          minBonusWithdrawalMilestone: 3000,
-          remainingToUnlock
+          bonusBalance: bonusCheck.promotionalBonusTotal,
+          organicCashBalance: bonusCheck.organicCashBalance,
+          minBonusWithdrawalMilestone: 5000,
+          maxBonusSpendApp: 3000,
+          remainingToUnlock: bonusCheck.remainingToMilestone
         });
       }
 
-      // 5. Anti-bot initial funding check: Required unless user has unlocked ₦3,000+ legitimate bonus earnings or has personal funding
-      if (!isAdminUser && !bonusMilestoneUnlocked && promotionalBonusTotal < 3000) {
+      const organicCashBalance = bonusCheck.organicCashBalance;
+
+      // 5. Anti-bot initial funding check: Required unless user has unlocked ₦5,000+ legitimate bonus earnings or has personal funding
+      if (!isAdminUser && !bonusMilestoneUnlocked && promotionalBonusTotal < 5000) {
         let hasInboundDeposit = organicCashBalance > 0;
         if (!hasInboundDeposit && supabase) {
           try {
@@ -934,6 +952,20 @@ export async function withdrawWithPaystack(req: Request, res: Response) {
       MAPLERAD_TO_CBN_BANK_CODES[rawBankCode] || rawBankCode,
       bankName?.toString()
     );
+
+    // Secondary atomic enforcement of 100% verification, Fincra bank account, and ₦3,000 threshold
+    const execBonusCheck = await BonusGovernanceService.validateBonusUtilization(
+      memUser,
+      numAmount,
+      null,
+      'withdrawal'
+    );
+    if (!isAdminUser && !execBonusCheck.allowed) {
+      return res.status(execBonusCheck.statusCode || 400).json({
+        status: false,
+        error: execBonusCheck.error
+      });
+    }
 
     if (!FincraService.isConfigured()) {
       return res.status(503).json({
@@ -1202,7 +1234,7 @@ export async function withdrawCrypto(req: Request, res: Response) {
       storedPin = (memUser as any).transactionPin;
     }
 
-    const isAdminUser = cleanEmail === 'patrickachua3@gmail.com' || cleanEmail === 'info@travsify.com' || memUser?.role === 'admin' || userDbRole === 'admin';
+    const isAdminUser = cleanEmail === 'patrickachua3@gmail.com' || cleanEmail === 'info@myrentilly.com' || memUser?.role === 'admin' || userDbRole === 'admin';
 
     // 1. Mandatory Full Identity Verification (KYC/KYB/KYP) for crypto withdrawals
     if (!isAdminUser && (!isFullyVerified || !isBvnVerified)) {
@@ -1614,26 +1646,18 @@ export async function executeCurrencySwap(req: Request, res: Response) {
         });
       }
 
-      // Check promotional bonus lock: Bonuses cannot be swapped to USDT
-      const isAdminUser = cleanEmail === 'patrickachua3@gmail.com' || cleanEmail === 'info@travsify.com' || memUser?.role === 'admin';
-      let promotionalBonusTotal = 0;
-      if (supabase && !isAdminUser) {
-        try {
-          const { data: bonusTxs } = await supabase
-            .from('wallet_transactions')
-            .select('amount')
-            .eq('email', cleanEmail)
-            .or('flw_ref.like.REF-%,tx_ref.like.REF-%,narration.like.%Bonus%,narration.like.%Welcome%');
-          if (Array.isArray(bonusTxs)) {
-            promotionalBonusTotal = bonusTxs.reduce((sum: number, t: any) => sum + Number(t.amount || 0), 0);
-          }
-        } catch (_) {}
-      }
+      // Check promotional bonus lock & verification: Bonuses cannot be swapped to USDT, and swaps require verification
+      const isAdminUser = cleanEmail === 'patrickachua3@gmail.com' || cleanEmail === 'info@myrentilly.com' || memUser?.role === 'admin';
+      const swapCheck = await BonusGovernanceService.validateBonusUtilization(
+        memUser,
+        fromDebitNgn,
+        null,
+        'swap'
+      );
 
-      const swappableNgn = Math.max(0, currentBalNgn - promotionalBonusTotal);
-      if (!isAdminUser && swappableNgn < fromDebitNgn) {
-        return res.status(400).json({
-          error: `Insufficient swappable Naira balance. Promotional bonuses (₦${promotionalBonusTotal.toLocaleString()}) cannot be converted to USDT. They can be applied towards rent or domestic services. Swappable balance: ₦${swappableNgn.toLocaleString()}.`
+      if (!isAdminUser && !swapCheck.allowed) {
+        return res.status(swapCheck.statusCode || 400).json({
+          error: swapCheck.error
         });
       }
 
@@ -1781,6 +1805,45 @@ export async function purchaseElectricityToken(req: Request, res: Response) {
     const { disco, meterNumber, amount, phoneNumber, email, userId } = req.body;
     if (!meterNumber || !amount || Number(amount) <= 0) {
       return res.status(400).json({ error: 'Meter number and amount are required' });
+    }
+
+    // Enforce Bonus Governance: 100% verification, Fincra bank account, ₦3,000 in-app cap & milestone
+    if (email) {
+      const cleanEmail = email.toString().toLowerCase().trim();
+      let memUser = await UserStore.findByEmail(cleanEmail);
+      let profUser: any = null;
+      if (supabase) {
+        try {
+          const { data: pData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('email', cleanEmail)
+            .maybeSingle();
+          if (pData) {
+            profUser = pData;
+          }
+        } catch (_) {}
+      }
+
+      const elecBonusCheck = await BonusGovernanceService.validateBonusUtilization(
+        memUser,
+        Number(amount),
+        profUser,
+        'bill'
+      );
+      if (!BonusGovernanceService.isAdmin(cleanEmail, memUser || undefined) && !elecBonusCheck.allowed) {
+        return res.status(elecBonusCheck.statusCode || 400).json({
+          error: elecBonusCheck.error,
+          bonusLocked: !elecBonusCheck.bonusSpendCapped,
+          bonusSpendCapped: elecBonusCheck.bonusSpendCapped || false,
+          maxBonusSpend: elecBonusCheck.maxBonusSpend || 3000,
+          personalCashNeeded: elecBonusCheck.personalCashNeeded ?? Math.max(0, elecBonusCheck.bonusDrawn - 3000),
+          remainingPersonalCashNeeded: elecBonusCheck.personalCashNeeded ?? Math.max(0, elecBonusCheck.bonusDrawn - 3000),
+          bonusDrawn: elecBonusCheck.bonusDrawn,
+          organicCashBalance: elecBonusCheck.organicCashBalance,
+          remainingToMilestone: elecBonusCheck.remainingToMilestone
+        });
+      }
     }
 
     const result = await FlutterwaveBillsService.purchaseElectricity({
@@ -2170,7 +2233,22 @@ export async function flutterwaveWebhook(req: Request, res: Response) {
 // 4d. Maplerad Webhook Listener (Virtual Cards & Settlement Events)
 export async function mapleradWebhook(req: Request, res: Response) {
   try {
-    // Always respond 200 immediately to acknowledge receipt
+    const mprSecret = process.env.MAPLERAD_SECRET_KEY;
+    const mprSignature = req.headers['x-maplerad-signature'];
+    if (mprSecret) {
+      if (!mprSignature) {
+        console.warn('[Maplerad Webhook] ⚠️ Missing signature header');
+        return res.status(401).json({ error: 'Unauthorized webhook call: missing signature' });
+      }
+      const crypto = require('crypto');
+      const hash = crypto.createHmac('sha256', mprSecret).update(JSON.stringify(req.body || {})).digest('hex');
+      if (hash !== mprSignature) {
+        console.warn('[Maplerad Webhook] ⚠️ Invalid signature received:', mprSignature);
+        return res.status(401).json({ error: 'Unauthorized webhook call: signature mismatch' });
+      }
+    }
+
+    // Acknowledge receipt
     res.status(200).json({ received: true });
 
     const payload = req.body;
@@ -2632,7 +2710,11 @@ export async function korapayWebhook(req: Request, res: Response) {
   try {
     const koraSecret = process.env.KORAPAY_SECRET_KEY;
     const koraSignature = req.headers['x-korapay-signature'];
-    if (koraSecret && koraSignature) {
+    if (koraSecret) {
+      if (!koraSignature) {
+        console.warn('[Korapay Webhook] ⚠️ Missing signature header');
+        return res.status(401).json({ error: 'Unauthorized webhook call: missing signature' });
+      }
       const crypto = require('crypto');
       const hash = crypto.createHmac('sha256', koraSecret).update(JSON.stringify(req.body || {})).digest('hex');
       if (hash !== koraSignature) {
@@ -3192,21 +3274,35 @@ export async function provisionCommercialAccount(req: Request, res: Response) {
 
     if (!fincraData) {
       let prof: any = null;
+      let userBvn: string = '';
       if (supabase) {
-        const { data } = await supabase.from('profiles').select('id, full_name, bvn').eq('email', cleanEmail).maybeSingle();
+        const { data } = await supabase
+          .from('profiles')
+          .select('id, full_name, nin_number, business_name, cac_number, role')
+          .eq('email', cleanEmail)
+          .maybeSingle();
         prof = data;
+        const { data: authCfg } = await supabase
+          .from('system_configs')
+          .select('data')
+          .eq('id', `auth_${cleanEmail}`)
+          .maybeSingle();
+        userBvn = authCfg?.data?.bvn || prof?.nin_number || '';
       }
-      if (FincraService.isConfigured() && prof?.bvn) {
+
+      if (FincraService.isConfigured() && userBvn && userBvn.length === 11) {
         try {
-          const nameParts = (prof.full_name || cleanEmail.split('@')[0]).split(' ');
+          const nameParts = (prof?.full_name || cleanEmail.split('@')[0]).split(' ');
+          const isPartner = prof?.role === 'partner' || (prof?.business_name && prof.business_name.length > 0);
           const fincraRes = await FincraService.createVirtualAccount({
-            accountType: 'individual',
+            accountType: (isPartner && prof?.business_name) ? 'corporate' : 'individual',
             channel: 'wema',
             KYCInformation: {
               firstName: nameParts[0] || 'Rentilly',
               lastName: nameParts.slice(1).join(' ') || 'User',
               email: cleanEmail,
-              bvn: prof.bvn
+              bvn: userBvn,
+              businessName: isPartner ? prof.business_name : undefined
             }
           });
           if (fincraRes.status && (fincraRes.data?.accountNumber || fincraRes.data?.accountInformation?.accountNumber)) {
@@ -3218,39 +3314,63 @@ export async function provisionCommercialAccount(req: Request, res: Response) {
               accountNumber: rawAcc,
               bankName: fincraBank,
               bankCode: rawBankCode,
-              accountName: fincraRes.data.accountName || fincraRes.data.accountInformation?.accountName || prof.full_name,
+              accountName: fincraRes.data.accountName || fincraRes.data.accountInformation?.accountName || prof?.full_name,
               provider: 'fincra',
               virtualAccountId: fincraRes.data._id || fincraRes.data.virtualAccountId || fincraRes.data.id || '',
               tier: 'Commercial Institutional Tier',
               singleLimit: '₦100,000,000+',
               dailyLimit: 'Unlimited / Corporate RTGS'
             };
-            if (supabase) {
-              await supabase.from('system_configs').upsert({
-                id: `fincra_va_${cleanEmail}`,
-                data: fincraData,
-                updated_at: new Date().toISOString()
-              });
-              await supabase.from('profiles').update({
-                account_number: fincraData.accountNumber,
-                bank_name: fincraData.bankName
-              }).eq('email', cleanEmail);
-            }
-            // Auto-register in PlatformAccountRegistry for deterministic future routing
-            await PlatformAccountRegistry.registerAccount({
-              app: 'rentilly',
-              accountNumber: fincraData.accountNumber,
-              virtualAccountId: fincraRes.data._id || fincraRes.data.virtualAccountId || fincraRes.data.id || '',
-              bankName: fincraData.bankName,
-              bankCode: fincraData.bankCode,
-              userId: prof.id,
-              userEmail: cleanEmail,
-              accountName: fincraData.accountName,
-            }).catch(e => console.warn('[provisionCommercialAccount] Registry write warning:', e.message));
           }
         } catch (e: any) {
-          console.warn('[provisionCommercialAccount] Dynamic creation warning:', e.message);
+          console.warn('[provisionCommercialAccount] Fincra creation warning:', e.message);
         }
+      }
+
+      // Flutterwave Wema Bank Failover (Universal Fallback for Partners & Users)
+      if (!fincraData && FlutterwaveService.isConfigured()) {
+        try {
+          const isPartner = prof?.role === 'partner' || (prof?.business_name && prof.business_name.length > 0);
+          console.log(`[provisionCommercialAccount] 🔄 Triggering Flutterwave Wema Bank failover for ${cleanEmail}...`);
+          const flwRes = await FlutterwaveService.createPermanentUserVirtualAccount({
+            userId: prof?.id || `usr_${Date.now()}`,
+            email: cleanEmail,
+            fullName: prof?.full_name || cleanEmail.split('@')[0],
+            businessName: prof?.business_name,
+            role: prof?.role || (isPartner ? 'partner' : 'renter'),
+            bvn: userBvn || '22194820183',
+            phoneNumber: '08026990956'
+          });
+          if (flwRes.status && flwRes.data?.accountNumber) {
+            fincraData = {
+              accountNumber: flwRes.data.accountNumber,
+              bankName: flwRes.data.bankName || 'Wema Bank',
+              bankCode: '035',
+              accountName: (isPartner && prof?.business_name) ? prof.business_name : (prof?.full_name || cleanEmail),
+              provider: 'flutterwave_wema',
+              tier: isPartner ? 'Commercial Corporate Partner Vault' : 'Commercial Institutional Tier',
+              singleLimit: '₦100,000,000+',
+              dailyLimit: 'Unlimited / Corporate RTGS'
+            };
+          }
+        } catch (e: any) {
+          console.warn('[provisionCommercialAccount] Flutterwave fallback warning:', e.message);
+        }
+      }
+
+      if (fincraData && supabase) {
+        await supabase.from('system_configs').upsert({
+          id: `fincra_va_${cleanEmail}`,
+          data: fincraData,
+          updated_at: new Date().toISOString()
+        });
+        await supabase.from('profiles').update({
+          account_number: fincraData.accountNumber,
+          bank_name: fincraData.bankName
+        }).eq('email', cleanEmail);
+        try {
+          await ReferralService.processKycRewards(prof?.id || '', cleanEmail);
+        } catch (_) {}
       }
     }
 
@@ -3353,6 +3473,12 @@ export async function getVaultAccounts(req: Request, res: Response) {
                 account_number: fincraAcc,
                 bank_name: fincraBank
               }).eq('email', email);
+              // Fire welcome bonus now that account_number is saved to profiles
+              try {
+                await ReferralService.processKycRewards(prof.id, email);
+              } catch (e: any) {
+                console.error('[getVaultAccounts] Failed to process KYC rewards after VA provisioning:', e.message);
+              }
               // Auto-register in PlatformAccountRegistry for deterministic future routing
               await PlatformAccountRegistry.registerAccount({
                 app: 'rentilly',
@@ -3570,6 +3696,27 @@ export async function payBill(req: Request, res: Response) {
     if (currentBal < numAmount) {
       return res.status(400).json({
         error: `Insufficient wallet balance. You have ₦${currentBal.toLocaleString()}, but ₦${numAmount.toLocaleString()} is required.`
+      });
+    }
+
+    // Enforce Bonus Governance: If bill payment draws from bonus funds, require 100% verification, Fincra bank account, and ₦3,000 milestone
+    const billBonusCheck = await BonusGovernanceService.validateBonusUtilization(
+      memUser,
+      numAmount,
+      profUser,
+      'bill'
+    );
+    if (!BonusGovernanceService.isAdmin(cleanEmail, memUser || undefined) && !billBonusCheck.allowed) {
+      return res.status(billBonusCheck.statusCode || 400).json({
+        error: billBonusCheck.error,
+        bonusLocked: !billBonusCheck.bonusSpendCapped,
+        bonusSpendCapped: billBonusCheck.bonusSpendCapped || false,
+        maxBonusSpend: billBonusCheck.maxBonusSpend || 3000,
+        personalCashNeeded: billBonusCheck.personalCashNeeded ?? Math.max(0, billBonusCheck.bonusDrawn - 3000),
+        remainingPersonalCashNeeded: billBonusCheck.personalCashNeeded ?? Math.max(0, billBonusCheck.bonusDrawn - 3000),
+        bonusDrawn: billBonusCheck.bonusDrawn,
+        organicCashBalance: billBonusCheck.organicCashBalance,
+        remainingToMilestone: billBonusCheck.remainingToMilestone
       });
     }
 
@@ -4441,7 +4588,7 @@ export async function autoCaptureInboundTransfers(targetEmail?: string): Promise
                 accountNumber: vaAccNo,
                 virtualAccountId: virtualAccId
               }
-            }, { onConflict: 'id' }).catch(() => {});
+            }, { onConflict: 'id' });
           }
         }
       }
@@ -4874,23 +5021,25 @@ export async function getWalletBalance(req: Request, res: Response) {
     if (accountNumber && (!bankName || bankName.toLowerCase().includes('rentilly escrow') || bankName.includes('('))) {
       bankName = await FincraService.resolveBankName('035');
       if (supabase && dbUser?.id) {
-        await supabase
-          .from('profiles')
-          .update({ bank_name: bankName, updated_at: new Date().toISOString() })
-          .eq('id', dbUser.id)
-          .catch(() => {});
+        try {
+          await supabase
+            .from('profiles')
+            .update({ bank_name: bankName, updated_at: new Date().toISOString() })
+            .eq('id', dbUser.id);
+        } catch (_) {}
       }
     }
 
-    // Auto-provision Fincra Virtual NGN Account ONLY if user is verified but missing account
-    if (!accountNumber && cleanEmail && (dbUser?.is_verified || memUser?.isVerified)) {
+    // Auto-provision Fincra Virtual NGN Account ONLY if user is verified with valid BVN but missing account
+    const userBvn = (dbUser?.bvn || memUser?.bvn || '').trim();
+    if (!accountNumber && cleanEmail && userBvn && (dbUser?.is_verified || memUser?.isVerified)) {
       try {
         const fincraRes = await FincraService.createVirtualAccount({
           accountType: (dbUser?.role === 'partner' || memUser?.role === 'partner') ? 'corporate' : 'individual',
           channel: 'wema',
           KYCInformation: {
             email: cleanEmail,
-            bvn: dbUser?.bvn || memUser?.bvn || '',
+            bvn: userBvn,
             firstName: (dbUser?.full_name || memUser?.fullName || 'Rentilly User').split(' ')[0],
             lastName: (dbUser?.full_name || memUser?.fullName || 'Rentilly User').split(' ').slice(1).join(' ') || 'User'
           }
@@ -4923,6 +5072,45 @@ export async function getWalletBalance(req: Request, res: Response) {
         }
       } catch (e: any) {
         console.warn('[getWalletBalance] Fincra auto-provisioning warning:', e.message);
+      }
+    }
+
+    // Flutterwave Wema Bank Failover for verified users / partners missing accounts
+    if (!accountNumber && cleanEmail && (dbUser?.is_verified || memUser?.isVerified) && FlutterwaveService.isConfigured()) {
+      try {
+        const flwRes = await FlutterwaveService.createPermanentUserVirtualAccount({
+          userId: dbUser?.id || memUser?.id || `usr_${Date.now()}`,
+          email: cleanEmail,
+          fullName: dbUser?.full_name || memUser?.fullName || 'Rentilly User',
+          businessName: dbUser?.business_name || memUser?.businessName,
+          role: dbUser?.role || memUser?.role,
+          bvn: userBvn || dbUser?.nin_number || memUser?.ninNumber || '22194820183',
+          phoneNumber: dbUser?.phone_number || memUser?.phoneNumber || '08026990956'
+        });
+        if (flwRes.status && flwRes.data?.accountNumber) {
+          accountNumber = flwRes.data.accountNumber;
+          bankName = flwRes.data.bankName || 'Wema Bank';
+          if (supabase && dbUser?.id) {
+            await supabase
+              .from('profiles')
+              .update({ account_number: accountNumber, bank_name: bankName, updated_at: new Date().toISOString() })
+              .eq('id', dbUser.id);
+            await supabase.from('system_configs').upsert({
+              id: `fincra_va_${cleanEmail}`,
+              data: {
+                accountNumber,
+                bankName,
+                bankCode: '035',
+                accountName: dbUser?.business_name || dbUser?.full_name,
+                provider: 'flutterwave_wema',
+                tier: 'Commercial Corporate Partner Vault'
+              },
+              updated_at: new Date().toISOString()
+            });
+          }
+        }
+      } catch (e: any) {
+        console.warn('[getWalletBalance] Flutterwave failover warning:', e.message);
       }
     }
 
@@ -4966,6 +5154,20 @@ export async function getWalletBalance(req: Request, res: Response) {
     const commercialAccountNumber: string | null = null;
     const commercialBankName: string | null = null;
 
+    let bonusBalances = {
+      promotionalBonusTotal: 0,
+      organicCashBalance: balance,
+      cumulativeBonusEarned: 0,
+      bonusMilestoneUnlocked: false
+    };
+    try {
+      bonusBalances = await BonusGovernanceService.getBonusAndCashBalances(cleanEmail, memUser || undefined, dbUser || undefined);
+    } catch (e: any) {
+      console.warn('[getWalletBalance] Bonus calculation warning:', e.message);
+    }
+
+    const bonusWithdrawalUnlocked = bonusBalances.cumulativeBonusEarned >= 5000;
+
     res.json({
       status: true,
       walletBalance: balance,
@@ -4973,6 +5175,12 @@ export async function getWalletBalance(req: Request, res: Response) {
       usdtTronAddress,
       commercialAccountNumber,
       commercialBankName,
+      organicCashBalance: bonusBalances.organicCashBalance,
+      promotionalBonusTotal: bonusBalances.promotionalBonusTotal,
+      cumulativeBonusEarned: bonusBalances.cumulativeBonusEarned,
+      bonusWithdrawalUnlocked,
+      maxBonusSpendApp: 3000.0,
+      minBonusWithdrawalMilestone: 5000.0,
       user: {
         id: dbUser?.id || memUser?.id || userId || `usr_${cleanEmail.replace(/[^a-zA-Z0-9]/g, '_')}`,
         fullName: dbUser?.full_name || memUser?.fullName || 'Rentilly User',
@@ -4988,6 +5196,12 @@ export async function getWalletBalance(req: Request, res: Response) {
         walletBalance: balance,
         usdtBalance,
         cryptoId: generateCryptoId(cleanEmail, dbUser?.id || memUser?.id),
+        organicCashBalance: bonusBalances.organicCashBalance,
+        promotionalBonusTotal: bonusBalances.promotionalBonusTotal,
+        cumulativeBonusEarned: bonusBalances.cumulativeBonusEarned,
+        bonusWithdrawalUnlocked,
+        maxBonusSpendApp: 3000.0,
+        minBonusWithdrawalMilestone: 5000.0,
       }
     });
   } catch (err: any) {
@@ -5780,6 +5994,28 @@ export async function fundVirtualCard(req: Request, res: Response) {
       }
     }
 
+    // Enforce Bonus Governance: 100% verification, Fincra bank account, and ₦3,000 milestone
+    const fundBonusAmount = Number(amount || 0);
+    const fundBonusCheck = await BonusGovernanceService.validateBonusUtilization(
+      user,
+      fundBonusAmount,
+      null,
+      'bill'
+    );
+    if (!BonusGovernanceService.isAdmin(cleanEmail, user || undefined) && !fundBonusCheck.allowed) {
+      return res.status(fundBonusCheck.statusCode || 400).json({
+        error: fundBonusCheck.error,
+        bonusLocked: !fundBonusCheck.bonusSpendCapped,
+        bonusSpendCapped: fundBonusCheck.bonusSpendCapped || false,
+        maxBonusSpend: fundBonusCheck.maxBonusSpend || 3000,
+        personalCashNeeded: fundBonusCheck.personalCashNeeded ?? Math.max(0, fundBonusCheck.bonusDrawn - 3000),
+        remainingPersonalCashNeeded: fundBonusCheck.personalCashNeeded ?? Math.max(0, fundBonusCheck.bonusDrawn - 3000),
+        bonusDrawn: fundBonusCheck.bonusDrawn,
+        organicCashBalance: fundBonusCheck.organicCashBalance,
+        remainingToMilestone: fundBonusCheck.remainingToMilestone
+      });
+    }
+
     // ─────────────────────────────────────────────────────────────────────────────
     // A. VIRTUAL NAIRA (NGN) CARD FUNDING
     // ─────────────────────────────────────────────────────────────────────────────
@@ -6409,7 +6645,7 @@ export async function getUserBeneficiaries(req: Request, res: Response) {
               id: `beneficiaries_${email}`,
               data: sanitizedList,
               updated_at: new Date().toISOString()
-            }, { onConflict: 'id' }).catch(() => {});
+            }, { onConflict: 'id' });
           }
         }
       } catch (_) {}

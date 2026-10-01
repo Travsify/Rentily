@@ -152,7 +152,8 @@ export class FlutterwaveService {
           phonenumber: params.phoneNumber || '08120000000',
           firstname: firstName,
           lastname: lastName,
-          narration: narration
+          narration: narration,
+          bank_code: '035'
         })
       });
 
@@ -161,11 +162,13 @@ export class FlutterwaveService {
 
       if (response.ok && resJson.status === 'success' && resJson.data) {
         const d = resJson.data;
+        const rawBank = (d.bank_name || '').toString().toUpperCase();
+        const normalizedBank = rawBank.includes('WEMA') ? 'Wema Bank' : (d.bank_name || 'Wema Bank');
         return {
           status: true,
           data: {
             accountNumber: d.account_number,
-            bankName: d.bank_name || 'Flutterwave MFB',
+            bankName: normalizedBank,
             orderRef: d.order_ref || txRef,
             accountReference: d.flw_ref || txRef
           }

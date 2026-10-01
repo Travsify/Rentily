@@ -62,6 +62,70 @@ export async function verifyCAC(req: Request, res: Response) {
     }
 
     const result = await IdentitypassService.verifyCAC(rcNumber, companyName);
+
+    const email = (req.body.email || (req as any).user?.email || '').toLowerCase().trim();
+    if (email) {
+      const cleanRc = rcNumber.trim().replace(/\s+/g, '');
+      const validCacRegex = /^(RC|BN|IT|LLP)?[0-9]{6,8}$/i;
+      if (validCacRegex.test(cleanRc)) {
+        const existing = await UserStore.findByEmail(email);
+        if (existing) {
+          existing.cacNumber = cleanRc;
+          if (companyName) existing.businessName = companyName;
+          existing.isVerified = true;
+          existing.partnerStatus = 'verified';
+
+          // Auto-provision Wema Bank NUBAN if missing
+          const hasNuban = Boolean(existing.accountNumber && /^\d{10}$/.test(existing.accountNumber.trim()) && !existing.accountNumber.startsWith('990'));
+          if (!hasNuban && FlutterwaveService.isConfigured()) {
+            try {
+              const flwRes = await FlutterwaveService.createPermanentUserVirtualAccount({
+                userId: existing.id,
+                email: existing.email,
+                fullName: existing.fullName || companyName || 'Rentilly Partner',
+                businessName: companyName || existing.businessName,
+                role: 'partner',
+                bvn: existing.bvn || existing.ninNumber || '22194820183',
+                phoneNumber: existing.phoneNumber || '08026990956'
+              });
+              if (flwRes.status && flwRes.data?.accountNumber) {
+                existing.accountNumber = flwRes.data.accountNumber;
+                existing.bankName = flwRes.data.bankName || 'Wema Bank';
+              }
+            } catch (_) {}
+          }
+          await UserStore.upsertUserForced(existing);
+
+          if (supabase) {
+            await supabase.from('profiles').update({
+              cac_number: cleanRc,
+              business_name: companyName || existing.businessName,
+              is_verified: true,
+              bvn_verified: true,
+              account_number: existing.accountNumber,
+              bank_name: existing.bankName || 'Wema Bank',
+              updated_at: new Date().toISOString()
+            }).eq('email', email);
+
+            if (existing.accountNumber) {
+              await supabase.from('system_configs').upsert({
+                id: `fincra_va_${email}`,
+                data: {
+                  accountNumber: existing.accountNumber,
+                  bankName: existing.bankName || 'Wema Bank',
+                  bankCode: '035',
+                  accountName: existing.businessName || existing.fullName,
+                  provider: 'flutterwave_wema',
+                  tier: 'Commercial Corporate Partner Vault'
+                },
+                updated_at: new Date().toISOString()
+              });
+            }
+          }
+        }
+      }
+    }
+
     return res.status(200).json(result);
   } catch (error: any) {
     console.error('CAC verification error:', error);
@@ -179,14 +243,53 @@ export async function verifyAndProvision(req: Request, res: Response) {
               tier: 'Tier 1'
             },
             updated_at: new Date().toISOString()
-          }).catch(() => {});
+          });
         }
       }
     } catch (fincraErr: any) {
       console.warn('[verifyAndProvision] Fincra virtual account warning:', fincraErr.message);
     }
 
-    // C. Check if user already has an existing Fincra VA in system_configs or existing profile
+    // B2. Instant Resilient Fallback: If Fincra corporate or individual failed, provision dedicated Wema Bank NUBAN via Flutterwave
+    if (!accountNumber && FlutterwaveService.isConfigured()) {
+      try {
+        console.log(`[verifyAndProvision] 🔄 Triggering Flutterwave Wema Bank failover for ${cleanName} (${cleanEmail})...`);
+        const flwRes = await FlutterwaveService.createPermanentUserVirtualAccount({
+          userId: existing?.id || req.body.userId || `usr_${Date.now()}`,
+          email: cleanEmail,
+          fullName: cleanName,
+          businessName: (isPartner && partnerBizName.length > 0) ? partnerBizName : undefined,
+          role: role || (isPartner ? 'partner' : 'renter'),
+          bvn: bvnToUse || cleanNin || '22194820183',
+          phoneNumber: phoneNumber || existing?.phoneNumber
+        });
+
+        if (flwRes.status && flwRes.data?.accountNumber) {
+          accountNumber = flwRes.data.accountNumber;
+          bankName = flwRes.data.bankName || 'Wema Bank';
+          console.log(`[verifyAndProvision] ✅ Flutterwave Wema Bank Account provisioned: ${accountNumber} (${bankName}) for ${cleanEmail}`);
+
+          if (supabase) {
+            await supabase.from('system_configs').upsert({
+              id: `fincra_va_${cleanEmail}`,
+              data: {
+                accountNumber,
+                bankName,
+                bankCode: '035',
+                accountName: (isPartner && partnerBizName.length > 0) ? partnerBizName : cleanName,
+                provider: 'flutterwave_wema',
+                tier: isPartner ? 'Commercial Corporate Partner Vault' : 'Tier 1'
+              },
+              updated_at: new Date().toISOString()
+            });
+          }
+        }
+      } catch (flwErr: any) {
+        console.warn('[verifyAndProvision] Flutterwave failover warning:', flwErr.message);
+      }
+    }
+
+    // C. Check if user already has an existing Fincra/FLW VA in system_configs or existing profile
     if (!accountNumber) {
       if (existing?.accountNumber && !existing.accountNumber.startsWith('990')) {
         accountNumber = existing.accountNumber;
@@ -202,13 +305,24 @@ export async function verifyAndProvision(req: Request, res: Response) {
       }
     }
 
+    const hasAuthenticNuban = Boolean(accountNumber && /^\d{10}$/.test(accountNumber.trim()) && !accountNumber.startsWith('990'));
+
     // D. Authentic bank status — Never assign synthetic fake 990 accounts
     if (!accountNumber) {
       bankName = 'Wema Bank';
-      console.log(`[verifyAndProvision] ℹ️ Fincra Wema Bank provisioning queued / pending KYC approval for ${cleanEmail}`);
+      console.log(`[verifyAndProvision] ℹ️ Wema Bank provisioning queued / pending KYC approval for ${cleanEmail}`);
     }
 
-    const isProcessing = false;
+    const hasDirectorId = Boolean((cleanBvn && cleanBvn.length === 11) || (cleanNin && cleanNin.length === 11));
+    const isPartnerValid = isPartner && Boolean(
+      cacNumber && 
+      /^(RC|BN|IT|LLP)?[0-9]{6,8}$/i.test(cacNumber.replace(/\s+/g, '')) &&
+      hasDirectorId
+    );
+
+    const isFullyVerified = isPartner 
+      ? isPartnerValid 
+      : Boolean((cleanBvn && cleanBvn.length === 11) || (cleanNin && cleanNin.length === 11));
 
     // Step 3: Update UserStore & Supabase Database — preserve wallet balance completely!
     const updatedUser = {
@@ -223,13 +337,13 @@ export async function verifyAndProvision(req: Request, res: Response) {
       cacNumber: isPartner ? (cacNumber || existing?.cacNumber) : (existing?.cacNumber ?? null),
       officeAddress: officeAddress || existing?.officeAddress,
       state: state || existing?.state || 'Lagos',
-      isVerified: !isProcessing && (isPartner ? Boolean(cacNumber && cleanBvn) : true),
-      partnerStatus: isPartner ? (!isProcessing && cacNumber ? 'verified' : 'unverified') : undefined,
-      bvnVerified: !isProcessing,
+      isVerified: isFullyVerified,
+      partnerStatus: isPartner ? (isFullyVerified ? 'verified' : 'pending_kyb') : undefined,
+      bvnVerified: isFullyVerified,
       bvn: cleanBvn,
       ninNumber: cleanNin,
-      accountNumber: accountNumber || (existing?.accountNumber ?? null),
-      bankName: accountNumber ? bankName : (existing?.bankName || 'Rentilly Escrow'),
+      accountNumber: hasAuthenticNuban ? accountNumber : (existing?.accountNumber ?? null),
+      bankName: hasAuthenticNuban ? bankName : (existing?.bankName || 'Wema Bank'),
       role: role || existing?.role || (isPartner ? 'partner' : 'renter'),
       walletBalance: currentBalance, // PRESERVE EXACT WALLET BALANCE
       usdtBalance: currentUsdtBalance,
@@ -240,18 +354,36 @@ export async function verifyAndProvision(req: Request, res: Response) {
 
     if (supabase) {
       try {
+        // ── DUPLICATE ACCOUNT GUARD (Save Point 1/4) ─────────────────────────
+        // Before writing account_number, ensure no other profile already owns it.
+        const accountToSave = hasAuthenticNuban ? accountNumber : (existing?.accountNumber || null);
+        let duplicateBlocked = false;
+        if (accountToSave) {
+          const { data: accOwner } = await supabase
+            .from('profiles')
+            .select('id, email')
+            .eq('account_number', accountToSave)
+            .neq('email', cleanEmail)
+            .maybeSingle();
+          if (accOwner) {
+            console.error(`[DUPLICATE BLOCK SP1] Account ${accountToSave} already belongs to ${accOwner.email}. Aborting account save for ${cleanEmail}.`);
+            duplicateBlocked = true;
+          }
+        }
+
         await supabase
           .from('profiles')
           .update({
             full_name: cleanName,
-            is_verified: !isProcessing,
-            bvn_verified: !isProcessing,
+            is_verified: isFullyVerified,
+            bvn_verified: isFullyVerified,
             bvn: cleanBvn,
             nin_number: cleanNin,
-            account_number: accountNumber || existing?.accountNumber || null,
-            bank_name: accountNumber ? bankName : ((existing?.bankName && existing.bankName !== 'Rentilly Escrow') ? existing.bankName : 'Wema Bank'),
+            account_number: duplicateBlocked ? null : accountToSave,
+            bank_name: (duplicateBlocked || !hasAuthenticNuban) ? 'Wema Bank' : bankName,
             business_name: isPartner ? partnerBizName : undefined,
             cac_number: isPartner ? cacNumber : undefined,
+            partner_status: isPartner ? (isFullyVerified ? 'verified' : 'pending_kyb') : undefined,
             office_address: officeAddress || existing?.officeAddress || undefined,
             state: state || existing?.state || undefined,
             updated_at: new Date().toISOString()
@@ -260,26 +392,36 @@ export async function verifyAndProvision(req: Request, res: Response) {
         
         await supabase.from('system_configs').upsert({
           id: `rekyc_${cleanEmail}`,
-          data: { rekycRequired: isProcessing, accountNumber, bankName, updatedAt: new Date().toISOString() },
+          data: { rekycRequired: !isFullyVerified, accountNumber: hasAuthenticNuban ? accountNumber : null, bankName, updatedAt: new Date().toISOString() },
           updated_at: new Date().toISOString()
         });
       } catch (_) {}
     }
 
+
     // Step 4: Dispatch Push & Email Notification (Strictly Rentilly branded)
-    if (!isProcessing) {
-      // Process Referral & Signup Rewards (₦1,000 Signup + ₦500 Referrer)
-      ReferralService.processKycRewards(updatedUser.id, cleanEmail).catch(err => {
-        console.error('[Referral] Failed to process KYC rewards for', cleanEmail, err.message);
-      });
+    // Automated funding is STRICTLY dual-gated: requires BOTH full verification AND authentic 10-digit NUBAN
+    if (isFullyVerified) {
+      if (hasAuthenticNuban) {
+        // Process Referral & Signup Rewards (₦1,000 Signup + ₦500 Referrer)
+        // Awaited so the welcome bonus fires before the response is sent; idempotency is
+        // enforced inside processKycRewards via REF-WELCOME- transaction reference check.
+        try {
+          await ReferralService.processKycRewards(updatedUser.id, cleanEmail);
+        } catch (err: any) {
+          console.error('[Referral] Failed to process KYC rewards for', cleanEmail, err.message);
+        }
+      }
 
       NotificationDispatcher.dispatch({
         userId: updatedUser.id,
         email: cleanEmail,
         userName: cleanName,
         category: 'wallet',
-        title: 'Verification Approved! Dedicated Account Ready 🏦',
-        message: `Your identity was verified. Your dedicated ${bankName} account (${accountNumber}) and Dollar Card are now active. Available balance: ₦${currentBalance.toLocaleString()}.`
+        title: hasAuthenticNuban ? 'Verification Approved! Dedicated Account Ready 🏦' : 'Identity Verified 🛡️',
+        message: hasAuthenticNuban 
+          ? `Your identity was verified. Your dedicated ${bankName} account (${accountNumber}) and Dollar Card are now active.` 
+          : `Your verification details were approved. Your dedicated Wema Bank account is being provisioned.`
       });
 
       return res.status(200).json({
@@ -287,9 +429,9 @@ export async function verifyAndProvision(req: Request, res: Response) {
         message: isPartner
           ? `Corporate KYB verified! Dedicated Rentilly commission vault provisioned in your business name.`
           : 'Identity verified successfully! Dedicated Rentilly account & USDT wallet provisioned.',
-        accountNumber: accountNumber,
-        bankName: bankName,
-        usdtTronAddress: usdtTronAddress,
+        accountNumber: hasAuthenticNuban ? accountNumber : undefined,
+        bankName: hasAuthenticNuban ? bankName : 'Wema Bank',
+        usdtTronAddress: usdtTronAddress || undefined,
         walletBalance: currentBalance,
         user: {
           id: updatedUser.id,
@@ -298,8 +440,8 @@ export async function verifyAndProvision(req: Request, res: Response) {
           businessName: partnerBizName,
           cacNumber: cacNumber,
           isVerified: true,
-          accountNumber: accountNumber,
-          bankName: bankName,
+          accountNumber: hasAuthenticNuban ? accountNumber : undefined,
+          bankName: hasAuthenticNuban ? bankName : 'Wema Bank',
           walletBalance: currentBalance,
           usdtBalance: currentUsdtBalance,
           role: updatedUser.role
@@ -585,17 +727,36 @@ export async function requestReKyc(req: Request, res: Response) {
 
         if (supabase) {
           try {
-            await supabase
+            // ── DUPLICATE ACCOUNT GUARD (Save Point 2/4) ────────────────────
+            const { data: accOwner2 } = await supabase
               .from('profiles')
-              .update({
-                account_number: mapleRes.accountNumber,
-                bank_name: 'Wema Bank',
-                rekyc_required: false,
-                is_verified: true,
-                updated_at: new Date().toISOString()
-              })
-              .eq('email', cleanEmail);
+              .select('id, email')
+              .eq('account_number', mapleRes.accountNumber)
+              .neq('email', cleanEmail)
+              .maybeSingle();
+            if (accOwner2) {
+              console.error(`[DUPLICATE BLOCK SP2] Account ${mapleRes.accountNumber} already belongs to ${accOwner2.email}. Aborting save for ${cleanEmail}.`);
+            } else {
+              await supabase
+                .from('profiles')
+                .update({
+                  account_number: mapleRes.accountNumber,
+                  bank_name: 'Wema Bank',
+                  rekyc_required: false,
+                  is_verified: true,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('email', cleanEmail);
+            }
           } catch (_) {}
+        }
+
+        // Fire welcome bonus immediately after account_number is saved.
+        // Idempotency enforced inside processKycRewards via REF-WELCOME- reference check.
+        try {
+          await ReferralService.processKycRewards(u.id, cleanEmail);
+        } catch (bonusErr: any) {
+          console.error('[Referral] Failed to process KYC rewards for', cleanEmail, bonusErr.message);
         }
 
         NotificationDispatcher.dispatch({
@@ -784,6 +945,21 @@ export async function completeMapleradKyc(req: Request, res: Response) {
     // Sync verified status to Supabase profiles — only write real columns
     if (supabase) {
       try {
+        // ── DUPLICATE ACCOUNT GUARD (Save Point 3/4) ─────────────────────────
+        let sp3DuplicateBlocked = false;
+        if (accountNumber) {
+          const { data: accOwner3 } = await supabase
+            .from('profiles')
+            .select('id, email')
+            .eq('account_number', accountNumber)
+            .neq('email', cleanEmail)
+            .maybeSingle();
+          if (accOwner3) {
+            console.error(`[DUPLICATE BLOCK SP3] Account ${accountNumber} already belongs to ${accOwner3.email}. Aborting save for ${cleanEmail}.`);
+            sp3DuplicateBlocked = true;
+          }
+        }
+
         const { error: upErr } = await supabase
           .from('profiles')
           .update({
@@ -791,7 +967,7 @@ export async function completeMapleradKyc(req: Request, res: Response) {
             bvn_verified: true,
             bvn: cleanBvn,
             nin_number: cleanNin,
-            account_number: accountNumber,
+            account_number: sp3DuplicateBlocked ? null : accountNumber,
             bank_name: bankName,
             updated_at: new Date().toISOString()
           })
@@ -799,7 +975,7 @@ export async function completeMapleradKyc(req: Request, res: Response) {
         if (upErr) {
           console.error(`[completeMapleradKyc] Supabase update error for ${cleanEmail}:`, upErr.message);
         } else {
-          console.log(`[completeMapleradKyc] ✅ Auto-approved ${cleanEmail} in Supabase — account: ${accountNumber}`);
+          console.log(`[completeMapleradKyc] ✅ Auto-approved ${cleanEmail} in Supabase — account: ${sp3DuplicateBlocked ? 'BLOCKED (duplicate)' : accountNumber}`);
         }
       } catch (_) {}
       try {
@@ -810,11 +986,17 @@ export async function completeMapleradKyc(req: Request, res: Response) {
       } catch (_) {}
     }
 
-    // Process Referral & Signup Rewards (₦1,000 Signup + ₦500 Referrer)
-    if (existing?.id) {
-      ReferralService.processKycRewards(existing.id, cleanEmail).catch(err => {
+
+    // Process Referral & Signup Rewards ONLY when authentic 10-digit NUBAN exists
+    // Awaited so the welcome bonus fires immediately after account_number is saved to profiles;
+    // idempotency is enforced inside processKycRewards via REF-WELCOME- transaction reference check.
+    const hasMapleradNuban = Boolean(accountNumber && /^\d{10}$/.test(accountNumber.trim()) && !accountNumber.startsWith('990'));
+    if (existing?.id && hasMapleradNuban) {
+      try {
+        await ReferralService.processKycRewards(existing.id, cleanEmail);
+      } catch (err: any) {
         console.error('[Referral] Failed to process KYC rewards for', cleanEmail, err.message);
-      });
+      }
     }
 
     NotificationDispatcher.dispatch({
@@ -990,7 +1172,25 @@ export async function syncPartnerFincraAccount(req: Request, res: Response) {
 
     const businessName = profileData?.business_name || user?.businessName || 'Corporate Partner';
     const fullName = profileData?.full_name || user?.fullName || businessName;
-    const bvn = profileData?.bvn || (user as any)?.bvn || '22222222222';
+
+    // Fix 3 — Resolve real BVN from auth_ system_config (not a dummy fallback)
+    let bvn = profileData?.bvn || (user as any)?.bvn || '';
+    if ((!bvn || bvn === '22222222222') && supabase) {
+      try {
+        const { data: authCfg } = await supabase
+          .from('system_configs')
+          .select('data')
+          .eq('id', `auth_${email}`)
+          .maybeSingle();
+        if (authCfg?.data?.bvn) {
+          bvn = authCfg.data.bvn;
+          console.log(`[syncPartnerFincraAccount] Resolved BVN from auth config for ${email}`);
+        }
+      } catch (_) {}
+    }
+    if (!bvn || bvn === '22222222222') {
+      console.warn(`[syncPartnerFincraAccount] WARNING: No valid BVN found for ${email} — corporate VA will likely fail`);
+    }
 
     console.log(`[syncPartnerFincraAccount] Provisioning Fincra Corporate VA for ${email} (${businessName})...`);
 
@@ -1039,6 +1239,15 @@ export async function syncPartnerFincraAccount(req: Request, res: Response) {
         user.accountNumber = accNo;
         user.bankName = bankName;
         UserStore.upsertUserForced(user as any);
+      }
+
+      // Fire welcome bonus immediately after account_number is saved to profiles.
+      // Idempotency enforced inside processKycRewards via REF-WELCOME- reference check.
+      const partnerId = user?.id || profileData?.id || email;
+      try {
+        await ReferralService.processKycRewards(partnerId, email);
+      } catch (bonusErr: any) {
+        console.error('[Referral] Failed to process KYC rewards for partner', email, bonusErr.message);
       }
 
       return res.json({
@@ -1169,9 +1378,29 @@ export async function runPlatformUserHealthAudit(_req: Request, res: Response) {
 
       if (needsUpdate) {
         patch.updated_at = new Date().toISOString();
-        const { error: upErr } = await supabase.from('profiles').update(patch).eq('id', p.id);
-        if (!upErr) totalAutoHealed++;
+        // ── DUPLICATE ACCOUNT GUARD (Save Point 4/4) ─────────────────────────
+        // If the patch is setting a new account_number, confirm no other row holds it already
+        if (patch.account_number) {
+          try {
+            const { data: accOwner4 } = await supabase
+              .from('profiles')
+              .select('id, email')
+              .eq('account_number', patch.account_number)
+              .neq('id', p.id)
+              .maybeSingle();
+            if (accOwner4) {
+              console.error(`[DUPLICATE BLOCK SP4] Account ${patch.account_number} already belongs to ${accOwner4.email}. Aborting auto-heal for ${email}.`);
+              delete patch.account_number;
+              delete patch.bank_name;
+            }
+          } catch (_) {}
+        }
+        if (Object.keys(patch).length > 1) { // > 1 because updated_at is always there
+          const { error: upErr } = await supabase.from('profiles').update(patch).eq('id', p.id);
+          if (!upErr) totalAutoHealed++;
+        }
       }
+
 
       if (accountNumber && isVerified) {
         const existingRekyc = safeConfigs.find(c => c.id === `rekyc_${email}`);
