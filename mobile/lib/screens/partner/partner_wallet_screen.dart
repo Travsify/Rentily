@@ -890,7 +890,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                     ),
 
                     // Institutional Upgrade Nudge (₦100M+ Limit via Fincra Wema Vault)
-                    if (isVerified && (_user?.bvn == null || _user!.bvn!.isEmpty || !_user!.bvnVerified)) ...[
+                    if (isVerified && !(_user?.isInstitutionalVault ?? false)) ...[
                       const SizedBox(height: 12),
                       Container(
                         padding: const EdgeInsets.all(14),

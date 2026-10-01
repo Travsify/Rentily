@@ -726,7 +726,7 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
                   ),
 
                   // 3B. High-Limit Upgrade Banner (Nudge to ₦100M+ Fincra Wema Vault)
-                  if (isVerified && (_user?.bvn == null || _user!.bvn!.isEmpty || !_user!.bvnVerified)) ...[
+                  if (isVerified && !(_user?.isInstitutionalVault ?? false)) ...[
                     const SizedBox(height: 12),
                     Container(
                       padding: const EdgeInsets.all(14),

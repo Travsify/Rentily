@@ -39,6 +39,14 @@ class UserProfile {
   final String? referralCode;
   final bool enableSmsNotifications;
 
+  // Bonus Governance & Wallet Balance Breakdown Fields
+  final double organicCashBalance;
+  final double promotionalBonusTotal;
+  final double cumulativeBonusEarned;
+  final bool bonusWithdrawalUnlocked;
+  final double maxBonusSpendApp;
+  final double minBonusWithdrawalMilestone;
+
   UserProfile({
     required this.id,
     required this.email,
@@ -77,7 +85,41 @@ class UserProfile {
     this.lasreraNumber,
     this.cryptoId,
     this.referralCode,
+    this.organicCashBalance = 0.00,
+    this.promotionalBonusTotal = 0.00,
+    this.cumulativeBonusEarned = 0.00,
+    this.bonusWithdrawalUnlocked = false,
+    this.maxBonusSpendApp = 3000.00,
+    this.minBonusWithdrawalMilestone = 5000.00,
   });
+
+  /// Remaining bonus needed to hit the ₦5,000 withdrawal milestone
+  double get remainingToBonusWithdrawalMilestone =>
+      (minBonusWithdrawalMilestone - cumulativeBonusEarned).clamp(0.0, double.infinity);
+
+  /// Remaining bonus needed to unlock ₦3,000 bonus spending
+  double get remainingToBonusSpendMilestone =>
+      (maxBonusSpendApp - cumulativeBonusEarned).clamp(0.0, double.infinity);
+
+  /// Whether user has achieved ₦5,000 cumulative bonus to withdraw
+  bool get canWithdrawBonus =>
+      bonusWithdrawalUnlocked || cumulativeBonusEarned >= minBonusWithdrawalMilestone;
+
+  /// Whether user has achieved ₦3,000 cumulative bonus to spend in-app
+  bool get canSpendBonusInApp =>
+      cumulativeBonusEarned >= maxBonusSpendApp;
+
+  /// Dedicated breakdown model instance
+  WalletBalanceBreakdown get balanceBreakdown => WalletBalanceBreakdown(
+        walletBalance: walletBalance,
+        usdtBalance: usdtBalance,
+        organicCashBalance: organicCashBalance,
+        promotionalBonusTotal: promotionalBonusTotal,
+        cumulativeBonusEarned: cumulativeBonusEarned,
+        bonusWithdrawalUnlocked: bonusWithdrawalUnlocked,
+        maxBonusSpendApp: maxBonusSpendApp,
+        minBonusWithdrawalMilestone: minBonusWithdrawalMilestone,
+      );
 
   /// Auto-linked deterministic or assigned Referral Code
   String get displayReferralCode {
@@ -123,6 +165,11 @@ class UserProfile {
 
   bool get isCorporateBuyer => buyerType.toLowerCase() == 'corporate' || (businessName != null && businessName!.trim().isNotEmpty && isConsumer);
 
+  /// Whether partner has already upgraded to Institutional Fincra Vault (₦100M+ Limit)
+  bool get isInstitutionalVault =>
+      (bankName != null && bankName!.toLowerCase().contains('fincra')) ||
+      (accountNumber != null && (accountNumber!.startsWith('FIN-') || (bvn != null && bvn!.trim().isNotEmpty && bvnVerified)));
+
   // Extract real first name or corporate business name
   String get firstName {
     if (isPartner || isCorporateBuyer) {
@@ -164,6 +211,30 @@ class UserProfile {
 
     final tinVal = json['tinNumber']?.toString() ?? json['tin_number']?.toString() ?? json['taxId']?.toString() ?? json['tax_id']?.toString();
 
+    final double rawWalletBalance = (json['walletBalance'] as num?)?.toDouble() ?? (json['wallet_balance'] as num?)?.toDouble() ?? 0.00;
+    final double rawPromoBonus = (json['promotionalBonusTotal'] as num?)?.toDouble() ??
+        (json['promotional_bonus_total'] as num?)?.toDouble() ??
+        (json['bonusBalance'] as num?)?.toDouble() ??
+        (json['bonus_balance'] as num?)?.toDouble() ??
+        0.00;
+    final double rawCumulativeBonus = (json['cumulativeBonusEarned'] as num?)?.toDouble() ??
+        (json['cumulative_bonus_earned'] as num?)?.toDouble() ??
+        (json['totalBonusEarned'] as num?)?.toDouble() ??
+        (json['total_bonus_earned'] as num?)?.toDouble() ??
+        0.00;
+    final double rawMaxSpend = (json['maxBonusSpendApp'] as num?)?.toDouble() ??
+        (json['max_bonus_spend_app'] as num?)?.toDouble() ??
+        3000.00;
+    final double rawMinMilestone = (json['minBonusWithdrawalMilestone'] as num?)?.toDouble() ??
+        (json['min_bonus_withdrawal_milestone'] as num?)?.toDouble() ??
+        5000.00;
+    final bool rawBonusUnlocked = json['bonusWithdrawalUnlocked'] == true ||
+        json['bonus_withdrawal_unlocked'] == true ||
+        rawCumulativeBonus >= rawMinMilestone;
+    final double rawOrganicCash = (json['organicCashBalance'] as num?)?.toDouble() ??
+        (json['organic_cash_balance'] as num?)?.toDouble() ??
+        (rawPromoBonus > 0 ? (rawWalletBalance - rawPromoBonus).clamp(0.0, double.infinity) : rawWalletBalance);
+
     return UserProfile(
       id: json['id']?.toString() ?? '',
       email: rawEmail,
@@ -175,8 +246,14 @@ class UserProfile {
       ninNumber: json['ninNumber']?.toString() ?? json['nin_number']?.toString(),
       bvnVerified: json['bvnVerified'] ?? json['bvn_verified'] ?? false,
       avatarUrl: json['avatarUrl']?.toString() ?? json['avatar_url']?.toString(),
-      walletBalance: (json['walletBalance'] as num?)?.toDouble() ?? 0.00,
+      walletBalance: rawWalletBalance,
       usdtBalance: (json['usdtBalance'] as num?)?.toDouble() ?? (json['usdt_balance'] as num?)?.toDouble() ?? 0.00,
+      organicCashBalance: rawOrganicCash,
+      promotionalBonusTotal: rawPromoBonus,
+      cumulativeBonusEarned: rawCumulativeBonus,
+      bonusWithdrawalUnlocked: rawBonusUnlocked,
+      maxBonusSpendApp: rawMaxSpend,
+      minBonusWithdrawalMilestone: rawMinMilestone,
       accountNumber: json['accountNumber']?.toString(),
       bankName: json['bankName']?.toString(),
       commercialAccountNumber: json['commercialAccountNumber']?.toString() ?? json['commercial_account_number']?.toString(),
@@ -223,6 +300,12 @@ class UserProfile {
       'avatarUrl': avatarUrl,
       'walletBalance': walletBalance,
       'usdtBalance': usdtBalance,
+      'organicCashBalance': organicCashBalance,
+      'promotionalBonusTotal': promotionalBonusTotal,
+      'cumulativeBonusEarned': cumulativeBonusEarned,
+      'bonusWithdrawalUnlocked': bonusWithdrawalUnlocked,
+      'maxBonusSpendApp': maxBonusSpendApp,
+      'minBonusWithdrawalMilestone': minBonusWithdrawalMilestone,
       'accountNumber': accountNumber,
       'bankName': bankName,
       'commercialAccountNumber': commercialAccountNumber,
@@ -287,6 +370,12 @@ class UserProfile {
     String? cryptoId,
     String? referralCode,
     bool? enableSmsNotifications,
+    double? organicCashBalance,
+    double? promotionalBonusTotal,
+    double? cumulativeBonusEarned,
+    bool? bonusWithdrawalUnlocked,
+    double? maxBonusSpendApp,
+    double? minBonusWithdrawalMilestone,
   }) {
     return UserProfile(
       id: id ?? this.id,
@@ -303,6 +392,12 @@ class UserProfile {
       avatarUrl: avatarUrl ?? this.avatarUrl,
       walletBalance: walletBalance ?? this.walletBalance,
       usdtBalance: usdtBalance ?? this.usdtBalance,
+      organicCashBalance: organicCashBalance ?? this.organicCashBalance,
+      promotionalBonusTotal: promotionalBonusTotal ?? this.promotionalBonusTotal,
+      cumulativeBonusEarned: cumulativeBonusEarned ?? this.cumulativeBonusEarned,
+      bonusWithdrawalUnlocked: bonusWithdrawalUnlocked ?? this.bonusWithdrawalUnlocked,
+      maxBonusSpendApp: maxBonusSpendApp ?? this.maxBonusSpendApp,
+      minBonusWithdrawalMilestone: minBonusWithdrawalMilestone ?? this.minBonusWithdrawalMilestone,
       accountNumber: accountNumber ?? this.accountNumber,
       bankName: bankName ?? this.bankName,
       commercialAccountNumber: commercialAccountNumber ?? this.commercialAccountNumber,
@@ -327,5 +422,97 @@ class UserProfile {
       cryptoId: cryptoId ?? this.cryptoId,
       referralCode: referralCode ?? this.referralCode,
     );
+  }
+}
+
+/// Dedicated Wallet Balance Breakdown Model for Rentilly Bonus Governance
+class WalletBalanceBreakdown {
+  final double walletBalance;
+  final double usdtBalance;
+  final double organicCashBalance;
+  final double promotionalBonusTotal;
+  final double cumulativeBonusEarned;
+  final bool bonusWithdrawalUnlocked;
+  final double maxBonusSpendApp;
+  final double minBonusWithdrawalMilestone;
+
+  const WalletBalanceBreakdown({
+    this.walletBalance = 0.0,
+    this.usdtBalance = 0.0,
+    this.organicCashBalance = 0.0,
+    this.promotionalBonusTotal = 0.0,
+    this.cumulativeBonusEarned = 0.0,
+    this.bonusWithdrawalUnlocked = false,
+    this.maxBonusSpendApp = 3000.0,
+    this.minBonusWithdrawalMilestone = 5000.0,
+  });
+
+  /// Remaining bonus earnings needed before ₦5,000 withdrawal unlock
+  double get remainingToWithdrawalMilestone =>
+      (minBonusWithdrawalMilestone - cumulativeBonusEarned).clamp(0.0, double.infinity);
+
+  /// Remaining bonus earnings needed before ₦3,000 spend unlock
+  double get remainingToSpendMilestone =>
+      (maxBonusSpendApp - cumulativeBonusEarned).clamp(0.0, double.infinity);
+
+  /// Whether the user can spend bonus funds in-app (cumulative earned >= ₦3,000)
+  bool get canSpendBonusInApp => cumulativeBonusEarned >= maxBonusSpendApp;
+
+  /// Whether the user can withdraw bonus funds (cumulative earned >= ₦5,000)
+  bool get canWithdrawBonus => bonusWithdrawalUnlocked || cumulativeBonusEarned >= minBonusWithdrawalMilestone;
+
+  factory WalletBalanceBreakdown.fromJson(Map<String, dynamic> json) {
+    final double wb = (json['walletBalance'] as num?)?.toDouble() ??
+        (json['wallet_balance'] as num?)?.toDouble() ??
+        0.0;
+    final double ub = (json['usdtBalance'] as num?)?.toDouble() ??
+        (json['usdt_balance'] as num?)?.toDouble() ??
+        0.0;
+    final double promoBonus = (json['promotionalBonusTotal'] as num?)?.toDouble() ??
+        (json['promotional_bonus_total'] as num?)?.toDouble() ??
+        (json['bonusBalance'] as num?)?.toDouble() ??
+        (json['bonus_balance'] as num?)?.toDouble() ??
+        0.0;
+    final double cumEarned = (json['cumulativeBonusEarned'] as num?)?.toDouble() ??
+        (json['cumulative_bonus_earned'] as num?)?.toDouble() ??
+        (json['totalBonusEarned'] as num?)?.toDouble() ??
+        (json['total_bonus_earned'] as num?)?.toDouble() ??
+        0.0;
+    final double maxSpend = (json['maxBonusSpendApp'] as num?)?.toDouble() ??
+        (json['max_bonus_spend_app'] as num?)?.toDouble() ??
+        3000.0;
+    final double minMilestone = (json['minBonusWithdrawalMilestone'] as num?)?.toDouble() ??
+        (json['min_bonus_withdrawal_milestone'] as num?)?.toDouble() ??
+        5000.0;
+    final bool unlocked = json['bonusWithdrawalUnlocked'] == true ||
+        json['bonus_withdrawal_unlocked'] == true ||
+        cumEarned >= minMilestone;
+    final double orgCash = (json['organicCashBalance'] as num?)?.toDouble() ??
+        (json['organic_cash_balance'] as num?)?.toDouble() ??
+        (promoBonus > 0 ? (wb - promoBonus).clamp(0.0, double.infinity) : wb);
+
+    return WalletBalanceBreakdown(
+      walletBalance: wb,
+      usdtBalance: ub,
+      organicCashBalance: orgCash,
+      promotionalBonusTotal: promoBonus,
+      cumulativeBonusEarned: cumEarned,
+      bonusWithdrawalUnlocked: unlocked,
+      maxBonusSpendApp: maxSpend,
+      minBonusWithdrawalMilestone: minMilestone,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'walletBalance': walletBalance,
+      'usdtBalance': usdtBalance,
+      'organicCashBalance': organicCashBalance,
+      'promotionalBonusTotal': promotionalBonusTotal,
+      'cumulativeBonusEarned': cumulativeBonusEarned,
+      'bonusWithdrawalUnlocked': bonusWithdrawalUnlocked,
+      'maxBonusSpendApp': maxBonusSpendApp,
+      'minBonusWithdrawalMilestone': minBonusWithdrawalMilestone,
+    };
   }
 }
