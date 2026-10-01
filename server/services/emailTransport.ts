@@ -93,42 +93,28 @@ export class EmailTransportService {
     }
     this.recentEmails.set(dedupeKey, now);
 
-    // 1. Postmark API — highest industry inbox placement rate (fires first)
-    try {
-      const postmarkResult = await this.sendViaPostmark({ ...options, to, from: DEFAULT_POSTMARK_SENDER, replyTo });
-      if (postmarkResult.success) {
-        console.log(`[EmailTransport] 🚀 Delivered via Postmark Transactional Stream to ${to}`);
-        return postmarkResult;
-      }
-    } catch (_) {}
-
-    // 2. Intelligent Smart Routing:
-    // For @gmail.com: Hostinger SMTP (info@myrentilly.com) delivers directly to Inbox
-    const isGmail = to.endsWith('@gmail.com') || to.endsWith('@googlemail.com');
-
-    if (isGmail) {
-      const hostingerResult = await this.sendViaHostinger({ ...options, to, from: DEFAULT_HOSTINGER_SENDER, replyTo });
-      if (hostingerResult.success) {
-        console.log(`[EmailTransport] ✅ Delivered directly to Gmail recipient ${to} via Hostinger SMTP`);
-        return hostingerResult;
-      }
-      console.warn(`[EmailTransport] ⚠️ Hostinger SMTP failed for Gmail user ${to}, falling back to Resend...`);
-    }
-
-    // 3. Resend API via verified root domain myrentilly.com
+    // 1. Resend API via verified domains (myrentilly.com / auth.myrentilly.com)
+    // Instant, zero-friction delivery with verified SPF/DKIM/DMARC
     const resendResult = await this.sendViaResend({ ...options, to, from, replyTo });
     if (resendResult.success) {
+      console.log(`[EmailTransport] 🚀 Delivered via Resend to ${to}`);
       return resendResult;
     }
+    console.warn(`[EmailTransport] ⚠️ Resend rail deferred (${resendResult.error}), trying backup rails...`);
 
-    // Hostinger fallback for non-Gmail addresses if Resend failed
-    if (!isGmail) {
-      console.warn(`[EmailTransport] ⚠️ Resend failed for ${to} (${resendResult.error}), falling back to Hostinger SMTP...`);
-      const hostingerResult = await this.sendViaHostinger({ ...options, to, from: DEFAULT_HOSTINGER_SENDER, replyTo });
-      if (hostingerResult.success) {
-        console.log(`[EmailTransport] ✅ Hostinger SMTP backup delivered to ${to}`);
-        return hostingerResult;
-      }
+    // 2. Intelligent Backup: Hostinger SMTP (info@myrentilly.com)
+    const hostingerResult = await this.sendViaHostinger({ ...options, to, from: DEFAULT_HOSTINGER_SENDER, replyTo });
+    if (hostingerResult.success) {
+      console.log(`[EmailTransport] ✅ Delivered via Hostinger SMTP backup to ${to}`);
+      return hostingerResult;
+    }
+    console.warn(`[EmailTransport] ⚠️ Hostinger backup deferred (${hostingerResult.error}), trying Gmail direct rail...`);
+
+    // 3. Fallback: Gmail SMTP App-Password rail
+    const gmailResult = await this.sendViaGmail({ ...options, to, replyTo });
+    if (gmailResult.success) {
+      console.log(`[EmailTransport] ✅ Delivered via Gmail Direct SMTP to ${to}`);
+      return gmailResult;
     }
 
     const errorMsg = `All delivery rails failed for ${to}. Resend: ${resendResult.error}`;
