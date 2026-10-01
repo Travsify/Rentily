@@ -1,12 +1,45 @@
-const DEFAULT_RESEND_KEY = ['re_', 'TDzSXw', 'pG_EiKY', 'cSEVf46', 'LAbtYv5', 'jHs8En'].join('');
-const RESEND_API_KEY = process.env.RESEND_API_KEY || DEFAULT_RESEND_KEY;
-const SENDER_EMAIL = (process.env.RESEND_FROM_EMAIL && process.env.RESEND_FROM_EMAIL.includes('myrentilly.com'))
-  ? process.env.RESEND_FROM_EMAIL
-  : 'Rentilly <info@myrentilly.com>';
+import { EmailTransportService } from './emailTransport';
+
+const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
+const SENDER_EMAIL = process.env.RESEND_FROM_EMAIL || 'Rentilly Security <security@myrentilly.com>';
+
+// Quarantined non-responsive / hard-bounced mailboxes to prevent reputation damage
+const quarantinedEmails = new Set<string>([
+  'saddiqmusa71@gmail.com'
+]);
 
 export class ResendService {
   /**
+   * Sanitizes email address and fixes common domain typos
+   */
+  static sanitizeEmail(email: string): string {
+    if (!email) return '';
+    let clean = email.trim().toLowerCase();
+    clean = clean.replace(/@gmial\.com$/, '@gmail.com');
+    clean = clean.replace(/@gmai\.com$/, '@gmail.com');
+    clean = clean.replace(/@gamil\.com$/, '@gmail.com');
+    clean = clean.replace(/@yaho\.com$/, '@yahoo.com');
+    clean = clean.replace(/@hotmial\.com$/, '@hotmail.com');
+    return clean;
+  }
+
+  /**
+   * Checks if an email is quarantined
+   */
+  static isQuarantined(email: string): boolean {
+    return quarantinedEmails.has(email.trim().toLowerCase());
+  }
+
+  /**
+   * Adds an email to quarantine
+   */
+  static quarantineEmail(email: string) {
+    quarantinedEmails.add(email.trim().toLowerCase());
+  }
+
+  /**
    * Sends a 6-digit OTP verification email with branded HTML layout.
+   * Utilizes intelligent dual-rail delivery: Hostinger SMTP for Gmail (bypasses SES deferrals) and Resend API with automated fallback.
    */
   static async sendOtpEmail(params: {
     to: string;
@@ -16,7 +49,17 @@ export class ResendService {
   }): Promise<{ status: boolean; message: string; data?: any }> {
     try {
       const { to, code, userName, purpose = 'Account Verification' } = params;
-      const cleanEmail = to.trim().toLowerCase();
+      const cleanEmail = this.sanitizeEmail(to);
+
+      if (!cleanEmail || !cleanEmail.includes('@')) {
+        return { status: false, message: 'Invalid recipient email address format' };
+      }
+
+      if (this.isQuarantined(cleanEmail)) {
+        console.warn(`[ResendService] 🛑 Suppressed delivery to quarantined address: ${cleanEmail}`);
+        return { status: false, message: 'Recipient email is currently flagged as undeliverable' };
+      }
+
       const displayName = userName && userName.trim().length > 0 ? userName.trim() : 'Valued User';
 
       const htmlContent = `
@@ -25,151 +68,89 @@ export class ResendService {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Rentilly Security Code</title>
+  <title>Rentilly Verification Code</title>
 </head>
-<body style="margin: 0; padding: 0; background-color: #0B1120; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #FFFFFF;">
-  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #0B1120; padding: 30px 15px;">
-    <tr>
-      <td align="center">
-        <table width="100%" max-width="520" border="0" cellspacing="0" cellpadding="0" style="max-width: 520px; background-color: #0F172A; border-radius: 20px; border: 1px solid #1E293B; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
-          
-          <!-- Header Bar -->
-          <tr>
-            <td style="padding: 28px 32px; background: linear-gradient(135deg, #064E3B 0%, #065F46 100%); text-align: center;">
-              <table width="100%" border="0" cellspacing="0" cellpadding="0">
-                <tr>
-                  <td align="center">
-                    <img src="https://api.myrentilly.com/logo.png" width="48" height="48" alt="Rentilly" style="display: block; margin: 0 auto 10px auto; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.3);" />
-                    <h1 style="margin: 0; color: #FFFFFF; font-size: 22px; font-weight: 800; letter-spacing: -0.5px;">RENTILLY</h1>
-                    <p style="margin: 4px 0 0 0; color: #A7F3D0; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Built By Landlords for every Tenant/Landlord</p>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
+<body style="margin: 0; padding: 24px; background-color: #F8FAFC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #1E293B;">
+  <div style="max-width: 480px; margin: 0 auto; background-color: #FFFFFF; border-radius: 14px; border: 1px solid #E2E8F0; padding: 32px 28px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+    
+    <div style="text-align: center; margin-bottom: 24px;">
+      <h1 style="margin: 0; color: #047857; font-size: 26px; font-weight: 800; letter-spacing: -0.5px;">RENTILLY</h1>
+      <p style="margin: 4px 0 0 0; color: #64748B; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Zero Agents • Legal Escrow • Direct Access</p>
+    </div>
 
-          <!-- Main Body -->
-          <tr>
-            <td style="padding: 36px 32px 28px 32px;">
-              <h2 style="margin: 0 0 12px 0; color: #FFFFFF; font-size: 18px; font-weight: 700;">Hello ${displayName},</h2>
-              <p style="margin: 0 0 24px 0; color: #94A3B8; font-size: 14px; line-height: 1.6;">
-                You requested a single-use verification code for <strong>${purpose}</strong> on your Rentilly account. Enter the 6-digit code below to continue:
-              </p>
+    <p style="margin: 0 0 16px 0; font-size: 15px; color: #334155; line-height: 1.5;">
+      Hello ${displayName},
+    </p>
 
-              <!-- OTP Code Display Card -->
-              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="margin-bottom: 24px;">
-                <tr>
-                  <td align="center" style="background-color: #1E293B; border: 2px dashed #10B981; border-radius: 14px; padding: 20px;">
-                    <span style="font-family: 'Courier New', Courier, monospace; font-size: 36px; font-weight: 800; letter-spacing: 8px; color: #10B981;">${code}</span>
-                  </td>
-                </tr>
-              </table>
+    <p style="margin: 0 0 20px 0; font-size: 14px; color: #475569; line-height: 1.5;">
+      Your single-use verification code for <strong>${purpose}</strong> on your Rentilly account is:
+    </p>
 
-              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #131D31; border-radius: 10px; padding: 14px 16px; margin-bottom: 24px;">
-                <tr>
-                  <td width="24" valign="top" style="padding-right: 10px; color: #F59E0B; font-size: 16px;">⏱️</td>
-                  <td style="color: #CBD5E1; font-size: 12px; line-height: 1.5;">
-                    This code expires in <strong>10 minutes</strong>. Never share your verification code with anyone. Rentilly staff will never ask for your security code.
-                  </td>
-                </tr>
-              </table>
+    <div style="background-color: #F0FDF4; border: 1.5px dashed #059669; border-radius: 10px; padding: 20px; text-align: center; margin-bottom: 22px;">
+      <span style="font-family: 'Courier New', Courier, monospace; font-size: 38px; font-weight: 800; letter-spacing: 8px; color: #047857;">${code}</span>
+    </div>
 
-              <p style="margin: 0; color: #64748B; font-size: 12px; line-height: 1.5;">
-                If you did not initiate this request, you can safely disregard this email or contact support at <a href="mailto:info@myrentilly.com" style="color: #10B981; text-decoration: none;">info@myrentilly.com</a>.
-              </p>
-            </td>
-          </tr>
+    <div style="background-color: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px; padding: 12px 16px; margin-bottom: 22px;">
+      <p style="margin: 0; font-size: 12.5px; color: #92400E; line-height: 1.4;">
+        ⏱️ This code expires in <strong>10 minutes</strong>. Never share your verification code with anyone. Rentilly staff will never ask for your security code.
+      </p>
+    </div>
 
-          <!-- Footer -->
-          <tr>
-            <td style="padding: 24px 32px; background-color: #090E17; border-top: 1px solid #1E293B; text-align: center;">
-              <p style="margin: 0 0 6px 0; color: #CBD5E1; font-size: 11.5px; font-weight: 700;">
-                Rentily is a product of E-Homes Global Inclusive Limited
-              </p>
-              <p style="margin: 0 0 8px 0; color: #64748B; font-size: 11px; line-height: 1.4;">
-                ✉️ Support: <a href="mailto:info@myrentilly.com" style="color: #10B981; text-decoration: none;">info@myrentilly.com</a> | 🌐 <a href="https://myrentilly.com" style="color: #10B981; text-decoration: none;">www.myrentilly.com</a>
-              </p>
-              <p style="margin: 0; color: #475569; font-size: 10px;">
-                © ${new Date().getFullYear()} E-Homes Global Inclusive Limited. All rights reserved.
-              </p>
-            </td>
-          </tr>
+    <p style="margin: 0 0 24px 0; font-size: 12px; color: #64748B; line-height: 1.5;">
+      If you did not initiate this request, you can safely disregard this email or contact support at <a href="mailto:info@myrentilly.com" style="color: #047857; text-decoration: none; font-weight: 600;">info@myrentilly.com</a>.
+    </p>
 
-        </table>
-      </td>
-    </tr>
-  </table>
+    <div style="border-top: 1px solid #E2E8F0; padding-top: 18px; text-align: center;">
+      <p style="margin: 0 0 4px 0; font-size: 12px; color: #475569; font-weight: 600;">
+        Rentilly is a product of E-Homes Global Inclusive Limited
+      </p>
+      <p style="margin: 0 0 6px 0; font-size: 11px; color: #64748B;">
+        ✉️ Support: <a href="mailto:info@myrentilly.com" style="color: #047857; text-decoration: none;">info@myrentilly.com</a> | 🌐 <a href="https://myrentilly.com" style="color: #047857; text-decoration: none;">www.myrentilly.com</a>
+      </p>
+      <p style="margin: 0; font-size: 10px; color: #94A3B8;">
+        © ${new Date().getFullYear()} E-Homes Global Inclusive Limited. All rights reserved.
+      </p>
+    </div>
+
+  </div>
 </body>
 </html>
       `;
 
-      const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
+      const result = await EmailTransportService.sendMail({
+        to: cleanEmail,
+        from: SENDER_EMAIL,
+        replyTo: 'info@myrentilly.com',
+        subject: `${code} is your Rentilly verification code`,
         headers: {
-          'Authorization': `Bearer ${RESEND_API_KEY}`,
-          'Content-Type': 'application/json'
+          'X-Entity-Ref-ID': `otp-${Date.now()}-${Math.floor(Math.random() * 100000)}`,
+          'Auto-Submitted': 'auto-generated',
+          'X-Auto-Response-Suppress': 'All, NDR, RN, NRN, OOF'
         },
-        body: JSON.stringify({
-          from: SENDER_EMAIL,
-          to: [cleanEmail],
-          reply_to: 'info@myrentilly.com',
-          subject: `${code} is your Rentilly security code`,
-          html: htmlContent,
-          text: `Hello ${displayName},\n\nYour single-use verification code for ${purpose} on your Rentilly account is: ${code}\n\nThis code expires in 10 minutes. Never share this code with anyone.\n\nRentilly - Built By Landlords for every Tenant/Landlord\nSupport: info@myrentilly.com | https://myrentilly.com`
-        })
+        html: htmlContent,
+        text: `Hello ${displayName},\n\nYour single-use verification code for ${purpose} on your Rentilly account is: ${code}\n\nThis code expires in 10 minutes. Never share this code with anyone.\n\nRentilly is a product of E-Homes Global Inclusive Limited\nSupport: info@myrentilly.com | https://myrentilly.com`
       });
 
-      const resData: any = await response.json();
-
-      if (response.ok && (resData.id || resData.data?.id)) {
-        console.log(`[Resend] OTP email successfully sent to ${cleanEmail}, ID: ${resData.id || resData.data?.id}`);
+      if (result.success) {
+        console.log(`[ResendService] ✅ OTP email dispatched to ${cleanEmail} via [${result.provider}] from ${SENDER_EMAIL}, ID: ${result.messageId}`);
         return {
           status: true,
           message: 'OTP email delivered successfully',
-          data: resData
+          data: result.data
         };
       }
 
-      console.warn('[Resend] API Response error:', JSON.stringify(resData));
-      
-      // Auto-fallback to onboarding sender if custom domain DNS is pending verification
-      if (resData.message?.includes('domain') || resData.statusCode === 403 || resData.error?.message?.includes('domain')) {
-        console.log('[Resend] Attempting retry with fallback sender...');
-        const retryRes = await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${RESEND_API_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            from: 'Rentilly <onboarding@resend.dev>',
-            to: [cleanEmail],
-            reply_to: 'info@myrentilly.com',
-            subject: `${code} is your Rentilly security code`,
-            html: htmlContent,
-            text: `Hello ${displayName},\n\nYour single-use verification code for ${purpose} on your Rentilly account is: ${code}\n\nThis code expires in 10 minutes. Never share this code with anyone.\n\nRentilly - Built By Landlords for every Tenant/Landlord\nSupport: info@myrentilly.com | https://myrentilly.com`
-          })
-        });
-        const retryData: any = await retryRes.json();
-        if (retryRes.ok && (retryData.id || retryData.data?.id)) {
-          console.log(`[Resend Fallback] OTP email sent successfully to ${cleanEmail}`);
-          return {
-            status: true,
-            message: 'OTP email delivered successfully',
-            data: retryData
-          };
-        }
-      }
+      console.warn(`[ResendService] Delivery notice:`, result.error);
 
       return {
         status: false,
-        message: resData.message || resData.error?.message || 'Failed to send OTP email'
+        message: result.error || 'Failed to send OTP email'
       };
     } catch (err: any) {
-      console.error('[Resend] Exception sending email:', err);
+      console.error('[ResendService] Exception sending email:', err);
       return {
         status: false,
-        message: err.message || 'Resend service connection failure'
+        message: err.message || 'Email delivery service failure'
       };
     }
   }
