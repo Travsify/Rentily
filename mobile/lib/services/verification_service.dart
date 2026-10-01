@@ -128,4 +128,61 @@ class VerificationService {
       };
     }
   }
+
+  /// High-Limit Institutional Upgrade: Transitions partner from Flutterwave (₦25M) to Fincra Wema (₦100M+ Limit & ₦300 Flat Fee)
+  static Future<Map<String, dynamic>> upgradePartnerVault({
+    required String bvn,
+    String? dob,
+  }) async {
+    final currentUser = await AuthService.getCurrentUser();
+    final email = currentUser?.email ?? '';
+
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/partner/upgrade-fincra-vault'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'email': email,
+          'bvn': bvn.trim(),
+          'dob': dob,
+        }),
+      ).timeout(const Duration(seconds: 35));
+
+      final data = json.decode(response.body);
+
+      if (response.statusCode == 200 && data['status'] == true) {
+        final d = data['data'] ?? {};
+        final newAcc = d['accountNumber']?.toString() ?? '';
+        final newBank = d['bankName']?.toString() ?? 'Wema Bank';
+
+        if (currentUser != null && newAcc.isNotEmpty) {
+          final updated = currentUser.copyWith(
+            accountNumber: newAcc,
+            bankName: newBank,
+            isVerified: true,
+            bvnVerified: true,
+          );
+          await AuthService.updateUser(updated);
+        }
+
+        return {
+          'success': true,
+          'message': data['message'] ?? 'Successfully upgraded to Institutional Fincra Wema Vault (₦100M+ Limit)!',
+          'accountNumber': newAcc,
+          'bankName': newBank,
+          'tier': d['tier'] ?? 'Institutional Tier (₦100M+ Single Limit)',
+        };
+      }
+
+      return {
+        'success': false,
+        'message': data['error'] ?? 'Upgrade failed. Please ensure your Director BVN matches your CAC corporate records.',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Error connecting to upgrade server: $e',
+      };
+    }
+  }
 }

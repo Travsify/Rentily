@@ -14,6 +14,7 @@ import '../../widgets/partner_id_card_modal.dart';
 import '../../widgets/partner_landlord_onboard_modal.dart';
 import '../../widgets/add_money_modal.dart';
 import '../../widgets/withdrawal_modal.dart';
+import '../../widgets/partner_upgrade_vault_modal.dart';
 import '../properties/properties_screen.dart';
 import '../inspections/inspections_screen.dart';
 import 'partner_wallet_screen.dart';
@@ -132,7 +133,7 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
     super.dispose();
   }
 
-  void _loadPartnerData() async {
+  Future<void> _loadPartnerData() async {
     final user = _user ?? await AuthService.getCurrentUser();
     if (user != null && _user == null && mounted) {
       setState(() {
@@ -141,50 +142,55 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
       });
     }
 
-    final futureProps = ApiService.fetchProperties();
-    final futureComm = user != null
-        ? ApiService.fetchPartnerCommissions(user.id, user.email)
-        : Future.value(<String, dynamic>{});
-    final futureLive = user != null
-        ? ApiService.fetchLiveBalance(user.email)
-        : Future.value(null);
+    try {
+      final futureProps = ApiService.fetchProperties();
+      final futureComm = user != null
+          ? ApiService.fetchPartnerCommissions(user.id, user.email)
+          : Future.value(<String, dynamic>{});
+      final futureLive = user != null
+          ? ApiService.fetchLiveBalance(user.email)
+          : Future.value(null);
 
-    final results = await Future.wait([futureProps, futureComm, futureLive]);
-    final allProps = results[0] as List<Property>;
-    final comm = results[1] as Map<String, dynamic>;
-    final live = results[2] as Map<String, dynamic>?;
+      final results = await Future.wait([futureProps, futureComm, futureLive]);
+      final allProps = results[0] as List<Property>;
+      final comm = results[1] as Map<String, dynamic>;
+      final live = results[2] as Map<String, dynamic>?;
 
-    final escBal = (comm['escrowBalance'] as num?)?.toDouble() ?? 0.0;
-    UserProfile? effectiveUser = user;
+      final escBal = (comm['escrowBalance'] as num?)?.toDouble() ?? 0.0;
+      UserProfile? effectiveUser = user;
 
-    if (user != null && live != null) {
-      final serverBal = (live['walletBalance'] as num?)?.toDouble() ?? user.walletBalance;
-      final serverAcc = live['accountNumber']?.toString();
-      final serverBank = live['bankName']?.toString();
-      effectiveUser = user.copyWith(
-        walletBalance: serverBal,
-        accountNumber: (serverAcc != null && serverAcc.isNotEmpty) ? serverAcc : user.accountNumber,
-        bankName: (serverBank != null && serverBank.isNotEmpty) ? serverBank : user.bankName,
-      );
-      AuthService.updateUser(effectiveUser);
-    }
+      if (user != null && live != null) {
+        final serverBal = (live['walletBalance'] as num?)?.toDouble() ?? user.walletBalance;
+        final serverAcc = live['accountNumber']?.toString();
+        final serverBank = live['bankName']?.toString();
+        effectiveUser = user.copyWith(
+          walletBalance: serverBal,
+          accountNumber: (serverAcc != null && serverAcc.isNotEmpty) ? serverAcc : user.accountNumber,
+          bankName: (serverBank != null && serverBank.isNotEmpty) ? serverBank : user.bankName,
+        );
+        AuthService.updateUser(effectiveUser);
+      }
 
-    if (mounted) {
-      setState(() {
-        _user = effectiveUser ?? _user;
-        _escrowCommission = escBal;
-        _mandateProperties = allProps.where((p) {
-          final u = effectiveUser ?? _user;
-          if (u == null) return false;
-          return (p.partnerId == u.id || p.ownerId == u.id || p.ownerPhone == u.phoneNumber) &&
-              p.listedByRole == 'verified_partner';
-        }).toList();
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _user = effectiveUser ?? _user;
+          _escrowCommission = escBal;
+          _mandateProperties = allProps.where((p) {
+            final u = effectiveUser ?? _user;
+            if (u == null) return false;
+            return (p.partnerId == u.id || p.ownerId == u.id || p.ownerPhone == u.phoneNumber) &&
+                p.listedByRole == 'verified_partner';
+          }).toList();
+          _isLoading = false;
+        });
 
-      Future.delayed(const Duration(milliseconds: 600), () {
-        if (mounted) BiometricPromptModal.checkAndPrompt(context);
-      });
+        Future.delayed(const Duration(milliseconds: 600), () {
+          if (mounted) BiometricPromptModal.checkAndPrompt(context);
+        });
+      }
+    } catch (e) {
+      debugPrint('_loadPartnerData error: $e');
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -718,6 +724,115 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
                       ],
                     ),
                   ),
+
+                  // 3B. High-Limit Upgrade Banner (Nudge to ₦100M+ Fincra Wema Vault)
+                  if (isVerified && (_user?.bvn == null || _user!.bvn!.isEmpty || !_user!.bvnVerified)) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF064E3B), Color(0xFF0F766E)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF064E3B).withValues(alpha: 0.15),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.rocket_launch_rounded, color: Color(0xFF86EFAC), size: 22),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text(
+                                      'Unlock ₦100,000,000+ Limits',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w900,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFFF59E0B),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        '₦300 FEE',
+                                        style: GoogleFonts.plusJakartaSans(
+                                          fontSize: 7.5,
+                                          fontWeight: FontWeight.w900,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Add your Director BVN to transition to an Institutional Fincra Wema Vault.',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 9.5,
+                                    color: Colors.white.withValues(alpha: 0.85),
+                                    height: 1.3,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton(
+                            onPressed: () {
+                              if (_user != null) {
+                                PartnerUpgradeVaultModal.show(
+                                  context,
+                                  user: _user!,
+                                  onUpgradeSuccess: (updated) {
+                                    setState(() => _user = updated);
+                                    _loadPartnerData();
+                                  },
+                                );
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF10B981),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              elevation: 0,
+                            ),
+                            child: Text(
+                              'Upgrade',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
                 const SizedBox(height: 22),
 

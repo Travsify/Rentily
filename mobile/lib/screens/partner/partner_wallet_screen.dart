@@ -12,13 +12,14 @@ import '../../services/api_service.dart';
 import '../../widgets/verification_modal.dart';
 import '../../widgets/add_money_modal.dart';
 import '../../widgets/withdrawal_modal.dart';
-import '../../widgets/currency_selector_widget.dart';
 import '../../widgets/virtual_card_widget.dart';
 import '../../widgets/transaction_receipt_modal.dart';
 import '../../widgets/statement_export_modal.dart';
 import '../../widgets/currency_swap_modal.dart';
 import '../../widgets/partner_legal_modal.dart';
+import '../../widgets/partner_upgrade_vault_modal.dart';
 import '../cards/cards_screen.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 class PartnerWalletScreen extends StatefulWidget {
   const PartnerWalletScreen({super.key});
@@ -31,7 +32,6 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
   final NumberFormat _currencyFormat = NumberFormat('#,##0.00', 'en_US');
   UserProfile? _user;
   bool _isLoading = true;
-  bool _isSyncing = false;
   double _escrowCommission = 0.0;
   List<dynamic> _commissionTxns = [];
   Timer? _balancePoller;
@@ -39,21 +39,13 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
   bool _hideBalance = false;
   Map<String, dynamic>? _cardData;
   
-  // Multi-currency vault balances (stored on-demand)
-  double _usdBalance = 0.0;
-  double _gbpBalance = 0.0;
-  double _eurBalance = 0.0;
   String? _usdtTronAddress;
   String _activeAccountTab = 'NGN'; // 'NGN' | 'USDT'
 
   // Zero dummy data: Starts EMPTY until user taps 'Get Account'
-  final Map<String, Map<String, String>> _virtualAccounts = {};
 
   // Live Dynamic FX Benchmarks & Card Pricing (Admin Configurable)
   double _fxUsdToNgn = 1510.0;
-  double _fxUsdToGbp = 0.76;
-  double _fxUsdToEur = 0.91;
-  double _cardIssuanceFeeUsd = 3.00;
 
   @override
   void initState() {
@@ -136,11 +128,11 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
             _cardData = cards.isNotEmpty ? cards.first : null;
           });
         }
-      } catch (_) {}
-    } catch (_) {}
+      } catch (e) { debugPrint('[partner_wallet_screen] error: $e'); }
+    } catch (e) { debugPrint('[partner_wallet_screen] error: $e'); }
   }
 
-  void _loadUser() async {
+  Future<void> _loadUser() async {
     final user = await AuthService.getCurrentUser();
     if (user != null) {
       // 0. Instantly load cached card from disk (0ms)
@@ -155,7 +147,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
             });
           }
         }
-      } catch (_) {}
+      } catch (e) { debugPrint('[partner_wallet_screen] error: $e'); }
 
       if (mounted) {
         setState(() {
@@ -164,101 +156,77 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
       }
 
       // Parallelize cloud requests
-      final results = await Future.wait([
-        ApiService.fetchPartnerCommissions(user.id, user.email),
-        ApiService.fetchLiveBalance(user.email),
-        ApiService.fetchLiveTransactions(user.email),
-        ApiService.fetchUserCards(user.email),
-      ]);
-
-      final commissions = results[0] as Map<String, dynamic>?;
-      final live = results[1] as Map<String, dynamic>?;
-      final liveTxns = (results[2] as List<Map<String, dynamic>>?) ?? [];
-      final cards = results[3] as List<Map<String, dynamic>>?;
-
-      if (cards != null && cards.isNotEmpty) {
-        try {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('rentilly_cached_cards_${user.email}', json.encode(cards));
-        } catch (_) {}
-      }
-
-      if (mounted) {
-        setState(() {
-          if (cards != null) {
-            _cardData = cards.isNotEmpty ? cards.first : null;
-          }
-        });
-      }
-
       try {
-        await ApiService.fetchFeatureFlags();
-      } catch (_) {}
+        final results = await Future.wait([
+          ApiService.fetchPartnerCommissions(user.id, user.email),
+          ApiService.fetchLiveBalance(user.email),
+          ApiService.fetchLiveTransactions(user.email),
+          ApiService.fetchUserCards(user.email),
+        ]);
 
-      UserProfile effectiveUser = user;
-      if (live != null) {
-        final serverBal = (live['walletBalance'] as num?)?.toDouble() ?? user.walletBalance;
-        final serverUsdtBal = (live['usdtBalance'] as num?)?.toDouble() ?? user.usdtBalance;
-        final serverAcc = live['accountNumber']?.toString();
-        final serverBank = live['bankName']?.toString();
-        effectiveUser = user.copyWith(
-          walletBalance: serverBal,
-          usdtBalance: serverUsdtBal,
-          accountNumber: (serverAcc != null && serverAcc.isNotEmpty) ? serverAcc : user.accountNumber,
-          bankName: (serverBank != null && serverBank.isNotEmpty) ? serverBank : user.bankName,
-        );
-        await AuthService.updateUser(effectiveUser);
-      }
+        final commissions = results[0] as Map<String, dynamic>?;
+        final live = results[1] as Map<String, dynamic>?;
+        final liveTxns = (results[2] as List<Map<String, dynamic>>?) ?? [];
+        final cards = results[3] as List<Map<String, dynamic>>?;
 
-      try {
-        final rates = await ApiService.fetchFxRates();
-        final pricing = await ApiService.fetchCardPricing();
+        if (cards != null && cards.isNotEmpty) {
+          try {
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString('rentilly_cached_cards_${user.email}', json.encode(cards));
+          } catch (e) { debugPrint('[partner_wallet_screen] error: $e'); }
+        }
+
         if (mounted) {
           setState(() {
-            _fxUsdToNgn = rates['USD_NGN'] ?? 1510.0;
-            _fxUsdToGbp = (rates['GBP_NGN'] != null && rates['USD_NGN'] != null)
-                ? (rates['USD_NGN']! / rates['GBP_NGN']!)
-                : 0.76;
-            _fxUsdToEur = (rates['EUR_NGN'] != null && rates['USD_NGN'] != null)
-                ? (rates['USD_NGN']! / rates['EUR_NGN']!)
-                : 0.91;
-            _cardIssuanceFeeUsd = (pricing['issuanceFeeUsd'] as num?)?.toDouble() ?? 3.00;
+            if (cards != null) {
+              _cardData = cards.isNotEmpty ? cards.first : null;
+            }
           });
         }
-      } catch (_) {}
 
-      if (mounted) {
-        setState(() {
-          _user = effectiveUser;
-          _escrowCommission = (commissions?['escrowBalance'] as num?)?.toDouble() ?? 0.0;
-          _commissionTxns = liveTxns.isNotEmpty ? liveTxns : List<Map<String, dynamic>>.from((commissions?['transactions'] as List<dynamic>?) ?? []);
-          _isLoading = false;
-        });
+        try {
+          await ApiService.fetchFeatureFlags();
+        } catch (e) { debugPrint('[partner_wallet_screen] error: $e'); }
+
+        UserProfile effectiveUser = user;
+        if (live != null) {
+          final serverBal = (live['walletBalance'] as num?)?.toDouble() ?? user.walletBalance;
+          final serverUsdtBal = (live['usdtBalance'] as num?)?.toDouble() ?? user.usdtBalance;
+          final serverAcc = live['accountNumber']?.toString();
+          final serverBank = live['bankName']?.toString();
+          effectiveUser = user.copyWith(
+            walletBalance: serverBal,
+            usdtBalance: serverUsdtBal,
+            accountNumber: (serverAcc != null && serverAcc.isNotEmpty) ? serverAcc : user.accountNumber,
+            bankName: (serverBank != null && serverBank.isNotEmpty) ? serverBank : user.bankName,
+          );
+          await AuthService.updateUser(effectiveUser);
+        }
+
+        try {
+          final rates = await ApiService.fetchFxRates();
+          if (mounted) {
+            setState(() {
+              _fxUsdToNgn = rates['USD_NGN'] ?? 1510.0;
+            });
+          }
+        } catch (e) { debugPrint('[partner_wallet_screen] error: $e'); }
+
+        if (mounted) {
+          setState(() {
+            _user = effectiveUser;
+            _escrowCommission = (commissions?['escrowBalance'] as num?)?.toDouble() ?? 0.0;
+            _commissionTxns = liveTxns.isNotEmpty ? liveTxns : List<Map<String, dynamic>>.from((commissions?['transactions'] as List<dynamic>?) ?? []);
+            _isLoading = false;
+          });
+        }
+      } catch (e) {
+        debugPrint('Partner wallet data load failed: $e');
+        if (mounted) setState(() => _isLoading = false);
       }
     } else if (mounted) {
       setState(() => _isLoading = false);
     }
-  }
-
-  // Request foreign virtual account on explicit user request
-  void _provisionAccountOnDemand(String curr) {
-    HapticFeedback.heavyImpact();
-    if (_user?.isVerified != true) {
-      VerificationModal.show(context, onSuccess: (updated) {
-        setState(() => _user = updated);
-      });
-      return;
-    }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'International $curr collection accounts require enterprise partner tier upgrade. Reach out via Live Support Desk. 🌐',
-          style: GoogleFonts.plusJakartaSans(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
-        ),
-        backgroundColor: AppColors.primary,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
   }
 
 
@@ -377,11 +345,11 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                     BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4)),
                   ],
                 ),
-                child: Image.network(
-                  'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=$effectiveAddress',
-                  width: 160,
-                  height: 160,
-                  errorBuilder: (_, __, ___) => const Icon(Icons.qr_code_2_rounded, size: 120, color: AppColors.primary),
+                child: QrImageView(
+                  data: effectiveAddress,
+                  version: QrVersions.auto,
+                  size: 160,
+                  backgroundColor: Colors.white,
                 ),
               ),
               const SizedBox(height: 16),
@@ -601,7 +569,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                     const SizedBox(height: 2),
                     Row(
                       children: [
-                        Text('$symbol${_currencyFormat.format(operationalBalance)}', style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white)),
+                        Text(_hideBalance ? '$symbol••••••' : '$symbol${_currencyFormat.format(operationalBalance)}', style: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w900, color: Colors.white)),
                         const SizedBox(width: 8),
                         IconButton(
                           icon: Icon(
@@ -635,7 +603,7 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  '₦${_currencyFormat.format(escrowCommission)}',
+                                  _hideBalance ? '₦••••••' : '₦${_currencyFormat.format(escrowCommission)}',
                                   style: GoogleFonts.plusJakartaSans(fontSize: 14, fontWeight: FontWeight.w900, color: const Color(0xFFFBBF24)),
                                 ),
                               ],
@@ -920,6 +888,115 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                         ],
                       ),
                     ),
+
+                    // Institutional Upgrade Nudge (₦100M+ Limit via Fincra Wema Vault)
+                    if (isVerified && (_user?.bvn == null || _user!.bvn!.isEmpty || !_user!.bvnVerified)) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF064E3B), Color(0xFF0F766E)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF064E3B).withValues(alpha: 0.15),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.rocket_launch_rounded, color: Color(0xFF86EFAC), size: 22),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        'Unlock ₦100,000,000+ Limits',
+                                        style: GoogleFonts.plusJakartaSans(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w900,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFF59E0B),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          '₦300 FEE',
+                                          style: GoogleFonts.plusJakartaSans(
+                                            fontSize: 7.5,
+                                            fontWeight: FontWeight.w900,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Add your Director BVN to transition to an Institutional Fincra Wema Vault.',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 9.5,
+                                      color: Colors.white.withValues(alpha: 0.85),
+                                      height: 1.3,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              onPressed: () {
+                                if (_user != null) {
+                                  PartnerUpgradeVaultModal.show(
+                                    context,
+                                    user: _user!,
+                                    onUpgradeSuccess: (updated) {
+                                      setState(() => _user = updated);
+                                      _loadUser();
+                                    },
+                                  );
+                                }
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF10B981),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                elevation: 0,
+                              ),
+                              child: Text(
+                                'Upgrade',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ] else ...[
                     // USDT TRC20 Card with Full Options
                     Container(
@@ -1117,192 +1194,6 @@ class _PartnerWalletScreenState extends State<PartnerWalletScreen> {
                       ),
                     ),
                   ],
-                ],
-              ] else if (false && ApiService.featureFlags.enableMultiCurrencyVault) ...[
-                // Foreign Currency Account Card (USD / GBP / EUR) — Pure On-Demand
-                if (!_virtualAccounts.containsKey(effectiveCurrency)) ...[
-                  // Not Requested Yet State with 'Get Account' Button
-                  Container(
-                    padding: const EdgeInsets.all(18),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: AppColors.borderDark),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.02),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                Text(_selectedCurrency == 'USD' ? '🇺🇸' : _selectedCurrency == 'GBP' ? '🇬🇧' : '🇪🇺', style: const TextStyle(fontSize: 16)),
-                                const SizedBox(width: 8),
-                                Text(
-                                  '$_selectedCurrency Inbound Collection Account',
-                                  style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                                ),
-                              ],
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                              decoration: BoxDecoration(
-                                color: Colors.grey.withOpacity(0.12),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                'Not Requested Yet',
-                                style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.bold, color: AppColors.textMuted),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Request a dedicated domestic $_selectedCurrency collection account to receive international direct deposits, tenancy escrow retainers, and overseas partner commissions without FX spread loss.',
-                          style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary, height: 1.4),
-                        ),
-                        const SizedBox(height: 14),
-                        SizedBox(
-                          width: double.infinity,
-                          height: 42,
-                          child: ElevatedButton.icon(
-                            onPressed: () => _provisionAccountOnDemand(_selectedCurrency),
-                            icon: const Icon(Icons.add_circle_outline_rounded, size: 16, color: Colors.white),
-                            label: Text(
-                              'Get $_selectedCurrency Account',
-                              style: GoogleFonts.plusJakartaSans(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.white),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              elevation: 0,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ] else ...[
-                  // Active Provisioned Account Card
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: AppColors.borderDark),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.02),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(Icons.public_rounded, size: 16, color: AppColors.primary),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'DEDICATED $_selectedCurrency INBOUND VAULT',
-                                  style: GoogleFonts.plusJakartaSans(fontSize: 8.5, fontWeight: FontWeight.w800, color: AppColors.textSecondary),
-                                ),
-                              ],
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFEFF6FF),
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(color: const Color(0xFFBFDBFE)),
-                              ),
-                              child: Text(
-                                'ACTIVE',
-                                style: GoogleFonts.plusJakartaSans(fontSize: 7.5, fontWeight: FontWeight.w800, color: const Color(0xFF2563EB)),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: () {
-                                  if (_user?.accountNumber == null || _user!.accountNumber!.isEmpty) {
-                                    VerificationModal.show(context, onSuccess: (updated) {
-                                      setState(() => _user = updated);
-                                    });
-                                  }
-                                },
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      _virtualAccounts[_selectedCurrency]?['accountNumber'] ?? _virtualAccounts[_selectedCurrency]?['iban'] ?? '',
-                                      style: GoogleFonts.plusJakartaSans(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w900,
-                                        letterSpacing: 1.5,
-                                        color: AppColors.textPrimary,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      '${_virtualAccounts[_selectedCurrency]?['bankName']} • ${_virtualAccounts[_selectedCurrency]?['type']}',
-                                      style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textSecondary),
-                                    ),
-                                    if (_user?.accountNumber == null || _user!.accountNumber!.isEmpty)
-                                      Container(
-                                        margin: const EdgeInsets.only(top: 6),
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                        decoration: BoxDecoration(
-                                          color: AppColors.accentOrange.withValues(alpha: 0.12),
-                                          borderRadius: BorderRadius.circular(8),
-                                          border: Border.all(color: AppColors.accentOrange.withValues(alpha: 0.4)),
-                                        ),
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            const Icon(Icons.info_outline_rounded, size: 13, color: AppColors.accentOrange),
-                                            const SizedBox(width: 5),
-                                            Text(
-                                              'Pending Escrow NUBAN • Tap to complete KYB ⚡',
-                                              style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.accentOrange),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            if (_user?.accountNumber != null && _user!.accountNumber!.isNotEmpty)
-                              IconButton(
-                                icon: const Icon(Icons.copy_rounded, size: 18, color: AppColors.primary),
-                                onPressed: () => _copyAccount(_virtualAccounts[_selectedCurrency]?['accountNumber'] ?? _virtualAccounts[_selectedCurrency]?['iban'] ?? ''),
-                                tooltip: 'Copy Coordinates',
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
                 ],
               ],
               const SizedBox(height: 20),
