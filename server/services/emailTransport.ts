@@ -1,3 +1,5 @@
+import dotenv from 'dotenv';
+dotenv.config();
 import nodemailer from 'nodemailer';
 
 // Verified Root Domain (Clean reputation, SPF + DKIM + DMARC aligned)
