@@ -27,6 +27,8 @@ export interface BonusBalances {
   bonusSpendUnlocked: boolean;
   maxBonusSpendApp: number;
   minBonusWithdrawalMilestone: number;
+  daysUntilBonusExpiry?: number;
+  isBonusExpired?: boolean;
 }
 
 export interface BonusUtilizationResult {
@@ -45,6 +47,8 @@ export interface BonusUtilizationResult {
   bonusSpendUnlocked?: boolean;
   maxBonusSpendApp?: number;
   minBonusWithdrawalMilestone?: number;
+  copayRequiredCash?: number;
+  daysUntilBonusExpiry?: number;
 }
 
 export interface WithdrawalEligibilityResult {
@@ -81,6 +85,8 @@ export class BonusGovernanceService {
   public static readonly MIN_BONUS_SPEND_MILESTONE: number = 3000;
   public static readonly MIN_ORGANIC_WITHDRAWAL: number = 100;
   public static readonly PARTNER_MANDATE_BOUNTY: number = 20000; // ₦20,000 Verified Property Mandate Bounty
+  public static readonly BONUS_VALIDITY_DAYS: number = 30; // 30-Day Urgency Expiry Clock
+  public static readonly BONUS_COPAY_MAX_RATIO: number = 0.50; // Rule A: Max 50% Co-Pay Subsidy per transaction
   /**
    * Checks if an email belongs to a system administrator
    */
@@ -322,14 +328,22 @@ export class BonusGovernanceService {
     }
 
     const cumulativeBonusEarned = bonusCredits;
-    // Promotional bonus remaining in wallet cannot exceed total balance
-    const promotionalBonusTotal = Math.min(totalBalance, Math.max(0, bonusCredits - debitsSpent));
+    // Check account creation / first bonus age for 30-Day Urgency Clock
+    const userCreatedAt = user?.createdAt || profile?.created_at || new Date().toISOString();
+    const ageInMs = Date.now() - new Date(userCreatedAt).getTime();
+    const ageInDays = Math.floor(ageInMs / (1000 * 60 * 60 * 24));
+    const daysUntilBonusExpiry = Math.max(0, this.BONUS_VALIDITY_DAYS - ageInDays);
+    const isBonusExpired = ageInDays >= this.BONUS_VALIDITY_DAYS;
+
+    // Promotional bonus remaining in wallet (expires after 30 days)
+    const rawBonusRemaining = Math.max(0, bonusCredits - debitsSpent);
+    const promotionalBonusTotal = isBonusExpired ? 0 : Math.min(totalBalance, rawBonusRemaining);
     const organicCashBalance = Math.max(0, totalBalance - promotionalBonusTotal);
 
     // Milestone is strictly unlocked for bank withdrawal if cumulative bonus earnings >= ₦5,000
-    const bonusMilestoneUnlocked = cumulativeBonusEarned >= this.MIN_BONUS_WITHDRAWAL_MILESTONE;
+    const bonusMilestoneUnlocked = !isBonusExpired && cumulativeBonusEarned >= this.MIN_BONUS_WITHDRAWAL_MILESTONE;
     // Milestone is unlocked for in-app spending if cumulative bonus earnings >= ₦3,000
-    const bonusSpendUnlocked = cumulativeBonusEarned >= this.MIN_BONUS_SPEND_MILESTONE;
+    const bonusSpendUnlocked = !isBonusExpired && cumulativeBonusEarned >= this.MIN_BONUS_SPEND_MILESTONE;
 
     return {
       totalBalance,
@@ -339,7 +353,9 @@ export class BonusGovernanceService {
       bonusMilestoneUnlocked,
       bonusSpendUnlocked,
       maxBonusSpendApp: this.MAX_BONUS_SPEND_APP,
-      minBonusWithdrawalMilestone: this.MIN_BONUS_WITHDRAWAL_MILESTONE
+      minBonusWithdrawalMilestone: this.MIN_BONUS_WITHDRAWAL_MILESTONE,
+      daysUntilBonusExpiry,
+      isBonusExpired
     };
   }
 
@@ -516,33 +532,80 @@ export class BonusGovernanceService {
       };
     }
 
-    // 4. In-App Bonus Spend Cap: Maximum ₦3,000 bonus amount to spend in-app (Bills, Utilities, Airtime, Data, Escrow)
-    if ((usageType === 'bill' || usageType === 'escrow') && bonusDrawn > 3000) {
-      const personalCashNeeded = bonusDrawn - 3000;
-      const blockMsg = 'The maximum bonus amount that can be spent in-app is ₦3,000 per transaction. Please cover the remaining balance with your personal cash.';
-      NotificationDispatcher.dispatch({
-        userId: user?.id,
-        email: cleanEmail,
-        title: '⚠️ Bonus Spend Limit Exceeded',
-        category: 'wallet',
-        message: blockMsg
-      }).catch(() => {});
+    // 4. Rule D: 30-Day Urgency Expiry Check
+    if (balances.isBonusExpired) {
+      const expiredMsg = 'Your promotional welcome bonus has reached its 30-day validity limit and expired. To perform this transaction, please fund your account with personal cash.';
       return {
         allowed: false,
-        error: blockMsg,
+        error: expiredMsg,
         statusCode: 400,
-        bonusSpendCapped: true,
-        maxBonusSpend: 3000,
-        personalCashNeeded,
-        remainingPersonalCashNeeded: personalCashNeeded,
-        bonusDrawn,
+        bonusDrawn: 0,
         organicCashBalance,
-        promotionalBonusTotal,
-        remainingToMilestone: Math.max(0, 3000 - cumulativeBonusEarned)
+        promotionalBonusTotal: 0,
+        remainingToMilestone: 0,
+        daysUntilBonusExpiry: 0
       };
     }
 
-    // 5. Withdrawal Minimum for Bonus Funds: Enforce ₦5,000 minimum withdrawal
+    // 5. Rule A: 50% Co-Pay / Matching Spend Rule
+    // Promotional bonus funds can subsidize a MAXIMUM of 50% of any in-app transaction (Bills, Airtime, Utilities, Escrow)
+    // The user must cover at least 50% using their personal funded cash from their dedicated Wema Bank account!
+    if (usageType === 'bill' || usageType === 'escrow') {
+      const maxBonusSubsidy = Math.floor(amountRequested * this.BONUS_COPAY_MAX_RATIO); // 50% ceiling
+      const actualBonusUsed = Math.min(bonusDrawn, maxBonusSubsidy, this.MAX_BONUS_SPEND_APP);
+      const requiredPersonalCash = amountRequested - actualBonusUsed;
+
+      if (organicCashBalance < requiredPersonalCash) {
+        const cashDeficit = requiredPersonalCash - organicCashBalance;
+        const copayMsg = `50/50 Co-Pay Rule: Your bonus covers 50% of this transaction (₦${actualBonusUsed.toLocaleString()}), but requires ₦${requiredPersonalCash.toLocaleString()} in personal cash. You need ₦${cashDeficit.toLocaleString()} more. Please transfer ₦${cashDeficit.toLocaleString()} to your dedicated Wema Bank account to complete this transaction!`;
+        
+        NotificationDispatcher.dispatch({
+          userId: user?.id,
+          email: cleanEmail,
+          title: '💳 50% Matching Deposit Needed',
+          category: 'wallet',
+          message: copayMsg
+        }).catch(() => {});
+
+        return {
+          allowed: false,
+          error: copayMsg,
+          statusCode: 400,
+          bonusSpendCapped: true,
+          maxBonusSpend: actualBonusUsed,
+          personalCashNeeded: cashDeficit,
+          remainingPersonalCashNeeded: cashDeficit,
+          copayRequiredCash: requiredPersonalCash,
+          bonusDrawn: actualBonusUsed,
+          organicCashBalance,
+          promotionalBonusTotal,
+          remainingToMilestone: Math.max(0, 3000 - cumulativeBonusEarned),
+          daysUntilBonusExpiry: balances.daysUntilBonusExpiry
+        };
+      }
+
+      // Hard ceiling of ₦3,000 bonus per transaction
+      if (bonusDrawn > this.MAX_BONUS_SPEND_APP) {
+        const personalCashNeeded = bonusDrawn - this.MAX_BONUS_SPEND_APP;
+        const blockMsg = `The maximum promotional bonus amount allowed per in-app transaction is ₦${this.MAX_BONUS_SPEND_APP.toLocaleString()}. Please cover the remaining balance with your personal cash.`;
+        return {
+          allowed: false,
+          error: blockMsg,
+          statusCode: 400,
+          bonusSpendCapped: true,
+          maxBonusSpend: this.MAX_BONUS_SPEND_APP,
+          personalCashNeeded,
+          remainingPersonalCashNeeded: personalCashNeeded,
+          bonusDrawn,
+          organicCashBalance,
+          promotionalBonusTotal,
+          remainingToMilestone: Math.max(0, 3000 - cumulativeBonusEarned),
+          daysUntilBonusExpiry: balances.daysUntilBonusExpiry
+        };
+      }
+    }
+
+    // 6. Withdrawal Minimum for Bonus Funds: Enforce ₦5,000 minimum withdrawal
     if (usageType === 'withdrawal' && amountRequested < 5000) {
       const blockMsg = 'The minimum withdrawal amount for bonus funds is ₦5,000. (Direct or external deposits can be withdrawn from ₦100).';
       NotificationDispatcher.dispatch({
