@@ -234,12 +234,13 @@ export class EmailTransportService {
     senderAddress: string,
     label: string
   ): Promise<SendMailResult> {
+    const activeKey = apiKey || process.env.RESEND_API_KEY || '';
     const replyTo = options.replyTo || DEFAULT_REPLY_TO;
 
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        'Authorization': `Bearer ${activeKey}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -276,10 +277,12 @@ export class EmailTransportService {
    */
   static async sendViaResend(options: SendMailOptions): Promise<SendMailResult> {
     try {
+      const activeKey = process.env.RESEND_API_KEY || RESEND_ROOT_KEY || '';
+      
       // 1. Primary: root domain security@myrentilly.com
       const primaryResult = await this.sendViaResendWithKey(
         options,
-        RESEND_ROOT_KEY,
+        activeKey,
         RESEND_ROOT_SENDER,
         'myrentilly.com'
       );
@@ -292,7 +295,7 @@ export class EmailTransportService {
       // 2. Secondary fallback: auth.myrentilly.com
       const secondaryResult = await this.sendViaResendWithKey(
         options,
-        RESEND_SECONDARY_KEY,
+        activeKey,
         RESEND_SECONDARY_SENDER,
         'auth.myrentilly.com'
       );
