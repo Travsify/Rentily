@@ -538,6 +538,174 @@ class _PartnerHubTabState extends State<_PartnerHubTab> {
                 ),
                 const SizedBox(height: 16),
 
+                // 2B. Partner ₦5,000 Bonus Quest & Activity Progress Card
+                Builder(builder: (_) {
+                  final hasListing = _mandateProperties.isNotEmpty;
+                  final hasNuban = _user?.accountNumber != null && _user!.accountNumber!.trim().isNotEmpty;
+                  final stepsCompleted = (isVerified ? 1 : 0) + (hasNuban ? 1 : 0) + (hasListing ? 1 : 0);
+                  final progressPct = stepsCompleted / 3.0;
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: hasListing ? const Color(0xFFBBF7D0) : const Color(0xFFFDE68A)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.03),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Row(
+                              children: [
+                                const Text('🎁', style: TextStyle(fontSize: 18)),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '₦5,000 PARTNER REWARD QUEST',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w900,
+                                    color: const Color(0xFF065F46),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: hasListing ? const Color(0xFFECFDF5) : const Color(0xFFFFFBEB),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: hasListing ? const Color(0xFFA7F3D0) : const Color(0xFFFDE68A),
+                                ),
+                              ),
+                              child: Text(
+                                hasListing ? 'UNLOCKED 🔓' : '${(progressPct * 100).toInt()}% COMPLETED',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 8.5,
+                                  fontWeight: FontWeight.w900,
+                                  color: hasListing ? const Color(0xFF047857) : const Color(0xFFB45309),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: LinearProgressIndicator(
+                            value: progressPct,
+                            minHeight: 6,
+                            backgroundColor: Colors.grey.shade200,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              hasListing ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        // Step 1: Corporate KYB
+                        Row(
+                          children: [
+                            Icon(
+                              isVerified ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                              size: 15,
+                              color: isVerified ? const Color(0xFF16A34A) : Colors.grey,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Step 1: Corporate CAC KYB Verified',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 10.5,
+                                  fontWeight: isVerified ? FontWeight.w700 : FontWeight.w500,
+                                  color: isVerified ? AppColors.textPrimary : AppColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        // Step 2: NUBAN Vault
+                        Row(
+                          children: [
+                            Icon(
+                              hasNuban ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                              size: 15,
+                              color: hasNuban ? const Color(0xFF16A34A) : Colors.grey,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Step 2: Dedicated Wema Settlement Account Assigned',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 10.5,
+                                  fontWeight: hasNuban ? FontWeight.w700 : FontWeight.w500,
+                                  color: hasNuban ? AppColors.textPrimary : AppColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        // Step 3: Verified Property Listing Mandate
+                        Row(
+                          children: [
+                            Icon(
+                              hasListing ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+                              size: 15,
+                              color: hasListing ? const Color(0xFF16A34A) : const Color(0xFFD97706),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Step 3: Upload 1 Verified Property Listing / Mandate',
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 10.5,
+                                  fontWeight: hasListing ? FontWeight.w700 : FontWeight.bold,
+                                  color: hasListing ? AppColors.textPrimary : const Color(0xFFB45309),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (!hasListing) ...[
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                if (_user != null) {
+                                  PartnerListingModal.show(context, user: _user!, onListingCreated: _loadPartnerData);
+                                }
+                              },
+                              icon: const Icon(Icons.add_home_work_rounded, size: 14, color: Color(0xFF047857)),
+                              label: Text(
+                                'Add Property Listing to Unlock ₦5,000 ➔',
+                                style: GoogleFonts.plusJakartaSans(fontSize: 10.5, fontWeight: FontWeight.w800, color: const Color(0xFF047857)),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Color(0xFF047857)),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  );
+                }),
+
                 // 3. Dedicated Settlement Bank Account Card (Strict KYC Gated)
                 if (!isVerified) ...[
                   Container(

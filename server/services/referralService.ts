@@ -10,6 +10,8 @@ export interface ReferralConfig {
   signupBonusAmount: number; // Default 1000 NGN
   referrerBonusAmount: number; // Default 500 NGN
   requireKycForPayout: boolean; // Default true
+  maxBonusSpendPerTx: number; // Default 3000 NGN (Max in-app bonus spend per transaction)
+  minBonusWithdrawalMilestone: number; // Default 5000 NGN (Minimum accumulated bonus required for withdrawal)
   updatedAt?: string;
 }
 
@@ -38,6 +40,8 @@ let _inMemoryReferralConfig: ReferralConfig = {
   signupBonusAmount: 1000,
   referrerBonusAmount: 500,
   requireKycForPayout: false,
+  maxBonusSpendPerTx: 3000,
+  minBonusWithdrawalMilestone: 5000,
   updatedAt: new Date().toISOString()
 };
 
@@ -133,6 +137,8 @@ export class ReferralService {
           _inMemoryReferralConfig = {
             ..._inMemoryReferralConfig,
             ...data.data,
+            maxBonusSpendPerTx: data.data.maxBonusSpendPerTx !== undefined ? Number(data.data.maxBonusSpendPerTx) : 3000,
+            minBonusWithdrawalMilestone: data.data.minBonusWithdrawalMilestone !== undefined ? Number(data.data.minBonusWithdrawalMilestone) : 5000,
             updatedAt: data.data.updatedAt || new Date().toISOString()
           };
         }
@@ -296,7 +302,8 @@ export class ReferralService {
         referrerRewardAmount = 0;
       }
     } else if (role === 'landlord' || role === 'owner') {
-      refereeRewardAmount = 1000;
+      // Landlords do not receive cash signup bonuses; incentive is zero fees & platform tools
+      refereeRewardAmount = 0;
       referrerRewardAmount = hasReferrer ? 500 : 0;
     } else {
       // Renter
@@ -348,6 +355,32 @@ export class ReferralService {
   }
 
   /**
+   * Strictly validates dual-gate requirements before ANY automated monetary credit:
+   * 1. Authentic Identity Verification (BVN/NIN for individual, genuine CAC + verified partnerStatus for partner)
+   * 2. Authentic 10-digit dedicated NUBAN (not synthetic '990...' and not empty)
+   */
+  public static isUserEligibleForAutomatedFunding(user: {
+    role?: string;
+    isVerified?: boolean;
+    bvnVerified?: boolean;
+    partnerStatus?: string;
+    cacNumber?: string | null;
+    accountNumber?: string | null;
+  }): boolean {
+    const acc = (user.accountNumber || '').trim();
+    const isAuthenticNuban = /^\d{10}$/.test(acc) && !acc.startsWith('990');
+    if (!isAuthenticNuban) return false;
+
+    if (user.role === 'partner') {
+      const cleanCac = (user.cacNumber || '').trim().replace(/\s+/g, '');
+      const hasValidCac = /^(RC|BN|IT|LLP)?[0-9]{6,8}$/i.test(cleanCac) && cleanCac.length >= 6;
+      return Boolean(user.isVerified && user.partnerStatus === 'verified' && hasValidCac);
+    }
+
+    return Boolean(user.isVerified && (user.bvnVerified || user.isVerified));
+  }
+
+  /**
    * Called when a user completes KYC or KYB verification to disburse ₦1,000 and ₦500
    * Strictly requires BOTH verified identity (KYC/KYB) AND an assigned dedicated bank account!
    */
@@ -362,25 +395,46 @@ export class ReferralService {
     const user = (await UserStore.findById(userId)) || (await UserStore.findByEmail(cleanEmail));
     let accountNumber = user?.accountNumber;
     let isVerified = Boolean(user?.isVerified || user?.bvnVerified);
+    let bvnVerified = Boolean(user?.bvnVerified);
+    let partnerStatus = user?.partnerStatus;
+    let cacNumber = user?.cacNumber;
+    let role = user?.role;
 
-    if (supabase && (!accountNumber || !isVerified)) {
+    // RACE CONDITION FIX: Always re-read from Supabase DB to confirm account_number
+    // is persisted before crediting the bonus. The in-memory UserStore (accountNumber above)
+    // may reflect a Fincra provisioning that succeeded but whose Supabase write failed
+    // silently (verificationController catch (_) {}). The DB is the authoritative source of
+    // truth — the bonus must NOT fire until account_number is written to profiles table.
+    if (supabase) {
       try {
         const { data: dbProf } = await supabase
           .from('profiles')
-          .select('is_verified, bvn_verified, account_number')
+          .select('is_verified, bvn_verified, account_number, role, partner_status, cac_number')
           .or(`id.eq.${userId},email.eq.${cleanEmail}`)
           .maybeSingle();
         if (dbProf) {
-          if (dbProf.account_number) accountNumber = dbProf.account_number;
+          // Authoritative DB value overrides in-memory cache unconditionally
+          accountNumber = dbProf.account_number || undefined;
           if (dbProf.is_verified || dbProf.bvn_verified) isVerified = true;
+          if (dbProf.bvn_verified) bvnVerified = true;
+          if (dbProf.partner_status) partnerStatus = dbProf.partner_status;
+          if (dbProf.cac_number) cacNumber = dbProf.cac_number;
+          if (dbProf.role) role = dbProf.role;
         }
       } catch (_) {}
     }
 
-    const hasDedicatedBankAccount = Boolean(accountNumber && accountNumber.trim().length >= 8);
+    const isEligible = this.isUserEligibleForAutomatedFunding({
+      role,
+      isVerified,
+      bvnVerified,
+      partnerStatus,
+      cacNumber,
+      accountNumber
+    });
 
-    if (!isVerified || !hasDedicatedBankAccount) {
-      console.log(`[ReferralService] User ${cleanEmail} is not yet eligible for referral rewards. Verified: ${isVerified}, Dedicated Bank Account: ${hasDedicatedBankAccount}. Status remains pending.`);
+    if (!isEligible) {
+      console.log(`[ReferralService] 🛑 Automated funding blocked for ${cleanEmail}. Requires BOTH genuine identity verification AND a dedicated 10-digit NUBAN. Acc: ${accountNumber || 'NONE'}`);
       return;
     }
 
@@ -408,7 +462,7 @@ export class ReferralService {
 
     // Standalone verified user without prior referral record: only pay once if not already credited
     if (!alreadyReceivedWelcome) {
-      if (user && isVerified && hasDedicatedBankAccount) {
+      if (user && isEligible) {
         await this.creditWelcomeBonus(user, config.signupBonusAmount);
       }
     }
@@ -416,7 +470,7 @@ export class ReferralService {
 
   /**
    * Disburses the actual monetary credits into wallet accounts & emits ledger transactions
-   * Dual-gated: Referee must have both verified status AND an assigned bank account.
+   * Dual-gated: Referee must have both verified status AND an assigned authentic 10-digit bank account.
    */
   private static async disburseRewards(record: ReferralRecord): Promise<void> {
     const config = await this.getConfig();
@@ -427,78 +481,133 @@ export class ReferralService {
     // Check referee verification AND dedicated bank account status
     const referee = await UserStore.findByEmail(record.refereeEmail) || await UserStore.findById(record.refereeId);
     let refAccNo = referee?.accountNumber;
-    let refVerified = Boolean(referee?.isVerified || referee?.bvnVerified);
+    let refVerified = Boolean(referee?.isVerified);
+    let refBvnVerified = Boolean(referee?.bvnVerified);
+    let refRole = referee?.role;
+    let refPartnerStatus = referee?.partnerStatus;
+    let refCac = referee?.cacNumber;
 
-    if (supabase && (!refAccNo || !refVerified)) {
+    // RACE CONDITION FIX: Always re-read from Supabase DB (mirrors processKycRewards fix).
+    // referral rewards must not disburse based on in-memory UserStore account_number if
+    // the corresponding DB write failed silently.
+    if (supabase) {
       try {
         const { data: prof } = await supabase
           .from('profiles')
-          .select('is_verified, bvn_verified, account_number')
+          .select('is_verified, bvn_verified, account_number, role, partner_status, cac_number')
           .or(`id.eq.${record.refereeId},email.eq.${record.refereeEmail}`)
           .maybeSingle();
         if (prof) {
-          if (prof.account_number) refAccNo = prof.account_number;
-          if (prof.is_verified || prof.bvn_verified) refVerified = true;
+          // Authoritative DB value overrides in-memory cache unconditionally
+          refAccNo = prof.account_number || undefined;
+          if (prof.is_verified) refVerified = true;
+          if (prof.bvn_verified) refBvnVerified = true;
+          if (prof.role) refRole = prof.role;
+          if (prof.partner_status) refPartnerStatus = prof.partner_status;
+          if (prof.cac_number) refCac = prof.cac_number;
         }
       } catch (_) {}
     }
 
-    const refereeEligible = refVerified && Boolean(refAccNo && refAccNo.trim().length >= 8);
+    const refereeEligible = this.isUserEligibleForAutomatedFunding({
+      role: refRole,
+      isVerified: refVerified,
+      bvnVerified: refBvnVerified,
+      partnerStatus: refPartnerStatus,
+      cacNumber: refCac,
+      accountNumber: refAccNo
+    });
 
     if (!refereeEligible) {
-      console.log(`[ReferralService] Reward disbursement held for ${record.refereeEmail}: Referee must complete verification and receive dedicated bank account.`);
+      console.log(`[ReferralService] 🛑 Reward disbursement held for ${record.refereeEmail}: Referee must complete verification and receive dedicated 10-digit NUBAN.`);
       return;
     }
 
     // 1. Credit Referee (+₦1,000 Welcome Bonus)
     if (record.refereeRewardStatus === 'pending_kyc' && record.refereeRewardAmount > 0) {
       if (referee) {
-        const prevBal = referee.walletBalance || 0;
-        referee.walletBalance = prevBal + record.refereeRewardAmount;
-        UserStore.upsertUserForced(referee);
+        // --- IDEMPOTENCY GUARD: Ensure referee welcome bonus is never credited twice ---
+        const refereeEmail = referee.email.toLowerCase().trim();
+        let refAlreadyCredited = false;
 
-        // Direct Supabase Cloud balance sync
-        if (supabase) {
+        // Check in-memory store
+        const refExistingTxs = await TransactionStore.getTransactionsByEmail(refereeEmail);
+        refAlreadyCredited = refExistingTxs.some(t =>
+          t.category === 'promotional_bonus' &&
+          (
+            (t.reference && t.reference.startsWith('REF-WELCOME-')) ||
+            (t.description && t.description.toLowerCase().includes('welcome')) ||
+            (t.title && t.title.toLowerCase().includes('welcome reward'))
+          )
+        );
+
+        // Double-check Supabase (survives restarts)
+        if (!refAlreadyCredited && supabase) {
           try {
-            await supabase.from('profiles').update({
-              wallet_balance: referee.walletBalance,
-              updated_at: now
-            }).eq('id', referee.id);
+            const { data: sbWelcome } = await supabase
+              .from('wallet_transactions')
+              .select('id')
+              .eq('email', refereeEmail)
+              .eq('category', 'promotional_bonus')
+              .or('tx_ref.ilike.REF-WELCOME-%,narration.ilike.%welcome%')
+              .limit(1)
+              .maybeSingle();
+            if (sbWelcome) refAlreadyCredited = true;
           } catch (_) {}
         }
 
-        // Record in transaction store
-        try {
-          await TransactionStore.addTransaction({
-            id: `tx_welcome_${referee.id.slice(0, 8)}_${Date.now()}`,
-            userId: referee.id,
-            email: referee.email.toLowerCase().trim(),
-            title: '🎉 Rentilly Welcome Reward',
-            description: `Instant Welcome Bonus (₦${record.refereeRewardAmount.toLocaleString()})`,
-            type: 'credit',
-            category: 'promotional_bonus',
-            amount: record.refereeRewardAmount,
-            currency: 'NGN',
-            isCredit: true,
-            reference: `REF-WELCOME-${Date.now().toString().slice(-6)}`,
-            status: 'SUCCESSFUL',
-            date: now
-          });
-        } catch (_) {}
+        if (refAlreadyCredited) {
+          console.log(`[ReferralService] ⚠️ Welcome bonus already credited for referee ${refereeEmail} — skipping duplicate. Marking as paid.`);
+          record.refereeRewardStatus = 'paid';
+        } else {
+          // --- END IDEMPOTENCY GUARD ---
+          const prevBal = referee.walletBalance || 0;
+          referee.walletBalance = prevBal + record.refereeRewardAmount;
+          UserStore.upsertUserForced(referee);
 
-        // Send Push & Email Notification
-        try {
-          NotificationDispatcher.dispatch({
-            userId: referee.id,
-            email: referee.email,
-            userName: referee.fullName,
-            category: 'wallet',
-            title: `₦${record.refereeRewardAmount.toLocaleString()} Welcome Bonus Credited! 🎉`,
-            message: `Congratulations ${referee.fullName || 'there'}! ₦${record.refereeRewardAmount.toLocaleString()} has been credited to your Rentilly wallet.`
-          });
-        } catch (_) {}
+          // Direct Supabase Cloud balance sync
+          if (supabase) {
+            try {
+              await supabase.from('profiles').update({
+                wallet_balance: referee.walletBalance,
+                updated_at: now
+              }).eq('id', referee.id);
+            } catch (_) {}
+          }
 
-        record.refereeRewardStatus = 'paid';
+          // Record in transaction store
+          try {
+            await TransactionStore.addTransaction({
+              id: `tx_welcome_${referee.id.slice(0, 8)}_${Date.now()}`,
+              userId: referee.id,
+              email: refereeEmail,
+              title: '🎉 Rentilly Welcome Reward',
+              description: `Instant Welcome Bonus (₦${record.refereeRewardAmount.toLocaleString()})`,
+              type: 'credit',
+              category: 'promotional_bonus',
+              amount: record.refereeRewardAmount,
+              currency: 'NGN',
+              isCredit: true,
+              reference: `REF-WELCOME-${Date.now().toString().slice(-6)}`,
+              status: 'SUCCESSFUL',
+              date: now
+            });
+          } catch (_) {}
+
+          // Send Push & Email Notification
+          try {
+            NotificationDispatcher.dispatch({
+              userId: referee.id,
+              email: referee.email,
+              userName: referee.fullName,
+              category: 'wallet',
+              title: `₦${record.refereeRewardAmount.toLocaleString()} Welcome Bonus Credited! 🎉`,
+              message: `Congratulations ${referee.fullName || 'there'}! ₦${record.refereeRewardAmount.toLocaleString()} has been credited to your Rentilly wallet.`
+            });
+          } catch (_) {}
+
+          record.refereeRewardStatus = 'paid';
+        }
       }
     }
 
@@ -506,52 +615,91 @@ export class ReferralService {
     if (record.referrerRewardStatus === 'pending_kyc' && record.referrerRewardAmount > 0 && record.referrerId) {
       const referrer = await UserStore.findByEmail(record.referrerEmail) || await UserStore.findById(record.referrerId);
       if (referrer) {
-        const prevBal = referrer.walletBalance || 0;
-        referrer.walletBalance = prevBal + record.referrerRewardAmount;
-        UserStore.upsertUserForced(referrer);
+        // --- IDEMPOTENCY GUARD: Ensure referrer bonus is never credited twice for same referral ---
+        const referrerEmail = referrer.email.toLowerCase().trim();
+        const refereeName = (record.refereeName || record.refereeEmail || '').toLowerCase();
+        let referrerAlreadyCredited = false;
 
-        // Direct Supabase Cloud balance sync
-        if (supabase) {
+        // Check in-memory store: look for a referral bonus mentioning this specific referee
+        const referrerExistingTxs = await TransactionStore.getTransactionsByEmail(referrerEmail);
+        referrerAlreadyCredited = referrerExistingTxs.some(t =>
+          t.category === 'promotional_bonus' &&
+          t.type === 'credit' &&
+          (
+            (t.reference && t.reference.startsWith('REF-BONUS-')) ||
+            (t.description && t.description.toLowerCase().includes('referral bonus'))
+          ) &&
+          (t.description && t.description.toLowerCase().includes(refereeName))
+        );
+
+        // Double-check Supabase (survives restarts)
+        if (!referrerAlreadyCredited && supabase) {
           try {
-            await supabase.from('profiles').update({
-              wallet_balance: referrer.walletBalance,
-              updated_at: now
-            }).eq('id', referrer.id);
+            const { data: sbBonus } = await supabase
+              .from('wallet_transactions')
+              .select('id')
+              .eq('email', referrerEmail)
+              .eq('category', 'promotional_bonus')
+              .or(`tx_ref.ilike.REF-BONUS-%,narration.ilike.%referral bonus%`)
+              .ilike('narration', `%${record.refereeEmail}%`)
+              .limit(1)
+              .maybeSingle();
+            if (sbBonus) referrerAlreadyCredited = true;
           } catch (_) {}
         }
 
-        // Record in transaction store
-        try {
-          await TransactionStore.addTransaction({
-            id: `tx_ref_${referrer.id.slice(0, 8)}_${Date.now()}`,
-            userId: referrer.id,
-            email: referrer.email.toLowerCase().trim(),
-            title: '🎁 Referral Bonus Earned',
-            description: `🎁 Referral Bonus - Invited ${record.refereeName || record.refereeEmail} (₦${record.referrerRewardAmount.toLocaleString()})`,
-            type: 'credit',
-            category: 'promotional_bonus',
-            amount: record.referrerRewardAmount,
-            currency: 'NGN',
-            isCredit: true,
-            reference: `REF-BONUS-${Date.now().toString().slice(-6)}`,
-            status: 'SUCCESSFUL',
-            date: now
-          });
-        } catch (_) {}
+        if (referrerAlreadyCredited) {
+          console.log(`[ReferralService] ⚠️ Referral bonus for ${referrerEmail} (referee: ${record.refereeEmail}) already credited — skipping duplicate. Marking as paid.`);
+          record.referrerRewardStatus = 'paid';
+        } else {
+          // --- END IDEMPOTENCY GUARD ---
+          const prevBal = referrer.walletBalance || 0;
+          referrer.walletBalance = prevBal + record.referrerRewardAmount;
+          UserStore.upsertUserForced(referrer);
 
-        // Send Push & Email Notification to Referrer
-        try {
-          NotificationDispatcher.dispatch({
-            userId: referrer.id,
-            email: referrer.email,
-            userName: referrer.fullName,
-            category: 'wallet',
-            title: `₦${record.referrerRewardAmount.toLocaleString()} Referral Bonus Earned! 🎁`,
-            message: `Your invitee ${record.refereeName || 'a new user'} just registered with your code. ₦${record.referrerRewardAmount.toLocaleString()} has been credited to your wallet!`
-          });
-        } catch (_) {}
+          // Direct Supabase Cloud balance sync
+          if (supabase) {
+            try {
+              await supabase.from('profiles').update({
+                wallet_balance: referrer.walletBalance,
+                updated_at: now
+              }).eq('id', referrer.id);
+            } catch (_) {}
+          }
 
-        record.referrerRewardStatus = 'paid';
+          // Record in transaction store
+          try {
+            await TransactionStore.addTransaction({
+              id: `tx_ref_${referrer.id.slice(0, 8)}_${Date.now()}`,
+              userId: referrer.id,
+              email: referrerEmail,
+              title: '🎁 Referral Bonus Earned',
+              description: `🎁 Referral Bonus - Invited ${record.refereeName || record.refereeEmail} (₦${record.referrerRewardAmount.toLocaleString()})`,
+              type: 'credit',
+              category: 'promotional_bonus',
+              amount: record.referrerRewardAmount,
+              currency: 'NGN',
+              isCredit: true,
+              reference: `REF-BONUS-${Date.now().toString().slice(-6)}`,
+              status: 'SUCCESSFUL',
+              date: now
+            });
+          } catch (_) {}
+
+          // Send Push & Email Notification to Referrer
+          try {
+            NotificationDispatcher.dispatch({
+              userId: referrer.id,
+              email: referrer.email,
+              userName: referrer.fullName,
+              category: 'wallet',
+              title: `₦${record.referrerRewardAmount.toLocaleString()} Referral Bonus Earned! 🎁`,
+              message: `Your invitee ${record.refereeName || 'a new user'} just registered with your code. ₦${record.referrerRewardAmount.toLocaleString()} has been credited to your wallet!`
+            });
+          } catch (_) {}
+
+          record.referrerRewardStatus = 'paid';
+        }
       }
     }
 
@@ -573,14 +721,62 @@ export class ReferralService {
 
   /**
    * Credits a standalone welcome bonus
+   * Idempotency guard: checks TransactionStore and Supabase before crediting to
+   * ensure the welcome bonus is NEVER issued twice to the same user.
    */
   private static async creditWelcomeBonus(user: StoredUser, amount: number): Promise<void> {
-    const hasDedicatedBankAccount = Boolean(user.accountNumber && user.accountNumber.trim().length >= 8);
-    const isVerified = Boolean(user.isVerified || user.bvnVerified);
-    if (!isVerified || !hasDedicatedBankAccount) {
-      console.log(`[ReferralService] Standalone welcome bonus held for ${user.email}: requires full verification & dedicated bank account.`);
+    // Landlords do not receive cash signup/welcome bonuses
+    if (user.role === 'owner' || user.role === 'landlord') {
+      console.log(`[ReferralService] ℹ️ Landlord ${user.email} excluded from cash welcome bonus (incentive is zero-fee platform services).`);
       return;
     }
+
+    const isEligible = this.isUserEligibleForAutomatedFunding(user);
+    if (!isEligible) {
+      console.log(`[ReferralService] 🛑 Standalone welcome bonus held for ${user.email}: requires full verification & dedicated 10-digit bank account.`);
+      return;
+    }
+
+    // --- IDEMPOTENCY GUARD: Prevent double-credit of welcome bonus ---
+    const cleanEmail = user.email.toLowerCase().trim();
+
+    // 1. Check in-memory TransactionStore
+    const existingTxs = await TransactionStore.getTransactionsByEmail(cleanEmail);
+    const alreadyCredited = existingTxs.some(t =>
+      t.category === 'promotional_bonus' &&
+      (
+        (t.description && t.description.toLowerCase().includes('welcome')) ||
+        (t.title && t.title.toLowerCase().includes('welcome')) ||
+        (t.reference && t.reference.startsWith('REF-WELCOME-'))
+      )
+    );
+
+    if (alreadyCredited) {
+      console.log(`[ReferralService] ⚠️ Welcome bonus already credited for ${cleanEmail} — skipping to prevent duplicate.`);
+      return;
+    }
+
+    // 2. Double-check against Supabase cloud wallet_transactions (survives restarts)
+    if (supabase) {
+      try {
+        const { data: sbTx } = await supabase
+          .from('wallet_transactions')
+          .select('id, narration, category, tx_ref')
+          .eq('email', cleanEmail)
+          .eq('category', 'promotional_bonus')
+          .or('narration.ilike.%welcome%,tx_ref.ilike.REF-WELCOME-%')
+          .limit(1)
+          .maybeSingle();
+
+        if (sbTx) {
+          console.log(`[ReferralService] ⚠️ Welcome bonus already exists in Supabase for ${cleanEmail} (id: ${sbTx.id}) — skipping duplicate credit.`);
+          return;
+        }
+      } catch (err: any) {
+        console.warn('[ReferralService] Idempotency Supabase check failed (proceeding cautiously):', err?.message);
+      }
+    }
+    // --- END IDEMPOTENCY GUARD ---
 
     const prevBal = user.walletBalance || 0;
     user.walletBalance = prevBal + amount;
@@ -594,7 +790,7 @@ export class ReferralService {
         title: '🎉 Rentilly Welcome Reward (KYC Verified)',
         description: 'Welcome Bonus for completing identity verification',
         type: 'credit',
-        category: 'wallet_funding',
+        category: 'promotional_bonus', // Fixed: was 'wallet_funding' — must be 'promotional_bonus' so bonusGovernanceService counts it toward the cumulative milestone
         amount,
         currency: 'NGN',
         isCredit: true,
@@ -610,8 +806,8 @@ export class ReferralService {
         email: user.email,
         userName: user.fullName,
         category: 'wallet',
-        title: '₦1,000 Welcome Bonus Credited! 🎉',
-        message: `Congratulations ${user.fullName || 'there'}! ₦${amount.toLocaleString()} has been credited to your Rentilly wallet.`
+        title: '🎉 Welcome Bonus Credited!',
+        message: `Your ₦${amount.toLocaleString()} welcome bonus has been added to your account! Earn ₦3,000 in total bonuses to start spending, or ₦5,000 to withdraw.`
       });
     } catch (_) {}
   }
