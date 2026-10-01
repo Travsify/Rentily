@@ -18,10 +18,21 @@ import '../screens/shared/qr_scanner_screen.dart';
 class WithdrawalModal extends StatefulWidget {
   final UserProfile user;
   final Function(double newBalance) onWithdrawalSuccess;
+  final Map<String, dynamic>? balanceBreakdown;
 
-  const WithdrawalModal({super.key, required this.user, required this.onWithdrawalSuccess});
+  const WithdrawalModal({
+    super.key,
+    required this.user,
+    required this.onWithdrawalSuccess,
+    this.balanceBreakdown,
+  });
 
-  static void show(BuildContext context, {required UserProfile user, required Function(double) onWithdrawalSuccess}) {
+  static void show(
+    BuildContext context, {
+    required UserProfile user,
+    required Function(double) onWithdrawalSuccess,
+    Map<String, dynamic>? balanceBreakdown,
+  }) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -29,7 +40,11 @@ class WithdrawalModal extends StatefulWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (_) => WithdrawalModal(user: user, onWithdrawalSuccess: onWithdrawalSuccess),
+      builder: (_) => WithdrawalModal(
+        user: user,
+        onWithdrawalSuccess: onWithdrawalSuccess,
+        balanceBreakdown: balanceBreakdown,
+      ),
     );
   }
 
@@ -70,6 +85,14 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
   List<Map<String, dynamic>> _filteredBeneficiaries = [];
   bool _isLoadingBeneficiaries = false;
   Map<String, dynamic>? _selectedBeneficiary;
+
+  // Balance Breakdown Governance Fields
+  double _organicCashBalance = 0.0;
+  double _promotionalBonusTotal = 0.0;
+  double _cumulativeBonusEarned = 0.0;
+  bool _bonusWithdrawalUnlocked = false;
+  double _maxBonusSpendApp = 3000.0;
+  double _minBonusWithdrawalMilestone = 5000.0;
 
   double get _enteredAmount {
     return double.tryParse(_amountController.text.replaceAll(',', '').trim()) ?? 0.0;
@@ -126,10 +149,53 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
   @override
   void initState() {
     super.initState();
+    _initBalanceBreakdown();
     _fetchPaystackBanks();
     _fetchSpreadRates();
     _fetchPlatformFees();
     _loadBeneficiaries();
+  }
+
+  void _initBalanceBreakdown() {
+    if (widget.balanceBreakdown != null) {
+      _applyBreakdown(widget.balanceBreakdown!);
+    } else {
+      _organicCashBalance = widget.user.organicCashBalance > 0
+          ? widget.user.organicCashBalance
+          : (widget.user.promotionalBonusTotal > 0
+              ? (widget.user.walletBalance - widget.user.promotionalBonusTotal).clamp(0.0, double.infinity)
+              : widget.user.walletBalance);
+      _promotionalBonusTotal = widget.user.promotionalBonusTotal;
+      _cumulativeBonusEarned = widget.user.cumulativeBonusEarned;
+      _bonusWithdrawalUnlocked = widget.user.bonusWithdrawalUnlocked || _cumulativeBonusEarned >= 5000.0;
+      _minBonusWithdrawalMilestone = widget.user.minBonusWithdrawalMilestone;
+      _maxBonusSpendApp = widget.user.maxBonusSpendApp;
+      _fetchLiveBreakdown();
+    }
+  }
+
+  void _applyBreakdown(Map<String, dynamic> data) {
+    setState(() {
+      _organicCashBalance = (data['organicCashBalance'] as num?)?.toDouble() ?? widget.user.walletBalance;
+      _promotionalBonusTotal = (data['promotionalBonusTotal'] as num?)?.toDouble() ?? 0.0;
+      _cumulativeBonusEarned = (data['cumulativeBonusEarned'] as num?)?.toDouble() ?? 0.0;
+      _bonusWithdrawalUnlocked = (data['bonusWithdrawalUnlocked'] as bool?) ?? (_cumulativeBonusEarned >= 5000.0);
+      _maxBonusSpendApp = (data['maxBonusSpendApp'] as num?)?.toDouble() ?? 3000.0;
+      _minBonusWithdrawalMilestone = (data['minBonusWithdrawalMilestone'] as num?)?.toDouble() ?? 5000.0;
+    });
+  }
+
+  Future<void> _fetchLiveBreakdown() async {
+    try {
+      final url = Uri.parse('${AppConstants.apiBaseUrl}/wallet/balance?userId=${widget.user.id}&email=${widget.user.email}');
+      final res = await http.get(url).timeout(const Duration(seconds: 10));
+      if (res.statusCode == 200 && mounted) {
+        final data = json.decode(res.body);
+        if (data is Map<String, dynamic>) {
+          _applyBreakdown(data);
+        }
+      }
+    } catch (e) { debugPrint('[withdrawal_modal] error: $e'); }
   }
 
   @override
@@ -144,7 +210,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
     super.dispose();
   }
 
-  void _loadBeneficiaries() async {
+  Future<void> _loadBeneficiaries() async {
     setState(() => _isLoadingBeneficiaries = true);
     final list = await BeneficiaryService.getBeneficiaries(userEmail: widget.user.email);
     if (mounted) {
@@ -206,7 +272,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
     });
   }
 
-  void _resolvePlatformRecipient(String query) async {
+  Future<void> _resolvePlatformRecipient(String query) async {
     final clean = query.trim();
     if (clean.length < 3) {
       setState(() {
@@ -470,7 +536,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
     );
   }
 
-  void _fetchPlatformFees() async {
+  Future<void> _fetchPlatformFees() async {
     try {
       final url = Uri.parse('${AppConstants.apiBaseUrl}/config/fees');
       final res = await http.get(url).timeout(const Duration(seconds: 10));
@@ -484,10 +550,10 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
           }
         }
       }
-    } catch (_) {}
+    } catch (e) { debugPrint('[withdrawal_modal] error: $e'); }
   }
 
-  void _fetchSpreadRates() async {
+  Future<void> _fetchSpreadRates() async {
     final rates = await ApiService.fetchSpreadRates();
     if (mounted) {
       setState(() {
@@ -496,7 +562,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
     }
   }
 
-  void _fetchPaystackBanks() async {
+  Future<void> _fetchPaystackBanks() async {
     setState(() => _isLoadingBanks = true);
     try {
       final url = Uri.parse('${AppConstants.apiBaseUrl}/payments/paystack-banks');
@@ -522,7 +588,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
           return;
         }
       }
-    } catch (_) {}
+    } catch (e) { debugPrint('[withdrawal_modal] error: $e'); }
 
     setState(() => _isLoadingBanks = false);
   }
@@ -641,7 +707,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
     );
   }
 
-  void _resolveAccount() async {
+  Future<void> _resolveAccount() async {
     final accNum = _accountController.text.trim();
     if (accNum.length != 10) {
       setState(() {
@@ -691,7 +757,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
     }
   }
 
-  void _executeWithdrawal() async {
+  Future<void> _executeWithdrawal() async {
     final currentUser = await AuthService.getCurrentUser() ?? widget.user;
     final currentBal = currentUser.walletBalance;
     final availUsdt = currentUser.usdtBalance;
@@ -716,6 +782,27 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
       if (totalNgnRequired > currentBal) {
         setState(() => _errorMessage = 'Insufficient funds. Available balance: ₦${NumberFormat('#,##0.00').format(currentBal)}');
         return;
+      }
+
+      // Bonus Governance Validation: Check if withdrawal draws from promotional bonus funds
+      final double effectiveOrganic = _organicCashBalance > 0 ? _organicCashBalance : currentBal;
+      final double bonusDrawn = (totalNgnRequired - effectiveOrganic).clamp(0.0, double.infinity);
+      if (bonusDrawn > 0) {
+        if (!_bonusWithdrawalUnlocked && _cumulativeBonusEarned < _minBonusWithdrawalMilestone) {
+          final double remaining = (_minBonusWithdrawalMilestone - _cumulativeBonusEarned).clamp(0.0, _minBonusWithdrawalMilestone);
+          setState(() {
+            _errorMessage = '₦${NumberFormat('#,##0.00').format(bonusDrawn)} of this withdrawal draws from referral bonus funds.\n\n'
+                '• Referral bonuses unlock for bank withdrawal once you reach the ₦5,000 milestone (Current: ₦${NumberFormat('#,##0.00').format(_cumulativeBonusEarned)} / ₦5,000, ₦${NumberFormat('#,##0.00').format(remaining)} remaining).\n'
+                '• You can withdraw up to ₦${NumberFormat('#,##0.00').format(effectiveOrganic)} in personal deposits immediately.\n'
+                '• You can also spend up to ₦3,000 bonus on in-app utilities & bills.';
+          });
+          return;
+        } else if (totalNgnRequired < 5000) {
+          setState(() {
+            _errorMessage = 'When drawing from bonus funds, the minimum withdrawal amount is ₦5,000. (Personal deposits can be withdrawn from ₦100).';
+          });
+          return;
+        }
       }
     }
 
@@ -1253,28 +1340,212 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
             ),
             const SizedBox(height: 10),
 
-            // Bonus & Referral Policy Notice
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEFF6FF),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFFBFDBFE)),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFF2563EB)),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Flexible Withdrawals: Personal deposits can be withdrawn at any amount. Referral & bonus rewards unlock for flexible bank payouts once you achieve ₦3,000 in bonus earnings. Alternatively, bonus balances can be spent anytime for platform utilities, electricity, and airtime with zero minimum.',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: const Color(0xFF1E40AF), height: 1.35),
+            // Balance Composition & Bonus Governance Notice
+            if (_withdrawalMode == 'NGN') ...[
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8FAFC),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        // Withdrawable Cash Chip
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFECFDF5),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: const Color(0xFFA7F3D0)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.check_circle_rounded, size: 12, color: Color(0xFF059669)),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'WITHDRAWABLE CASH',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 7.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: const Color(0xFF065F46),
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '₦${NumberFormat('#,##0.00').format(_organicCashBalance > 0 ? _organicCashBalance : widget.user.walletBalance)}',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w900,
+                                    color: const Color(0xFF065F46),
+                                  ),
+                                ),
+                                Text(
+                                  'Instant bank payout',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 8.5,
+                                    color: const Color(0xFF047857),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // Referral Bonus Chip
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: _bonusWithdrawalUnlocked || _cumulativeBonusEarned >= 5000
+                                  ? const Color(0xFFECFDF5)
+                                  : const Color(0xFFFFFBEB),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: _bonusWithdrawalUnlocked || _cumulativeBonusEarned >= 5000
+                                    ? const Color(0xFFA7F3D0)
+                                    : const Color(0xFFFDE68A),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      _bonusWithdrawalUnlocked || _cumulativeBonusEarned >= 5000
+                                          ? Icons.lock_open_rounded
+                                          : Icons.stars_rounded,
+                                      size: 12,
+                                      color: _bonusWithdrawalUnlocked || _cumulativeBonusEarned >= 5000
+                                          ? const Color(0xFF059669)
+                                          : const Color(0xFFD97706),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'REFERRAL BONUS',
+                                      style: GoogleFonts.plusJakartaSans(
+                                        fontSize: 7.5,
+                                        fontWeight: FontWeight.w800,
+                                        color: _bonusWithdrawalUnlocked || _cumulativeBonusEarned >= 5000
+                                            ? const Color(0xFF065F46)
+                                            : const Color(0xFF92400E),
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '₦${NumberFormat('#,##0.00').format(_promotionalBonusTotal)}',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w900,
+                                    color: _bonusWithdrawalUnlocked || _cumulativeBonusEarned >= 5000
+                                        ? const Color(0xFF065F46)
+                                        : const Color(0xFF92400E),
+                                  ),
+                                ),
+                                Text(
+                                  _bonusWithdrawalUnlocked || _cumulativeBonusEarned >= 5000
+                                      ? 'Unlocked for payout'
+                                      : 'In-app utility spend',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 8.5,
+                                    color: _bonusWithdrawalUnlocked || _cumulativeBonusEarned >= 5000
+                                        ? const Color(0xFF047857)
+                                        : const Color(0xFFB45309),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            (!widget.user.isVerified || (widget.user.role == 'partner' && widget.user.partnerStatus != 'verified'))
+                                ? Icons.shield_outlined
+                                : (_bonusWithdrawalUnlocked || _cumulativeBonusEarned >= 5000
+                                    ? Icons.verified_rounded
+                                    : Icons.info_outline_rounded),
+                            size: 14,
+                            color: (!widget.user.isVerified || (widget.user.role == 'partner' && widget.user.partnerStatus != 'verified'))
+                                ? const Color(0xFFD97706)
+                                : (_bonusWithdrawalUnlocked || _cumulativeBonusEarned >= 5000
+                                    ? const Color(0xFF059669)
+                                    : const Color(0xFF2563EB)),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              (!widget.user.isVerified || (widget.user.role == 'partner' && widget.user.partnerStatus != 'verified'))
+                                  ? '⚠️ Verification Required: Your promotional balance is visible in your wallet, but locked from bank withdrawals until full KYC/KYB identity & certified government CAC documents are approved.'
+                                  : (_bonusWithdrawalUnlocked || _cumulativeBonusEarned >= 5000
+                                      ? '🎉 Milestone Achieved (₦${_minBonusWithdrawalMilestone.toStringAsFixed(0)}): Referral bonus funds are unlocked and withdrawable to your bank!'
+                                      : 'Earn ₦${_minBonusWithdrawalMilestone.toStringAsFixed(0)} in referrals to unlock bank withdrawals, or spend up to ₦${_maxBonusSpendApp.toStringAsFixed(0)} bonus for in-app utilities. Personal deposits can be withdrawn anytime from ₦100.'),
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 9.5,
+                                color: (!widget.user.isVerified || (widget.user.role == 'partner' && widget.user.partnerStatus != 'verified'))
+                                    ? const Color(0xFF92400E)
+                                    : (_bonusWithdrawalUnlocked || _cumulativeBonusEarned >= 5000
+                                        ? const Color(0xFF065F46)
+                                        : const Color(0xFF1E40AF)),
+                                height: 1.35,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+            ] else ...[
+              // Bonus & Referral Policy Notice for USDT
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFBFDBFE)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFF2563EB)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'USDT balances can be transferred to other Rentilly users for free, or withdrawn on-chain to Solana SPL wallets.',
+                        style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: const Color(0xFF1E40AF), height: 1.35),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             if (_errorMessage != null) ...[
               Container(
@@ -1604,7 +1875,10 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
                     if (_withdrawalMode == 'USDT') {
                       _amountController.text = widget.user.usdtBalance.toStringAsFixed(2);
                     } else {
-                      _amountController.text = widget.user.walletBalance.toStringAsFixed(0);
+                      final double maxWithdrawable = (_bonusWithdrawalUnlocked || _cumulativeBonusEarned >= 5000)
+                          ? widget.user.walletBalance
+                          : (_organicCashBalance > 0 ? _organicCashBalance : widget.user.walletBalance);
+                      _amountController.text = maxWithdrawable.toStringAsFixed(0);
                     }
                     setState(() {});
                   },
@@ -1617,7 +1891,9 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
                     child: Text(
                       _withdrawalMode == 'USDT'
                           ? 'Avail: \$${widget.user.usdtBalance.toStringAsFixed(2)} USDT (Max)'
-                          : 'Avail: ₦${NumberFormat('#,##0.00').format(widget.user.walletBalance)} (Max)',
+                          : (_bonusWithdrawalUnlocked || _cumulativeBonusEarned >= 5000)
+                              ? 'Avail: ₦${NumberFormat('#,##0.00').format(widget.user.walletBalance)} (Max)'
+                              : 'Withdrawable: ₦${NumberFormat('#,##0.00').format(_organicCashBalance > 0 ? _organicCashBalance : widget.user.walletBalance)} (Max)',
                       style: GoogleFonts.plusJakartaSans(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary),
                     ),
                   ),
@@ -1644,6 +1920,38 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
               ),
               onChanged: (_) => setState(() {}),
             ),
+            if (_withdrawalMode == 'NGN' &&
+                !_bonusWithdrawalUnlocked &&
+                _cumulativeBonusEarned < 5000 &&
+                _enteredAmount > (_organicCashBalance > 0 ? _organicCashBalance : widget.user.walletBalance)) ...[
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFFBEB),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFFDE68A)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.warning_amber_rounded, size: 16, color: Color(0xFFD97706)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        '⚠️ ₦${NumberFormat('#,##0.00').format(_enteredAmount - (_organicCashBalance > 0 ? _organicCashBalance : widget.user.walletBalance))} of this withdrawal requires unlocked referral bonus. You can withdraw up to ₦${NumberFormat('#,##0.00').format(_organicCashBalance > 0 ? _organicCashBalance : widget.user.walletBalance)} personal cash now, or spend up to ₦3,000 bonus on airtime & bills.',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 10.5,
+                          color: const Color(0xFF92400E),
+                          height: 1.35,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 10),
 
             // Live Conversion / Fee Banner for USDT
@@ -1820,7 +2128,7 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
                 controller: _platformRecipientController,
                 style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
                 decoration: InputDecoration(
-                  hintText: 'e.g. patrick@gmail.com or RT-84920192',
+                  hintText: 'e.g. chinedu@gmail.com or RT-84920192',
                   hintStyle: GoogleFonts.plusJakartaSans(fontSize: 11.5, color: AppColors.textMuted),
                   filled: true,
                   fillColor: const Color(0xFFF9FAFB),
@@ -2105,29 +2413,42 @@ class _WithdrawalModalState extends State<WithdrawalModal> {
             const SizedBox(height: 14),
 
             // Action Button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _isProcessing ? null : _executeWithdrawal,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _withdrawalMode == 'USDT' ? const Color(0xFF07382B) : AppColors.primary,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                child: _isProcessing
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : Text(
-                        _withdrawalMode == 'USDT'
-                            ? (_usdtDestinationType == 'PLATFORM'
-                                ? 'Send ${_enteredAmount.toStringAsFixed(2)} USDT (0% Fee)'
-                                : (_usdtDestinationType == 'ONCHAIN' || _usdtDestinationType == 'CRYPTO'
-                                    ? 'Authorize & Send ${_enteredAmount.toStringAsFixed(2)} USDT' 
-                                    : 'Convert & Payout ₦${NumberFormat('#,##0.00').format(_computedNgnAmount)}'))
-                            : 'Authorize & Send ₦${NumberFormat('#,##0.00').format(_computedNgnAmount)}',
-                        style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold),
-                      ),
-              ),
+            Builder(
+              builder: (context) {
+                final bool isBonusLockedAndExcess = _withdrawalMode == 'NGN' &&
+                    !_bonusWithdrawalUnlocked &&
+                    _cumulativeBonusEarned < 5000 &&
+                    _enteredAmount > (_organicCashBalance > 0 ? _organicCashBalance : widget.user.walletBalance);
+
+                return SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: (_isProcessing || isBonusLockedAndExcess) ? null : _executeWithdrawal,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isBonusLockedAndExcess
+                          ? Colors.grey.shade400
+                          : (_withdrawalMode == 'USDT' ? const Color(0xFF07382B) : AppColors.primary),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: _isProcessing
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : Text(
+                            isBonusLockedAndExcess
+                                ? 'Referral Bonus Locked (Earn ₦5,000 to Unlock)'
+                                : (_withdrawalMode == 'USDT'
+                                    ? (_usdtDestinationType == 'PLATFORM'
+                                        ? 'Send ${_enteredAmount.toStringAsFixed(2)} USDT (0% Fee)'
+                                        : (_usdtDestinationType == 'ONCHAIN' || _usdtDestinationType == 'CRYPTO'
+                                            ? 'Authorize & Send ${_enteredAmount.toStringAsFixed(2)} USDT' 
+                                            : 'Convert & Payout ₦${NumberFormat('#,##0.00').format(_computedNgnAmount)}'))
+                                    : 'Authorize & Send ₦${NumberFormat('#,##0.00').format(_computedNgnAmount)}'),
+                            style: GoogleFonts.plusJakartaSans(fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                  ),
+                );
+              },
             ),
           ],
         ),

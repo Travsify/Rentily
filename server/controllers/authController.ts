@@ -16,10 +16,10 @@ import { isMobileAppRequest } from '../middleware/mobileAppOnlyMiddleware';
 const DEFAULT_INITIAL_PASS = process.env.ADMIN_INITIAL_PASSWORD || process.env.ADMIN_PASSWORD || 'Andrewtate2024./';
 const DEFAULT_INITIAL_HARSH = process.env.ADMIN_HARSH_KEY || 'Brevity230./';
 
-export let ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'info@travsify.com';
+export let ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'info@myrentilly.com';
 export let ADMIN_PASSWORD = DEFAULT_INITIAL_PASS;
 export let ADMIN_HARSH_KEY = DEFAULT_INITIAL_HARSH;
-export let ADMIN_NAME = process.env.ADMIN_NAME || 'Travsify Executive Admin';
+export let ADMIN_NAME = process.env.ADMIN_NAME || 'Rentilly Executive Admin';
 
 const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET || 'rentilly_admin_sec_sig_key_2026_9b8c';
 
@@ -30,7 +30,7 @@ export function createAdminSessionToken(email: string): string {
   const timestamp = Date.now();
   const payload = Buffer.from(JSON.stringify({ email, ts: timestamp })).toString('base64url');
   const signature = crypto.createHmac('sha256', ADMIN_SESSION_SECRET).update(payload).digest('base64url');
-  return `admin-token-travsify.${payload}.${signature}`;
+  return `admin-token-rentilly.${payload}.${signature}`;
 }
 
 /**
@@ -41,8 +41,8 @@ export function verifyAdminSessionToken(token: string): { valid: boolean; email?
   const clean = token.replace(/^Bearer\s+/i, '').trim();
 
   // Backward compatibility: allow active legacy token for 24h transition
-  if (clean.startsWith('admin-token-travsify-')) {
-    const rawTs = parseInt(clean.replace('admin-token-travsify-', ''), 10);
+  if (clean.startsWith('admin-token-rentilly-') || clean.startsWith('admin-token-travsify-')) {
+    const rawTs = parseInt(clean.replace(/^admin-token-(rentilly|travsify)-/, ''), 10);
     if (!isNaN(rawTs) && Date.now() - rawTs < 24 * 60 * 60 * 1000) {
       return { valid: true, email: ADMIN_EMAIL };
     }
@@ -50,7 +50,7 @@ export function verifyAdminSessionToken(token: string): { valid: boolean; email?
   }
 
   const parts = clean.split('.');
-  if (parts.length !== 3 || parts[0] !== 'admin-token-travsify') {
+  if (parts.length !== 3 || (parts[0] !== 'admin-token-rentilly' && parts[0] !== 'admin-token-travsify')) {
     return { valid: false };
   }
 
@@ -384,7 +384,7 @@ export async function getMe(req: Request, res: Response) {
   if (adminSession.valid) {
     return res.json({
       user: {
-        id: 'usr-admin-travsify-01',
+        id: 'usr-admin-rentilly-01',
         fullName: ADMIN_NAME,
         email: adminSession.email || ADMIN_EMAIL,
         phoneNumber: '+2348000000000',
@@ -445,21 +445,84 @@ export async function getMe(req: Request, res: Response) {
 
 export async function listUsers(_req: Request, res: Response) {
   try {
-    const users = UserStore.getAllUsers();
-    
-    // Query Supabase profiles & system_configs for live balances
-    let profilesMap = new Map<string, any>();
+    const localUsers = UserStore.getAllUsers();
+    const usersMap = new Map<string, any>();
+
+    // 1. Pre-populate with local users
+    localUsers.forEach(u => {
+      if (u.email) usersMap.set(u.email.toLowerCase().trim(), { ...u });
+    });
+
     let usdtMap = new Map<string, number>();
     let tronMap = new Map<string, string>();
 
+    // 2. Fetch ALL users from Supabase profiles using range pagination
     if (supabase) {
       try {
-        const { data: profs } = await supabase.from('profiles').select('id, email, wallet_balance, is_verified, role, full_name, phone_number, account_number, bank_name');
-        if (profs) {
-          profs.forEach((p: any) => {
-            if (p.email) profilesMap.set(p.email.toLowerCase().trim(), p);
-          });
+        const { count } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
+        const total = count || 0;
+        const pageSize = 1000;
+        let from = 0;
+
+        while (from < total) {
+          const { data: profs, error } = await supabase
+            .from('profiles')
+            .select('id, email, wallet_balance, is_verified, bvn_verified, role, full_name, phone_number, account_number, bank_name, nin_number, state, business_name, cac_number, created_at')
+            .range(from, from + pageSize - 1);
+
+          if (error) {
+            console.warn('[listUsers] Supabase page error at', from, error.message);
+            break;
+          }
+
+          if (profs && profs.length > 0) {
+            profs.forEach((p: any) => {
+              const em = (p.email || '').toLowerCase().trim();
+              if (!em) return;
+
+              const existing = usersMap.get(em);
+              if (existing) {
+                // Merge with Supabase truth
+                existing.id = p.id || existing.id;
+                existing.fullName = p.full_name || existing.fullName;
+                existing.phoneNumber = p.phone_number || existing.phoneNumber;
+                existing.accountNumber = p.account_number || existing.accountNumber;
+                existing.bankName = p.bank_name || existing.bankName;
+                existing.role = p.role || existing.role;
+                existing.isVerified = p.is_verified ?? existing.isVerified;
+                existing.bvnVerified = p.bvn_verified ?? existing.bvnVerified;
+                existing.walletBalance = p.wallet_balance != null ? Number(p.wallet_balance) : (existing.walletBalance || 0);
+                existing.createdAt = p.created_at || existing.createdAt;
+              } else {
+                // New user found only in Supabase
+                usersMap.set(em, {
+                  id: p.id,
+                  fullName: p.full_name || 'Rentilly User',
+                  email: em,
+                  phoneNumber: p.phone_number || '',
+                  role: p.role || 'renter',
+                  buyerType: (p.role === 'partner' || p.business_name) ? 'corporate' : 'personal',
+                  isVerified: Boolean(p.is_verified),
+                  ninNumber: p.nin_number || '',
+                  bvnVerified: Boolean(p.bvn_verified),
+                  accountNumber: p.account_number || '',
+                  bankName: p.bank_name || '',
+                  state: p.state || 'Lagos',
+                  businessName: p.business_name || '',
+                  cacNumber: p.cac_number || '',
+                  partnerStatus: p.cac_number ? 'verified' : 'unverified',
+                  walletBalance: p.wallet_balance != null ? Number(p.wallet_balance) : 0,
+                  usdtBalance: 0,
+                  usdtTronAddress: null,
+                  createdAt: p.created_at || new Date().toISOString()
+                });
+              }
+            });
+          }
+
+          from += pageSize;
         }
+
         const { data: cfgs } = await supabase.from('system_configs').select('id, data');
         if (cfgs) {
           cfgs.forEach((c: any) => {
@@ -473,43 +536,43 @@ export async function listUsers(_req: Request, res: Response) {
           });
         }
       } catch (e: any) {
-        console.warn('[listUsers] Supabase live balance hydration notice:', e.message);
+        console.warn('[listUsers] Supabase hydration notice:', e.message);
       }
     }
 
-    const sanitized = users.map(u => {
+    const allMerged = Array.from(usersMap.values()).map(u => {
       const em = (u.email || '').toLowerCase().trim();
-      const prof = profilesMap.get(em);
       const usdtBal = usdtMap.get(em) ?? u.usdtBalance ?? 0;
       const tronAddr = tronMap.get(em) ?? u.usdtTronAddress ?? null;
-      const liveBal = prof?.wallet_balance != null ? Number(prof.wallet_balance) : (u.walletBalance || 0);
 
-      const isPartner = u.role === 'partner' || u.role === 'broker' || u.buyerType === 'corporate' || Boolean(u.businessName && u.cacNumber) || u.partnerStatus === 'verified';
-      const effectiveRole = isPartner ? 'partner' : (u.role === 'partner' ? 'partner' : (prof?.role || u.role));
+      const isPartner = u.role === 'partner' || u.role === 'broker' || u.buyerType === 'corporate' || Boolean(u.businessName && u.cacNumber);
+      const effectiveRole = isPartner ? 'partner' : u.role;
 
       return {
-        id: prof?.id || u.id,
-        fullName: prof?.full_name || u.fullName,
+        id: u.id,
+        fullName: u.fullName,
         email: u.email,
-        phoneNumber: prof?.phone_number || u.phoneNumber,
+        phoneNumber: u.phoneNumber,
         role: effectiveRole,
         buyerType: u.buyerType || (isPartner ? 'corporate' : 'personal'),
-        isVerified: isPartner ? true : (prof?.is_verified ?? u.isVerified),
+        isVerified: Boolean(u.isVerified),
         ninNumber: u.ninNumber,
-        bvnVerified: u.bvnVerified,
-        accountNumber: prof?.account_number || u.accountNumber,
-        bankName: prof?.bank_name || u.bankName,
+        bvnVerified: Boolean(u.bvnVerified),
+        accountNumber: u.accountNumber,
+        bankName: u.bankName,
         state: u.state,
         businessName: u.businessName,
         cacNumber: u.cacNumber,
-        partnerStatus: isPartner ? (u.partnerStatus || 'verified') : u.partnerStatus,
-        walletBalance: liveBal,
+        partnerStatus: u.partnerStatus,
+        walletBalance: u.walletBalance || 0,
         usdtBalance: usdtBal,
         usdtTronAddress: tronAddr,
         createdAt: u.createdAt
       };
     });
-    return res.json(sanitized);
+
+    console.log(`[listUsers] ✅ Dispatched ${allMerged.length} total users to admin desk.`);
+    return res.json(allMerged);
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
   }
@@ -851,6 +914,7 @@ export async function loginWithOtp(req: Request, res: Response) {
     }
 
     const cleanEmail = email.toLowerCase().trim();
+    // Strictly verify 6-digit OTP code against OtpStore (No bypass)
     const verification = OtpStore.verifyOtp(cleanEmail, code);
     if (!verification.valid) {
       return res.status(400).json({ error: verification.message || 'Invalid or expired OTP code' });
@@ -875,7 +939,7 @@ export async function loginWithOtp(req: Request, res: Response) {
           businessName: data.business_name,
           cacNumber: data.cac_number,
           officeAddress: data.office_address,
-          partnerStatus: data.business_name ? 'verified' : 'unverified',
+          partnerStatus: (data.is_verified && data.cac_number && data.partner_status === 'verified') ? 'verified' : (data.partner_status || 'unverified'),
           walletBalance: Number(data.wallet_balance || 0),
           createdAt: data.created_at || new Date().toISOString(),
           updatedAt: new Date().toISOString()
@@ -1494,7 +1558,7 @@ export async function verifyAdmin2fa(req: Request, res: Response) {
 
     const token = createAdminSessionToken(cleanEmail);
     const adminUser = {
-      id: 'usr-admin-travsify-01',
+      id: 'usr-admin-rentilly-01',
       email: cleanEmail,
       fullName: ADMIN_NAME,
       role: 'admin',
@@ -1737,7 +1801,7 @@ export async function verifyAdminTotp(req: Request, res: Response) {
 
     const token = createAdminSessionToken(cleanEmail);
     const adminUser = {
-      id: 'usr-admin-travsify-01',
+      id: 'usr-admin-rentilly-01',
       email: cleanEmail,
       fullName: ADMIN_NAME,
       role: 'admin',
@@ -1805,12 +1869,12 @@ export async function getAdminProfile(req: Request, res: Response) {
     return res.json({
       status: true,
       profile: {
-        id: 'usr-admin-travsify-01',
+        id: 'usr-admin-rentilly-01',
         email: ADMIN_EMAIL,
         fullName: ADMIN_NAME,
         role: 'Executive Super Admin',
         title: 'Master Treasury & Platform Controller',
-        organization: 'Travsify Technologies Limited / Rentilly Protocol',
+        organization: 'E-Homes Global Inclusive Limited / Rentilly Protocol',
         clearanceLevel: 'Tier-1 Sovereign Authority',
         isVerified: true,
         mfaConfigured: !!totpConfig?.configured,

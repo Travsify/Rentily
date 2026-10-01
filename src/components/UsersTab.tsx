@@ -80,6 +80,12 @@ export const UsersTab: React.FC<UsersTabProps> = ({ users }) => {
     }
   }, [users]);
 
+  const isValidCacNumber = (cac?: string | null) => {
+    if (!cac) return false;
+    const clean = cac.trim().replace(/\s+/g, '');
+    return /^(RC|BN|IT|LLP)?[0-9]{6,8}$/i.test(clean) && clean.length >= 6 && !/^(.)\1+$/.test(clean);
+  };
+
   const isUserPartner = (u: any) => 
     u.role === 'partner' || 
     u.role === 'broker' || 
@@ -418,15 +424,25 @@ export const UsersTab: React.FC<UsersTabProps> = ({ users }) => {
                       </td>
                       <td className="py-3">
                         {isUserPartner(u) ? (
-                          anyU.cacNumber ? (
+                          isValidCacNumber(anyU.cacNumber) && (u.isVerified || anyU.partnerStatus === 'verified' || anyU.accountNumber) ? (
                             <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full">
                               <ShieldCheck className="w-3 h-3" />
                               <span>CAC Accredited</span>
                             </span>
-                          ) : (
+                          ) : isValidCacNumber(anyU.cacNumber) ? (
                             <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-full">
                               <Clock className="w-3 h-3" />
-                              <span>CAC Pending</span>
+                              <span>CAC Pending Review</span>
+                            </span>
+                          ) : anyU.cacNumber ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/30 px-2 py-0.5 rounded-full">
+                              <AlertCircle className="w-3 h-3" />
+                              <span>CAC Unverified</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full">
+                              <Clock className="w-3 h-3" />
+                              <span>CAC Required</span>
                             </span>
                           )
                         ) : anyU.accountNumber ? (
