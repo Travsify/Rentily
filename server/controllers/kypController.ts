@@ -3,6 +3,7 @@ import { supabase } from '../supabaseClient';
 import type { KYPRecord } from '../types';
 import { AdminDataStore } from '../services/adminDataStore';
 import { NotificationDispatcher } from '../services/notificationDispatcher';
+import { BonusGovernanceService } from '../services/bonusGovernanceService';
 
 export async function getKYPRecords(req: Request, res: Response) {
   try {
@@ -132,6 +133,18 @@ export async function reviewKYP(req: Request, res: Response) {
           status: 'verified'
         }
       });
+
+      // 4. Automatically trigger Corporate Partner Mandate Bounty if listing is eligible
+      try {
+        const beneficiaryId = updated.ownerId;
+        const propId = updated.propertyId;
+        const propTitle = updated.propertyTitle || 'Certified Mandate Property';
+        if (beneficiaryId && propId) {
+          await BonusGovernanceService.creditPartnerMandateBounty(beneficiaryId, propId, propTitle);
+        }
+      } catch (bountyErr) {
+        console.error('[reviewKYP] Error evaluating partner mandate bounty:', bountyErr);
+      }
     } else if (status === 'rejected') {
       NotificationDispatcher.dispatch({
         userId: updated.ownerId,

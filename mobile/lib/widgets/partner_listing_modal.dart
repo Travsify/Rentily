@@ -75,7 +75,6 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
   // Address Auto-Verification & Geo-Lock
   bool _isAddressVerified = false;
   bool _isVerifyingAddress = false;
-  String? _verifiedFormattedAddress;
 
   final List<String> _knownEstates = const [
     'Admiralty Way, Lekki Phase 1, Eti-Osa, Lagos',
@@ -100,8 +99,6 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
   String? _titleDocFileName;
   String? _meterBillFilePath;
   String? _meterBillFileName;
-  bool _hasUploadedTitleDoc = true;
-  bool _hasUploadedElectricityBill = true;
   bool _agreedToTitleWarranty = true;
 
   // Partner Mandate & Presence Fields
@@ -118,14 +115,13 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
 
   final NumberFormat _currencyFormat = NumberFormat('#,###');
 
-  void _pickTitleDocument() async {
+  Future<void> _pickTitleDocument() async {
     try {
       final XFile? file = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
       if (file != null) {
         setState(() {
           _titleDocFilePath = file.path;
           _titleDocFileName = file.name;
-          _hasUploadedTitleDoc = true;
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -138,17 +134,16 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
           );
         }
       }
-    } catch (_) {}
+    } catch (e) { debugPrint('[partner_listing_modal] error: $e'); }
   }
 
-  void _pickMeterBill() async {
+  Future<void> _pickMeterBill() async {
     try {
       final XFile? file = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
       if (file != null) {
         setState(() {
           _meterBillFilePath = file.path;
           _meterBillFileName = file.name;
-          _hasUploadedElectricityBill = true;
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -161,10 +156,10 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
           );
         }
       }
-    } catch (_) {}
+    } catch (e) { debugPrint('[partner_listing_modal] error: $e'); }
   }
 
-  void _pickPresencePhoto() async {
+  Future<void> _pickPresencePhoto() async {
     try {
       final XFile? file = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85) ??
                           await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
@@ -184,10 +179,10 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
           );
         }
       }
-    } catch (_) {}
+    } catch (e) { debugPrint('[partner_listing_modal] error: $e'); }
   }
 
-  void _pickPowerOfAttorney() async {
+  Future<void> _pickPowerOfAttorney() async {
     try {
       final XFile? file = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
       if (file != null) {
@@ -206,17 +201,34 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
           );
         }
       }
-    } catch (_) {}
+    } catch (e) { debugPrint('[partner_listing_modal] error: $e'); }
+  }
+
+  Future<void> _pickPartnerMeterBill() async {
+    try {
+      final XFile? file = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+      if (file != null) {
+        setState(() {
+          _partnerMeterBillPath = file.path;
+          _partnerMeterBillName = file.name;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Property Utility Bill Attached: ${file.name} ⚡✓', style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.bold)),
+              backgroundColor: const Color(0xFF16A34A),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
+    } catch (e) { debugPrint('[partner_listing_modal] error: $e'); }
   }
 
   @override
   void initState() {
     super.initState();
-    // Default preview photos if user hasn't added gallery photos yet
-    _uploadedImages.addAll([
-      'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800',
-      'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800',
-    ]);
   }
 
   @override
@@ -238,7 +250,7 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
   double get _partnerCommission => _purpose == 'rent' ? _basePrice * 0.025 : _basePrice * 0.02;
 
   // 1. Pick Multiple Property Photos
-  void _pickImages() async {
+  Future<void> _pickImages() async {
     try {
       final List<XFile> images = await _picker.pickMultiImage(imageQuality: 85);
       if (images.isNotEmpty) {
@@ -246,11 +258,11 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
           _uploadedImages.addAll(images.map((img) => img.path));
         });
       }
-    } catch (_) {}
+    } catch (e) { debugPrint('[partner_listing_modal] error: $e'); }
   }
 
   // 2. Capture Camera Photo inside Property
-  void _takePhoto() async {
+  Future<void> _takePhoto() async {
     try {
       final XFile? image = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85);
       if (image != null) {
@@ -258,11 +270,11 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
           _uploadedImages.add(image.path);
         });
       }
-    } catch (_) {}
+    } catch (e) { debugPrint('[partner_listing_modal] error: $e'); }
   }
 
   // 3. Pick 4K Video Walkthrough
-  void _pickVideo() async {
+  Future<void> _pickVideo() async {
     try {
       final XFile? video = await _picker.pickVideo(source: ImageSource.gallery, maxDuration: const Duration(minutes: 3));
       if (video != null) {
@@ -278,11 +290,11 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
           );
         }
       }
-    } catch (_) {}
+    } catch (e) { debugPrint('[partner_listing_modal] error: $e'); }
   }
 
   // 4. Auto-Verify & Geo-Lock Address
-  void _autoVerifyAddress() async {
+  Future<void> _autoVerifyAddress() async {
     final raw = _addressController.text.trim();
     if (raw.isEmpty) {
       _showToast('Please enter the street or estate address first.');
@@ -310,7 +322,6 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
     setState(() {
       _isVerifyingAddress = false;
       _isAddressVerified = true;
-      _verifiedFormattedAddress = formatted;
       _addressController.text = formatted;
     });
 
@@ -336,7 +347,7 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
     }
   }
 
-  void _handleSubmit() async {
+  Future<void> _handleSubmit() async {
     final title = _titleController.text.trim();
     final address = _addressController.text.trim();
     final price = _basePrice;
@@ -372,7 +383,11 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
         return;
       }
       if (_powerOfAttorneyPath == null || _powerOfAttorneyPath!.isEmpty) {
-        _showToast('Mandate Required: Please upload the signed Power of Attorney from the property owner.');
+        _showToast('Mandate Required: Please upload the signed Power of Attorney / Mandate Agreement.');
+        return;
+      }
+      if (_partnerMeterBillPath == null || _partnerMeterBillPath!.isEmpty) {
+        _showToast('Utility Bill Required: Please attach the property utility bill (EKEDC/IKEDC/Water Bill ≤ 3 months).');
         return;
       }
     }
@@ -430,17 +445,70 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
     await prefs.setStringList('rentilly_listed_address_hashes', existingHashes);
     await prefs.setStringList('rentilly_active_media_hashes', activeMediaHashes);
 
-    await Future.delayed(const Duration(milliseconds: 900));
+    // Both Landlord and Partner listings require Compliance audit before going live
+    const propertyStatus = 'pending_kyp';
 
-    // Ensure valid status enum accepted by Supabase property_status
-    final propertyStatus = _isDirectLandlord ? 'pending_kyp' : 'verified';
-    final fallbackImages = [
-      'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800',
-      'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800',
-    ];
-    final validImages = _uploadedImages.where((i) => i.startsWith('http')).isNotEmpty
-        ? _uploadedImages.where((i) => i.startsWith('http')).toList()
-        : fallbackImages;
+    // Upload any local file paths to the server and collect remote URLs
+    final List<String> validImages = [];
+    for (final imgPath in _uploadedImages) {
+      if (imgPath.startsWith('http')) {
+        validImages.add(imgPath);
+      } else {
+        try {
+          final file = File(imgPath);
+          final bytes = await file.readAsBytes();
+          final fileName = imgPath.split('/').last.split('\\').last;
+          final url = await ApiService.uploadPropertyImage(bytes: bytes, fileName: fileName);
+          if (url != null && url.isNotEmpty) {
+            validImages.add(url);
+          } else {
+            debugPrint('[PartnerListingModal] uploadPropertyImage returned null for: $imgPath');
+          }
+        } catch (e) {
+          debugPrint('[PartnerListingModal] Failed to read/upload image $imgPath: $e');
+        }
+      }
+    }
+
+    if (validImages.isEmpty) {
+      setState(() => _isSubmitting = false);
+      _showToast('Please add at least one property photo before submitting.');
+      return;
+    }
+
+    // Remote upload verification documents
+    String? finalPoaUrl = _powerOfAttorneyPath;
+    if (_powerOfAttorneyPath != null && !_powerOfAttorneyPath!.startsWith('http')) {
+      try {
+        final f = File(_powerOfAttorneyPath!);
+        final b = await f.readAsBytes();
+        final name = _powerOfAttorneyPath!.split('/').last.split('\\').last;
+        final url = await ApiService.uploadPropertyImage(bytes: b, fileName: name);
+        if (url != null && url.isNotEmpty) finalPoaUrl = url;
+      } catch (_) {}
+    }
+
+    String? finalPresenceUrl = _presencePhotoPath;
+    if (_presencePhotoPath != null && !_presencePhotoPath!.startsWith('http')) {
+      try {
+        final f = File(_presencePhotoPath!);
+        final b = await f.readAsBytes();
+        final name = _presencePhotoPath!.split('/').last.split('\\').last;
+        final url = await ApiService.uploadPropertyImage(bytes: b, fileName: name);
+        if (url != null && url.isNotEmpty) finalPresenceUrl = url;
+      } catch (_) {}
+    }
+
+    String? finalUtilityUrl = _meterBillFilePath ?? _partnerMeterBillPath;
+    if (finalUtilityUrl != null && !finalUtilityUrl.startsWith('http')) {
+      try {
+        final f = File(finalUtilityUrl);
+        final b = await f.readAsBytes();
+        final name = finalUtilityUrl.split('/').last.split('\\').last;
+        final url = await ApiService.uploadPropertyImage(bytes: b, fileName: name);
+        if (url != null && url.isNotEmpty) finalUtilityUrl = url;
+      } catch (_) {}
+    }
 
     final newProp = Property(
       id: '',
@@ -484,18 +552,30 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
       partnerBusinessName: _isDirectLandlord ? null : widget.user.businessName,
       partnerCacNumber: _isDirectLandlord ? null : widget.user.cacNumber,
       partnerCommissionRate: _isDirectLandlord ? 0.0 : (_purpose == 'rent' ? 0.025 : 0.02),
-      partnerPresencePhotoUrl: _presencePhotoPath,
-      powerOfAttorneyUrl: _powerOfAttorneyPath,
+      partnerPresencePhotoUrl: finalPresenceUrl,
+      powerOfAttorneyUrl: finalPoaUrl,
       inspectionFee: inspection,
       propertyAddressHash: addressHash,
       mandateRef: _isDirectLandlord ? null : (_mandateRefController.text.trim().isNotEmpty ? _mandateRefController.text.trim() : null),
-      electricityBillUrl: _meterBillFilePath ?? _partnerMeterBillPath,
+      electricityBillUrl: finalUtilityUrl,
     );
 
     // Publish to Live Server Database
+    bool listingCreated = false;
     try {
-      await ApiService.createProperty(newProp);
-    } catch (_) {}
+      listingCreated = await ApiService.createProperty(newProp);
+    } catch (e) {
+      debugPrint('[PartnerListingModal] createProperty threw: $e');
+      listingCreated = false;
+    }
+
+    if (!listingCreated) {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+        _showToast('Failed to submit listing. Please check your connection and try again.');
+      }
+      return;
+    }
 
     if (_isDirectLandlord) {
       await NotificationService.addNotification(
@@ -850,7 +930,7 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
         Text('3. PROPERTY CATEGORY', style: _labelStyle),
         const SizedBox(height: 8),
         DropdownButtonFormField<String>(
-          value: _propertyType,
+          initialValue: _propertyType,
           decoration: _inputDeco(hint: 'Select Category'),
           style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textPrimary, fontWeight: FontWeight.bold),
           items: const [
@@ -1648,6 +1728,85 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // ₦20,000 Corporate Bounty Announcement Banner
+                Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF064E3B), Color(0xFF047857)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF059669).withValues(alpha: 0.2),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.stars_rounded, color: Color(0xFFFBBF24), size: 24),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  '₦20,000 MANDATE BOUNTY',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w900,
+                                    color: const Color(0xFFFBBF24),
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    'INSTANT PAYOUT',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 8,
+                                      fontWeight: FontWeight.w800,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Upload signed Exclusive Mandate + Property Utility Bill. Upon compliance approval, ₦20,000 is credited to your Wema Bank Operating Vault for immediate withdrawal!',
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 9.5,
+                                color: Colors.white.withValues(alpha: 0.92),
+                                height: 1.3,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
                 Row(
                   children: [
                     const Icon(Icons.verified_user_rounded, size: 16, color: AppColors.primary),
@@ -1657,7 +1816,7 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'To eliminate ghost listings and protect renters, corporate partners must upload an in-property selfie and signed Power of Attorney from the owner.',
+                  'To eliminate ghost listings and protect renters, corporate partners must upload an in-property selfie, signed Power of Attorney, and a property utility bill.',
                   style: GoogleFonts.plusJakartaSans(fontSize: 10.5, color: AppColors.textSecondary, height: 1.35),
                 ),
                 const SizedBox(height: 12),
@@ -1758,6 +1917,51 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 8),
+
+                // 3. Property Utility Bill (Clickable)
+                InkWell(
+                  onTap: _pickPartnerMeterBill,
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: _partnerMeterBillPath != null ? const Color(0xFFDCFCE7) : const Color(0xFFF0FDF4),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: _partnerMeterBillPath != null ? const Color(0xFF16A34A) : const Color(0xFFBBF7D0),
+                        width: _partnerMeterBillPath != null ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _partnerMeterBillPath != null ? Icons.check_circle_rounded : Icons.electric_bolt_rounded,
+                          size: 18,
+                          color: const Color(0xFF16A34A),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _partnerMeterBillPath != null ? 'Property Utility Bill Attached ✓' : 'Property Utility Bill (Mandatory for Bounty) ⚡',
+                                style: GoogleFonts.plusJakartaSans(fontSize: 9.5, fontWeight: FontWeight.bold, color: const Color(0xFF166534)),
+                              ),
+                              Text(
+                                _partnerMeterBillName ?? 'Attach EKEDC / IKEDC / Water Bill (≤ 3 months old)',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.plusJakartaSans(fontSize: 8, color: const Color(0xFF15803D)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 10),
 
@@ -1903,7 +2107,7 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
               const SizedBox(height: 8),
               _buildSummaryRow('Property Title', _titleController.text.trim().isNotEmpty ? _titleController.text.trim() : 'Not entered'),
               _buildSummaryRow('Purpose & Type', '${_purpose == 'rent' ? 'For Rent (Annual)' : 'For Sale'} • ${_propertyType.replaceAll('_', ' ').toUpperCase()}'),
-              _buildSummaryRow('Financials', '₦${_currencyFormat.format(_basePrice)} (${_bedrooms} Bed • ${_bathrooms} Bath)'),
+              _buildSummaryRow('Financials', '₦${_currencyFormat.format(_basePrice)} ($_bedrooms Bed • $_bathrooms Bath)'),
               _buildSummaryRow('Furnishing', '${_furnishing.replaceAll('_', ' ').toUpperCase()} • ${_condition.replaceAll('_', ' ').toUpperCase()}'),
               _buildSummaryRow('Features (${_selectedFeatures.length})', _selectedFeatures.isEmpty ? 'None selected' : _selectedFeatures.join(', ')),
               _buildSummaryRow('Location', '${_addressController.text.trim().isNotEmpty ? _addressController.text.trim() : "Not specified"}, $_selectedLga, $_selectedState'),
@@ -2053,7 +2257,6 @@ class _PartnerListingModalState extends State<PartnerListingModal> {
         setState(() {
           _addressController.text = estate;
           _isAddressVerified = true;
-          _verifiedFormattedAddress = estate;
         });
       },
       child: Container(

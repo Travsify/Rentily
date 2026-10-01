@@ -4,6 +4,7 @@ import { supabase } from '../supabaseClient';
 import type { Property, KYPRecord } from '../types';
 import { AdminDataStore } from '../services/adminDataStore';
 import { verifyAdminSessionToken } from './authController';
+import { BonusGovernanceService } from '../services/bonusGovernanceService';
 
 export async function getProperties(req: Request, res: Response) {
   try {
@@ -311,15 +312,15 @@ export async function createProperty(req: Request, res: Response) {
       ownerName: newProperty.ownerName,
       ownerEmail: body.ownerEmail || `${newProperty.ownerId}@myrentilly.com`,
       ownerPhone: newProperty.ownerPhone,
-      titleDocumentType: body.titleDocumentType || 'deed_of_assignment',
-      titleDocumentNumber: body.titleDocumentNumber || `TITLE-${Date.now()}`,
-      titleDocumentUrls: body.titleDocumentUrls || (body.titleDocumentUrl ? [body.titleDocumentUrl] : []),
-      ownerIdType: body.ownerIdType || 'NIN',
-      ownerIdNumber: body.ownerIdNumber || '',
-      ownerIdUrl: body.ownerIdUrl || '',
+      titleDocumentType: body.titleDocumentType || (body.listedByRole === 'verified_partner' ? 'mandate_agreement' : 'deed_of_assignment'),
+      titleDocumentNumber: body.mandateRef || body.mandate_ref || body.titleDocumentNumber || `TITLE-${Date.now()}`,
+      titleDocumentUrls: body.titleDocumentUrls || (body.powerOfAttorneyUrl ? [body.powerOfAttorneyUrl] : (body.power_of_attorney_url ? [body.power_of_attorney_url] : (body.titleDocumentUrl ? [body.titleDocumentUrl] : []))),
+      ownerIdType: body.ownerIdType || (body.listedByRole === 'verified_partner' ? 'CAC' : 'NIN'),
+      ownerIdNumber: body.partnerCacNumber || body.ownerIdNumber || '',
+      ownerIdUrl: body.partnerPresencePhotoUrl || body.ownerIdUrl || '',
       discoProvider: body.discoProvider || 'EKEDC',
       discoMeterNumber: body.discoMeterNumber || '',
-      utilityBillUrl: body.utilityBillUrl || '',
+      utilityBillUrl: body.utilityBillUrl || body.utility_bill_url || body.electricityBillUrl || body.electricity_bill_url || body.meterBillUrl || '',
       landRegistrySearchStatus: 'pending',
       status: 'pending',
       listedByRole: body.listedByRole || 'direct_landlord',
@@ -328,7 +329,7 @@ export async function createProperty(req: Request, res: Response) {
       partnerBusinessName: body.partnerBusinessName,
       partnerCacNumber: body.partnerCacNumber,
       partnerPresencePhotoUrl: body.partnerPresencePhotoUrl,
-      powerOfAttorneyUrl: body.powerOfAttorneyUrl,
+      powerOfAttorneyUrl: body.powerOfAttorneyUrl || body.power_of_attorney_url,
       submittedAt: now,
     };
 
@@ -379,6 +380,13 @@ export async function createProperty(req: Request, res: Response) {
             owner_id: kypRecord.ownerId,
             title_document_type: kypRecord.titleDocumentType,
             title_document_number: kypRecord.titleDocumentNumber,
+            title_document_urls: kypRecord.titleDocumentUrls,
+            utility_bill_url: kypRecord.utilityBillUrl,
+            disco_meter_number: kypRecord.discoMeterNumber,
+            disco_provider: kypRecord.discoProvider,
+            owner_id_type: kypRecord.ownerIdType,
+            owner_id_number: kypRecord.ownerIdNumber,
+            owner_id_url: kypRecord.ownerIdUrl,
             status: 'pending',
             submitted_at: now
           });
@@ -464,6 +472,23 @@ export async function updatePropertyStatus(req: Request, res: Response) {
     if (!updated && storeUpdated) updated = storeUpdated;
 
     if (!updated) return res.status(404).json({ error: 'Property not found' });
+
+    // Automatically trigger Corporate Partner Mandate Bounty if property is verified/approved
+    if (status === 'verified' || status === 'approved') {
+      try {
+        const beneficiaryId = updated.partnerId || updated.ownerId;
+        if (beneficiaryId) {
+          await BonusGovernanceService.creditPartnerMandateBounty(
+            beneficiaryId,
+            updated.id,
+            updated.title
+          );
+        }
+      } catch (bountyErr) {
+        console.error('[updatePropertyStatus] Error evaluating partner mandate bounty:', bountyErr);
+      }
+    }
+
     res.json(updated);
   } catch (err: any) {
     res.status(500).json({ error: err.message });

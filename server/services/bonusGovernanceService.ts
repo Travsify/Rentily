@@ -2,6 +2,7 @@ import { supabase } from '../supabaseClient';
 import { UserStore, StoredUser } from './userStore';
 import { TransactionStore } from './transactionStore';
 import { NotificationDispatcher } from './notificationDispatcher';
+import { AdminDataStore } from './adminDataStore';
 
 export interface VerificationCheckResult {
   verified: boolean;
@@ -79,6 +80,7 @@ export class BonusGovernanceService {
   public static readonly MIN_BONUS_WITHDRAWAL_MILESTONE: number = 5000;
   public static readonly MIN_BONUS_SPEND_MILESTONE: number = 3000;
   public static readonly MIN_ORGANIC_WITHDRAWAL: number = 100;
+  public static readonly PARTNER_MANDATE_BOUNTY: number = 20000; // ₦20,000 Verified Property Mandate Bounty
   /**
    * Checks if an email belongs to a system administrator
    */
@@ -604,7 +606,7 @@ export class BonusGovernanceService {
       }
 
       if (!partnerHasListing) {
-        const partnerBlockMsg = 'To withdraw your ₦5,000 Partner Bonus, your corporate firm must add at least 1 verified property listing or mandate to Rentilly. Upload a property to unlock immediate withdrawal!';
+        const partnerBlockMsg = 'To withdraw your ₦20,000 Partner Bounty, your corporate firm must add at least 1 verified property listing with signed mandate and utility bill. Upload your property to unlock immediate withdrawal!';
         NotificationDispatcher.dispatch({
           userId: user?.id,
           email: cleanEmail,
@@ -631,5 +633,214 @@ export class BonusGovernanceService {
       promotionalBonusTotal,
       remainingToMilestone: 0
     };
+  }
+
+  /**
+   * Automatically credits the ₦20,000 Verified Partner Mandate Bounty
+   * when Admin approves a property that includes both a title mandate and utility bill.
+   * Idempotent: Can only be paid once per partner/firm.
+   */
+  public static async creditPartnerMandateBounty(partnerIdOrEmail: string, propertyId: string, propertyTitle: string): Promise<boolean> {
+    try {
+      const clean = (partnerIdOrEmail || '').toLowerCase().trim();
+      let user = (await UserStore.findByEmail(clean)) || (await UserStore.findById(clean));
+
+      // Fetch profile from Supabase if not found locally
+      if (!user && supabase) {
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('*')
+          .or(`id.eq.${clean},email.eq.${clean}`)
+          .maybeSingle();
+        if (prof) {
+          user = {
+            id: prof.id,
+            email: prof.email,
+            fullName: prof.full_name || prof.business_name || 'Rentilly Partner',
+            phoneNumber: prof.phone_number || '',
+            role: prof.role || 'partner',
+            isVerified: prof.is_verified,
+            bvnVerified: prof.bvn_verified,
+            accountNumber: prof.account_number,
+            bankName: prof.bank_name || 'Wema Bank',
+            walletBalance: Number(prof.wallet_balance || 0),
+            createdAt: prof.created_at
+          } as any;
+        }
+      }
+
+      if (!user) {
+        console.warn(`[creditPartnerMandateBounty] ⚠️ User ${partnerIdOrEmail} not found`);
+        return false;
+      }
+
+      const email = user.email.toLowerCase().trim();
+
+      // Check role: strictly Corporate / Verified Partner (NOT direct landlord or renter)
+      const role = (user.role || '').toLowerCase();
+      const hasCac = Boolean((user as any).cacNumber || (user as any).cac_number || (user as any).businessName || (user as any).business_name);
+      const isPartner = role === 'partner' || role === 'corporate_partner' || hasCac;
+
+      if (!isPartner) {
+        console.log(`[creditPartnerMandateBounty] ℹ️ User ${email} is not a partner (role: ${role}). ₦20,000 Mandate Bounty is exclusively for Corporate Partners.`);
+        return false;
+      }
+
+      // Idempotency: Check if partner has already received the ₦20,000 mandate bounty
+      const existingTxs = await TransactionStore.getTransactionsByEmail(email);
+      const alreadyCredited = existingTxs.some(t =>
+        (t.reference && t.reference.startsWith('RNT-BOUNTY-MANDATE-')) ||
+        (t.title && t.title.includes('₦20,000 Verified Partner Mandate Bounty')) ||
+        (t.description && t.description.includes('First Property Mandate Bounty'))
+      );
+
+      if (alreadyCredited) {
+        console.log(`[creditPartnerMandateBounty] ℹ️ Partner ${email} already received their ₦20,000 first mandate bounty.`);
+        return false;
+      }
+
+      // Also check cloud system_configs for guaranteed permanence
+      if (supabase) {
+        try {
+          const { data: configCheck } = await supabase
+            .from('system_configs')
+            .select('id')
+            .eq('id', `bounty_mandate_${user.id}`)
+            .maybeSingle();
+          if (configCheck) {
+            console.log(`[creditPartnerMandateBounty] ℹ️ Cloud record exists for partner ${email} bounty.`);
+            return false;
+          }
+        } catch (_) {}
+      }
+
+      // Mandate & Utility Bill Verification:
+      let propRecord: any = AdminDataStore.getPropertyById(propertyId);
+      let kypRecord: any = AdminDataStore.getKYP().find(k => k.propertyId === propertyId || k.id === propertyId);
+
+      if ((!propRecord || !kypRecord) && supabase) {
+        try {
+          if (!propRecord) {
+            const { data: pData } = await supabase.from('properties').select('*').eq('id', propertyId).maybeSingle();
+            if (pData) propRecord = pData;
+          }
+          if (!kypRecord) {
+            const { data: kData } = await supabase.from('kyp_verifications').select('*').eq('property_id', propertyId).maybeSingle();
+            if (kData) kypRecord = kData;
+          }
+        } catch (_) {}
+      }
+
+      const hasMandate = Boolean(
+        propRecord?.powerOfAttorneyUrl ||
+        propRecord?.power_of_attorney_url ||
+        propRecord?.mandateRef ||
+        propRecord?.mandate_ref ||
+        (kypRecord?.titleDocumentUrls && kypRecord.titleDocumentUrls.length > 0) ||
+        (kypRecord?.title_document_urls && kypRecord.title_document_urls.length > 0) ||
+        kypRecord?.title_document_number ||
+        kypRecord?.titleDocumentNumber
+      );
+
+      const hasUtility = Boolean(
+        propRecord?.electricityBillUrl ||
+        propRecord?.electricity_bill_url ||
+        propRecord?.utilityBillUrl ||
+        propRecord?.utility_bill_url ||
+        kypRecord?.utilityBillUrl ||
+        kypRecord?.utility_bill_url ||
+        kypRecord?.discoMeterNumber ||
+        kypRecord?.disco_meter_number
+      );
+
+      if (!hasMandate || !hasUtility) {
+        console.warn(`[creditPartnerMandateBounty] ⚠️ Property ${propertyId} missing mandate or utility bill (mandate: ${hasMandate}, utility: ${hasUtility})`);
+        return false;
+      }
+
+      const bountyAmount = this.PARTNER_MANDATE_BOUNTY; // ₦20,000
+      const prevBal = Number(user.walletBalance || 0);
+      user.walletBalance = prevBal + bountyAmount;
+      await UserStore.upsertUserForced(user);
+
+      const now = new Date().toISOString();
+
+      // Sync Supabase wallet balance
+      if (supabase) {
+        try {
+          await supabase.from('profiles').update({
+            wallet_balance: user.walletBalance,
+            updated_at: now
+          }).eq('id', user.id);
+
+          await supabase.from('system_configs').upsert({
+            id: `bounty_mandate_${user.id}`,
+            data: {
+              partnerId: user.id,
+              partnerEmail: email,
+              propertyId,
+              propertyTitle,
+              amount: bountyAmount,
+              creditedAt: now
+            },
+            updated_at: now
+          });
+        } catch (dbErr: any) {
+          console.error('[creditPartnerMandateBounty] Supabase update error:', dbErr?.message);
+        }
+      }
+
+      // Record transaction
+      const txRef = `RNT-BOUNTY-MANDATE-${Date.now().toString().slice(-6)}`;
+      await TransactionStore.addTransaction({
+        id: `tx_bounty_${Date.now()}`,
+        userId: user.id,
+        email,
+        title: '🎉 ₦20,000 Verified Partner Mandate Bounty',
+        description: `Certified First Property Mandate Bounty: "${propertyTitle}" (Title Mandate + Utility Bill Approved)`,
+        type: 'credit',
+        category: 'promotional_bonus',
+        amount: bountyAmount,
+        currency: 'NGN',
+        isCredit: true,
+        reference: txRef,
+        status: 'SUCCESSFUL',
+        date: now
+      });
+
+      if (supabase) {
+        try {
+          await supabase.from('wallet_transactions').insert({
+            user_id: user.id,
+            email,
+            amount: bountyAmount,
+            type: 'credit',
+            category: 'promotional_bonus',
+            narration: `Certified First Property Mandate Bounty: "${propertyTitle}" (Title Mandate + Utility Bill Approved)`,
+            reference: txRef,
+            flw_ref: txRef,
+            tx_ref: txRef,
+            status: 'successful',
+            created_at: now
+          });
+        } catch (_) {}
+      }
+
+      // Dispatch Celebration Notification & Email
+      NotificationDispatcher.dispatch({
+        userId: user.id,
+        email,
+        userName: user.fullName,
+        title: '🎉 ₦20,000 Partner Bounty Credited!',
+        category: 'wallet',
+        message: `Congratulations! Your property mandate for "${propertyTitle}" has been certified and verified by Rentilly Compliance. ₦20,000 has been credited to your Wema Bank Operating Vault and is immediately available for withdrawal!`
+      }).catch(() => {});
+
+      console.log(`[creditPartnerMandateBounty] 🚀 Successfully paid ₦20,000 Mandate Bounty to ${email} for listing ${propertyId}!`);
+      return true;
+    } catch (err: any) {
+      console.error('[creditPartnerMandateBounty] Error:', err);
+      return false;
+    }
   }
 }
